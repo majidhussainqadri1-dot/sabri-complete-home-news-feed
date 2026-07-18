@@ -33,7 +33,18 @@ jobs:
         run: php tests/run-phase3-contract-tests.php
 
       - name: Phase 3A infrastructure tests
-        run: php tests/run-phase3-infrastructure-tests.php
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase3-infrastructure-tests.php 2>&1 | tee phase3a-test.log
+
+      - name: Upload Phase 3A test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3a-test-log
+          path: phase3a-test.log
+          if-no-files-found: warn
 
       - name: JavaScript syntax validation
         run: find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
