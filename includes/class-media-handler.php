@@ -422,11 +422,16 @@ final class MediaHandler {
 		if ( isset( $files['name'] ) && is_array( $files['name'] ) ) {
 			$out = array();
 			foreach ( $files['name'] as $index => $name ) {
+				$error = isset( $files['error'][ $index ] ) ? (int) $files['error'][ $index ] : 0;
+				if ( '' === trim( (string) $name ) && UPLOAD_ERR_NO_FILE === $error ) {
+					continue;
+				}
+
 				$out[] = array(
 					'name'     => $name,
 					'type'     => isset( $files['type'][ $index ] ) ? $files['type'][ $index ] : '',
 					'tmp_name' => isset( $files['tmp_name'][ $index ] ) ? $files['tmp_name'][ $index ] : '',
-					'error'    => isset( $files['error'][ $index ] ) ? $files['error'][ $index ] : 0,
+					'error'    => $error,
 					'size'     => isset( $files['size'][ $index ] ) ? $files['size'][ $index ] : 0,
 				);
 			}
@@ -434,6 +439,11 @@ final class MediaHandler {
 		}
 
 		if ( isset( $files['name'] ) ) {
+			$error = isset( $files['error'] ) ? (int) $files['error'] : 0;
+			if ( '' === trim( (string) $files['name'] ) && UPLOAD_ERR_NO_FILE === $error ) {
+				return array();
+			}
+
 			return array( $files );
 		}
 
