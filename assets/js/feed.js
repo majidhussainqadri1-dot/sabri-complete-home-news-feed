@@ -57,13 +57,28 @@
 		}
 
 		var saveButton = bar.querySelector('[data-sabri-action="save"]');
-		if (saveButton) {
+		if (saveButton && typeof data.saved !== 'undefined') {
 			var saved = !!data.saved;
 			saveButton.setAttribute('aria-pressed', saved ? 'true' : 'false');
 			saveButton.classList.toggle('is-active', saved);
 			var saveLabel = saveButton.querySelector('[data-save-label]');
 			if (saveLabel) {
 				saveLabel.textContent = saved ? 'Saved' : 'Save';
+			}
+		}
+
+		var followButton = bar.querySelector('[data-sabri-action="follow"]');
+		if (followButton && typeof data.following !== 'undefined') {
+			var following = !!data.following;
+			followButton.setAttribute('aria-pressed', following ? 'true' : 'false');
+			followButton.classList.toggle('is-active', following);
+			var followLabel = followButton.querySelector('[data-follow-label]');
+			if (followLabel) {
+				followLabel.textContent = following ? 'Following' : 'Follow';
+			}
+			var followerCount = followButton.querySelector('[data-count="followers"]');
+			if (followerCount && typeof data.follower_count !== 'undefined') {
+				followerCount.textContent = String(data.follower_count);
 			}
 		}
 	}
@@ -126,6 +141,11 @@
 			}
 		} else if (action === 'save') {
 			url = bar.getAttribute('data-save-url');
+			if (button.getAttribute('aria-pressed') === 'true') {
+				method = 'DELETE';
+			}
+		} else if (action === 'follow') {
+			url = bar.getAttribute('data-follow-url');
 			if (button.getAttribute('aria-pressed') === 'true') {
 				method = 'DELETE';
 			}
