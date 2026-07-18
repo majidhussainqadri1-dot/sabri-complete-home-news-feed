@@ -316,6 +316,11 @@ final class MediaHandler {
 			return true;
 		}
 
+		$parent_status = function_exists( 'get_post_status' ) ? get_post_status( $parent_id ) : '';
+		if ( 'publish' !== $parent_status || ! PostMetadata::review_state_publicly_visible( $parent_id ) ) {
+			return false;
+		}
+
 		return PostMetadata::user_can_view( $parent_id, $user_id );
 	}
 
