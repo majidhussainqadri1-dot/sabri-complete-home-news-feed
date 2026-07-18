@@ -31,12 +31,15 @@
 	font: inherit;
 	font-weight: 650;
 	line-height: 1.2;
+	text-decoration: none;
 	cursor: pointer;
 }
 
 .sabri-hnf-action:hover {
 	border-color: #869f91;
 	background: #f5f8f6;
+	color: #20372c;
+	text-decoration: none;
 }
 
 .sabri-hnf-action:focus-visible,
