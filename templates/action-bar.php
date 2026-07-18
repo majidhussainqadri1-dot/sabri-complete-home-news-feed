@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 3B action bar.
+ * Phase 3 action bar.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -49,6 +49,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 					<?php endif; ?>
 				</button>
 			<?php endif; ?>
+		<?php endif; ?>
+
+		<?php if ( $comments_enabled ) : ?>
+			<a class="sabri-hnf-action sabri-hnf-action--comment" href="<?php echo esc_url( $comments_url ); ?>">
+				<span><?php esc_html_e( 'Comment', 'sabri-complete-home-news-feed' ); ?></span>
+				<span class="sabri-hnf-action__count" data-count="comment"><?php echo esc_html( (string) $comment_count ); ?></span>
+			</a>
 		<?php endif; ?>
 
 		<?php if ( $saves_enabled ) : ?>
