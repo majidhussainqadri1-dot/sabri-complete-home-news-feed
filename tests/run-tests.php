@@ -591,8 +591,16 @@ function sabri_test_phase2_composer_write_and_edit_policy() {
 	sabri_assert( empty( $student['ok'] ) && 'composer_denied' === $student['code'], 'Student composer writes must be denied server-side.' );
 
 	$sabri_test_current_user_id = 2;
-	$published = Composer::create_or_update_from_request( array_merge( $base_input, array( 'composer_action' => 'publish' ) ), array(), 2 );
-	sabri_assert( ! empty( $published['ok'] ) && 'publish' === $published['status'], 'Founder composer publish must save a published post.' );
+	$empty_browser_media = array(
+		'name'     => array( '' ),
+		'type'     => array( '' ),
+		'tmp_name' => array( '' ),
+		'error'    => array( UPLOAD_ERR_NO_FILE ),
+		'size'     => array( 0 ),
+	);
+	$published = Composer::create_or_update_from_request( array_merge( $base_input, array( 'composer_action' => 'publish' ) ), $empty_browser_media, 2 );
+	sabri_assert( ! empty( $published['ok'] ) && 'publish' === $published['status'], 'Founder composer publish must save a published post when the browser submits an empty optional media field.' );
+	sabri_assert( array() === get_post_meta( $published['post_id'], PostMetadata::META_ATTACHMENTS, true ), 'Empty optional media fields must not create attachments or upload errors.' );
 
 	$sabri_test_current_user_id = 4;
 	sabri_assert( ComposerPermissions::user_can_edit_post( $pending['post_id'], 4 ), 'Authors may edit their own posts when permitted.' );
