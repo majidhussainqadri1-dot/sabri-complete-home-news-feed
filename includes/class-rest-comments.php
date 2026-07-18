@@ -88,7 +88,7 @@ final class RestComments {
 	 * @return bool
 	 */
 	public static function public_permission() {
-		return true;
+		return Phase3FeatureSettings::enabled( 'comments_enabled' );
 	}
 
 	/**
@@ -98,7 +98,7 @@ final class RestComments {
 	 * @return bool
 	 */
 	public static function private_permission( $request ) {
-		return function_exists( 'is_user_logged_in' ) && is_user_logged_in() && InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
+		return Phase3FeatureSettings::enabled( 'comments_enabled' ) && function_exists( 'is_user_logged_in' ) && is_user_logged_in() && InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
 	}
 
 	/**
