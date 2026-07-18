@@ -1,0 +1,66 @@
+<?php
+/**
+ * Phase 3B action bar.
+ *
+ * @package SabriCompleteHomeNewsFeed
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+?>
+<section
+	class="sabri-hnf-actions"
+	data-sabri-interactions
+	data-post-id="<?php echo esc_attr( $post_id ); ?>"
+	data-engagement-url="<?php echo esc_url( $engagement_url ); ?>"
+	data-reaction-url="<?php echo esc_url( $reaction_url ); ?>"
+	data-save-url="<?php echo esc_url( $save_url ); ?>"
+	data-nonce="<?php echo esc_attr( $nonce ); ?>"
+	data-login-url="<?php echo esc_url( $login_url ); ?>"
+	data-logged-in="<?php echo $logged_in ? '1' : '0'; ?>"
+	aria-label="<?php esc_attr_e( 'Post actions', 'sabri-complete-home-news-feed' ); ?>"
+>
+	<div class="sabri-hnf-actions__buttons">
+		<?php if ( $reactions_enabled ) : ?>
+			<button
+				type="button"
+				class="sabri-hnf-action sabri-hnf-action--like<?php echo 'like' === $summary['current_reaction'] ? ' is-active' : ''; ?>"
+				data-sabri-action="reaction"
+				data-reaction-type="like"
+				aria-pressed="<?php echo 'like' === $summary['current_reaction'] ? 'true' : 'false'; ?>"
+			>
+				<span><?php esc_html_e( 'Like', 'sabri-complete-home-news-feed' ); ?></span>
+				<?php if ( $show_public_counts ) : ?>
+					<span class="sabri-hnf-action__count" data-count="like"><?php echo esc_html( (string) $summary['like_count'] ); ?></span>
+				<?php endif; ?>
+			</button>
+			<?php if ( $dislikes_enabled ) : ?>
+				<button
+					type="button"
+					class="sabri-hnf-action sabri-hnf-action--dislike<?php echo 'dislike' === $summary['current_reaction'] ? ' is-active' : ''; ?>"
+					data-sabri-action="reaction"
+					data-reaction-type="dislike"
+					aria-pressed="<?php echo 'dislike' === $summary['current_reaction'] ? 'true' : 'false'; ?>"
+				>
+					<span><?php esc_html_e( 'Dislike', 'sabri-complete-home-news-feed' ); ?></span>
+					<?php if ( $show_public_counts ) : ?>
+						<span class="sabri-hnf-action__count" data-count="dislike"><?php echo esc_html( (string) $summary['dislike_count'] ); ?></span>
+					<?php endif; ?>
+				</button>
+			<?php endif; ?>
+		<?php endif; ?>
+
+		<?php if ( $saves_enabled ) : ?>
+			<button
+				type="button"
+				class="sabri-hnf-action sabri-hnf-action--save<?php echo ! empty( $summary['saved'] ) ? ' is-active' : ''; ?>"
+				data-sabri-action="save"
+				aria-pressed="<?php echo ! empty( $summary['saved'] ) ? 'true' : 'false'; ?>"
+			>
+				<span data-save-label><?php echo ! empty( $summary['saved'] ) ? esc_html__( 'Saved', 'sabri-complete-home-news-feed' ) : esc_html__( 'Save', 'sabri-complete-home-news-feed' ); ?></span>
+			</button>
+		<?php endif; ?>
+	</div>
+	<p class="sabri-hnf-actions__status" data-sabri-action-status aria-live="polite"></p>
+</section>
