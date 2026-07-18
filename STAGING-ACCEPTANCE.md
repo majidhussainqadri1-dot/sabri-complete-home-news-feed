@@ -30,6 +30,7 @@ No production claim is allowed until GitHub Actions and Hostinger staging accept
 ## Manual Acceptance
 
 - Test on Hostinger staging before production activation.
+- Use **Home & News Feed → Staging Preview** as an administrator to verify the real feed and composer without creating WordPress test pages.
 - Confirm Shell integration status with the actual deployed Shell plugin.
 - Confirm no duplicate global navigation or Shell layout replacement appears.
 - Confirm no fake content, engagement, analytics, or doctor data is created.
