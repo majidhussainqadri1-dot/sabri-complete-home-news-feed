@@ -18,22 +18,30 @@ final class InteractionPermissions {
 	const REST_NONCE_ACTION = 'wp_rest';
 
 	/**
-	 * Resolve an authenticated user ID without trusting request payloads.
+	 * Resolve the authenticated session user without trusting request payloads.
+	 *
+	 * When an explicit ID is supplied it must equal the current WordPress session
+	 * user. This prevents request data from selecting another existing account.
 	 *
 	 * @param int $user_id Optional explicit user ID for internal service calls.
 	 * @return int
 	 */
 	public static function authenticated_user_id( $user_id = 0 ) {
-		$user_id = $user_id ? self::positive_id( $user_id ) : ( function_exists( 'get_current_user_id' ) ? self::positive_id( get_current_user_id() ) : 0 );
-		if ( $user_id <= 0 ) {
+		$current_id = function_exists( 'get_current_user_id' ) ? self::positive_id( get_current_user_id() ) : 0;
+		if ( $current_id <= 0 ) {
 			return 0;
 		}
 
-		if ( function_exists( 'get_userdata' ) && ! get_userdata( $user_id ) ) {
+		$requested_id = $user_id ? self::positive_id( $user_id ) : $current_id;
+		if ( $requested_id <= 0 || $requested_id !== $current_id ) {
 			return 0;
 		}
 
-		return $user_id;
+		if ( function_exists( 'get_userdata' ) && ! get_userdata( $current_id ) ) {
+			return 0;
+		}
+
+		return $current_id;
 	}
 
 	/**
@@ -59,7 +67,7 @@ final class InteractionPermissions {
 	 * Whether a user may see a post through the shared Phase 2 visibility service.
 	 *
 	 * @param int $post_id Post ID.
-	 * @param int $user_id Optional user ID.
+	 * @param int $user_id Optional viewer ID.
 	 * @return bool
 	 */
 	public static function can_view_post( $post_id, $user_id = 0 ) {
@@ -78,7 +86,7 @@ final class InteractionPermissions {
 	 * Pending, restricted, deleted, non-published, or invisible posts fail closed.
 	 *
 	 * @param int $post_id Post ID.
-	 * @param int $user_id Optional user ID.
+	 * @param int $user_id Optional user ID, which must match the session user.
 	 * @return bool
 	 */
 	public static function can_interact_with_post( $post_id, $user_id = 0 ) {
@@ -105,7 +113,7 @@ final class InteractionPermissions {
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $nonce REST nonce.
-	 * @param int    $user_id Optional user ID.
+	 * @param int    $user_id Optional user ID, which must match the session user.
 	 * @return array<string,mixed>
 	 */
 	public static function authorize_post_write( $post_id, $nonce = '', $user_id = 0 ) {
@@ -136,17 +144,12 @@ final class InteractionPermissions {
 	/**
 	 * Whether the current authenticated user may manage confidential reports.
 	 *
-	 * Explicit user IDs other than the current user fail closed because WordPress
-	 * capabilities are evaluated for the current session.
-	 *
-	 * @param int $user_id Optional user ID.
+	 * @param int $user_id Optional user ID, which must match the session user.
 	 * @return bool
 	 */
 	public static function can_manage_reports( $user_id = 0 ) {
-		$user_id    = self::authenticated_user_id( $user_id );
-		$current_id = function_exists( 'get_current_user_id' ) ? self::positive_id( get_current_user_id() ) : 0;
-
-		if ( $user_id <= 0 || $current_id <= 0 || $user_id !== $current_id || ! function_exists( 'current_user_can' ) ) {
+		$user_id = self::authenticated_user_id( $user_id );
+		if ( $user_id <= 0 || ! function_exists( 'current_user_can' ) ) {
 			return false;
 		}
 
@@ -154,10 +157,10 @@ final class InteractionPermissions {
 	}
 
 	/**
-	 * Whether a private per-user resource belongs to the requesting user.
+	 * Whether a private per-user resource belongs to the current requester.
 	 *
 	 * @param int $owner_user_id Resource owner.
-	 * @param int $request_user_id Requesting user.
+	 * @param int $request_user_id Optional requester ID, which must match the session user.
 	 * @return bool
 	 */
 	public static function owns_private_resource( $owner_user_id, $request_user_id = 0 ) {
@@ -167,13 +170,20 @@ final class InteractionPermissions {
 	}
 
 	/**
-	 * Normalize a positive integer ID.
+	 * Strictly normalize a positive integer ID.
+	 *
+	 * Negative, decimal, non-numeric, and malformed values fail closed instead of
+	 * being converted into a different valid identity.
 	 *
 	 * @param mixed $value Value.
 	 * @return int
 	 */
 	private static function positive_id( $value ) {
-		$value = function_exists( 'absint' ) ? absint( $value ) : abs( (int) $value );
+		if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
+			return 0;
+		}
+
+		$value = (int) $value;
 		return $value > 0 ? $value : 0;
 	}
 
