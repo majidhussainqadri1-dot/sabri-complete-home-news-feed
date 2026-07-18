@@ -19,6 +19,138 @@
 		});
 	}
 
+	function actionStatus(bar, message) {
+		var status = bar ? bar.querySelector('[data-sabri-action-status]') : null;
+		if (status) {
+			status.textContent = message || '';
+		}
+	}
+
+	function setBusy(bar, busy) {
+		if (!bar) {
+			return;
+		}
+		bar.setAttribute('aria-busy', busy ? 'true' : 'false');
+		Array.prototype.forEach.call(bar.querySelectorAll('[data-sabri-action]'), function (button) {
+			button.disabled = !!busy;
+		});
+	}
+
+	function updateBar(bar, data) {
+		if (!bar || !data) {
+			return;
+		}
+
+		Array.prototype.forEach.call(bar.querySelectorAll('[data-sabri-action="reaction"]'), function (button) {
+			var active = button.getAttribute('data-reaction-type') === (data.current_reaction || '');
+			button.setAttribute('aria-pressed', active ? 'true' : 'false');
+			button.classList.toggle('is-active', active);
+		});
+
+		var likeCount = bar.querySelector('[data-count="like"]');
+		var dislikeCount = bar.querySelector('[data-count="dislike"]');
+		if (likeCount && typeof data.like_count !== 'undefined') {
+			likeCount.textContent = String(data.like_count);
+		}
+		if (dislikeCount && typeof data.dislike_count !== 'undefined') {
+			dislikeCount.textContent = String(data.dislike_count);
+		}
+
+		var saveButton = bar.querySelector('[data-sabri-action="save"]');
+		if (saveButton) {
+			var saved = !!data.saved;
+			saveButton.setAttribute('aria-pressed', saved ? 'true' : 'false');
+			saveButton.classList.toggle('is-active', saved);
+			var saveLabel = saveButton.querySelector('[data-save-label]');
+			if (saveLabel) {
+				saveLabel.textContent = saved ? 'Saved' : 'Save';
+			}
+		}
+	}
+
+	function request(bar, url, method, payload) {
+		var headers = {
+			'Accept': 'application/json',
+			'Content-Type': 'application/json'
+		};
+		var nonce = bar.getAttribute('data-nonce');
+		if (nonce) {
+			headers['X-WP-Nonce'] = nonce;
+		}
+
+		return window.fetch(url, {
+			method: method,
+			credentials: 'same-origin',
+			headers: headers,
+			body: method === 'GET' || method === 'DELETE' ? undefined : JSON.stringify(payload || {})
+		}).then(function (response) {
+			return response.json().catch(function () {
+				return {};
+			}).then(function (body) {
+				if (!response.ok || !body || body.ok === false) {
+					var error = new Error(body && body.message ? body.message : 'The action could not be completed.');
+					error.status = response.status;
+					throw error;
+				}
+				return body;
+			});
+		});
+	}
+
+	function handleInteraction(button) {
+		var bar = button.closest('[data-sabri-interactions]');
+		if (!bar || bar.getAttribute('aria-busy') === 'true') {
+			return;
+		}
+
+		if (bar.getAttribute('data-logged-in') !== '1') {
+			var loginUrl = bar.getAttribute('data-login-url');
+			if (loginUrl) {
+				window.location.assign(loginUrl);
+			} else {
+				actionStatus(bar, 'Sign in to use this action.');
+			}
+			return;
+		}
+
+		var action = button.getAttribute('data-sabri-action');
+		var method = 'POST';
+		var url = '';
+		var payload = {};
+
+		if (action === 'reaction') {
+			url = bar.getAttribute('data-reaction-url');
+			payload.reaction_type = button.getAttribute('data-reaction-type');
+			if (button.getAttribute('aria-pressed') === 'true') {
+				method = 'DELETE';
+			}
+		} else if (action === 'save') {
+			url = bar.getAttribute('data-save-url');
+			if (button.getAttribute('aria-pressed') === 'true') {
+				method = 'DELETE';
+			}
+		}
+
+		if (!url) {
+			actionStatus(bar, 'This action is unavailable.');
+			return;
+		}
+
+		setBusy(bar, true);
+		actionStatus(bar, 'Saving');
+		request(bar, url, method, payload)
+			.then(function (result) {
+				updateBar(bar, result.data || {});
+				actionStatus(bar, result.message || 'Saved.');
+			})
+			.catch(function (error) {
+				actionStatus(bar, error.message || 'The action could not be completed.');
+			})
+			.then(function () {
+				setBusy(bar, false);
+			});
+	}
+
 	ready(function () {
 		Array.prototype.forEach.call(document.querySelectorAll('[data-sabri-load-more]'), function (button) {
 			button.addEventListener('click', function () {
@@ -75,6 +207,15 @@
 						}
 					});
 			});
+		});
+
+		document.addEventListener('click', function (event) {
+			var button = event.target.closest('[data-sabri-action]');
+			if (!button) {
+				return;
+			}
+			event.preventDefault();
+			handleInteraction(button);
 		});
 	});
 }());
