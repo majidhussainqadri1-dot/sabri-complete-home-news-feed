@@ -61,11 +61,13 @@ final class Assets {
 		if ( function_exists( 'wp_register_style' ) ) {
 			wp_register_style( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/css/feed.css', array(), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-interactions', SABRI_HNF_URL . 'assets/css/interactions.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
+			wp_register_style( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/css/comments.css', array( 'sabri-hnf-feed', 'sabri-hnf-interactions' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/css/composer.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 		}
 
 		if ( function_exists( 'wp_register_script' ) ) {
 			wp_register_script( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/js/feed.js', array(), SABRI_HNF_VERSION, true );
+			wp_register_script( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/js/comments.js', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION, true );
 			wp_register_script( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/js/composer.js', array(), SABRI_HNF_VERSION, true );
 		}
 	}
@@ -79,12 +81,30 @@ final class Assets {
 		self::register_public();
 		if ( function_exists( 'wp_enqueue_style' ) ) {
 			wp_enqueue_style( 'sabri-hnf-feed' );
-			if ( Phase3FeatureSettings::enabled( 'reactions_enabled' ) || Phase3FeatureSettings::enabled( 'saves_enabled' ) ) {
+			if ( Phase3FeatureSettings::enabled( 'reactions_enabled' ) || Phase3FeatureSettings::enabled( 'saves_enabled' ) || Phase3FeatureSettings::enabled( 'comments_enabled' ) ) {
 				wp_enqueue_style( 'sabri-hnf-interactions' );
 			}
 		}
 		if ( function_exists( 'wp_enqueue_script' ) ) {
 			wp_enqueue_script( 'sabri-hnf-feed' );
+		}
+	}
+
+	/**
+	 * Enqueue the direct single-post comments interface.
+	 *
+	 * @return void
+	 */
+	public static function enqueue_comments() {
+		self::enqueue_feed();
+		if ( ! Phase3FeatureSettings::enabled( 'comments_enabled' ) ) {
+			return;
+		}
+		if ( function_exists( 'wp_enqueue_style' ) ) {
+			wp_enqueue_style( 'sabri-hnf-comments' );
+		}
+		if ( function_exists( 'wp_enqueue_script' ) ) {
+			wp_enqueue_script( 'sabri-hnf-comments' );
 		}
 	}
 
