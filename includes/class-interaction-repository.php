@@ -94,6 +94,10 @@ final class InteractionRepository {
 		}
 
 		$row = $normalized['data']['row'];
+		if ( empty( $row ) ) {
+			return InteractionResult::error( 'empty_insert', 'A bounded data row is required.', array(), 400 );
+		}
+
 		if ( in_array( 'created_at', self::writable_columns()[ $slug ], true ) && empty( $row['created_at'] ) ) {
 			$row['created_at'] = self::now_utc();
 		}
@@ -101,8 +105,7 @@ final class InteractionRepository {
 			$row['updated_at'] = self::now_utc();
 		}
 
-		$formats = self::formats_for( $row );
-		$result  = $wpdb->insert( $table, $row, $formats );
+		$result = $wpdb->insert( $table, $row, self::formats_for( $row ) );
 		if ( false === $result ) {
 			return InteractionResult::error( 'database_write_failed', 'The action could not be saved.', array(), 500 );
 		}
@@ -119,7 +122,7 @@ final class InteractionRepository {
 	}
 
 	/**
-	 * Update allow-listed columns using a non-empty allow-listed condition.
+	 * Update allow-listed columns using a bounded identity condition.
 	 *
 	 * @param string              $slug Table slug.
 	 * @param array<string,mixed> $data Updated data.
@@ -133,6 +136,10 @@ final class InteractionRepository {
 		$table = self::table_name( $slug );
 		if ( '' === $table ) {
 			return InteractionResult::error( 'invalid_repository', 'The requested data store is unavailable.', array(), 400 );
+		}
+
+		if ( 'audit_log' === $slug ) {
+			return InteractionResult::error( 'append_only_repository', 'Audit records are append-only.', array(), 405 );
 		}
 
 		if ( ! self::database_ready() ) {
@@ -156,6 +163,10 @@ final class InteractionRepository {
 		$where_row = $normalized_where['data']['row'];
 		if ( empty( $row ) || empty( $where_row ) ) {
 			return InteractionResult::error( 'empty_update', 'A bounded update is required.', array(), 400 );
+		}
+
+		if ( ! self::where_is_bounded( $slug, $where_row ) ) {
+			return InteractionResult::error( 'unbounded_update_condition', 'A complete identity condition is required.', array(), 400 );
 		}
 
 		if ( in_array( 'updated_at', self::writable_columns()[ $slug ], true ) && ! array_key_exists( 'updated_at', $row ) ) {
@@ -220,6 +231,36 @@ final class InteractionRepository {
 	}
 
 	/**
+	 * Require a primary ID or the full natural identity for the selected table.
+	 *
+	 * @param string              $slug Table slug.
+	 * @param array<string,mixed> $where Normalized conditions.
+	 * @return bool
+	 */
+	private static function where_is_bounded( $slug, array $where ) {
+		if ( isset( $where['id'] ) && (int) $where['id'] > 0 ) {
+			return true;
+		}
+
+		switch ( $slug ) {
+			case 'reactions':
+				return ! empty( $where['user_id'] ) && ! empty( $where['post_id'] );
+			case 'follows':
+				return ! empty( $where['follower_user_id'] ) && ! empty( $where['target_user_id'] ) && ! empty( $where['target_type'] );
+			case 'saves':
+				return ! empty( $where['user_id'] ) && ! empty( $where['post_id'] ) && ! empty( $where['collection_key'] );
+			case 'reports':
+				return ! empty( $where['reporter_user_id'] ) && ! empty( $where['object_type'] ) && ! empty( $where['object_id'] ) && ! empty( $where['duplicate_hash'] );
+			case 'views':
+				return ! empty( $where['post_id'] ) && ! empty( $where['view_date'] ) && ( ! empty( $where['user_id'] ) || ! empty( $where['anonymous_hash'] ) );
+			case 'poll_votes':
+				return ! empty( $where['poll_post_id'] ) && ! empty( $where['vote_group_key'] ) && ( ! empty( $where['user_id'] ) || ! empty( $where['anonymous_hash'] ) );
+			default:
+				return false;
+		}
+	}
+
+	/**
 	 * Sanitize a value according to its frozen schema type.
 	 *
 	 * @param string $column Column.
@@ -229,7 +270,10 @@ final class InteractionRepository {
 	private static function sanitize_value( $column, $value ) {
 		$integer_columns = array( 'id', 'post_id', 'user_id', 'follower_user_id', 'target_user_id', 'reporter_user_id', 'object_id', 'view_count', 'poll_post_id', 'actor_user_id' );
 		if ( in_array( $column, $integer_columns, true ) ) {
-			return self::non_negative_id( $value );
+			if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
+				return new \WP_Error( 'invalid_repository_integer', 'The requested numeric identifier is invalid.' );
+			}
+			return (int) $value;
 		}
 
 		if ( in_array( $column, array( 'anonymous_hash', 'duplicate_hash', 'ip_hash' ), true ) ) {
@@ -246,12 +290,18 @@ final class InteractionRepository {
 
 		if ( in_array( $column, array( 'created_at', 'updated_at' ), true ) ) {
 			$value = self::clean_text( $value );
-			return preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value ) ? $value : self::now_utc();
+			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value ) ) {
+				return new \WP_Error( 'invalid_repository_datetime', 'The requested timestamp is invalid.' );
+			}
+			return $value;
 		}
 
 		if ( 'view_date' === $column ) {
 			$value = self::clean_text( $value );
-			return preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ? $value : gmdate( 'Y-m-d' );
+			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $value ) ) {
+				return new \WP_Error( 'invalid_repository_date', 'The requested date is invalid.' );
+			}
+			return $value;
 		}
 
 		return self::clean_key( $value );
@@ -304,15 +354,5 @@ final class InteractionRepository {
 			return sanitize_text_field( $value );
 		}
 		return trim( strip_tags( (string) $value ) );
-	}
-
-	/**
-	 * Non-negative integer.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
-	private static function non_negative_id( $value ) {
-		return function_exists( 'absint' ) ? absint( $value ) : abs( (int) $value );
 	}
 }
