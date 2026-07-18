@@ -40,9 +40,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md)
 
 The admin menu is **Home & News Feed** with:
 
-Overview, Feed Settings, News Settings, Composer, Roles & Capabilities, Integrations, System Check, Repair, Migration, Rollback, and Help.
+Overview, Feed Settings, News Settings, Composer, Roles & Capabilities, Integrations, System Check, Repair, Migration, Rollback, Help, and an administrator-only Staging Preview.
 
-Feed and Composer settings are functional for the Phase 2 runtime. Deferred Phase 3 and Phase 4 functions remain labelled as future work.
+Staging Preview renders the real Home Feed and Composer inside WordPress administration without requiring test pages or block-editor changes. Feed and Composer settings are functional for the Phase 2 runtime. Deferred Phase 3 and Phase 4 functions remain labelled as future work.
 
 ## Public Runtime
 
