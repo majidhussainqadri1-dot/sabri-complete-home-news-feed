@@ -52,6 +52,10 @@ final class HomeIntegration {
 	 * @return void
 	 */
 	public static function render_home_center() {
+		if ( ! function_exists( 'is_front_page' ) || ! is_front_page() || ( function_exists( 'is_home' ) && is_home() ) ) {
+			return;
+		}
+
 		echo self::render_feed_once( 'plugin_owned_hook', array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
