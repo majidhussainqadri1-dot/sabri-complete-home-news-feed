@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Uses WordPress media APIs with bounded validation.
  */
 final class MediaHandler {
+	const META_COMPOSER_PENDING = '_sabri_hnf_composer_pending';
+
 	/**
 	 * Register public media visibility hooks.
 	 *
@@ -230,6 +232,17 @@ final class MediaHandler {
 				),
 				$upload['file']
 			);
+			if ( ( function_exists( 'is_wp_error' ) && is_wp_error( $attachment_id ) ) || (int) $attachment_id <= 0 ) {
+				if ( function_exists( 'wp_delete_file' ) && ! empty( $upload['file'] ) ) {
+					wp_delete_file( $upload['file'] );
+				}
+				$result['errors'][] = self::invalid( 'attachment_create_failed', __( 'The uploaded file could not be registered.', 'sabri-complete-home-news-feed' ) );
+				continue;
+			}
+			$attachment_id = (int) $attachment_id;
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $attachment_id, self::META_COMPOSER_PENDING, 1 );
+			}
 
 			if ( ! empty( $context['media_alt_text'] ) && function_exists( 'update_post_meta' ) ) {
 				update_post_meta( $attachment_id, '_wp_attachment_image_alt', sanitize_text_field( $context['media_alt_text'] ) );
@@ -240,7 +253,12 @@ final class MediaHandler {
 				wp_update_attachment_metadata( $attachment_id, $metadata );
 			}
 
-			$result['uploaded'][] = (int) $attachment_id;
+			$result['uploaded'][] = $attachment_id;
+		}
+
+		if ( ! empty( $result['errors'] ) && ! empty( $result['uploaded'] ) ) {
+			self::cleanup_uploaded_attachments( $result['uploaded'] );
+			$result['uploaded'] = array();
 		}
 
 		return $result;
@@ -251,12 +269,15 @@ final class MediaHandler {
 	 *
 	 * @param array<int,int> $attachment_ids Attachment IDs.
 	 * @param int            $post_id Post ID.
-	 * @return void
+	 * @param int            $user_id User ID.
+	 * @return array<int,int>
 	 */
-	public static function associate_attachments_with_post( array $attachment_ids, $post_id ) {
+	public static function associate_attachments_with_post( array $attachment_ids, $post_id, $user_id = 0 ) {
 		$post_id = (int) $post_id;
+		$user_id = $user_id ? (int) $user_id : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
+		$associated = array();
 		if ( $post_id <= 0 || ! function_exists( 'wp_update_post' ) ) {
-			return;
+			return $associated;
 		}
 
 		foreach ( array_unique( array_map( 'absint', $attachment_ids ) ) as $attachment_id ) {
@@ -264,14 +285,47 @@ final class MediaHandler {
 			if ( ! $post || empty( $post->post_type ) || 'attachment' !== $post->post_type ) {
 				continue;
 			}
+			if ( isset( $post->post_author ) && (int) $post->post_author !== $user_id && ! ComposerPermissions::user_can_moderate() ) {
+				continue;
+			}
+			$parent_id = isset( $post->post_parent ) ? (int) $post->post_parent : 0;
+			if ( $parent_id > 0 && $parent_id !== $post_id ) {
+				continue;
+			}
 
-			wp_update_post(
+			$updated = wp_update_post(
 				array(
 					'ID'          => $attachment_id,
 					'post_parent' => $post_id,
 				),
 				true
 			);
+			if ( ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) || (int) $updated <= 0 ) {
+				continue;
+			}
+			if ( function_exists( 'delete_post_meta' ) ) {
+				delete_post_meta( $attachment_id, self::META_COMPOSER_PENDING );
+			}
+			$associated[] = (int) $attachment_id;
+		}
+
+		return $associated;
+	}
+
+	/**
+	 * Permanently remove only attachments created by the current failed request.
+	 *
+	 * @param array<int,int> $attachment_ids Attachment IDs.
+	 * @return void
+	 */
+	public static function cleanup_uploaded_attachments( array $attachment_ids ) {
+		if ( ! function_exists( 'wp_delete_attachment' ) ) {
+			return;
+		}
+		foreach ( array_unique( array_map( 'absint', $attachment_ids ) ) as $attachment_id ) {
+			if ( $attachment_id > 0 ) {
+				wp_delete_attachment( $attachment_id, true );
+			}
 		}
 	}
 
@@ -308,6 +362,9 @@ final class MediaHandler {
 
 		$post = function_exists( 'get_post' ) ? get_post( $attachment_id ) : null;
 		if ( ! $post || empty( $post->post_type ) || 'attachment' !== $post->post_type ) {
+			return false;
+		}
+		if ( function_exists( 'get_post_meta' ) && get_post_meta( $attachment_id, self::META_COMPOSER_PENDING, true ) ) {
 			return false;
 		}
 
@@ -384,10 +441,12 @@ final class MediaHandler {
 	 *
 	 * @param array<int,int> $attachment_ids Attachment IDs.
 	 * @param int            $user_id User ID.
+	 * @param int            $target_post_id Target post ID for edit/reuse validation.
 	 * @return bool
 	 */
-	public static function validate_attachment_ownership( array $attachment_ids, $user_id = 0 ) {
+	public static function validate_attachment_ownership( array $attachment_ids, $user_id = 0, $target_post_id = 0 ) {
 		$user_id = $user_id ? (int) $user_id : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
+		$target_post_id = (int) $target_post_id;
 
 		foreach ( $attachment_ids as $attachment_id ) {
 			$attachment_id = (int) $attachment_id;
@@ -397,6 +456,10 @@ final class MediaHandler {
 
 			$post = function_exists( 'get_post' ) ? get_post( $attachment_id ) : null;
 			if ( ! $post || ( isset( $post->post_type ) && 'attachment' !== $post->post_type ) ) {
+				return false;
+			}
+			$parent_id = isset( $post->post_parent ) ? (int) $post->post_parent : 0;
+			if ( $parent_id > 0 && $parent_id !== $target_post_id ) {
 				return false;
 			}
 
