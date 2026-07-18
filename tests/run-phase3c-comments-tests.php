@@ -44,13 +44,6 @@ final class Sabri_Phase3C_Request {
 
 $phase3c_failures = array();
 
-/**
- * Record a Checkpoint 3C failure.
- *
- * @param bool   $condition Assertion condition.
- * @param string $message Failure message.
- * @return void
- */
 function sabri_phase3c_assert( $condition, $message ) {
 	global $phase3c_failures;
 	if ( ! $condition ) {
@@ -58,11 +51,6 @@ function sabri_phase3c_assert( $condition, $message ) {
 	}
 }
 
-/**
- * Enable the staging-gated comments feature for isolated tests.
- *
- * @return void
- */
 function sabri_phase3c_enable_comments() {
 	$features = Phase3FeatureSettings::defaults();
 	$features['comments_enabled'] = 1;
@@ -108,7 +96,6 @@ sabri_phase3c_assert( 0 === Phase3FeatureSettings::defaults()['comments_enabled'
 sabri_phase3c_assert( Phase3FeatureSettings::enabled( 'comments_enabled' ), 'Isolated Checkpoint 3C tests must explicitly enable comments.' );
 sabri_phase3c_assert( 2000 === CommentPolicy::max_length() && 3 === CommentPolicy::max_reply_depth() && 15 === CommentPolicy::edit_minutes(), 'Frozen comment limits must remain 2,000 characters, depth three, and 15 edit minutes.' );
 
-// Native storage, moderation, and private pending visibility.
 $sabri_test_current_user_id = 7;
 $sabri_test_current_caps    = array();
 $pending = CommentService::create( $public_post, 'This is a useful patient-safe comment.', 0, 'rest-nonce', 7 );
@@ -141,7 +128,6 @@ sabri_phase3c_assert( 1 === count( $public_thread['data']['items'] ) && $approve
 $serialized = wp_json_encode( $public_thread['data'] );
 sabri_phase3c_assert( false === strpos( $serialized, 'user_email' ) && false === strpos( $serialized, 'comment_author_IP' ) && false === strpos( $serialized, 'comment_agent' ), 'Serialized comments must not expose email, IP, or user-agent data.' );
 
-// Content validation, privacy scanning, closed/pending posts, and malformed parent values.
 $scan = CommentPrivacyScanner::scan( 'Patient name: Ali. WhatsApp number: 03001234567.' );
 sabri_phase3c_assert( empty( $scan['safe'] ) && in_array( 'phone-number', $scan['risks'], true ), 'Privacy scanner must identify obvious contact information without returning its value.' );
 $clinical_risk = CommentService::create( $clinical_post, 'Patient name: Ali and phone: 03001234567.', 0, 'rest-nonce', 6 );
@@ -159,7 +145,6 @@ $pending_post_result = CommentService::create( $pending_post, 'This should not b
 sabri_phase3c_assert( empty( $pending_post_result['ok'] ) && 'post_unavailable' === $pending_post_result['code'], 'Pending posts must reject comments.' );
 sabri_phase3c_assert( ! RestComments::validate_non_negative_id( -1 ) && 0 === RestComments::sanitize_non_negative_id( -1 ), 'Negative reply-parent IDs must fail REST validation instead of becoming valid parents.' );
 
-// Reply ownership, cross-post protection, custom type, deletion, and maximum depth.
 $sabri_test_transients = array();
 $sabri_test_current_user_id = 7;
 $reply = CommentService::create( $public_post, 'Reply to my pending comment.', $pending_id, 'rest-nonce', 7 );
@@ -189,7 +174,6 @@ $depth3 = CommentService::create( $depth_post, 'Depth three.', $depth2['data']['
 $depth4 = CommentService::create( $depth_post, 'Depth four is forbidden.', $depth3['data']['comment']['id'], 'rest-nonce', 1 );
 sabri_phase3c_assert( ! empty( $depth3['ok'] ) && empty( $depth4['ok'] ) && 'reply_depth_exceeded' === $depth4['code'], 'Reply nesting must stop after the configured depth of three.' );
 
-// Edit window, moderator override, IDOR, and soft deletion.
 $sabri_test_current_user_id = 7;
 $sabri_test_current_caps    = array();
 $edited = CommentService::update( $pending_id, 'Edited safely within the owner window.', 'rest-nonce', 7 );
@@ -215,7 +199,6 @@ sabri_phase3c_assert( '[Comment removed]' === get_comment( $pending_id )->commen
 $reply_to_deleted = CommentService::create( $public_post, 'Reply after deletion.', $pending_id, 'rest-nonce', 7 );
 sabri_phase3c_assert( empty( $reply_to_deleted['ok'] ) && 'invalid_comment_parent' === $reply_to_deleted['code'], 'A soft-deleted comment must not accept new replies.' );
 
-// Per-user/per-post rate limiting.
 $sabri_test_transients = array();
 $sabri_test_current_user_id = 6;
 for ( $i = 1; $i <= 10; $i++ ) {
@@ -225,13 +208,12 @@ for ( $i = 1; $i <= 10; $i++ ) {
 $rate_limited = CommentService::create( $rate_post, 'Eleventh comment attempt.', 0, 'rest-nonce', 6 );
 sabri_phase3c_assert( empty( $rate_limited['ok'] ) && 429 === $rate_limited['status'], 'The eleventh comment attempt in ten minutes must be rate-limited.' );
 
-// REST route, nonce, UI, public visitor, and direct-route behavior.
 $sabri_test_rest_routes = array();
 RestComments::register_routes();
 $comments_route = RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/comments';
 $comment_route  = RestFoundation::NAMESPACE . '/comments/(?P<id>\d+)';
 sabri_phase3c_assert( isset( $sabri_test_rest_routes[ $comments_route ], $sabri_test_rest_routes[ $comment_route ] ), 'Checkpoint 3C REST routes must be registered under the frozen namespace.' );
-$sabri_phase3c_assert( RestComments::validate_id( $public_post ) && ! RestComments::validate_id( '-1' ), 'REST comment IDs must be strict positive integers.' );
+sabri_phase3c_assert( RestComments::validate_id( $public_post ) && ! RestComments::validate_id( '-1' ), 'REST comment IDs must be strict positive integers.' );
 $sabri_test_current_user_id = 6;
 $valid_request = new Sabri_Phase3C_Request( array( 'id' => $second_post, 'content' => 'REST comment body.', 'parent_id' => 0 ), array( 'X-WP-Nonce' => 'rest-nonce' ) );
 $invalid_request = new Sabri_Phase3C_Request( array( 'id' => $second_post ), array( 'X-WP-Nonce' => 'invalid' ) );
@@ -260,7 +242,6 @@ $single_once = CommentRuntime::append_single_comments( 'Body' );
 $single_twice = CommentRuntime::append_single_comments( $single_once );
 sabri_phase3c_assert( 1 === substr_count( $single_once, 'data-sabri-comments' ) && 1 === substr_count( $single_twice, 'data-sabri-comments' ), 'Direct single-post comments must append exactly once.' );
 
-// Global safety flag must close the entire runtime.
 $features = Phase3FeatureSettings::get();
 $features['comments_enabled'] = 0;
 update_option( Phase3FeatureSettings::OPTION_NAME, $features, false );
