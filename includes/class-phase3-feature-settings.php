@@ -50,23 +50,24 @@ final class Phase3FeatureSettings {
 	/**
 	 * Safe runtime defaults for accepted public checkpoints.
 	 *
-	 * Checkpoint 3C comments remain gated until Hostinger staging acceptance.
+	 * Checkpoints 3C and 3D remain gated until Hostinger staging acceptance.
 	 *
 	 * @return array<string,int>
 	 */
 	public static function defaults() {
 		return array(
-			'reactions_enabled'            => 1,
-			'dislikes_enabled'             => 1,
-			'saves_enabled'                => 1,
-			'show_public_reaction_counts'  => 1,
-			'comments_enabled'             => 0,
-			'follows_enabled'              => 0,
-			'followers_visibility_enabled' => 0,
-			'reports_enabled'              => 0,
-			'polls_enabled'                => 0,
-			'notification_bridge_enabled'  => 0,
-			'view_logging_enabled'         => 0,
+			'reactions_enabled'             => 1,
+			'dislikes_enabled'              => 1,
+			'saves_enabled'                 => 1,
+			'show_public_reaction_counts'   => 1,
+			'comments_enabled'              => 0,
+			'follows_enabled'               => 0,
+			'show_public_follower_counts'   => 0,
+			'followers_visibility_enabled'  => 0,
+			'reports_enabled'               => 0,
+			'polls_enabled'                 => 0,
+			'notification_bridge_enabled'   => 0,
+			'view_logging_enabled'          => 0,
 		);
 	}
 
