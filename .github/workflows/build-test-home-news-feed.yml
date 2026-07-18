@@ -34,7 +34,7 @@ jobs:
 
       - name: CSS, JSON, security, and whitespace checks
         shell: pwsh
-        run: ./tools/run-local-static-checks.ps1
+        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
       - name: Build Phase 2 release artifact
         shell: pwsh
