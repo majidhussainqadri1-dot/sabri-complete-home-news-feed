@@ -52,7 +52,7 @@ final class HomeIntegration {
 	 * @return void
 	 */
 	public static function render_home_center() {
-		if ( ! function_exists( 'is_front_page' ) || ! is_front_page() || ( function_exists( 'is_home' ) && is_home() ) ) {
+		if ( ! self::is_static_front_page_request() ) {
 			return;
 		}
 
@@ -69,12 +69,62 @@ final class HomeIntegration {
 	public static function render_feed_once( $source, array $atts = array() ) {
 		unset( $source );
 
-		if ( self::$feed_rendered ) {
+		if ( self::is_single_post_request() || self::$feed_rendered ) {
 			return '';
 		}
 
 		self::$feed_rendered = true;
 		return FeedRenderer::render( $atts );
+	}
+
+	/**
+	 * Determine whether the current request resolves to a single standard post.
+	 *
+	 * This deliberately checks the queried object as a defensive fallback. Some
+	 * themes and Shell integrations invoke content slots after altering other
+	 * conditional state; the queried object remains the authoritative route.
+	 *
+	 * @return bool
+	 */
+	public static function is_single_post_request() {
+		if ( function_exists( 'is_singular' ) && is_singular( 'post' ) ) {
+			return true;
+		}
+
+		if ( function_exists( 'get_queried_object' ) ) {
+			$queried_object = get_queried_object();
+			return is_object( $queried_object ) && isset( $queried_object->post_type ) && 'post' === $queried_object->post_type;
+		}
+
+		if ( function_exists( 'get_queried_object_id' ) && function_exists( 'get_post' ) ) {
+			$queried_post = get_post( (int) get_queried_object_id() );
+			return is_object( $queried_post ) && isset( $queried_post->post_type ) && 'post' === $queried_post->post_type;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Determine whether the plugin-owned Home slot is on the configured front page.
+	 *
+	 * @return bool
+	 */
+	private static function is_static_front_page_request() {
+		if ( self::is_single_post_request() || ! function_exists( 'is_front_page' ) || ! is_front_page() ) {
+			return false;
+		}
+
+		if ( function_exists( 'is_home' ) && is_home() ) {
+			return false;
+		}
+
+		if ( function_exists( 'get_option' ) && 'page' === get_option( 'show_on_front' ) ) {
+			$front_page_id = (int) get_option( 'page_on_front' );
+			$queried_id = function_exists( 'get_queried_object_id' ) ? (int) get_queried_object_id() : 0;
+			return $front_page_id > 0 && $front_page_id === $queried_id;
+		}
+
+		return true;
 	}
 
 	/**
@@ -97,7 +147,7 @@ final class HomeIntegration {
 	 * @return string
 	 */
 	public static function append_single_post_context( $content ) {
-		if ( function_exists( 'is_singular' ) && ! is_singular( 'post' ) ) {
+		if ( ! self::is_single_post_request() ) {
 			return $content;
 		}
 
