@@ -1,0 +1,118 @@
+.sabri-hnf-composer,
+.sabri-hnf-composer * {
+	box-sizing: border-box;
+}
+
+.sabri-hnf-composer {
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 16px;
+	border: 1px solid #d9e1dc;
+	border-radius: 8px;
+	background: #ffffff;
+	color: #16211b;
+}
+
+.sabri-hnf-composer label,
+.sabri-hnf-composer__fieldset {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 12px;
+}
+
+.sabri-hnf-composer span,
+.sabri-hnf-composer legend {
+	font-weight: 700;
+}
+
+.sabri-hnf-composer input[type="text"],
+.sabri-hnf-composer input[type="file"],
+.sabri-hnf-composer select,
+.sabri-hnf-composer textarea {
+	width: 100%;
+	max-width: 100%;
+	min-height: 40px;
+	border: 1px solid #b8c6bf;
+	border-radius: 8px;
+	padding: 8px 10px;
+	background: #ffffff;
+	color: #16211b;
+	font: inherit;
+}
+
+.sabri-hnf-composer textarea {
+	resize: vertical;
+	line-height: 1.5;
+}
+
+.sabri-hnf-composer__grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+}
+
+.sabri-hnf-composer__fieldset {
+	border: 1px solid #d9e1dc;
+	border-radius: 8px;
+	padding: 12px;
+}
+
+.sabri-hnf-composer__fieldset[hidden] {
+	display: none;
+}
+
+.sabri-hnf-check {
+	grid-template-columns: auto minmax(0, 1fr);
+	align-items: start;
+}
+
+.sabri-hnf-check input {
+	margin-top: 4px;
+}
+
+.sabri-hnf-composer__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 14px;
+}
+
+.sabri-hnf-composer button {
+	min-height: 40px;
+	border: 1px solid #1f7a55;
+	border-radius: 8px;
+	padding: 8px 14px;
+	background: #1f7a55;
+	color: #ffffff;
+	cursor: pointer;
+	font-weight: 700;
+}
+
+.sabri-hnf-composer button[name="composer_action"][value="preview"],
+.sabri-hnf-composer button[name="composer_action"][value="draft"] {
+	background: #ffffff;
+	color: #1f7a55;
+}
+
+.sabri-hnf-composer input:focus-visible,
+.sabri-hnf-composer select:focus-visible,
+.sabri-hnf-composer textarea:focus-visible,
+.sabri-hnf-composer button:focus-visible {
+	outline: 3px solid #2a72d4;
+	outline-offset: 2px;
+}
+
+.sabri-hnf-composer__status {
+	margin-bottom: 10px;
+}
+
+@media (max-width: 640px) {
+	.sabri-hnf-composer {
+		padding: 12px;
+	}
+
+	.sabri-hnf-composer__grid {
+		grid-template-columns: 1fr;
+	}
+}

@@ -1,0 +1,80 @@
+name: Build and Test Home News Feed
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - build/**
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    name: Build, test, and package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show runtime versions
+        run: |
+          php -v
+          node -v
+          pwsh -v
+
+      - name: PHP syntax lint
+        run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Complete PHP behavior test suite
+        run: php tools/run-tests.php
+
+      - name: JavaScript syntax validation
+        run: find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
+
+      - name: CSS, JSON, security, and whitespace checks
+        shell: pwsh
+        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+
+      - name: Build Phase 2 release artifact
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: ZIP structure verification
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          try {
+            $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
+            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/' })) {
+              throw 'Missing single top-level plugin folder.'
+            }
+            $bad = $entries | Where-Object { $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or $_ -match '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' }
+            if ($bad) {
+              throw "Development files included in release ZIP: $($bad -join ', ')"
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: SHA-256 verification
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
+          $sha = Get-ChildItem release/*-PHASE-2.sha256 | Select-Object -First 1
+          $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
+          $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) {
+            throw "SHA-256 mismatch."
+          }
+
+      - name: Upload Phase 2 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-home-news-feed-phase-2
+          path: |
+            release/*-PHASE-2.zip
+            release/*-PHASE-2.sha256
+            release/*-PHASE-2-TEST-REPORT.md

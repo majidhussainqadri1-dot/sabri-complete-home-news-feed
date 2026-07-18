@@ -1,0 +1,68 @@
+.sabri-feed-admin {
+	--sabri-feed-accent: #f26100;
+}
+
+.sabri-feed-admin .sabri-feed-tabs {
+	margin-bottom: 16px;
+}
+
+.sabri-feed-grid {
+	display: grid;
+	gap: 12px;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	margin: 16px 0;
+}
+
+.sabri-feed-panel {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 14px 16px;
+}
+
+.sabri-feed-panel h2,
+.sabri-feed-panel h3 {
+	margin-top: 0;
+}
+
+.sabri-feed-status {
+	border-left: 4px solid #dcdcde;
+	padding-left: 10px;
+}
+
+.sabri-feed-status[data-status="Connected"] {
+	border-left-color: #008a20;
+}
+
+.sabri-feed-status[data-status="Missing"],
+.sabri-feed-status[data-status="Unsupported"] {
+	border-left-color: #d63638;
+}
+
+.sabri-feed-status[data-status="Disabled"],
+.sabri-feed-status[data-status="Available but not configured"] {
+	border-left-color: var(--sabri-feed-accent);
+}
+
+.sabri-feed-table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.sabri-feed-table th,
+.sabri-feed-table td {
+	border-bottom: 1px solid #dcdcde;
+	padding: 8px 10px;
+	text-align: left;
+	vertical-align: top;
+}
+
+.sabri-feed-code {
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	display: block;
+	overflow: auto;
+	padding: 10px;
+	white-space: pre-wrap;
+}
