@@ -16,6 +16,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Shortcodes {
 	/**
+	 * Whether the composer shortcode rendered in this request.
+	 *
+	 * @var bool
+	 */
+	private static $composer_rendered = false;
+
+	/**
 	 * Register shortcodes.
 	 *
 	 * @return void
@@ -46,6 +53,20 @@ final class Shortcodes {
 	 */
 	public static function composer( $atts = array() ) {
 		$atts = is_array( $atts ) ? $atts : array();
+		if ( self::$composer_rendered ) {
+			return '';
+		}
+
+		self::$composer_rendered = true;
 		return Composer::render( $atts );
+	}
+
+	/**
+	 * Reset shortcode runtime guards for tests.
+	 *
+	 * @return void
+	 */
+	public static function reset_runtime_guards() {
+		self::$composer_rendered = false;
 	}
 }

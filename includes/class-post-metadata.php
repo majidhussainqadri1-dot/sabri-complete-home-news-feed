@@ -130,7 +130,13 @@ final class PostMetadata {
 	public static function meta_auth_callback( $allowed, $meta_key, $post_id, $user_id ) {
 		unset( $allowed, $meta_key );
 
-		return ComposerPermissions::user_can_edit_post( (int) $post_id, (int) $user_id ) || ComposerPermissions::user_can_create( (int) $user_id );
+		$post_id = (int) $post_id;
+		$user_id = (int) $user_id;
+		if ( $post_id > 0 ) {
+			return ComposerPermissions::user_can_edit_post( $post_id, $user_id ) || ComposerPermissions::user_can_moderate();
+		}
+
+		return ComposerPermissions::user_can_create( $user_id );
 	}
 
 	/**
@@ -224,7 +230,7 @@ final class PostMetadata {
 			return $author_id > 0 && $author_id === $user_id && ComposerPermissions::user_can_edit_post( $post_id, $user_id );
 		}
 
-		if ( in_array( self::review_state( $post_id ), self::excluded_review_states(), true ) ) {
+		if ( ! self::review_state_publicly_visible( $post_id ) ) {
 			return false;
 		}
 
@@ -249,7 +255,7 @@ final class PostMetadata {
 	 */
 	public static function review_state( $post_id ) {
 		$value = self::meta( $post_id, self::META_REVIEW_STATE );
-		return '' !== $value ? sanitize_key( $value ) : 'approved';
+		return '' !== $value ? sanitize_key( $value ) : '';
 	}
 
 	/**
@@ -258,7 +264,40 @@ final class PostMetadata {
 	 * @return array<int,string>
 	 */
 	public static function excluded_review_states() {
-		return array( 'removed', 'rejected', 'archived', 'limited' );
+		return array( 'pending', 'removed', 'rejected', 'archived', 'limited' );
+	}
+
+	/**
+	 * Review states allowed on public surfaces.
+	 *
+	 * @return array<int,string>
+	 */
+	public static function public_review_states() {
+		return array( 'approved' );
+	}
+
+	/**
+	 * Whether blank legacy review state may remain visible.
+	 *
+	 * @return bool
+	 */
+	public static function legacy_blank_review_state_allowed() {
+		return function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_hnf_allow_legacy_blank_review_state', true ) : true;
+	}
+
+	/**
+	 * Whether a post review state can appear on public surfaces.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	public static function review_state_publicly_visible( $post_id ) {
+		$state = self::review_state( $post_id );
+		if ( '' === $state ) {
+			return self::legacy_blank_review_state_allowed();
+		}
+
+		return in_array( $state, self::public_review_states(), true );
 	}
 
 	/**
@@ -419,18 +458,23 @@ final class PostMetadata {
 	 * @return array<string,mixed>
 	 */
 	public static function review_state_meta_clause() {
-		return array(
+		$clause = array(
 			'relation' => 'OR',
 			array(
-				'key'     => self::META_REVIEW_STATE,
-				'compare' => 'NOT EXISTS',
-			),
-			array(
-				'key'     => self::META_REVIEW_STATE,
-				'value'   => self::excluded_review_states(),
-				'compare' => 'NOT IN',
+				'key'   => self::META_REVIEW_STATE,
+				'value' => self::public_review_states(),
+				'compare' => 'IN',
 			),
 		);
+
+		if ( self::legacy_blank_review_state_allowed() ) {
+			$clause[] = array(
+				'key'     => self::META_REVIEW_STATE,
+				'compare' => 'NOT EXISTS',
+			);
+		}
+
+		return $clause;
 	}
 
 	/**

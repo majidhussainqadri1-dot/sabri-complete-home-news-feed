@@ -112,6 +112,7 @@ final class ComposerValidation {
 		$data['media_caption'] = self::clean_textarea( isset( $input['media_caption'] ) ? $input['media_caption'] : '' );
 		$data['medical_disclaimer_confirmed'] = ! empty( $input['medical_disclaimer_confirmed'] ) ? 1 : 0;
 		$data['patient_privacy_confirmed'] = ! empty( $input['patient_privacy_confirmed'] ) ? 1 : 0;
+		$data['privacy_review_required'] = 0;
 		$data['scheduled_date'] = self::clean_text( isset( $input['scheduled_date'] ) ? $input['scheduled_date'] : '' );
 		$data['clinical_case'] = self::sanitize_structured_fields( isset( $input['clinical_case'] ) && is_array( $input['clinical_case'] ) ? $input['clinical_case'] : array(), self::clinical_fields() );
 		$data['research'] = self::sanitize_structured_fields( isset( $input['research'] ) && is_array( $input['research'] ) ? $input['research'] : array(), self::research_fields() );
@@ -135,12 +136,19 @@ final class ComposerValidation {
 		}
 
 		if ( 'clinical-case' === $data['feed_type'] ) {
-			$errors = array_merge( $errors, self::validate_clinical_case( $input, $data, $settings ) );
+			foreach ( self::validate_clinical_case( $input, $data, $settings ) as $clinical_error ) {
+				if ( ! empty( $clinical_error['warning'] ) && 'privacy_review_required' === $clinical_error['code'] ) {
+					$data['privacy_review_required'] = 1;
+					continue;
+				}
+				$errors[] = $clinical_error;
+			}
 		}
 
 		if ( 'research' === $data['feed_type'] ) {
 			$research = self::validate_research( isset( $input['research'] ) && is_array( $input['research'] ) ? $input['research'] : array(), $settings );
 			$data['evidence_level'] = $research['evidence_level'];
+			$data['research']['doi_source_url'] = $research['doi_source_url'];
 			$errors = array_merge( $errors, $research['errors'] );
 		}
 
@@ -183,9 +191,32 @@ final class ComposerValidation {
 
 		foreach ( self::forbidden_clinical_fields() as $field ) {
 			if ( ! empty( $raw[ $field ] ) ) {
-				$errors[] = array( 'code' => 'forbidden_patient_identifier', 'message' => __( 'Clinical Case content cannot include direct patient identifiers.', 'sabri-complete-home-news-feed' ) );
+				$errors[] = self::privacy_error( $field );
 				break;
 			}
+		}
+
+		$scan_fields = array_merge(
+			array(
+				'title'   => isset( $data['title'] ) ? $data['title'] : '',
+				'content' => isset( $data['content'] ) ? wp_strip_all_tags( $data['content'] ) : '',
+			),
+			isset( $data['clinical_case'] ) && is_array( $data['clinical_case'] ) ? $data['clinical_case'] : array()
+		);
+
+		foreach ( $scan_fields as $field => $value ) {
+			if ( self::contains_deterministic_identifier( (string) $value ) ) {
+				$errors[] = self::privacy_error( (string) $field );
+			}
+		}
+
+		if ( empty( $errors ) && self::contains_ambiguous_patient_name_pattern( $scan_fields ) ) {
+			$errors[] = array(
+				'code'    => 'privacy_review_required',
+				'field'   => 'clinical_case',
+				'message' => __( 'Clinical Case content needs privacy review before publication.', 'sabri-complete-home-news-feed' ),
+				'warning' => true,
+			);
 		}
 
 		if ( ! empty( $settings['composer']['require_patient_consent'] ) && empty( $data['patient_privacy_confirmed'] ) ) {
@@ -212,10 +243,112 @@ final class ComposerValidation {
 			$evidence = 'unverified-claim';
 		}
 
+		$source = self::validate_doi_source( isset( $input['doi_source_url'] ) ? $input['doi_source_url'] : '' );
+		if ( ! empty( $source['error'] ) ) {
+			$errors[] = array( 'code' => 'invalid_doi_source_url', 'field' => 'doi_source_url', 'message' => __( 'Research DOI/source must be a valid DOI or safe HTTPS URL.', 'sabri-complete-home-news-feed' ) );
+		}
+
 		return array(
-			'evidence_level' => $evidence,
-			'errors'         => $errors,
+			'evidence_level'  => $evidence,
+			'doi_source_url'  => $source['value'],
+			'errors'          => $errors,
 		);
+	}
+
+	/**
+	 * Validate DOI or source URL.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return array<string,mixed>
+	 */
+	private static function validate_doi_source( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return array( 'value' => '', 'error' => false );
+		}
+
+		if ( preg_match( '#^10\.\d{4,9}/\S+$#i', $value ) ) {
+			return array( 'value' => $value, 'error' => false );
+		}
+
+		$url = function_exists( 'esc_url_raw' ) ? esc_url_raw( $value ) : filter_var( $value, FILTER_VALIDATE_URL );
+		if ( ! is_string( $url ) || '' === $url ) {
+			return array( 'value' => '', 'error' => true );
+		}
+
+		$parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $url ) : parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) || 'https' !== strtolower( $parts['scheme'] ) ) {
+			return array( 'value' => '', 'error' => true );
+		}
+
+		$host = strtolower( $parts['host'] );
+		if ( in_array( $host, array( 'doi.org', 'dx.doi.org' ), true ) ) {
+			$path = isset( $parts['path'] ) ? trim( $parts['path'], '/' ) : '';
+			if ( ! preg_match( '#^10\.\d{4,9}/\S+$#i', $path ) ) {
+				return array( 'value' => '', 'error' => true );
+			}
+		}
+
+		return array( 'value' => $url, 'error' => false );
+	}
+
+	/**
+	 * Build a privacy validation error without echoing sensitive content.
+	 *
+	 * @param string $field Field key.
+	 * @return array<string,string>
+	 */
+	private static function privacy_error( $field ) {
+		return array(
+			'code'    => 'forbidden_patient_identifier',
+			'field'   => sanitize_key( $field ),
+			'message' => __( 'Clinical Case content cannot include direct patient identifiers.', 'sabri-complete-home-news-feed' ),
+		);
+	}
+
+	/**
+	 * Detect deterministic sensitive identifiers.
+	 *
+	 * @param string $value Value.
+	 * @return bool
+	 */
+	private static function contains_deterministic_identifier( $value ) {
+		$value = (string) $value;
+		if ( '' === trim( $value ) ) {
+			return false;
+		}
+
+		$patterns = array(
+			'/\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b/i',
+			'/\b(?:\+92|0092|0)?3[0-9]{2}[\s\-]?[0-9]{7}\b/',
+			'/\b[0-9]{5}[\s\-]?[0-9]{7}[\s\-]?[0-9]\b/',
+			'/\b(?:CNIC|Passport|National\s*ID|Phone|Mobile|Address|MRN|Medical\s*Record|Registration\s*Number|Patient\s*Registration)\s*[:#-]\s*\S+/i',
+			'/\b(?:house|flat|street|road|sector|block|town|city|district)\b.+\b(?:Pakistan|Karachi|Lahore|Islamabad|Rawalpindi|Peshawar|Quetta|Multan|Faisalabad)\b/i',
+		);
+
+		foreach ( $patterns as $pattern ) {
+			if ( preg_match( $pattern, $value ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Flag ambiguous name-like labels for review without hard PHI claims.
+	 *
+	 * @param array<string,mixed> $fields Fields.
+	 * @return bool
+	 */
+	private static function contains_ambiguous_patient_name_pattern( array $fields ) {
+		foreach ( $fields as $value ) {
+			if ( preg_match( '/\b(?:Patient\s*Name|Full\s*Name)\s*[:#-]\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/', (string) $value ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

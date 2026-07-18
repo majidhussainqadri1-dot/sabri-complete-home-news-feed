@@ -93,11 +93,35 @@ final class MediaHandler {
 			return self::invalid( 'file_too_large', __( 'This file exceeds the configured upload limit.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		$mime = isset( $file['type'] ) ? strtolower( trim( (string) $file['type'] ) ) : '';
-		if ( function_exists( 'wp_check_filetype_and_ext' ) && ! empty( $file['tmp_name'] ) ) {
+		$client_mime = isset( $file['type'] ) ? strtolower( trim( (string) $file['type'] ) ) : '';
+		$mime        = '';
+		if ( function_exists( 'wp_check_filetype_and_ext' ) ) {
+			if ( empty( $file['tmp_name'] ) ) {
+				return self::invalid( 'file_probe_unavailable', __( 'This file could not be verified.', 'sabri-complete-home-news-feed' ) );
+			}
+
 			$checked = wp_check_filetype_and_ext( $file['tmp_name'], $name, self::allowed_mime_map( $settings ) );
-			if ( is_array( $checked ) && ! empty( $checked['type'] ) ) {
-				$mime = strtolower( $checked['type'] );
+			if ( ! is_array( $checked ) || empty( $checked['ext'] ) ) {
+				return self::invalid( 'extension_not_detected', __( 'This file extension could not be verified.', 'sabri-complete-home-news-feed' ) );
+			}
+			if ( ! is_array( $checked ) || empty( $checked['type'] ) ) {
+				return self::invalid( 'mime_not_detected', __( 'This MIME type could not be verified.', 'sabri-complete-home-news-feed' ) );
+			}
+
+			$detected_ext = strtolower( (string) $checked['ext'] );
+			$detected_mime = strtolower( (string) $checked['type'] );
+			if ( $detected_ext !== $ext ) {
+				return self::invalid( 'extension_mismatch', __( 'The file extension does not match the uploaded file.', 'sabri-complete-home-news-feed' ) );
+			}
+			if ( '' !== $client_mime && $client_mime !== $detected_mime ) {
+				return self::invalid( 'mime_mismatch', __( 'The declared MIME type does not match the uploaded file.', 'sabri-complete-home-news-feed' ) );
+			}
+
+			$mime = $detected_mime;
+		} else {
+			$mime = self::mime_for_extension( $ext, $settings );
+			if ( '' === $mime || ( '' !== $client_mime && $client_mime !== $mime ) ) {
+				return self::invalid( 'mime_not_allowed', __( 'This MIME type is not allowed.', 'sabri-complete-home-news-feed' ) );
 			}
 		}
 
@@ -110,6 +134,23 @@ final class MediaHandler {
 			'name'  => $name,
 			'mime'  => $mime,
 		);
+	}
+
+	/**
+	 * Resolve configured MIME for an extension.
+	 *
+	 * @param string              $ext Extension.
+	 * @param array<string,mixed> $settings Settings.
+	 * @return string
+	 */
+	private static function mime_for_extension( $ext, array $settings ) {
+		foreach ( self::allowed_mime_map( $settings ) as $pattern => $mime ) {
+			if ( in_array( $ext, explode( '|', $pattern ), true ) ) {
+				return $mime;
+			}
+		}
+
+		return '';
 	}
 
 	/**

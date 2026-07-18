@@ -155,6 +155,9 @@ final class Composer {
 
 		$data['attachments'] = array_values( array_unique( array_merge( $data['attachments'], $media['uploaded'] ) ) );
 		$data['gallery'] = array_values( array_unique( array_merge( $data['gallery'], self::image_attachment_ids( $media['uploaded'] ) ) ) );
+		if ( ! empty( $data['privacy_review_required'] ) && in_array( $status['status'], array( 'publish', 'future' ), true ) ) {
+			$status['status'] = 'pending';
+		}
 		$data['review_state'] = 'publish' === $status['status'] || 'future' === $status['status'] ? 'approved' : 'pending';
 
 		$post_id = isset( $input['post_id'] ) ? absint( $input['post_id'] ) : 0;

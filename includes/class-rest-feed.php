@@ -44,9 +44,9 @@ final class RestFeed {
 				'callback'            => array( __CLASS__, 'feed' ),
 				'permission_callback' => array( __CLASS__, 'permission_callback' ),
 				'args'                => array(
-					'mode'     => array( 'sanitize_callback' => 'sanitize_key' ),
-					'page'     => array( 'sanitize_callback' => 'absint' ),
-					'per_page' => array( 'sanitize_callback' => 'absint' ),
+					'mode'     => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_mode' ) ),
+					'page'     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_positive_int' ), 'validate_callback' => array( __CLASS__, 'validate_page' ) ),
+					'per_page' => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_positive_int' ), 'validate_callback' => array( __CLASS__, 'validate_per_page' ) ),
 				),
 			)
 		);
@@ -59,6 +59,54 @@ final class RestFeed {
 	 */
 	public static function permission_callback() {
 		return true;
+	}
+
+	/**
+	 * Validate feed mode.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_mode( $value ) {
+		return '' === (string) $value || in_array( sanitize_key( $value ), FeedContext::enabled_modes(), true );
+	}
+
+	/**
+	 * Validate page.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_page( $value ) {
+		if ( ! is_scalar( $value ) || ! preg_match( '/^[0-9]+$/', (string) $value ) ) {
+			return false;
+		}
+		$value = (int) $value;
+		return $value >= 1 && $value <= 1000;
+	}
+
+	/**
+	 * Validate per-page.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_per_page( $value ) {
+		if ( ! is_scalar( $value ) || ! preg_match( '/^[0-9]+$/', (string) $value ) ) {
+			return false;
+		}
+		$value = (int) $value;
+		return $value >= 1 && $value <= 50;
+	}
+
+	/**
+	 * Sanitize a positive integer without converting negatives to positives.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	public static function sanitize_positive_int( $value ) {
+		return is_scalar( $value ) && preg_match( '/^[0-9]+$/', (string) $value ) ? (int) $value : 0;
 	}
 
 	/**

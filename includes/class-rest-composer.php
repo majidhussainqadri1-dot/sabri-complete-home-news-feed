@@ -44,11 +44,41 @@ final class RestComposer {
 					'methods'             => 'POST',
 					'callback'            => array( __CLASS__, 'handle' ),
 					'permission_callback' => array( __CLASS__, 'permission_callback' ),
-					'args'                => array(),
+					'args'                => self::route_args(),
 					'sabri_action'        => $action,
 				)
 			);
 		}
+	}
+
+	/**
+	 * Route-level schema for composer requests.
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	private static function route_args() {
+		return array(
+			'post_id'                     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_optional_positive_id' ), 'validate_callback' => array( __CLASS__, 'validate_optional_positive_id' ) ),
+			'action'                      => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_action' ) ),
+			'composer_action'             => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_action' ) ),
+			'title'                       => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_text' ) ),
+			'content'                     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_content' ), 'validate_callback' => array( __CLASS__, 'validate_textarea' ) ),
+			'feed_type'                   => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_feed_type' ) ),
+			'topic'                       => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_text' ) ),
+			'visibility'                  => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_visibility' ) ),
+			'language'                    => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_text' ) ),
+			'country_region'              => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_text' ) ),
+			'country'                     => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_text' ) ),
+			'post_status'                 => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_post_status' ) ),
+			'scheduled_date'              => array( 'sanitize_callback' => 'sanitize_text_field', 'validate_callback' => array( __CLASS__, 'validate_optional_datetime' ) ),
+			'attachments'                 => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_id_list' ), 'validate_callback' => array( __CLASS__, 'validate_id_list' ) ),
+			'gallery'                     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_id_list' ), 'validate_callback' => array( __CLASS__, 'validate_id_list' ) ),
+			'clinical_case'               => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_structured_array' ), 'validate_callback' => array( __CLASS__, 'validate_clinical_case_args' ) ),
+			'research'                    => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_structured_array' ), 'validate_callback' => array( __CLASS__, 'validate_research_args' ) ),
+			'comments_enabled'            => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ), 'validate_callback' => array( __CLASS__, 'validate_boolish' ) ),
+			'medical_disclaimer_confirmed' => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ), 'validate_callback' => array( __CLASS__, 'validate_boolish' ) ),
+			'patient_privacy_confirmed'   => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_bool' ), 'validate_callback' => array( __CLASS__, 'validate_boolish' ) ),
+		);
 	}
 
 	/**
@@ -88,8 +118,12 @@ final class RestComposer {
 	 * @return bool
 	 */
 	private static function rest_nonce_valid() {
-		if ( ! function_exists( 'wp_verify_nonce' ) ) {
-			return true;
+		$helpers_available = function_exists( 'wp_verify_nonce' ) && function_exists( 'sanitize_text_field' ) && function_exists( 'wp_unslash' );
+		if ( function_exists( 'apply_filters' ) ) {
+			$helpers_available = (bool) apply_filters( 'sabri_hnf_rest_nonce_helpers_available', $helpers_available );
+		}
+		if ( ! $helpers_available ) {
+			return false;
 		}
 
 		$nonce = '';
@@ -98,6 +132,233 @@ final class RestComposer {
 		}
 
 		return '' !== $nonce && (bool) wp_verify_nonce( $nonce, 'wp_rest' );
+	}
+
+	/**
+	 * Validate optional positive ID.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_optional_positive_id( $value ) {
+		return '' === $value || null === $value || ( is_scalar( $value ) && preg_match( '/^[0-9]+$/', (string) $value ) && (int) $value > 0 );
+	}
+
+	/**
+	 * Sanitize optional positive ID without converting negatives to positives.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	public static function sanitize_optional_positive_id( $value ) {
+		return self::validate_optional_positive_id( $value ) ? (int) $value : 0;
+	}
+
+	/**
+	 * Validate action.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_action( $value ) {
+		return '' === (string) $value || in_array( sanitize_key( $value ), array( 'draft', 'preview', 'submit', 'publish', 'schedule' ), true );
+	}
+
+	/**
+	 * Validate text.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_text( $value ) {
+		return is_scalar( $value ) && strlen( (string) $value ) <= 500;
+	}
+
+	/**
+	 * Validate textarea.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_textarea( $value ) {
+		return is_scalar( $value ) && strlen( (string) $value ) <= 20000;
+	}
+
+	/**
+	 * Validate feed type.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_feed_type( $value ) {
+		$settings = Settings::get();
+		$allowed  = isset( $settings['composer']['allowed_feed_types'] ) && is_array( $settings['composer']['allowed_feed_types'] ) ? $settings['composer']['allowed_feed_types'] : FeedContext::phase2_feed_type_slugs();
+		return '' === (string) $value || in_array( sanitize_key( $value ), $allowed, true );
+	}
+
+	/**
+	 * Validate visibility.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_visibility( $value ) {
+		return '' === (string) $value || in_array( sanitize_key( $value ), FeedContext::allowed_composer_visibility( null, true ), true );
+	}
+
+	/**
+	 * Validate post status.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_post_status( $value ) {
+		return '' === (string) $value || in_array( sanitize_key( $value ), array( 'draft', 'pending', 'publish', 'future' ), true );
+	}
+
+	/**
+	 * Validate optional date/time.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_optional_datetime( $value ) {
+		return '' === trim( (string) $value ) || false !== strtotime( (string) $value );
+	}
+
+	/**
+	 * Sanitize ID list.
+	 *
+	 * @param mixed $value Value.
+	 * @return array<int,int>
+	 */
+	public static function sanitize_id_list( $value ) {
+		$items = is_array( $value ) ? $value : preg_split( '/[\s,]+/', (string) $value );
+		return array_values(
+			array_filter(
+				array_map(
+					static function ( $item ) {
+						return is_scalar( $item ) && preg_match( '/^[0-9]+$/', (string) $item ) ? (int) $item : 0;
+					},
+					(array) $items
+				),
+				static function ( $item ) {
+					return $item > 0;
+				}
+			)
+		);
+	}
+
+	/**
+	 * Validate bounded ID list.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_id_list( $value ) {
+		$raw_items = is_array( $value ) ? $value : preg_split( '/[\s,]+/', (string) $value );
+		foreach ( (array) $raw_items as $item ) {
+			if ( '' === (string) $item ) {
+				continue;
+			}
+			if ( ! is_scalar( $item ) || ! preg_match( '/^[0-9]+$/', (string) $item ) || (int) $item <= 0 ) {
+				return false;
+			}
+		}
+		$items = self::sanitize_id_list( $value );
+		return count( $items ) <= 20 && count( $items ) === count( array_unique( $items ) );
+	}
+
+	/**
+	 * Sanitize structured array.
+	 *
+	 * @param mixed $value Value.
+	 * @return array<string,string>
+	 */
+	public static function sanitize_structured_array( $value ) {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$out = array();
+		foreach ( $value as $key => $item ) {
+			$out[ sanitize_key( $key ) ] = is_scalar( $item ) ? sanitize_textarea_field( $item ) : '';
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Validate Clinical Case REST args.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_clinical_case_args( $value ) {
+		return self::validate_structured_keys( $value, array_keys( ComposerValidation::clinical_fields() ) );
+	}
+
+	/**
+	 * Validate Research REST args.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_research_args( $value ) {
+		return self::validate_structured_keys( $value, array_merge( array_keys( ComposerValidation::research_fields() ), array( 'evidence_level' ) ) );
+	}
+
+	/**
+	 * Validate structured keys and values.
+	 *
+	 * @param mixed      $value Value.
+	 * @param array<int,string> $allowed Allowed keys.
+	 * @return bool
+	 */
+	private static function validate_structured_keys( $value, array $allowed ) {
+		if ( null === $value || '' === $value ) {
+			return true;
+		}
+		if ( ! is_array( $value ) || count( $value ) > 40 ) {
+			return false;
+		}
+		foreach ( $value as $key => $item ) {
+			if ( ! in_array( sanitize_key( $key ), $allowed, true ) || ! is_scalar( $item ) || strlen( (string) $item ) > 5000 ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Sanitize boolean-like value.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	public static function sanitize_bool( $value ) {
+		return empty( $value ) ? 0 : 1;
+	}
+
+	/**
+	 * Validate boolean-like value.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	public static function validate_boolish( $value ) {
+		return in_array( (string) $value, array( '', '0', '1', 'true', 'false' ), true ) || is_bool( $value ) || is_int( $value );
+	}
+
+	/**
+	 * Sanitize composer content.
+	 *
+	 * @param mixed $value Value.
+	 * @return string
+	 */
+	public static function sanitize_content( $value ) {
+		return function_exists( 'wp_kses_post' ) ? wp_kses_post( $value ) : strip_tags( (string) $value, '<p><br><strong><em><b><i><ul><ol><li><a><blockquote><code><pre>' );
 	}
 
 	/**

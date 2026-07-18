@@ -50,6 +50,7 @@ $sabri_test_dbdelta_skip_index = '';
 $sabri_test_rows = array();
 $sabri_test_posts = array();
 $sabri_test_post_meta = array();
+$sabri_test_filetype_override = null;
 $sabri_test_next_post_id = 100;
 $sabri_test_users = array(
 	'user@example.com' => 42,
@@ -69,7 +70,7 @@ function sabri_test_default_user_roles() {
 }
 
 function sabri_test_reset_state( $reset_data = false ) {
-	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
+	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
 
 	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
@@ -80,6 +81,7 @@ function sabri_test_reset_state( $reset_data = false ) {
 	$sabri_test_enqueued_styles = array();
 	$sabri_test_enqueued_scripts = array();
 	$sabri_test_current_post_id = 0;
+	$sabri_test_filetype_override = null;
 
 	$_GET = array();
 	$_POST = array();
@@ -129,6 +131,7 @@ function absint( $value ) { return abs( (int) $value ); }
 function wp_unslash( $value ) { return $value; }
 function wp_json_encode( $value, $flags = 0 ) { return json_encode( $value, $flags ); }
 function wp_salt( $scheme = 'auth' ) { return 'test-salt-' . $scheme; }
+function wp_parse_url( $url ) { return parse_url( $url ); }
 function plugin_dir_path( $file ) { return dirname( $file ) . DIRECTORY_SEPARATOR; }
 function plugin_dir_url( $file ) { unset( $file ); return 'http://example.test/wp-content/plugins/sabri-complete-home-news-feed/'; }
 function plugin_basename( $file ) { return basename( dirname( $file ) ) . '/' . basename( $file ); }
@@ -289,7 +292,7 @@ function get_the_post_thumbnail( $post_id ) { return '<img alt="" src="featured-
 function wp_get_attachment_image( $attachment_id ) { return '<img alt="" src="attachment-' . (int) $attachment_id . '.jpg" />'; }
 function wp_get_attachment_url( $attachment_id ) { return home_url( 'uploads/attachment-' . (int) $attachment_id ); }
 function get_post_mime_type( $post_id ) { return get_post_field( 'post_mime_type', $post_id ); }
-function wp_check_filetype_and_ext( $file, $filename, $mimes = array() ) { unset( $file ); $ext = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ); foreach ( $mimes as $pattern => $mime ) { if ( in_array( $ext, explode( '|', $pattern ), true ) ) { return array( 'ext' => $ext, 'type' => $mime ); } } return array( 'ext' => $ext, 'type' => '' ); }
+function wp_check_filetype_and_ext( $file, $filename, $mimes = array() ) { global $sabri_test_filetype_override; unset( $file ); if ( is_array( $sabri_test_filetype_override ) ) { return $sabri_test_filetype_override; } $ext = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ); foreach ( $mimes as $pattern => $mime ) { if ( in_array( $ext, explode( '|', $pattern ), true ) ) { return array( 'ext' => $ext, 'type' => $mime ); } } return array( 'ext' => $ext, 'type' => '' ); }
 function wp_handle_upload( $file, $overrides = array() ) { unset( $overrides ); return array( 'file' => isset( $file['tmp_name'] ) ? $file['tmp_name'] : sys_get_temp_dir() . '/' . $file['name'], 'url' => home_url( 'uploads/' . $file['name'] ), 'type' => $file['type'] ); }
 function wp_insert_attachment( $args, $file = '' ) { unset( $file ); return sabri_test_add_post( array_merge( $args, array( 'post_type' => 'attachment' ) ) ); }
 function wp_generate_attachment_metadata() { return array(); }

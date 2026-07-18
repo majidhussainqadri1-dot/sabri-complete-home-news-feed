@@ -125,18 +125,7 @@ final class FeedQuery {
 					'compare' => 'IN',
 				),
 			),
-			array(
-				'relation' => 'OR',
-				array(
-					'key'     => PostMetadata::META_REVIEW_STATE,
-					'compare' => 'NOT EXISTS',
-				),
-				array(
-					'key'     => PostMetadata::META_REVIEW_STATE,
-					'value'   => PostMetadata::excluded_review_states(),
-					'compare' => 'NOT IN',
-				),
-			),
+			PostMetadata::review_state_meta_clause(),
 		);
 
 		$args = array(

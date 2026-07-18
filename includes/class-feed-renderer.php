@@ -99,6 +99,10 @@ final class FeedRenderer {
 	 */
 	public static function render_card( $post, array $settings ) {
 		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
+		if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id ) ) {
+			return '';
+		}
+
 		$type    = PostMetadata::feed_type( $post_id );
 
 		return self::template(

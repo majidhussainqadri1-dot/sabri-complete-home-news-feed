@@ -81,6 +81,9 @@ final class HomeIntegration {
 	public static function reset_runtime_guards() {
 		self::$feed_rendered = false;
 		self::$single_context_rendered = array();
+		if ( class_exists( __NAMESPACE__ . '\\Shortcodes' ) ) {
+			Shortcodes::reset_runtime_guards();
+		}
 	}
 
 	/**
@@ -141,10 +144,24 @@ final class HomeIntegration {
 			return $rows;
 		}
 
+		$settings = Settings::get();
+		$status = 'Unknown';
+		$detail = __( 'No confirmed Unified Shell runtime signal was detected; Phase 2 renders by shortcode or plugin-owned hook only.', 'sabri-complete-home-news-feed' );
+		if ( SafeMode::public_features_disabled() ) {
+			$status = 'Disabled';
+			$detail = __( 'Home Feed and Composer runtime is disabled by Safe Mode or Emergency Disable.', 'sabri-complete-home-news-feed' );
+		} elseif ( defined( 'SABRI_UNIFIED_APPLICATION_SHELL_VERSION' ) || class_exists( 'Sabri\\UnifiedApplicationShell\\Plugin' ) ) {
+			$status = 'Connected';
+			$detail = __( 'Connected signal: Unified Shell version constant or runtime Plugin class is loaded; no Shell header, sidebar, or layout resolver is replaced.', 'sabri-complete-home-news-feed' );
+		} elseif ( ! empty( $settings['integrations']['composer_page_url'] ) ) {
+			$status = 'Configured';
+			$detail = __( 'Composer page URL is configured, but no confirmed Unified Shell runtime signal is loaded.', 'sabri-complete-home-news-feed' );
+		}
+
 		$rows[] = array(
 			'label'  => __( 'Home Feed and Composer runtime', 'sabri-complete-home-news-feed' ),
-			'status' => SafeMode::public_features_disabled() ? 'Disabled' : 'Connected',
-			'detail' => __( 'Phase 2 renders by shortcode or plugin-owned hook only; no Shell header, sidebar, or layout resolver is replaced.', 'sabri-complete-home-news-feed' ),
+			'status' => $status,
+			'detail' => $detail,
 		);
 
 		return $rows;
