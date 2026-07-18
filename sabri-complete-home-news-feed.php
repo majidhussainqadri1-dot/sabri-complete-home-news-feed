@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Sabri Complete Home and News Feed
  * Plugin URI: https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed
- * Description: Phase 1 foundation for Sabri home feed, social news, publishing, safety, and data architecture.
+ * Description: Phase 2 Home Feed and public Composer runtime for Sabri home feed, social news, publishing, safety, and data architecture.
  * Version: 1.0.0
  * Author: Dr. Allama Majid Hussain Sabri
  * Text Domain: sabri-complete-home-news-feed

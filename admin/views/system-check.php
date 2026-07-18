@@ -15,7 +15,7 @@ $report = SystemCheck::report();
 ?>
 <section class="sabri-feed-panel">
 	<h2><?php esc_html_e( 'System Check', 'sabri-complete-home-news-feed' ); ?></h2>
-	<p><?php esc_html_e( 'This report is a Phase 1 diagnostic snapshot. Production acceptance still requires GitHub Actions and Hostinger staging checks.', 'sabri-complete-home-news-feed' ); ?></p>
+	<p><?php esc_html_e( 'This report is a Phase 2 diagnostic snapshot. Production acceptance still requires GitHub Actions and Hostinger staging checks.', 'sabri-complete-home-news-feed' ); ?></p>
 	<table class="sabri-feed-table">
 		<thead><tr><th><?php esc_html_e( 'Check', 'sabri-complete-home-news-feed' ); ?></th><th><?php esc_html_e( 'State', 'sabri-complete-home-news-feed' ); ?></th><th><?php esc_html_e( 'Detail', 'sabri-complete-home-news-feed' ); ?></th></tr></thead>
 		<tbody>

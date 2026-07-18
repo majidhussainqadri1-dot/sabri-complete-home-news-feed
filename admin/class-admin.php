@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Registers Phase 1 administration screens.
+ * Registers administration screens.
  */
 final class Admin {
 	/**

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.0.0 - Phase 2 Home Feed and Composer Runtime
+
+- Added real Home Feed runtime using existing WordPress posts, feed taxonomies, visibility metadata, bounded pagination, explainable Phase 2 ranking, server-rendered filters, and accessible Load More enhancement.
+- Added public Composer runtime with capability-based access, draft, preview, submit-for-review, publish, and schedule status policy.
+- Added Clinical Case and Research structured metadata validation, including patient-identifier blocking and controlled evidence levels.
+- Added WordPress media handling with MIME, size, executable-file, and attachment ownership validation.
+- Added shortcode fallbacks `[sabri_complete_home_feed]` and `[sabri_public_post_composer]`, plus a plugin-owned Home rendering hook with duplicate protection.
+- Added REST feed and composer routes with explicit permission callbacks and shared server-side composer policy.
+- Added feed/composer public assets, templates, Phase 2 admin settings, behavior tests, workflow updates, and Phase 2 release-builder labels.
+- Deferred likes, dislikes, comments, replies, saves, follows, reports, polls, complete editorial News, moderation workflow UI, and analytics.
+
 ## 1.0.0 - Phase 1 Foundation
 
 - Added independent WordPress plugin bootstrap with PHP 8.1 and WordPress 6.0 guards.

@@ -95,6 +95,41 @@ final class Taxonomies {
 	}
 
 	/**
+	 * Default evidence-level terms.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function evidence_level_terms() {
+		return array(
+			'systematic-review'  => __( 'Systematic Review', 'sabri-complete-home-news-feed' ),
+			'randomized-trial'   => __( 'Randomized Trial', 'sabri-complete-home-news-feed' ),
+			'observational-study' => __( 'Observational Study', 'sabri-complete-home-news-feed' ),
+			'case-series'        => __( 'Case Series', 'sabri-complete-home-news-feed' ),
+			'case-report'        => __( 'Case Report', 'sabri-complete-home-news-feed' ),
+			'expert-opinion'     => __( 'Expert Opinion', 'sabri-complete-home-news-feed' ),
+			'historical-source'  => __( 'Historical Source', 'sabri-complete-home-news-feed' ),
+			'unverified-claim'   => __( 'Unverified Claim', 'sabri-complete-home-news-feed' ),
+		);
+	}
+
+	/**
+	 * Visibility terms.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function visibility_terms() {
+		return array(
+			'public'    => __( 'Public', 'sabri-complete-home-news-feed' ),
+			'members'   => __( 'Registered Members', 'sabri-complete-home-news-feed' ),
+			'doctors'   => __( 'Doctors Only', 'sabri-complete-home-news-feed' ),
+			'students'  => __( 'Students Only', 'sabri-complete-home-news-feed' ),
+			'patients'  => __( 'Patients Only', 'sabri-complete-home-news-feed' ),
+			'followers' => __( 'Followers', 'sabri-complete-home-news-feed' ),
+			'private'   => __( 'Private Draft', 'sabri-complete-home-news-feed' ),
+		);
+	}
+
+	/**
 	 * Register taxonomies against core posts.
 	 *
 	 * @return void
@@ -174,16 +209,29 @@ final class Taxonomies {
 			}
 		}
 
-		foreach ( array( 'public', 'members', 'doctors', 'private' ) as $visibility ) {
-			if ( term_exists( $visibility, 'sabri_visibility' ) ) {
-				$report['skipped'][] = 'visibility:' . $visibility;
+		foreach ( self::visibility_terms() as $slug => $label ) {
+			if ( term_exists( $slug, 'sabri_visibility' ) ) {
+				$report['skipped'][] = 'visibility:' . $slug;
 				continue;
 			}
-			$result = wp_insert_term( ucfirst( $visibility ), 'sabri_visibility', array( 'slug' => $visibility ) );
+			$result = wp_insert_term( $label, 'sabri_visibility', array( 'slug' => $slug ) );
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
-				$report['skipped'][] = 'visibility:' . $visibility;
+				$report['skipped'][] = 'visibility:' . $slug;
 			} else {
-				$report['created'][] = 'visibility:' . $visibility;
+				$report['created'][] = 'visibility:' . $slug;
+			}
+		}
+
+		foreach ( self::evidence_level_terms() as $slug => $label ) {
+			if ( term_exists( $slug, 'sabri_evidence_level' ) ) {
+				$report['skipped'][] = 'evidence:' . $slug;
+				continue;
+			}
+			$result = wp_insert_term( $label, 'sabri_evidence_level', array( 'slug' => $slug ) );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
+				$report['skipped'][] = 'evidence:' . $slug;
+			} else {
+				$report['created'][] = 'evidence:' . $slug;
 			}
 		}
 

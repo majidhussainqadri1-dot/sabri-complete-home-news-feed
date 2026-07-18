@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Coordinates the Phase 1 foundation.
+ * Coordinates the plugin runtime.
  */
 final class Plugin {
 	/**
@@ -63,6 +63,13 @@ final class Plugin {
 		RestFoundation::register();
 		DataRetention::register();
 		Assets::register();
+		PostMetadata::register();
+		FeedQuery::register();
+		HomeIntegration::register();
+		Shortcodes::register();
+		Composer::register();
+		RestFeed::register();
+		RestComposer::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();

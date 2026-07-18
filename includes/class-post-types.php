@@ -48,6 +48,11 @@ final class PostTypes {
 	 * @return void
 	 */
 	public static function register_meta() {
+		if ( class_exists( __NAMESPACE__ . '\\PostMetadata' ) ) {
+			PostMetadata::register_meta();
+			return;
+		}
+
 		if ( ! function_exists( 'register_post_meta' ) ) {
 			return;
 		}

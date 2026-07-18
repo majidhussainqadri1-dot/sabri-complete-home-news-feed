@@ -2,7 +2,7 @@
 
 ## Scope
 
-Phase 1 creates the foundation for future Home Feed, Composer, Social Interactions, News, Moderation, and Analytics phases. It intentionally avoids superficial frontend implementation.
+Phase 2 implements the real Home Feed and public Composer runtime while preserving the Phase 1 foundation. Social Interactions, complete editorial News, Moderation workflow UI, and Analytics remain deferred.
 
 ## Bootstrap
 
@@ -29,12 +29,16 @@ The namespace is `Sabri\HomeNewsFeed`.
 - `AuditLog`: plugin-owned administrative audit records.
 - `DataRetention`: privacy export and erasure foundations.
 - `RestFoundation`: authenticated diagnostics routes.
-- `Assets`: local admin assets only.
+- `FeedContext`, `FeedQuery`, `FeedRanking`, and `FeedRenderer`: safe feed modes, bounded queries, explainable ranking, rendering, pagination, and Load More enhancement.
+- `Composer`, `ComposerPermissions`, and `ComposerValidation`: public composer rendering, server-side publishing policy, and structured Clinical Case/Research validation.
+- `PostMetadata` and `MediaHandler`: visibility enforcement, structured metadata, single-post context, upload validation, and attachment ownership.
+- `HomeIntegration`, `Shortcodes`, `RestFeed`, and `RestComposer`: shortcode fallback, plugin-owned rendering hook, public feed REST, and authenticated composer REST.
+- `Assets`: local admin and conditional public assets.
 - `Admin`: wp-admin menu and screens.
 
 ## Public Rendering
 
-Phase 1 does not render a complete Home feed, Composer, News center, moderation UI, or analytics UI. It does not add a second global navigation and does not wrap the whole theme between `wp_body_open` and `wp_footer`.
+Phase 2 renders the Home Feed and public Composer through `[sabri_complete_home_feed]`, `[sabri_public_post_composer]`, and the plugin-owned `sabri_feed_home_center_content` hook. It does not add a second global navigation, does not replace the Shell header/sidebar/layout resolver, and does not wrap the whole theme between `wp_body_open` and `wp_footer`.
 
 ## Settings Namespaces
 
@@ -44,4 +48,4 @@ Unknown future keys are preserved during tab updates.
 
 ## Future Phase Boundary
 
-Phase 2 should begin at the central feature gate and implement real Home Feed and Composer runtime behavior against the existing schema, settings, capability policy, Shell contract, Safe Mode, and audit foundations.
+Phase 3 should begin with social interaction runtimes: likes, dislikes, comments, replies, saves, follows, reports, and polls. Phase 4 should implement the complete editorial News system.

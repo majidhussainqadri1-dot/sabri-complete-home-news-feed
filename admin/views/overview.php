@@ -21,13 +21,13 @@ $integrations = Integrations::detect();
 ?>
 <div class="sabri-feed-grid">
 	<section class="sabri-feed-panel">
-		<h2><?php esc_html_e( 'Foundation Status', 'sabri-complete-home-news-feed' ); ?></h2>
+		<h2><?php esc_html_e( 'Runtime Status', 'sabri-complete-home-news-feed' ); ?></h2>
 		<p><strong><?php esc_html_e( 'Plugin version:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $identity['version'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Schema version:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $identity['schema_version'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Environment:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $settings['general']['environment'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Branch:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $git['branch'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Commit:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $git['commit'] ); ?></p>
-		<p><strong><?php esc_html_e( 'Next implementation phase:', 'sabri-complete-home-news-feed' ); ?></strong> <?php esc_html_e( 'Home Feed runtime and Composer foundations.', 'sabri-complete-home-news-feed' ); ?></p>
+		<p><strong><?php esc_html_e( 'Next implementation phase:', 'sabri-complete-home-news-feed' ); ?></strong> <?php esc_html_e( 'Social interactions runtime.', 'sabri-complete-home-news-feed' ); ?></p>
 	</section>
 
 	<section class="sabri-feed-panel">
@@ -38,7 +38,7 @@ $integrations = Integrations::detect();
 			<input type="hidden" name="action" value="sabri_feed_emergency">
 			<input type="hidden" name="state" value="<?php echo SafeMode::emergency_disabled() ? 'enable' : 'disable'; ?>">
 			<?php wp_nonce_field( 'sabri_feed_emergency' ); ?>
-			<button class="button button-secondary" type="submit"><?php echo SafeMode::emergency_disabled() ? esc_html__( 'Re-enable Future Public Actions', 'sabri-complete-home-news-feed' ) : esc_html__( 'Emergency Disable Future Public Actions', 'sabri-complete-home-news-feed' ); ?></button>
+			<button class="button button-secondary" type="submit"><?php echo SafeMode::emergency_disabled() ? esc_html__( 'Re-enable Public Runtime', 'sabri-complete-home-news-feed' ) : esc_html__( 'Emergency Disable Public Runtime', 'sabri-complete-home-news-feed' ); ?></button>
 		</form>
 	</section>
 </div>

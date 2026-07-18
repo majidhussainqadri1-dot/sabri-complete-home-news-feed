@@ -2,7 +2,7 @@
 
 ## Foundations
 
-Phase 1 registers personal data exporter and eraser hooks for plugin-owned social data.
+Phase 2 keeps Phase 1 personal data exporter and eraser hooks for plugin-owned social data and adds public composer safeguards for patient privacy.
 
 The exporter emits one WordPress-compatible export item per personal-data row. Each item contains a flat list of `name` and `value` entries.
 
@@ -19,6 +19,14 @@ Follow data is exportable for the requesting user and can be marked removed or a
 Report data remains confidential and is restricted to authorized moderation and administration contexts.
 
 Personal-data exports do not expose confidential moderation notes, duplicate hashes, raw internal secrets, or unrelated private user data.
+
+## Clinical Cases
+
+Clinical Case composer validation rejects direct patient identifiers such as patient full name, national ID, passport, phone number, complete residential address, and raw confidential identifiers. Patient consent and anonymization confirmation can be required by settings.
+
+## Visibility
+
+Feed queries, single-post checks, and REST post response filters enforce Phase 2 visibility modes. Followers visibility remains disabled until the Phase 3 follow runtime exists.
 
 ## Audit Log
 

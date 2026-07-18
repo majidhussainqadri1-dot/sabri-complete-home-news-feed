@@ -8,15 +8,15 @@ Stable tag: 1.0.0
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
-Phase 1 foundation for Sabri home feed, social news, publishing, safety, and data architecture.
+Phase 2 Home Feed and public Composer runtime for Sabri home feed, social news, publishing, safety, and data architecture.
 
 == Description ==
 
-Sabri Complete Home and News Feed 1.0.0 provides the production-grade foundation for later Home Feed, Composer, Social Interactions, News, Moderation, and Analytics phases.
+Sabri Complete Home and News Feed 1.0.0 provides the Phase 2 Home Feed and public Composer runtime on top of the Phase 1 safety foundation.
 
-Phase 1 includes plugin bootstrap, admin screens, versioned settings, reversible capabilities, custom social-data schema, Safe Mode, Emergency Disable, snapshots, migration, rollback, non-destructive repair, privacy foundations, REST diagnostics, CI workflow, and release-builder tooling.
+Phase 2 includes real feed rendering from existing WordPress posts, accessible filter navigation, standard pagination, Load More enhancement, public composer shortcodes, capability enforcement, Clinical Case and Research structured metadata, media validation, visibility enforcement, REST feed/composer endpoints, tests, CI workflow, and release-builder tooling.
 
-Phase 1 does not complete the Home Feed, Composer, social interactions, full News workflows, moderation workflows, or analytics dashboards.
+Phase 2 does not complete likes, dislikes, comments, replies, saves, follows, reports, polls, full News workflows, moderation workflow UI, or analytics dashboards.
 
 == Installation ==
 
@@ -35,3 +35,4 @@ Activation, deactivation, repair, migration, rollback, and default uninstall beh
 = 1.0.0 =
 * Added Phase 1 foundation architecture.
 * Added versioned settings, capabilities, schema, admin, safety, privacy, REST, repair, migration, rollback, tests, CI, and release-builder tooling.
+* Added Phase 2 Home Feed and public Composer runtime.

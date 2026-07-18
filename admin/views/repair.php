@@ -16,7 +16,7 @@ $last    = get_option( 'sabri_feed_last_repair_report', array() );
 ?>
 <section class="sabri-feed-panel">
 	<h2><?php esc_html_e( 'Repair Foundation', 'sabri-complete-home-news-feed' ); ?></h2>
-	<p><?php esc_html_e( 'Repair actions are explicit, nonce-protected, administrator-only, audited, and non-destructive. Orphan social rows are previewed only in Phase 1.', 'sabri-complete-home-news-feed' ); ?></p>
+	<p><?php esc_html_e( 'Repair actions are explicit, nonce-protected, administrator-only, audited, and non-destructive. Orphan social rows are previewed and not deleted automatically.', 'sabri-complete-home-news-feed' ); ?></p>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sabri_feed_repair">
 		<?php wp_nonce_field( 'sabri_feed_repair' ); ?>

@@ -79,16 +79,28 @@ final class Settings {
 			'general'     => array(
 				'enabled'          => 1,
 				'environment'      => 'staging',
-				'phase'            => 'phase_1_foundation',
-				'future_notice'    => 'Available after the relevant implementation phase',
+				'phase'            => 'phase_2_home_feed_composer',
+				'future_notice'    => 'Future social and editorial systems remain deferred',
 				'admin_accent_hex' => '#f26100',
 			),
 			'feed'        => array(
-				'enabled'            => 0,
+				'enabled'            => 1,
+				'default_mode'       => 'for-you',
 				'default_visibility' => 'public',
 				'default_count'      => 10,
+				'posts_per_page'     => 10,
+				'pagination'         => 'numbers',
+				'load_more_enabled'  => 1,
+				'founder_priority'   => 20,
+				'verified_author_priority' => 8,
+				'enabled_filters'    => array_keys( FeedContext::modes() ),
 				'allowed_types'      => array_keys( Taxonomies::feed_type_terms() ),
-				'future_notice'      => 'Available after the relevant implementation phase',
+				'show_author_details' => 1,
+				'show_post_type'     => 1,
+				'show_media'         => 1,
+				'show_disclaimer'    => 1,
+				'cache_duration'     => 300,
+				'future_notice'      => 'Social interaction controls remain deferred',
 			),
 			'news'        => array(
 				'enabled'               => 0,
@@ -97,10 +109,21 @@ final class Settings {
 				'future_notice'         => 'Available after the relevant implementation phase',
 			),
 			'composer'    => array(
-				'public_composer_enabled' => 0,
+				'public_composer_enabled' => 1,
 				'max_upload_mb'           => 8,
-				'allowed_mime_types'      => array( 'image/jpeg', 'image/png', 'image/webp', 'application/pdf' ),
-				'future_notice'           => 'Available after the relevant implementation phase',
+				'max_image_count'         => 4,
+				'allowed_mime_types'      => array( 'image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4', 'video/quicktime', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg' ),
+				'allowed_feed_types'      => FeedContext::phase2_feed_type_slugs(),
+				'allowed_visibility_modes' => array( 'public', 'members', 'doctors', 'students', 'patients', 'private' ),
+				'immediate_publish_policy' => 'capability',
+				'review_required_policy'  => 'unverified_doctors',
+				'require_patient_consent' => 1,
+				'require_medical_disclaimer' => 1,
+				'scheduling_enabled'      => 0,
+				'drafts_enabled'          => 1,
+				'previews_enabled'        => 1,
+				'comments_metadata_enabled' => 1,
+				'future_notice'           => 'Social interactions and editorial News remain deferred',
 			),
 			'capabilities' => array(
 				'founder_roles'           => array( 'founder', 'sabri_founder' ),
@@ -118,14 +141,14 @@ final class Settings {
 				'future_notice'        => 'Available after the relevant implementation phase',
 			),
 			'media'       => array(
-				'uploads_enabled' => 0,
+				'uploads_enabled' => 1,
 				'max_items'       => 4,
-				'future_notice'   => 'Available after the relevant implementation phase',
+				'future_notice'   => 'Advanced video processing remains deferred',
 			),
 			'performance' => array(
 				'cache_seconds' => 300,
 				'log_views'     => 0,
-				'future_notice' => 'Available after the relevant implementation phase',
+				'future_notice' => 'Engagement analytics remain deferred',
 			),
 			'privacy'     => array(
 				'retain_data_on_uninstall' => 1,
@@ -137,6 +160,7 @@ final class Settings {
 				'shell_required'    => 0,
 				'shell_home_url'    => '',
 				'shell_news_url'    => '',
+				'composer_page_url' => '',
 				'functions'         => array(
 					'notifications' => '',
 					'network'       => '',
@@ -277,6 +301,12 @@ final class Settings {
 			}
 		}
 
+		foreach ( self::list_keys( $tab ) as $key => $allowed ) {
+			if ( array_key_exists( $key, $input ) ) {
+				$out[ $key ] = self::clean_allowed_list( $input[ $key ], $allowed );
+			}
+		}
+
 		if ( 'composer' === $tab && array_key_exists( 'allowed_mime_types', $input ) ) {
 			$out['allowed_mime_types'] = self::allowed_mimes( $input['allowed_mime_types'] );
 		}
@@ -331,9 +361,9 @@ final class Settings {
 	private static function checkbox_keys( $tab ) {
 		$map = array(
 			'general'     => array( 'enabled' ),
-			'feed'        => array( 'enabled' ),
+			'feed'        => array( 'enabled', 'load_more_enabled', 'show_author_details', 'show_post_type', 'show_media', 'show_disclaimer' ),
 			'news'        => array( 'enabled', 'breaking_news_enabled' ),
-			'composer'    => array( 'public_composer_enabled' ),
+			'composer'    => array( 'public_composer_enabled', 'require_patient_consent', 'require_medical_disclaimer', 'scheduling_enabled', 'drafts_enabled', 'previews_enabled', 'comments_metadata_enabled' ),
 			'moderation'  => array( 'reports_enabled' ),
 			'media'       => array( 'uploads_enabled' ),
 			'performance' => array( 'log_views' ),
@@ -353,8 +383,8 @@ final class Settings {
 	 */
 	private static function integer_ranges( $tab ) {
 		$map = array(
-			'feed'        => array( 'default_count' => array( 1, 50 ) ),
-			'composer'    => array( 'max_upload_mb' => array( 1, 64 ) ),
+			'feed'        => array( 'default_count' => array( 1, 50 ), 'posts_per_page' => array( 1, 50 ), 'founder_priority' => array( 0, 100 ), 'verified_author_priority' => array( 0, 100 ), 'cache_duration' => array( 0, 86400 ) ),
+			'composer'    => array( 'max_upload_mb' => array( 1, 64 ), 'max_image_count' => array( 1, 20 ) ),
 			'media'       => array( 'max_items' => array( 1, 20 ) ),
 			'performance' => array( 'cache_seconds' => array( 0, 86400 ) ),
 		);
@@ -371,7 +401,7 @@ final class Settings {
 	private static function url_keys( $tab ) {
 		$map = array(
 			'news'         => array( 'source_url' ),
-			'integrations' => array( 'shell_home_url', 'shell_news_url' ),
+			'integrations' => array( 'shell_home_url', 'shell_news_url', 'composer_page_url' ),
 		);
 
 		return isset( $map[ $tab ] ) ? $map[ $tab ] : array();
@@ -385,8 +415,9 @@ final class Settings {
 	 */
 	private static function selector_keys( $tab ) {
 		$map = array(
-			'general'      => array( 'environment' => array( 'local', 'staging', 'production' ), 'phase' => array( 'phase_1_foundation' ) ),
-			'feed'         => array( 'default_visibility' => array( 'public', 'members', 'doctors', 'private' ) ),
+			'general'      => array( 'environment' => array( 'local', 'staging', 'production' ), 'phase' => array( 'phase_1_foundation', 'phase_2_home_feed_composer' ) ),
+			'feed'         => array( 'default_visibility' => array_keys( Taxonomies::visibility_terms() ), 'default_mode' => array_keys( FeedContext::modes() ), 'pagination' => array( 'numbers', 'previous_next' ) ),
+			'composer'     => array( 'immediate_publish_policy' => array( 'capability' ), 'review_required_policy' => array( 'unverified_doctors', 'all_doctors' ) ),
 			'moderation'   => array( 'default_report_state' => array( 'open', 'triaged', 'resolved', 'dismissed' ) ),
 			'capabilities' => array( 'verified_doctor_policy' => array( 'submit', 'publish' ) ),
 		);
@@ -409,18 +440,71 @@ final class Settings {
 	}
 
 	/**
+	 * List settings and their allowed values.
+	 *
+	 * @param string $tab Tab.
+	 * @return array<string,array<int,string>>
+	 */
+	private static function list_keys( $tab ) {
+		$map = array(
+			'feed'     => array(
+				'enabled_filters' => array_keys( FeedContext::modes() ),
+				'allowed_types'   => array_keys( Taxonomies::feed_type_terms() ),
+			),
+			'composer' => array(
+				'allowed_feed_types'       => FeedContext::phase2_feed_type_slugs(),
+				'allowed_visibility_modes' => FeedContext::phase2_visibility_slugs( true ),
+			),
+		);
+
+		return isset( $map[ $tab ] ) ? $map[ $tab ] : array();
+	}
+
+	/**
 	 * Sanitize allowed MIME values.
 	 *
 	 * @param mixed $value MIME list.
 	 * @return array<int,string>
 	 */
 	private static function allowed_mimes( $value ) {
-		$allowed = array( 'image/jpeg', 'image/png', 'image/webp', 'application/pdf' );
+		$allowed = array(
+			'image/jpeg',
+			'image/png',
+			'image/webp',
+			'application/pdf',
+			'video/mp4',
+			'video/quicktime',
+			'audio/mpeg',
+			'audio/mp4',
+			'audio/wav',
+			'audio/ogg',
+		);
 		$items   = is_array( $value ) ? $value : preg_split( '/[\s,]+/', (string) $value );
 		$clean   = array();
 
 		foreach ( (array) $items as $item ) {
 			$item = strtolower( trim( (string) $item ) );
+			if ( in_array( $item, $allowed, true ) ) {
+				$clean[] = $item;
+			}
+		}
+
+		return array_values( array_unique( $clean ) );
+	}
+
+	/**
+	 * Clean a list against allowed values.
+	 *
+	 * @param mixed             $value Raw value.
+	 * @param array<int,string> $allowed Allowed values.
+	 * @return array<int,string>
+	 */
+	private static function clean_allowed_list( $value, array $allowed ) {
+		$items = is_array( $value ) ? $value : preg_split( '/[\s,]+/', (string) $value );
+		$clean = array();
+
+		foreach ( (array) $items as $item ) {
+			$item = self::clean_key( $item );
 			if ( in_array( $item, $allowed, true ) ) {
 				$clean[] = $item;
 			}

@@ -1,6 +1,6 @@
 <?php
 /**
- * Build a Phase 1 development release artifact.
+ * Build a Phase 2 development release artifact.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -8,7 +8,7 @@
 $root = dirname( __DIR__ );
 $release_dir = $root . DIRECTORY_SEPARATOR . 'release';
 $slug = 'sabri-complete-home-news-feed';
-$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-1';
+$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-2';
 $zip_path = $release_dir . DIRECTORY_SEPARATOR . $base . '.zip';
 $sha_path = $release_dir . DIRECTORY_SEPARATOR . $base . '.sha256';
 $report_path = $release_dir . DIRECTORY_SEPARATOR . $base . '-TEST-REPORT.md';
@@ -63,14 +63,14 @@ $zip->close();
 $hash = hash_file( 'sha256', $zip_path );
 file_put_contents( $sha_path, $hash . '  ' . basename( $zip_path ) . PHP_EOL );
 
-$report = "# Sabri Complete Home and News Feed Phase 1 Test Report\n\n";
+$report = "# Sabri Complete Home and News Feed Phase 2 Test Report\n\n";
 $report .= "- Version: 1.0.0\n";
 $report .= "- Artifact: " . basename( $zip_path ) . "\n";
 $report .= "- SHA-256: " . $hash . "\n";
 $report .= "- Top-level ZIP folder: " . $slug . "/\n";
 $report .= "- Runtime files included: " . count( $files ) . "\n";
 $report .= "- Excluded development paths: " . implode( ', ', array_merge( $excluded_dirs, $excluded_files ) ) . "\n";
-$report .= "- Release status: Phase 1 development artifact only; not the final complete plugin release.\n";
+$report .= "- Release status: Phase 2 development artifact only; Phase 3 social interactions and Phase 4 complete News remain deferred.\n";
 file_put_contents( $report_path, $report );
 
 echo "Built {$zip_path}\n";

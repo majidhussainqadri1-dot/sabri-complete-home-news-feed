@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $slug = 'sabri-complete-home-news-feed'
-$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-1'
+$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-2'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -73,7 +73,7 @@ $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvar
 "$hash  $(Split-Path $zipPath -Leaf)" | Set-Content -LiteralPath $shaPath -Encoding ASCII
 
 $report = @(
-	'# Sabri Complete Home and News Feed Phase 1 Test Report',
+	'# Sabri Complete Home and News Feed Phase 2 Test Report',
 	'',
 	'- Version: 1.0.0',
 	"- Artifact: $(Split-Path $zipPath -Leaf)",
@@ -81,7 +81,7 @@ $report = @(
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
 	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', ')",
-	'- Release status: Phase 1 development artifact only; not the final complete plugin release.'
+	'- Release status: Phase 2 development artifact only; Phase 3 social interactions and Phase 4 complete News remain deferred.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 

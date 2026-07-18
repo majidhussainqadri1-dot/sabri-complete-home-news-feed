@@ -99,7 +99,7 @@ final class Integrations {
 	}
 
 	/**
-	 * Keep the Shell feed on core posts in Phase 1; no duplicate custom output.
+	 * Keep the Shell feed on core posts; custom output renders only by shortcode or plugin-owned hook.
 	 *
 	 * @param array<int,string> $post_types Post types.
 	 * @return array<int,string>
@@ -124,7 +124,7 @@ final class Integrations {
 		$rows[] = array(
 			'label'  => __( 'Home and News Feed foundation', 'sabri-complete-home-news-feed' ),
 			'status' => 'Connected',
-			'detail' => __( 'Phase 1 foundation plugin is active. Full feed rendering is reserved for later phases.', 'sabri-complete-home-news-feed' ),
+			'detail' => __( 'Phase 2 feed and composer runtime is active. Rendering uses shortcodes or plugin-owned hooks unless a confirmed Shell slot exists.', 'sabri-complete-home-news-feed' ),
 		);
 
 		return $rows;

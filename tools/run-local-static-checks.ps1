@@ -63,9 +63,12 @@ if ($php -and -not $SkipPhpTests) {
 $node = Get-Command node -ErrorAction SilentlyContinue
 if ($node) {
 	try {
-		& $node.Source --check (Join-Path $Root 'assets/js/admin.js') | Out-Null
-		if ($LASTEXITCODE -ne 0) {
-			Add-Failure 'JavaScript syntax validation failed.'
+		$jsFiles = $files | Where-Object { $_.Extension -eq '.js' }
+		foreach ($js in $jsFiles) {
+			& $node.Source --check $js.FullName | Out-Null
+			if ($LASTEXITCODE -ne 0) {
+				Add-Failure "JavaScript syntax validation failed for $($js.FullName)"
+			}
 		}
 	} catch {
 		Add-Warning "Node is present but could not run locally: $($_.Exception.Message)"
@@ -74,9 +77,12 @@ if ($node) {
 	Add-Warning 'Node is unavailable locally; JavaScript syntax validation was not run.'
 }
 
-$css = Get-Content -LiteralPath (Join-Path $Root 'assets/css/admin.css') -Raw
-if ($css -match '@import|url\(\s*["'']?https?://') {
-	Add-Failure 'CSS must not import remote resources.'
+$cssFiles = $files | Where-Object { $_.Extension -eq '.css' }
+foreach ($cssFile in $cssFiles) {
+	$css = Get-Content -LiteralPath $cssFile.FullName -Raw
+	if ($css -match '@import|url\(\s*["'']?https?://') {
+		Add-Failure "CSS must not import remote resources: $($cssFile.FullName)"
+	}
 }
 
 $jsonFiles = $files | Where-Object { $_.Extension -eq '.json' }

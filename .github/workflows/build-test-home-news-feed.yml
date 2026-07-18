@@ -30,7 +30,7 @@ jobs:
         run: php tools/run-tests.php
 
       - name: JavaScript syntax validation
-        run: node --check assets/js/admin.js
+        run: find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: CSS, JSON, security, and whitespace checks
         shell: pwsh
@@ -39,7 +39,13 @@ jobs:
       - name: Database schema, settings, and capability tests
         run: php tools/run-tests.php
 
-      - name: Build Phase 1 release artifact
+      - name: Feed, visibility, REST, upload, and duplicate-render tests
+        run: php tools/run-tests.php
+
+      - name: Composer permission and status-transition tests
+        run: php tools/run-tests.php
+
+      - name: Build Phase 2 release artifact
         shell: pwsh
         run: ./tools/build-release.ps1
 
@@ -47,7 +53,7 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = Get-ChildItem release/*-PHASE-1.zip | Select-Object -First 1
+          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
           $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
           try {
             $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
@@ -65,8 +71,8 @@ jobs:
       - name: SHA-256 verification
         shell: pwsh
         run: |
-          $zip = Get-ChildItem release/*-PHASE-1.zip | Select-Object -First 1
-          $sha = Get-ChildItem release/*-PHASE-1.sha256 | Select-Object -First 1
+          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
+          $sha = Get-ChildItem release/*-PHASE-2.sha256 | Select-Object -First 1
           $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
           $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -ne $actual) {
@@ -76,8 +82,8 @@ jobs:
       - name: Upload Phase 1 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: sabri-home-news-feed-phase-1
+          name: sabri-home-news-feed-phase-2
           path: |
-            release/*-PHASE-1.zip
-            release/*-PHASE-1.sha256
-            release/*-PHASE-1-TEST-REPORT.md
+            release/*-PHASE-2.zip
+            release/*-PHASE-2.sha256
+            release/*-PHASE-2-TEST-REPORT.md

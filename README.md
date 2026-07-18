@@ -6,9 +6,9 @@ Plugin slug: `sabri-complete-home-news-feed`
 
 Text domain: `sabri-complete-home-news-feed`
 
-Sabri Complete Home and News Feed is an independent WordPress plugin foundation for the Sabri Social Homeopathy Platform. Phase 1 builds the bootstrap, settings architecture, capability policy, custom social-data schema, Safe Mode, repair, migration, rollback, privacy, REST diagnostics, admin screens, CI workflow, and release-builder foundation.
+Sabri Complete Home and News Feed is an independent WordPress plugin for the Sabri Social Homeopathy Platform. Phase 2 adds a real Home Feed and public Composer runtime on top of the Phase 1 bootstrap, settings architecture, capability policy, custom social-data schema, Safe Mode, repair, migration, rollback, privacy, REST diagnostics, admin screens, CI workflow, and release-builder foundation.
 
-Phase 1 does not claim that the Home Feed, Composer, social interactions, complete News workflows, moderation workflows, or analytics dashboards are finished.
+Phase 2 completes the foundation Home Feed and public Composer runtime only. Likes, dislikes, comments, replies, saves, follows, reports, polls, complete editorial News workflows, moderation workflows, and analytics dashboards remain deferred.
 
 ## Safety Boundaries
 
@@ -42,7 +42,15 @@ The admin menu is **Home & News Feed** with:
 
 Overview, Feed Settings, News Settings, Composer, Roles & Capabilities, Integrations, System Check, Repair, Migration, Rollback, and Help.
 
-Pages contain Phase 1 information and guarded actions. Future functions are labeled as available after the relevant implementation phase.
+Feed and Composer settings are functional for the Phase 2 runtime. Deferred Phase 3 and Phase 4 functions remain labelled as future work.
+
+## Public Runtime
+
+- Home Feed shortcode: `[sabri_complete_home_feed]`
+- Public Composer shortcode: `[sabri_public_post_composer]`
+- Plugin-owned fallback hook: `sabri_feed_home_center_content`
+
+The Home Feed reuses existing WordPress posts with feed taxonomies and metadata. It does not copy posts into a new post type and does not create placeholder production data.
 
 ## Unified Shell Integration
 
@@ -56,9 +64,9 @@ The sibling Sabri Unified Application Shell repository was inspected read-only. 
 
 If PHP, Node, npm, Python, or GitHub CLI are unavailable locally, the script reports that instead of fabricating results. GitHub Actions runs the full intended test and packaging workflow.
 
-## Phase 1 Release Artifact
+## Phase 2 Release Artifact
 
-The release builder creates a Phase 1 development artifact:
+The release builder creates a Phase 2 development artifact:
 
 ```powershell
 .\tools\build-release.ps1

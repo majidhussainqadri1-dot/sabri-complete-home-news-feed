@@ -46,7 +46,11 @@ This plugin:
 - Detects whether the Shell is active.
 - Does not fatal when the Shell is absent.
 - Does not create fake Shell integration.
-- Avoids duplicate Home feed output.
+- Renders Home through `[sabri_complete_home_feed]` or the plugin-owned `sabri_feed_home_center_content` hook.
+- Provides `[sabri_public_post_composer]` for public composer placement.
+- Avoids duplicate Home feed output with a per-request render guard.
 - Does not replace the Shell header or sidebars.
 - Does not render a second global navigation.
 - Does not change the Shell layout resolver.
+
+No confirmed Shell center-content slot exists in the Phase 1 contract, so a later Shell bridge is still required for native Shell placement beyond shortcodes or plugin-owned hooks.
