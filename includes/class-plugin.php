@@ -69,12 +69,14 @@ final class Plugin {
 		FeedQuery::register();
 		HomeIntegration::register();
 		SocialRuntime::register();
+		CommentRuntime::register();
 		SavedPostsRuntime::register();
 		Shortcodes::register();
 		Composer::register();
 		RestFeed::register();
 		RestComposer::register();
 		RestInteractions::register();
+		RestComments::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();
