@@ -270,7 +270,7 @@ final class InteractionRepository {
 	private static function sanitize_value( $column, $value ) {
 		$integer_columns = array( 'id', 'post_id', 'user_id', 'follower_user_id', 'target_user_id', 'reporter_user_id', 'object_id', 'view_count', 'poll_post_id', 'actor_user_id' );
 		if ( in_array( $column, $integer_columns, true ) ) {
-			if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
+			if ( ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) || (int) $value < 0 ) {
 				return new \WP_Error( 'invalid_repository_integer', 'The requested numeric identifier is invalid.' );
 			}
 			return (int) $value;
