@@ -343,7 +343,11 @@ final class Settings {
 	public static function merge_defaults( array $stored, array $defaults ) {
 		foreach ( $defaults as $key => $value ) {
 			if ( is_array( $value ) ) {
-				$stored[ $key ] = self::merge_defaults( isset( $stored[ $key ] ) && is_array( $stored[ $key ] ) ? $stored[ $key ] : array(), $value );
+				if ( ! array_key_exists( $key, $stored ) || ! is_array( $stored[ $key ] ) ) {
+					$stored[ $key ] = $value;
+				} elseif ( ! array_is_list( $value ) ) {
+					$stored[ $key ] = self::merge_defaults( $stored[ $key ], $value );
+				}
 			} elseif ( ! array_key_exists( $key, $stored ) ) {
 				$stored[ $key ] = $value;
 			}
