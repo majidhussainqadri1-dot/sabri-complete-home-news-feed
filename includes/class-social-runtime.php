@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 3B social action rendering.
+ * Phase 3 social action rendering.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders progressive-enhancement reactions and private saves.
+ * Renders progressive-enhancement reactions, comments, and private saves.
  */
 final class SocialRuntime {
 	/**
@@ -43,7 +43,8 @@ final class SocialRuntime {
 		$post_id = self::positive_id( $post_id );
 		$reactions_enabled = Phase3FeatureSettings::enabled( 'reactions_enabled' );
 		$saves_enabled     = Phase3FeatureSettings::enabled( 'saves_enabled' );
-		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
+		$comments_enabled  = Phase3FeatureSettings::enabled( 'comments_enabled' );
+		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
 			return '';
 		}
 
@@ -53,7 +54,8 @@ final class SocialRuntime {
 		$summary   = EngagementService::summary( $post_id, $user_id );
 		$base      = function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/posts/' . $post_id ) : '';
 		$nonce     = $logged_in && function_exists( 'wp_create_nonce' ) ? wp_create_nonce( InteractionPermissions::REST_NONCE_ACTION ) : '';
-		$login_url = function_exists( 'wp_login_url' ) ? wp_login_url( function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '' ) : '';
+		$permalink = function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '';
+		$login_url = function_exists( 'wp_login_url' ) ? wp_login_url( $permalink ) : '';
 
 		return FeedRenderer::template(
 			'action-bar',
@@ -66,9 +68,12 @@ final class SocialRuntime {
 				'engagement_url'      => $base . '/engagement',
 				'reaction_url'        => $base . '/reaction',
 				'save_url'            => $base . '/save',
+				'comments_url'        => $permalink . '#sabri-hnf-comments-' . $post_id,
+				'comment_count'       => $comments_enabled ? CommentService::approved_count( $post_id ) : 0,
 				'reactions_enabled'   => $reactions_enabled,
 				'dislikes_enabled'    => Phase3FeatureSettings::enabled( 'dislikes_enabled' ),
 				'saves_enabled'       => $saves_enabled,
+				'comments_enabled'    => $comments_enabled,
 				'show_public_counts'  => Phase3FeatureSettings::enabled( 'show_public_reaction_counts' ),
 			)
 		);
