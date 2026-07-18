@@ -32,6 +32,9 @@ jobs:
       - name: Phase 3 checkpoint contract tests
         run: php tests/run-phase3-contract-tests.php
 
+      - name: Phase 3A infrastructure tests
+        run: php tests/run-phase3-infrastructure-tests.php
+
       - name: JavaScript syntax validation
         run: find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
 
