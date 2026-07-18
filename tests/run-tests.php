@@ -16,6 +16,7 @@ use Sabri\HomeNewsFeed\ComposerPermissions;
 use Sabri\HomeNewsFeed\ComposerValidation;
 use Sabri\HomeNewsFeed\FeedContext;
 use Sabri\HomeNewsFeed\FeedQuery;
+use Sabri\HomeNewsFeed\FeedRenderer;
 use Sabri\HomeNewsFeed\HomeIntegration;
 use Sabri\HomeNewsFeed\MediaHandler;
 use Sabri\HomeNewsFeed\PostMetadata;
