@@ -58,7 +58,7 @@ final class Phase3FeatureSettings {
 			'dislikes_enabled'             => 1,
 			'saves_enabled'                => 1,
 			'show_public_reaction_counts'  => 1,
-			'comments_enabled'             => 0,
+			'comments_enabled'             => 1,
 			'follows_enabled'              => 0,
 			'followers_visibility_enabled' => 0,
 			'reports_enabled'              => 0,
