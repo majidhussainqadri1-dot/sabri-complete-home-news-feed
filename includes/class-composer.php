@@ -65,6 +65,7 @@ final class Composer {
 				'settings'       => $settings,
 				'feed_types'     => self::composer_feed_type_labels( $settings ),
 				'visibility'     => FeedContext::allowed_composer_visibility( $settings, true ),
+				'default_visibility' => self::default_composer_visibility( $settings ),
 				'evidence_terms' => Taxonomies::evidence_level_terms(),
 				'clinical_fields' => ComposerValidation::clinical_fields(),
 				'research_fields' => ComposerValidation::research_fields(),
@@ -132,6 +133,10 @@ final class Composer {
 		}
 
 		$data = $validation['data'];
+		$post_id = self::positive_id( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
+		if ( $post_id > 0 && ! ComposerPermissions::user_can_edit_post( $post_id, $user_id ) ) {
+			return self::error( 'edit_denied', __( 'You cannot edit this post.', 'sabri-complete-home-news-feed' ), 403 );
+		}
 
 		if ( 'preview' === $data['action'] ) {
 			if ( empty( $settings['composer']['previews_enabled'] ) ) {
@@ -160,17 +165,11 @@ final class Composer {
 		}
 		$data['review_state'] = 'publish' === $status['status'] || 'future' === $status['status'] ? 'approved' : 'pending';
 
-		$post_id = isset( $input['post_id'] ) ? absint( $input['post_id'] ) : 0;
-		if ( $post_id > 0 && ! ComposerPermissions::user_can_edit_post( $post_id, $user_id ) ) {
-			return self::error( 'edit_denied', __( 'You cannot edit this post.', 'sabri-complete-home-news-feed' ), 403 );
-		}
-
 		$postarr = array(
 			'post_type'    => 'post',
 			'post_status'  => $status['status'],
 			'post_title'   => self::post_title_from_data( $data ),
 			'post_content' => $data['content'],
-			'post_author'  => $user_id,
 			'comment_status' => ! empty( $data['comments_enabled'] ) ? 'open' : 'closed',
 		);
 
@@ -183,20 +182,27 @@ final class Composer {
 			$data['edited_at'] = gmdate( 'Y-m-d H:i:s' );
 			$saved_id = function_exists( 'wp_update_post' ) ? wp_update_post( $postarr, true ) : 0;
 		} else {
+			$postarr['post_author'] = $user_id;
 			$saved_id = function_exists( 'wp_insert_post' ) ? wp_insert_post( $postarr, true ) : 0;
 		}
 
 		if ( function_exists( 'is_wp_error' ) && is_wp_error( $saved_id ) ) {
+			MediaHandler::cleanup_uploaded_attachments( $media['uploaded'] );
 			return self::error( 'save_failed', __( 'The post could not be saved.', 'sabri-complete-home-news-feed' ), 500 );
 		}
 
 		$saved_id = (int) $saved_id;
 		if ( $saved_id <= 0 ) {
+			MediaHandler::cleanup_uploaded_attachments( $media['uploaded'] );
 			return self::error( 'save_failed', __( 'The post could not be saved.', 'sabri-complete-home-news-feed' ), 500 );
 		}
 
+		$associated = MediaHandler::associate_attachments_with_post( $data['attachments'], $saved_id, $user_id );
+		$failed_uploaded = array_values( array_diff( $media['uploaded'], $associated ) );
+		MediaHandler::cleanup_uploaded_attachments( $failed_uploaded );
+		$data['attachments'] = array_values( array_intersect( $data['attachments'], $associated ) );
+		$data['gallery'] = array_values( array_intersect( $data['gallery'], $associated ) );
 		PostMetadata::save_for_post( $saved_id, $data );
-		MediaHandler::associate_attachments_with_post( $data['attachments'], $saved_id );
 		FeedQuery::invalidate_cache();
 		AuditLog::record( 'composer_post_saved', array( 'post_id' => $saved_id, 'status' => $status['status'] ) );
 
@@ -226,6 +232,31 @@ final class Composer {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Resolve a configured default that is also allowed by the composer.
+	 *
+	 * @param array<string,mixed> $settings Settings.
+	 * @return string
+	 */
+	private static function default_composer_visibility( array $settings ) {
+		$allowed = FeedContext::allowed_composer_visibility( $settings, true );
+		$default = isset( $settings['feed']['default_visibility'] ) ? sanitize_key( $settings['feed']['default_visibility'] ) : 'public';
+		return in_array( $default, $allowed, true ) ? $default : ( ! empty( $allowed ) ? reset( $allowed ) : 'public' );
+	}
+
+	/**
+	 * Accept only an unambiguous positive integer identifier.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	private static function positive_id( $value ) {
+		if ( ! is_scalar( $value ) || ! preg_match( '/^[1-9][0-9]*$/', trim( (string) $value ) ) ) {
+			return 0;
+		}
+		return (int) $value;
 	}
 
 	/**
