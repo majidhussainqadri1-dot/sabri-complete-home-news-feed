@@ -79,6 +79,15 @@ final class Admin {
 				array( __CLASS__, 'render_' . str_replace( '-', '_', $slug ) )
 			);
 		}
+
+		add_submenu_page(
+			'sabri-feed-overview',
+			__( 'Staging Preview', 'sabri-complete-home-news-feed' ),
+			__( 'Staging Preview', 'sabri-complete-home-news-feed' ),
+			'manage_options',
+			'sabri-feed-staging-preview',
+			array( __CLASS__, 'render_staging_preview' )
+		);
 	}
 
 	/**
@@ -97,6 +106,19 @@ final class Admin {
 	public static function render_migration() { self::render( 'migration' ); }
 	public static function render_rollback() { self::render( 'rollback' ); }
 	public static function render_help() { self::render( 'help' ); }
+
+	/**
+	 * Render the administrator-only staging preview.
+	 *
+	 * @return void
+	 */
+	public static function render_staging_preview() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to access the staging preview.', 'sabri-complete-home-news-feed' ) );
+		}
+
+		self::render( 'staging-preview' );
+	}
 
 	/**
 	 * Handle settings save.
