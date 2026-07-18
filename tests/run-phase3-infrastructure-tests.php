@@ -84,7 +84,7 @@ sabri_phase3a_assert( ! InteractionPermissions::owns_private_resource( 6, 7 ), '
 $sabri_test_current_user_id = 1;
 $sabri_test_current_caps    = array( 'sabri_feed_manage_reports' => true );
 sabri_phase3a_assert( InteractionPermissions::can_manage_reports( 1 ), 'Authorized report managers must pass.' );
-$sabri_phase3a_assert( ! InteractionPermissions::can_manage_reports( 7 ), 'Capabilities must not be evaluated for an arbitrary non-current user.' );
+sabri_phase3a_assert( ! InteractionPermissions::can_manage_reports( 7 ), 'Capabilities must not be evaluated for an arbitrary non-current user.' );
 
 $sabri_test_current_user_id = 7;
 $sabri_test_current_caps    = array();
