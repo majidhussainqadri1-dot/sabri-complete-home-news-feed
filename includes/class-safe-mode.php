@@ -43,6 +43,10 @@ final class SafeMode {
 			return false;
 		}
 
+		if ( ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) {
+			return false;
+		}
+
 		return function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
 	}
 

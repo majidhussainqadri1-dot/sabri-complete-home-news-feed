@@ -23,8 +23,8 @@ $sabri_test_enqueued_scripts = array();
 $sabri_test_update_log = array();
 $sabri_test_terms = array();
 $sabri_test_post_terms = array();
-$sabri_test_current_user_id = 1;
-$sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
+$sabri_test_current_user_id = 0;
+$sabri_test_current_caps = array();
 $sabri_test_user_roles = array(
 	1 => array( 'administrator' ),
 	2 => array( 'founder' ),
@@ -32,6 +32,7 @@ $sabri_test_user_roles = array(
 	4 => array( 'doctor' ),
 	5 => array( 'student' ),
 	6 => array( 'patient' ),
+	7 => array( 'subscriber' ),
 );
 $sabri_test_users_by_id = array(
 	1 => array( 'ID' => 1, 'user_email' => 'admin@example.com', 'display_name' => 'Admin User' ),
@@ -40,6 +41,7 @@ $sabri_test_users_by_id = array(
 	4 => array( 'ID' => 4, 'user_email' => 'doctor@example.com', 'display_name' => 'Unverified Doctor' ),
 	5 => array( 'ID' => 5, 'user_email' => 'student@example.com', 'display_name' => 'Student User' ),
 	6 => array( 'ID' => 6, 'user_email' => 'patient@example.com', 'display_name' => 'Patient User' ),
+	7 => array( 'ID' => 7, 'user_email' => 'subscriber@example.com', 'display_name' => 'Subscriber User' ),
 );
 $sabri_test_tables = array();
 $sabri_test_indexes = array();
@@ -52,6 +54,59 @@ $sabri_test_next_post_id = 100;
 $sabri_test_users = array(
 	'user@example.com' => 42,
 );
+$sabri_test_is_admin = false;
+
+function sabri_test_default_user_roles() {
+	return array(
+		1 => array( 'administrator' ),
+		2 => array( 'founder' ),
+		3 => array( 'verified_doctor' ),
+		4 => array( 'doctor' ),
+		5 => array( 'student' ),
+		6 => array( 'patient' ),
+		7 => array( 'subscriber' ),
+	);
+}
+
+function sabri_test_reset_state( $reset_data = false ) {
+	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
+
+	$sabri_test_current_user_id = 0;
+	$sabri_test_current_caps = array();
+	$sabri_test_user_roles = sabri_test_default_user_roles();
+	$sabri_test_is_admin = false;
+	$sabri_test_filter_overrides = array();
+	$sabri_test_rest_routes = array();
+	$sabri_test_enqueued_styles = array();
+	$sabri_test_enqueued_scripts = array();
+	$sabri_test_current_post_id = 0;
+
+	$_GET = array();
+	$_POST = array();
+	$_REQUEST = array();
+	$_FILES = array();
+	unset( $_SERVER['HTTP_X_WP_NONCE'] );
+
+	if ( $reset_data ) {
+		$sabri_test_options = array();
+		$sabri_test_update_log = array();
+		$sabri_test_terms = array();
+		$sabri_test_tables = array();
+		$sabri_test_indexes = array();
+		$sabri_test_dbdelta_skip_table = '';
+		$sabri_test_dbdelta_skip_index = '';
+		$sabri_test_rows = array();
+		$sabri_test_posts = array();
+		$sabri_test_post_meta = array();
+		$sabri_test_post_terms = array();
+		$sabri_test_next_post_id = 100;
+		$sabri_test_transients = array();
+	}
+
+	if ( class_exists( 'Sabri\\HomeNewsFeed\\HomeIntegration' ) ) {
+		\Sabri\HomeNewsFeed\HomeIntegration::reset_runtime_guards();
+	}
+}
 
 function __( $text, $domain = null ) { unset( $domain ); return $text; }
 function esc_html__( $text, $domain = null ) { unset( $domain ); return $text; }
@@ -81,7 +136,7 @@ function load_plugin_textdomain() { return true; }
 function register_activation_hook() {}
 function register_deactivation_hook() {}
 function is_admin() { global $sabri_test_is_admin; return isset( $sabri_test_is_admin ) ? (bool) $sabri_test_is_admin : true; }
-function current_user_can( $capability ) { global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles; if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) { return true; } foreach ( isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array() as $role_slug ) { if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) { return true; } } return false; }
+function current_user_can( $capability ) { global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles; if ( (int) $sabri_test_current_user_id <= 0 ) { return false; } if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) { return true; } foreach ( isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array() as $role_slug ) { if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) { return true; } } return false; }
 function get_current_user_id() { global $sabri_test_current_user_id; return (int) $sabri_test_current_user_id; }
 function is_user_logged_in() { return get_current_user_id() > 0; }
 function wp_get_current_user() { return get_userdata( get_current_user_id() ); }
@@ -151,7 +206,7 @@ $sabri_test_roles = array(
 	'doctor'          => new Sabri_Test_Role(),
 	'student'         => new Sabri_Test_Role(),
 	'patient'         => new Sabri_Test_Role(),
-	'subscriber'      => new Sabri_Test_Role(),
+	'subscriber'      => new Sabri_Test_Role( array( 'read' => true ) ),
 );
 
 function get_role( $role_slug ) { global $sabri_test_roles; return isset( $sabri_test_roles[ $role_slug ] ) ? $sabri_test_roles[ $role_slug ] : null; }

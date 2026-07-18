@@ -42,33 +42,8 @@ function sabri_assert( $condition, $message ) {
 }
 
 function sabri_reset_options() {
-	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin;
-	$sabri_test_options = array();
-	$sabri_test_update_log = array();
-	$sabri_test_terms = array();
-	$sabri_test_filter_overrides = array();
-	$sabri_test_tables = array();
-	$sabri_test_indexes = array();
-	$sabri_test_dbdelta_skip_table = '';
-	$sabri_test_dbdelta_skip_index = '';
-	$sabri_test_rows = array();
-	$sabri_test_posts = array();
-	$sabri_test_post_meta = array();
-	$sabri_test_post_terms = array();
-	$sabri_test_next_post_id = 100;
-	$sabri_test_transients = array();
-	$sabri_test_current_user_id = 1;
-	$sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
-	$sabri_test_user_roles = array(
-		1 => array( 'administrator' ),
-		2 => array( 'founder' ),
-		3 => array( 'verified_doctor' ),
-		4 => array( 'doctor' ),
-		5 => array( 'student' ),
-		6 => array( 'patient' ),
-	);
-	$sabri_test_is_admin = true;
-	HomeIntegration::reset_runtime_guards();
+	sabri_test_reset_state( true );
+	sabri_reset_roles();
 }
 
 function sabri_reset_roles() {
@@ -233,18 +208,64 @@ function sabri_test_capability_policy() {
 }
 
 function sabri_test_safe_mode_and_emergency() {
-	global $sabri_test_current_caps;
+	global $sabri_test_current_caps, $sabri_test_current_user_id;
 	sabri_reset_options();
 	Settings::ensure_defaults();
 	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
 	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode query must require an administrator.' );
+	$sabri_test_current_user_id = 1;
 	$sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
 	sabri_assert( SafeMode::query_safe_mode(), 'Administrators may use read-only Safe Mode query.' );
 	SafeMode::set_emergency_disabled( true );
 	sabri_assert( SafeMode::emergency_disabled(), 'Emergency Disable must persist.' );
 	sabri_assert( ! SafeMode::feature_enabled( 'composer' ), 'Emergency Disable must close future public composer gate.' );
 	unset( $_GET['sabri_feed_safe'] );
+}
+
+function sabri_test_safe_mode_security_matrix() {
+	global $sabri_test_current_caps, $sabri_test_current_user_id;
+	sabri_reset_options();
+	Settings::ensure_defaults();
+
+	sabri_test_reset_state();
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode visitor without query must remain inactive.' );
+
+	sabri_test_reset_state();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 0;
+	$sabri_test_current_caps = array();
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode logged-out query must be denied.' );
+
+	sabri_test_reset_state();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 7;
+	$sabri_test_current_caps = array( 'read' => true );
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode logged-in non-admin must be denied.' );
+
+	sabri_test_reset_state();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 4;
+	$sabri_test_current_caps = array();
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode doctor without administrator authority must be denied.' );
+
+	sabri_test_reset_state();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 7;
+	$sabri_test_current_caps = array( 'edit_posts' => true );
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode must deny users with only ordinary post capabilities.' );
+
+	sabri_test_reset_state();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 1;
+	$sabri_test_current_caps = array( 'manage_options' => true );
+	sabri_assert( SafeMode::query_safe_mode(), 'Safe Mode administrator query must be allowed.' );
 }
 
 function sabri_test_rollback_and_repair_boundaries() {
@@ -260,11 +281,42 @@ function sabri_test_rollback_and_repair_boundaries() {
 }
 
 function sabri_test_rest_permissions() {
-	global $sabri_test_current_caps;
+	global $sabri_test_current_caps, $sabri_test_current_user_id;
+	sabri_reset_options();
+	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
 	sabri_assert( ! RestFoundation::permission_callback(), 'REST diagnostics must deny unauthenticated users.' );
+	$sabri_test_current_user_id = 1;
 	$sabri_test_current_caps = array( 'sabri_feed_manage_settings' => true );
 	sabri_assert( RestFoundation::permission_callback(), 'REST diagnostics must allow plugin administrators.' );
+}
+
+function sabri_test_rest_diagnostics_security_matrix() {
+	global $sabri_test_current_caps, $sabri_test_current_user_id;
+	sabri_reset_options();
+
+	sabri_test_reset_state();
+	sabri_assert( ! RestFoundation::permission_callback(), 'REST diagnostics visitor request must be denied.' );
+
+	sabri_test_reset_state();
+	$sabri_test_current_user_id = 0;
+	$sabri_test_current_caps = array( 'sabri_feed_manage_settings' => true );
+	sabri_assert( ! RestFoundation::permission_callback(), 'REST diagnostics logged-out request must be denied even with a stale capability map.' );
+
+	sabri_test_reset_state();
+	$sabri_test_current_user_id = 7;
+	$sabri_test_current_caps = array( 'read' => true );
+	sabri_assert( ! RestFoundation::permission_callback(), 'REST diagnostics logged-in user without plugin capability must be denied.' );
+
+	sabri_test_reset_state();
+	$sabri_test_current_user_id = 1;
+	$sabri_test_current_caps = array( 'manage_options' => true );
+	sabri_assert( RestFoundation::permission_callback(), 'REST diagnostics administrator must be allowed.' );
+
+	sabri_test_reset_state();
+	$sabri_test_current_user_id = 7;
+	$sabri_test_current_caps = array( 'sabri_feed_manage_settings' => true );
+	sabri_assert( RestFoundation::permission_callback(), 'REST diagnostics authenticated plugin manager must be allowed.' );
 }
 
 function sabri_test_phase2_feed_context_and_query() {
@@ -522,6 +574,27 @@ function sabri_test_phase2_duplicate_rest_safe_mode_and_cache() {
 	unset( $before );
 }
 
+function sabri_test_security_state_isolated_after_phase2_mutations() {
+	global $sabri_test_current_caps, $sabri_test_current_user_id;
+
+	sabri_test_phase2_composer_permissions_and_statuses();
+	sabri_test_phase2_duplicate_rest_safe_mode_and_cache();
+
+	sabri_test_reset_state( true );
+	sabri_reset_roles();
+	Settings::ensure_defaults();
+	$_GET['sabri_feed_safe'] = '1';
+	$sabri_test_current_user_id = 0;
+	$sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
+	sabri_assert( ! SafeMode::query_safe_mode(), 'Safe Mode must stay denied for logged-out users after Phase 2 permission tests run first.' );
+	sabri_assert( ! RestFoundation::permission_callback(), 'REST diagnostics must stay denied for logged-out users after feed/composer REST tests run first.' );
+
+	$sabri_test_current_user_id = 1;
+	$sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
+	sabri_assert( SafeMode::query_safe_mode(), 'Safe Mode administrator access must still work after Phase 2 permission tests run first.' );
+	sabri_assert( RestFoundation::permission_callback(), 'REST diagnostics administrator access must still work after feed/composer REST tests run first.' );
+}
+
 function sabri_test_privacy_exporter_payload_structure() {
 	global $sabri_test_rows;
 	sabri_reset_options();
@@ -671,8 +744,10 @@ $tests = array(
 	'sabri_test_integration_function_settings_preservation',
 	'sabri_test_capability_policy',
 	'sabri_test_safe_mode_and_emergency',
+	'sabri_test_safe_mode_security_matrix',
 	'sabri_test_rollback_and_repair_boundaries',
 	'sabri_test_rest_permissions',
+	'sabri_test_rest_diagnostics_security_matrix',
 	'sabri_test_phase2_feed_context_and_query',
 	'sabri_test_phase2_visibility_rules',
 	'sabri_test_phase2_composer_permissions_and_statuses',
@@ -680,6 +755,7 @@ $tests = array(
 	'sabri_test_phase2_composer_write_and_edit_policy',
 	'sabri_test_phase2_media_validation',
 	'sabri_test_phase2_duplicate_rest_safe_mode_and_cache',
+	'sabri_test_security_state_isolated_after_phase2_mutations',
 	'sabri_test_privacy_exporter_payload_structure',
 	'sabri_test_uninstall_capability_cleanup',
 	'sabri_test_taxonomies',
@@ -688,7 +764,12 @@ $tests = array(
 );
 
 foreach ( $tests as $test ) {
-	$test();
+	sabri_test_reset_state();
+	try {
+		$test();
+	} finally {
+		sabri_test_reset_state();
+	}
 }
 
 if ( $failures ) {

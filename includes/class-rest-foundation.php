@@ -67,6 +67,10 @@ final class RestFoundation {
 	 * @return bool
 	 */
 	public static function permission_callback() {
+		if ( ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) {
+			return false;
+		}
+
 		return function_exists( 'current_user_can' ) && ( current_user_can( 'sabri_feed_manage_settings' ) || current_user_can( 'manage_options' ) );
 	}
 
