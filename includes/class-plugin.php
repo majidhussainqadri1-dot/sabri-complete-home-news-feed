@@ -55,6 +55,7 @@ final class Plugin {
 		$this->registered = true;
 
 		Settings::register();
+		Phase3FeatureSettings::register();
 		Capabilities::register();
 		PostTypes::register();
 		Taxonomies::register();
@@ -67,10 +68,12 @@ final class Plugin {
 		MediaHandler::register();
 		FeedQuery::register();
 		HomeIntegration::register();
+		SocialRuntime::register();
 		Shortcodes::register();
 		Composer::register();
 		RestFeed::register();
 		RestComposer::register();
+		RestInteractions::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();
