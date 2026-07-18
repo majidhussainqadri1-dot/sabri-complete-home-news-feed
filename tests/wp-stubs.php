@@ -57,6 +57,8 @@ $sabri_test_users = array(
 );
 $sabri_test_is_admin = false;
 $sabri_test_is_attachment = false;
+$sabri_test_is_front_page = false;
+$sabri_test_is_home = false;
 
 function sabri_test_default_user_roles() {
 	return array(
@@ -71,13 +73,15 @@ function sabri_test_default_user_roles() {
 }
 
 function sabri_test_reset_state( $reset_data = false ) {
-	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_is_attachment, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
+	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_is_attachment, $sabri_test_is_front_page, $sabri_test_is_home, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
 
 	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
 	$sabri_test_user_roles = sabri_test_default_user_roles();
 	$sabri_test_is_admin = false;
 	$sabri_test_is_attachment = false;
+	$sabri_test_is_front_page = false;
+	$sabri_test_is_home = false;
 	$sabri_test_filter_overrides = array();
 	$sabri_test_rest_routes = array();
 	$sabri_test_enqueued_styles = array();
@@ -141,6 +145,8 @@ function load_plugin_textdomain() { return true; }
 function register_activation_hook() {}
 function register_deactivation_hook() {}
 function is_admin() { global $sabri_test_is_admin; return isset( $sabri_test_is_admin ) ? (bool) $sabri_test_is_admin : true; }
+function is_front_page() { global $sabri_test_is_front_page; return (bool) $sabri_test_is_front_page; }
+function is_home() { global $sabri_test_is_home; return (bool) $sabri_test_is_home; }
 function current_user_can( $capability ) { global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles; if ( (int) $sabri_test_current_user_id <= 0 ) { return false; } if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) { return true; } foreach ( isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array() as $role_slug ) { if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) { return true; } } return false; }
 function get_current_user_id() { global $sabri_test_current_user_id; return (int) $sabri_test_current_user_id; }
 function is_user_logged_in() { return get_current_user_id() > 0; }
