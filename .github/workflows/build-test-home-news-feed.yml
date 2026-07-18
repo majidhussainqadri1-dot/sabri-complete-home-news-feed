@@ -26,7 +26,7 @@ jobs:
       - name: PHP syntax lint
         run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
-      - name: PHP stub behavior tests
+      - name: Complete PHP behavior test suite
         run: php tools/run-tests.php
 
       - name: JavaScript syntax validation
@@ -35,15 +35,6 @@ jobs:
       - name: CSS, JSON, security, and whitespace checks
         shell: pwsh
         run: ./tools/run-local-static-checks.ps1
-
-      - name: Database schema, settings, and capability tests
-        run: php tools/run-tests.php
-
-      - name: Feed, visibility, REST, upload, and duplicate-render tests
-        run: php tools/run-tests.php
-
-      - name: Composer permission and status-transition tests
-        run: php tools/run-tests.php
 
       - name: Build Phase 2 release artifact
         shell: pwsh
@@ -79,7 +70,7 @@ jobs:
             throw "SHA-256 mismatch."
           }
 
-      - name: Upload Phase 1 artifacts
+      - name: Upload Phase 2 artifacts
         uses: actions/upload-artifact@v4
         with:
           name: sabri-home-news-feed-phase-2
