@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Provides narrowly scoped prepared queries for reactions and saves.
+ * Provides narrowly scoped prepared queries for social interaction services.
  */
 final class InteractionQueryRepository {
 	/**
@@ -145,6 +145,81 @@ final class InteractionQueryRepository {
 	}
 
 	/**
+	 * Find one user follow relationship regardless of active/removed/blocked state.
+	 *
+	 * @param int    $follower_user_id Follower user ID.
+	 * @param int    $target_user_id Target user ID.
+	 * @param string $target_type Target type.
+	 * @return array<string,mixed>|null
+	 */
+	public static function follow_record( $follower_user_id, $target_user_id, $target_type = 'user' ) {
+		global $wpdb;
+		if ( ! self::database_ready( array( 'get_row', 'prepare' ) ) ) {
+			return null;
+		}
+
+		$table = InteractionRepository::table_name( 'follows' );
+		$sql   = $wpdb->prepare(
+			"SELECT id, follower_user_id, target_user_id, target_type, status FROM `{$table}` WHERE follower_user_id = %d AND target_user_id = %d AND target_type = %s ORDER BY id DESC LIMIT 1",
+			self::positive_id( $follower_user_id ),
+			self::positive_id( $target_user_id ),
+			self::target_type( $target_type )
+		);
+		$row = $wpdb->get_row( $sql, ARRAY_A );
+		return is_array( $row ) ? $row : null;
+	}
+
+	/**
+	 * Return active user IDs followed by one current user.
+	 *
+	 * @param int    $follower_user_id Follower user ID.
+	 * @param string $target_type Target type.
+	 * @param int    $limit Maximum rows.
+	 * @return array<int,int>
+	 */
+	public static function following_user_ids( $follower_user_id, $target_type = 'user', $limit = 100 ) {
+		global $wpdb;
+		if ( ! self::database_ready( array( 'get_col', 'prepare' ) ) ) {
+			return array();
+		}
+
+		$limit = min( 200, max( 1, (int) $limit ) );
+		$table = InteractionRepository::table_name( 'follows' );
+		$sql   = $wpdb->prepare(
+			"SELECT target_user_id FROM `{$table}` WHERE follower_user_id = %d AND target_type = %s AND status = %s ORDER BY updated_at DESC, id DESC LIMIT %d",
+			self::positive_id( $follower_user_id ),
+			self::target_type( $target_type ),
+			'active',
+			$limit
+		);
+		$ids = $wpdb->get_col( $sql );
+		return array_values( array_unique( array_filter( array_map( 'absint', is_array( $ids ) ? $ids : array() ) ) ) );
+	}
+
+	/**
+	 * Count active followers for one target user.
+	 *
+	 * @param int    $target_user_id Target user ID.
+	 * @param string $target_type Target type.
+	 * @return int
+	 */
+	public static function follower_count( $target_user_id, $target_type = 'user' ) {
+		global $wpdb;
+		if ( ! self::database_ready( array( 'get_var', 'prepare' ) ) ) {
+			return 0;
+		}
+
+		$table = InteractionRepository::table_name( 'follows' );
+		$sql   = $wpdb->prepare(
+			"SELECT COUNT(*) FROM `{$table}` WHERE target_user_id = %d AND target_type = %s AND status = %s",
+			self::positive_id( $target_user_id ),
+			self::target_type( $target_type ),
+			'active'
+		);
+		return max( 0, (int) $wpdb->get_var( $sql ) );
+	}
+
+	/**
 	 * Check database adapter methods.
 	 *
 	 * @param array<int,string> $methods Required methods.
@@ -160,7 +235,7 @@ final class InteractionQueryRepository {
 				return false;
 			}
 		}
-		return '' !== InteractionRepository::table_name( 'reactions' ) && '' !== InteractionRepository::table_name( 'saves' );
+		return '' !== InteractionRepository::table_name( 'reactions' ) && '' !== InteractionRepository::table_name( 'saves' ) && '' !== InteractionRepository::table_name( 'follows' );
 	}
 
 	/**
@@ -186,5 +261,16 @@ final class InteractionQueryRepository {
 	private static function collection_key( $value ) {
 		$value = function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
 		return '' !== $value ? substr( $value, 0, 64 ) : 'default';
+	}
+
+	/**
+	 * Fixed target type allow-list.
+	 *
+	 * @param mixed $value Target type.
+	 * @return string
+	 */
+	private static function target_type( $value ) {
+		$value = function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		return 'user' === $value ? 'user' : 'user';
 	}
 }
