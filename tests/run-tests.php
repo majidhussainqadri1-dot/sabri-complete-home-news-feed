@@ -8,6 +8,7 @@
 require_once __DIR__ . '/bootstrap.php';
 
 use Sabri\HomeNewsFeed\Activator;
+use Sabri\HomeNewsFeed\Assets;
 use Sabri\HomeNewsFeed\Capabilities;
 use Sabri\HomeNewsFeed\Database;
 use Sabri\HomeNewsFeed\DataRetention;
@@ -101,6 +102,24 @@ function sabri_test_bootstrap_no_wrappers() {
 	sabri_assert( $before === $after, 'Bootstrap must not open whole-page output buffers.' );
 	sabri_assert( ! in_array( 'wp_body_open', $hooks, true ), 'Plugin must not wrap output from wp_body_open.' );
 	sabri_assert( ! in_array( 'wp_footer', $hooks, true ), 'Plugin must not wrap output through wp_footer.' );
+}
+
+function sabri_test_admin_staging_preview_assets() {
+	global $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts;
+
+	sabri_test_reset_state();
+	Assets::enqueue_admin( 'home-news-feed_page_sabri-feed-staging-preview' );
+
+	sabri_assert( in_array( 'sabri-feed-admin', $sabri_test_enqueued_styles, true ), 'Staging Preview must retain admin styles.' );
+	sabri_assert( in_array( 'sabri-hnf-feed', $sabri_test_enqueued_styles, true ), 'Staging Preview must enqueue Home Feed styles.' );
+	sabri_assert( in_array( 'sabri-hnf-composer', $sabri_test_enqueued_styles, true ), 'Staging Preview must enqueue Composer styles.' );
+	sabri_assert( in_array( 'sabri-hnf-feed', $sabri_test_enqueued_scripts, true ), 'Staging Preview must enqueue Home Feed behavior.' );
+	sabri_assert( in_array( 'sabri-hnf-composer', $sabri_test_enqueued_scripts, true ), 'Staging Preview must enqueue Composer behavior.' );
+
+	$view_file = SABRI_HNF_PATH . 'admin/views/staging-preview.php';
+	$view = is_readable( $view_file ) ? file_get_contents( $view_file ) : '';
+	sabri_assert( '' !== $view, 'Administrator staging preview view must ship in the release.' );
+	sabri_assert( false !== strpos( $view, 'Shortcodes::home_feed' ) && false !== strpos( $view, 'Shortcodes::composer' ), 'Staging Preview must render the real feed and composer runtimes.' );
 }
 
 function sabri_test_activation_snapshot_order() {
@@ -1062,6 +1081,7 @@ function sabri_test_documentation_consistency() {
 $tests = array(
 	'sabri_test_identity',
 	'sabri_test_bootstrap_no_wrappers',
+	'sabri_test_admin_staging_preview_assets',
 	'sabri_test_activation_snapshot_order',
 	'sabri_test_schema_install_failures_do_not_advance_version',
 	'sabri_test_database_schema',
