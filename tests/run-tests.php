@@ -70,6 +70,15 @@ function sabri_rest_arg_valid( $route, $arg, $value ) {
 	return (bool) call_user_func( $sabri_test_rest_routes[ $route ]['args'][ $arg ]['validate_callback'], $value, null, $arg );
 }
 
+function sabri_rest_arg_sanitized( $route, $arg, $value ) {
+	global $sabri_test_rest_routes;
+	if ( empty( $sabri_test_rest_routes[ $route ]['args'][ $arg ]['sanitize_callback'] ) ) {
+		return $value;
+	}
+
+	return call_user_func( $sabri_test_rest_routes[ $route ]['args'][ $arg ]['sanitize_callback'], $value, null, $arg );
+}
+
 function sabri_test_identity() {
 	$identity = Plugin::identity();
 	sabri_assert( '1.0.0' === $identity['version'], 'Plugin identity version must be 1.0.0.' );
@@ -426,8 +435,11 @@ function sabri_test_phase2_composer_permissions_and_statuses() {
 
 	$sabri_test_current_user_id = 2;
 	sabri_assert( ComposerPermissions::user_can_publish(), 'Founder roles may publish immediately.' );
-
 	$settings = Settings::get();
+	$settings['composer']['scheduling_enabled'] = 1;
+	$natural_language_schedule = ComposerPermissions::resolve_status_for_action( 'schedule', 2, $settings, 'tomorrow' );
+	sabri_assert( empty( $natural_language_schedule['allowed'] ) && 'schedule_denied' === $natural_language_schedule['code'], 'Composer schedule action must reject permissive natural-language dates.' );
+
 	$settings['capabilities']['verified_doctor_policy'] = 'publish';
 	$sabri_test_current_user_id = 3;
 	$verified_publish = ComposerPermissions::resolve_status_for_action( 'publish', 3, $settings );
@@ -514,6 +526,16 @@ function sabri_test_phase2_clinical_identifier_protection() {
 	$name = ComposerValidation::validate( array_merge( $base, array( 'clinical_case' => array( 'case_title' => 'Patient Name: Ali Khan' ) ) ), 4, $settings );
 	sabri_assert( $name['valid'] && ! empty( $name['data']['privacy_review_required'] ), 'Ambiguous patient-name patterns must trigger privacy review without hard PHI rejection.' );
 
+	$caption_name = ComposerValidation::validate( array_merge( $base, array( 'media_caption' => 'patient name: علی خان' ) ), 4, $settings );
+	sabri_assert( $caption_name['valid'] && ! empty( $caption_name['data']['privacy_review_required'] ), 'Clinical Case media captions must trigger privacy review for patient-name labels regardless of case or script.' );
+
+	$alt_full_name = ComposerValidation::validate( array_merge( $base, array( 'media_alt_text' => 'FULL NAME: سارہ احمد' ) ), 4, $settings );
+	sabri_assert( $alt_full_name['valid'] && ! empty( $alt_full_name['data']['privacy_review_required'] ), 'Clinical Case media alt text must trigger privacy review for full-name labels regardless of case or script.' );
+
+	$caption_phone = ComposerValidation::validate( array_merge( $base, array( 'media_caption' => 'Mobile: 03001234567' ) ), 4, $settings );
+	sabri_assert( ! $caption_phone['valid'] && 'media_caption' === $caption_phone['errors'][0]['field'], 'Clinical Case media captions must reject deterministic identifiers without echoing values.' );
+	sabri_assert( false === strpos( $caption_phone['errors'][0]['message'], '03001234567' ), 'Privacy errors must not echo deterministic identifier values.' );
+
 	$ordinary = ComposerValidation::validate( array_merge( $base, array( 'clinical_case' => array( 'chief_complaints' => 'Intermittent headache after exertion without identifying details.' ) ) ), 4, $settings );
 	sabri_assert( $ordinary['valid'] && empty( $ordinary['data']['privacy_review_required'] ), 'Ordinary clinical text must not be falsely rejected.' );
 
@@ -570,17 +592,23 @@ function sabri_test_phase2_review_state_allow_list_visibility() {
 	$approved = sabri_test_add_post( array( 'post_author' => 2, 'post_title' => 'Approved Visible' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_TYPE => 'clinical-case' ), array( 'sabri_feed_type' => array( 'clinical-case' ) ) );
 	$pending = sabri_test_add_post( array( 'post_author' => 2, 'post_title' => 'Pending Hidden' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'pending', PostMetadata::META_TYPE => 'clinical-case' ), array( 'sabri_feed_type' => array( 'clinical-case' ) ) );
 	$unknown = sabri_test_add_post( array( 'post_author' => 2, 'post_title' => 'Unknown Hidden' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'mystery', PostMetadata::META_TYPE => 'clinical-case' ), array( 'sabri_feed_type' => array( 'clinical-case' ) ) );
-	$legacy = sabri_test_add_post( array( 'post_author' => 2, 'post_title' => 'Legacy Visible' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_TYPE => 'clinical-case' ), array( 'sabri_feed_type' => array( 'clinical-case' ) ) );
+	$legacy = sabri_test_add_post( array( 'post_author' => 2, 'post_title' => 'Legacy Hidden' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_TYPE => 'clinical-case' ), array( 'sabri_feed_type' => array( 'clinical-case' ) ) );
 
 	sabri_assert( PostMetadata::user_can_view( $approved, 0 ), 'Approved published posts must remain visible.' );
-	sabri_assert( PostMetadata::user_can_view( $legacy, 0 ), 'Permitted legacy blank review-state posts must remain visible.' );
+	sabri_assert( ! PostMetadata::user_can_view( $legacy, 0 ), 'Legacy blank review-state posts must stay hidden unless an explicit migration policy is enabled.' );
 	sabri_assert( ! PostMetadata::user_can_view( $pending, 0 ), 'Published pending posts must remain hidden.' );
 	sabri_assert( ! PostMetadata::user_can_view( $unknown, 0 ), 'Published unknown review-state posts must remain hidden.' );
 
 	$result = FeedQuery::query( array( 'mode' => 'clinical-cases', 'page' => 1, 'per_page' => 10 ) );
 	$ids = array_map( static function ( $post ) { return (int) $post->ID; }, $result['posts'] );
-	sabri_assert( in_array( $approved, $ids, true ) && in_array( $legacy, $ids, true ), 'Feed query must include only approved and permitted legacy blank posts.' );
-	sabri_assert( ! in_array( $pending, $ids, true ) && ! in_array( $unknown, $ids, true ), 'Feed query must hide pending and unknown review states.' );
+	sabri_assert( in_array( $approved, $ids, true ), 'Feed query must include approved posts.' );
+	sabri_assert( ! in_array( $legacy, $ids, true ) && ! in_array( $pending, $ids, true ) && ! in_array( $unknown, $ids, true ), 'Feed query must hide legacy blank, pending, and unknown review states by default.' );
+
+	update_option( PostMetadata::LEGACY_BLANK_REVIEW_STATE_OPTION, true, false );
+	FeedQuery::invalidate_cache();
+	$result = FeedQuery::query( array( 'mode' => 'clinical-cases', 'page' => 1, 'per_page' => 10 ) );
+	$ids = array_map( static function ( $post ) { return (int) $post->ID; }, $result['posts'] );
+	sabri_assert( in_array( $approved, $ids, true ) && in_array( $legacy, $ids, true ), 'Explicit legacy migration policy must preserve approved posts and permit blank review-state posts.' );
 
 	$rest = RestFeed::feed( array( 'mode' => 'clinical-cases', 'page' => 1, 'per_page' => 10 ) );
 	$data = $rest instanceof WP_REST_Response ? $rest->get_data() : $rest;
@@ -611,6 +639,56 @@ function sabri_test_phase2_media_validation() {
 	$other_attachment = sabri_test_add_post( array( 'post_author' => 3, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf' ) );
 	sabri_assert( MediaHandler::validate_attachment_ownership( array( $own_attachment ), 4 ), 'Authors may attach their own media.' );
 	sabri_assert( ! MediaHandler::validate_attachment_ownership( array( $other_attachment ), 4 ), 'Authors must not attach another user media without moderation capability.' );
+}
+
+function sabri_test_phase2_pending_media_visibility() {
+	global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_is_attachment, $sabri_test_current_post_id;
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$sabri_test_current_user_id = 4;
+	$sabri_test_current_caps = array();
+
+	$created = Composer::create_or_update_from_request(
+		array(
+			'content' => 'A post with uploaded media.',
+			'feed_type' => 'standard-post',
+			'visibility' => 'public',
+			'composer_action' => 'submit',
+			'medical_disclaimer_confirmed' => 1,
+			'patient_privacy_confirmed' => 1,
+		),
+		array( 'name' => 'case.pdf', 'type' => 'application/pdf', 'size' => 1024, 'tmp_name' => 'case.pdf', 'error' => 0 ),
+		4
+	);
+	$attachment_id = get_post_meta( $created['post_id'], PostMetadata::META_ATTACHMENTS, true )[0];
+	sabri_assert( ! empty( $created['ok'] ) && (int) get_post_field( 'post_parent', $attachment_id ) === (int) $created['post_id'], 'Uploaded attachments must be associated with the saved post.' );
+	sabri_assert( ! MediaHandler::attachment_publicly_visible( $attachment_id, 0 ), 'Attachments for pending parent posts must not be publicly visible.' );
+
+	foreach ( array( 'mystery', 'rejected', 'removed', 'archived', 'limited' ) as $state ) {
+		$parent = sabri_test_add_post( array( 'post_author' => 2, 'post_status' => 'publish' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => $state ) );
+		$media = sabri_test_add_post( array( 'post_author' => 2, 'post_type' => 'attachment', 'post_mime_type' => 'image/jpeg', 'post_parent' => $parent ) );
+		sabri_assert( ! MediaHandler::attachment_publicly_visible( $media, 0 ), 'Attachments must be hidden when parent review state is restricted: ' . $state );
+	}
+
+	$approved_parent = sabri_test_add_post( array( 'post_author' => 2, 'post_status' => 'publish' ), array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_ATTACHMENTS => array() ) );
+	$approved_media = sabri_test_add_post( array( 'post_author' => 2, 'post_type' => 'attachment', 'post_mime_type' => 'image/jpeg', 'post_parent' => $approved_parent ) );
+	update_post_meta( $approved_parent, PostMetadata::META_ATTACHMENTS, array( $approved_media, $attachment_id ) );
+	sabri_assert( MediaHandler::visible_attachment_ids( array( $approved_media, $attachment_id ), 0 ) === array( $approved_media ), 'Plugin galleries must include only media from visible parent posts.' );
+	sabri_assert( false !== strpos( FeedRenderer::render_card( $approved_parent, Settings::get() ), 'attachment-' . $approved_media ) && false === strpos( FeedRenderer::render_card( $approved_parent, Settings::get() ), 'attachment-' . $attachment_id ), 'Feed galleries must not expose hidden-parent media.' );
+
+	$response = MediaHandler::filter_rest_attachment_response( new WP_REST_Response( array( 'id' => $attachment_id, 'source_url' => 'http://example.test/uploads/case.pdf' ), 200 ), get_post( $attachment_id ), null );
+	$data = $response->get_data();
+	sabri_assert( 'restricted' === $data['status'] && empty( $data['source_url'] ), 'Attachment REST output must be restricted for media whose parent post is not public.' );
+
+	$sabri_test_is_attachment = true;
+	$sabri_test_current_post_id = $attachment_id;
+	$blocked = false;
+	try {
+		MediaHandler::enforce_attachment_visibility();
+	} catch ( Exception $exception ) {
+		$blocked = false !== strpos( $exception->getMessage(), 'unavailable' );
+	}
+	sabri_assert( $blocked, 'Public attachment pages must be blocked for media whose parent post is not public.' );
 }
 
 function sabri_test_phase2_meta_auth_idor_protection() {
@@ -784,7 +862,13 @@ function sabri_test_phase2_rest_route_validation_callbacks() {
 	sabri_assert( ! sabri_rest_arg_valid( $composer_route, 'attachments', array( 1, 1 ) ), 'Composer REST attachment validator must reject duplicate IDs.' );
 	sabri_assert( ! sabri_rest_arg_valid( $composer_route, 'clinical_case', array( 'patient_full_name' => 'Blocked' ) ), 'Composer REST Clinical Case validator must reject unsupported structured fields.' );
 	sabri_assert( ! sabri_rest_arg_valid( $composer_route, 'research', array( 'unsupported' => 'Blocked' ) ), 'Composer REST Research validator must reject unsupported structured fields.' );
-	sabri_assert( sabri_rest_arg_valid( $composer_route, 'scheduled_date', gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS ) ), 'Composer REST scheduled date validator must allow parseable dates.' );
+	sabri_assert( sabri_rest_arg_valid( $composer_route, 'scheduled_date', gmdate( 'Y-m-d H:i:s', time() + DAY_IN_SECONDS ) ), 'Composer REST scheduled date validator must allow accepted date/time format.' );
+	sabri_assert( sabri_rest_arg_valid( $composer_route, 'scheduled_date', gmdate( 'Y-m-d\TH:i', time() + DAY_IN_SECONDS ) ), 'Composer REST scheduled date validator must allow date-time-local format.' );
+	sabri_assert( ! sabri_rest_arg_valid( $composer_route, 'scheduled_date', 'tomorrow' ), 'Composer REST scheduled date validator must reject natural-language dates.' );
+	sabri_assert( ! sabri_rest_arg_valid( $composer_route, 'scheduled_date', '2026-02-30 12:00:00' ), 'Composer REST scheduled date validator must reject invalid calendar dates.' );
+	sabri_assert( 0 === RestComposer::sanitize_bool( false ) && 0 === RestComposer::sanitize_bool( 'false' ) && 0 === RestComposer::sanitize_bool( 0 ) && 0 === RestComposer::sanitize_bool( '0' ), 'Composer REST booleans must map false-like values to 0.' );
+	sabri_assert( 1 === RestComposer::sanitize_bool( true ) && 1 === RestComposer::sanitize_bool( 'true' ) && 1 === RestComposer::sanitize_bool( 1 ) && 1 === RestComposer::sanitize_bool( '1' ), 'Composer REST booleans must map true-like values to 1.' );
+	sabri_assert( 0 === sabri_rest_arg_sanitized( $composer_route, 'patient_privacy_confirmed', 'false' ), 'Composer REST patient_privacy_confirmed=false must sanitize to 0.' );
 
 	RestFeed::register_routes();
 	$feed_route = 'sabri-home-news-feed/v1/feed';
@@ -996,6 +1080,7 @@ $tests = array(
 	'sabri_test_phase2_composer_write_and_edit_policy',
 	'sabri_test_phase2_review_state_allow_list_visibility',
 	'sabri_test_phase2_media_validation',
+	'sabri_test_phase2_pending_media_visibility',
 	'sabri_test_phase2_meta_auth_idor_protection',
 	'sabri_test_phase2_composer_duplicate_render_guard',
 	'sabri_test_phase2_media_mime_fail_closed',

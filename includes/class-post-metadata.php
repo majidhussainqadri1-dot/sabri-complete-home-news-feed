@@ -31,6 +31,7 @@ final class PostMetadata {
 	const META_CLINICAL_CASE = '_sabri_clinical_case';
 	const META_RESEARCH = '_sabri_research';
 	const META_EDITED_AT = '_sabri_edited_at';
+	const LEGACY_BLANK_REVIEW_STATE_OPTION = 'sabri_feed_allow_legacy_blank_review_state';
 
 	/**
 	 * Register hooks.
@@ -282,7 +283,8 @@ final class PostMetadata {
 	 * @return bool
 	 */
 	public static function legacy_blank_review_state_allowed() {
-		return function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_hnf_allow_legacy_blank_review_state', true ) : true;
+		$allowed = function_exists( 'get_option' ) ? (bool) get_option( self::LEGACY_BLANK_REVIEW_STATE_OPTION, false ) : false;
+		return function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_hnf_allow_legacy_blank_review_state', $allowed ) : $allowed;
 	}
 
 	/**
@@ -336,7 +338,7 @@ final class PostMetadata {
 		if ( is_array( $attachments ) && ! empty( $attachments ) ) {
 			$settings = Settings::get();
 			$limit = isset( $settings['media']['max_items'] ) ? max( 1, (int) $settings['media']['max_items'] ) : 4;
-			$html .= FeedRenderer::template( 'media-gallery', array( 'attachment_ids' => array_slice( array_map( 'absint', $attachments ), 0, $limit ) ) );
+			$html .= FeedRenderer::template( 'media-gallery', array( 'attachment_ids' => array_slice( MediaHandler::visible_attachment_ids( array_map( 'absint', $attachments ) ), 0, $limit ) ) );
 		}
 
 		$html .= self::render_related_foundation( $post_id, $type );

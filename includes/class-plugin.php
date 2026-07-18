@@ -64,6 +64,7 @@ final class Plugin {
 		DataRetention::register();
 		Assets::register();
 		PostMetadata::register();
+		MediaHandler::register();
 		FeedQuery::register();
 		HomeIntegration::register();
 		Shortcodes::register();

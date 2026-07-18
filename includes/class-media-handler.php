@@ -16,6 +16,21 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class MediaHandler {
 	/**
+	 * Register public media visibility hooks.
+	 *
+	 * @return void
+	 */
+	public static function register() {
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'template_redirect', array( __CLASS__, 'enforce_attachment_visibility' ), 1 );
+		}
+
+		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'rest_prepare_attachment', array( __CLASS__, 'filter_rest_attachment_response' ), 10, 3 );
+		}
+	}
+
+	/**
 	 * Extensions never accepted by the public composer.
 	 *
 	 * @return array<int,string>
@@ -229,6 +244,134 @@ final class MediaHandler {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Associate uploaded attachments with their saved post once the post exists.
+	 *
+	 * @param array<int,int> $attachment_ids Attachment IDs.
+	 * @param int            $post_id Post ID.
+	 * @return void
+	 */
+	public static function associate_attachments_with_post( array $attachment_ids, $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! function_exists( 'wp_update_post' ) ) {
+			return;
+		}
+
+		foreach ( array_unique( array_map( 'absint', $attachment_ids ) ) as $attachment_id ) {
+			$post = function_exists( 'get_post' ) ? get_post( $attachment_id ) : null;
+			if ( ! $post || empty( $post->post_type ) || 'attachment' !== $post->post_type ) {
+				continue;
+			}
+
+			wp_update_post(
+				array(
+					'ID'          => $attachment_id,
+					'post_parent' => $post_id,
+				),
+				true
+			);
+		}
+	}
+
+	/**
+	 * Return only attachments whose parent post may be publicly rendered.
+	 *
+	 * @param array<int,int> $attachment_ids Attachment IDs.
+	 * @param int            $user_id User ID.
+	 * @return array<int,int>
+	 */
+	public static function visible_attachment_ids( array $attachment_ids, $user_id = 0 ) {
+		$visible = array();
+		foreach ( array_unique( array_map( 'absint', $attachment_ids ) ) as $attachment_id ) {
+			if ( self::attachment_publicly_visible( $attachment_id, $user_id ) ) {
+				$visible[] = $attachment_id;
+			}
+		}
+
+		return $visible;
+	}
+
+	/**
+	 * Whether an attachment can be exposed on public/plugin surfaces.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $user_id User ID.
+	 * @return bool
+	 */
+	public static function attachment_publicly_visible( $attachment_id, $user_id = 0 ) {
+		$attachment_id = (int) $attachment_id;
+		if ( $attachment_id <= 0 ) {
+			return false;
+		}
+
+		$post = function_exists( 'get_post' ) ? get_post( $attachment_id ) : null;
+		if ( ! $post || empty( $post->post_type ) || 'attachment' !== $post->post_type ) {
+			return false;
+		}
+
+		$parent_id = isset( $post->post_parent ) ? (int) $post->post_parent : 0;
+		if ( $parent_id <= 0 ) {
+			return true;
+		}
+
+		return PostMetadata::user_can_view( $parent_id, $user_id );
+	}
+
+	/**
+	 * Hide restricted attachment pages.
+	 *
+	 * @return void
+	 */
+	public static function enforce_attachment_visibility() {
+		if ( ! function_exists( 'is_attachment' ) || ! is_attachment() ) {
+			return;
+		}
+
+		$attachment_id = function_exists( 'get_queried_object_id' ) ? (int) get_queried_object_id() : 0;
+		if ( $attachment_id <= 0 || self::attachment_publicly_visible( $attachment_id ) ) {
+			return;
+		}
+
+		if ( function_exists( 'status_header' ) ) {
+			status_header( 404 );
+		}
+		if ( function_exists( 'nocache_headers' ) ) {
+			nocache_headers();
+		}
+		if ( function_exists( 'wp_die' ) ) {
+			wp_die( esc_html__( 'This media is unavailable.', 'sabri-complete-home-news-feed' ), esc_html__( 'Unavailable', 'sabri-complete-home-news-feed' ), array( 'response' => 404 ) );
+		}
+	}
+
+	/**
+	 * Remove restricted attachment data from REST output.
+	 *
+	 * @param mixed $response Response.
+	 * @param mixed $post Post.
+	 * @param mixed $request Request.
+	 * @return mixed
+	 */
+	public static function filter_rest_attachment_response( $response, $post, $request ) {
+		unset( $request );
+
+		$attachment_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
+		if ( $attachment_id <= 0 || self::attachment_publicly_visible( $attachment_id ) ) {
+			return $response;
+		}
+
+		if ( is_object( $response ) && method_exists( $response, 'set_data' ) ) {
+			$response->set_data(
+				array(
+					'id'      => $attachment_id,
+					'status'  => 'restricted',
+					'message' => __( 'This media is unavailable.', 'sabri-complete-home-news-feed' ),
+				)
+			);
+		}
+
+		return $response;
 	}
 
 	/**

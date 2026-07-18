@@ -177,7 +177,7 @@ final class FeedQuery {
 	public static function invalidate_on_settings_change( $option, $old_value, $value ) {
 		unset( $old_value, $value );
 
-		if ( Settings::OPTION_NAME === $option ) {
+		if ( Settings::OPTION_NAME === $option || PostMetadata::LEGACY_BLANK_REVIEW_STATE_OPTION === $option ) {
 			self::invalidate_cache();
 		}
 	}

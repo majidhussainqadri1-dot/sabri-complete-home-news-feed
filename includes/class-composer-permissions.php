@@ -289,12 +289,8 @@ final class ComposerPermissions {
 	 * @return bool
 	 */
 	private static function is_future_date( $date ) {
-		if ( '' === trim( (string) $date ) ) {
-			return false;
-		}
-
-		$timestamp = strtotime( (string) $date );
-		return $timestamp && $timestamp > time();
+		$timestamp = class_exists( __NAMESPACE__ . '\\RestComposer' ) ? RestComposer::parse_datetime( $date ) : false;
+		return false !== $timestamp && $timestamp > time();
 	}
 
 	/**

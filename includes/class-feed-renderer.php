@@ -431,7 +431,7 @@ final class FeedRenderer {
 		}
 
 		$limit = isset( $settings['media']['max_items'] ) ? max( 1, (int) $settings['media']['max_items'] ) : 4;
-		return self::template( 'media-gallery', array( 'attachment_ids' => array_slice( array_map( 'absint', $ids ), 0, $limit ) ) );
+		return self::template( 'media-gallery', array( 'attachment_ids' => array_slice( MediaHandler::visible_attachment_ids( array_map( 'absint', $ids ) ), 0, $limit ) ) );
 	}
 
 	/**

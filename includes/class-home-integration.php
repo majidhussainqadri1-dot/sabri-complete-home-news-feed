@@ -145,14 +145,16 @@ final class HomeIntegration {
 		}
 
 		$settings = Settings::get();
+		$integrations = Integrations::detect();
+		$shell = isset( $integrations['shell'] ) && is_array( $integrations['shell'] ) ? $integrations['shell'] : array();
 		$status = 'Unknown';
 		$detail = __( 'No confirmed Unified Shell runtime signal was detected; Phase 2 renders by shortcode or plugin-owned hook only.', 'sabri-complete-home-news-feed' );
 		if ( SafeMode::public_features_disabled() ) {
 			$status = 'Disabled';
 			$detail = __( 'Home Feed and Composer runtime is disabled by Safe Mode or Emergency Disable.', 'sabri-complete-home-news-feed' );
-		} elseif ( defined( 'SABRI_UNIFIED_APPLICATION_SHELL_VERSION' ) || class_exists( 'Sabri\\UnifiedApplicationShell\\Plugin' ) ) {
+		} elseif ( ! empty( $shell['status'] ) && 'Connected' === $shell['status'] ) {
 			$status = 'Connected';
-			$detail = __( 'Connected signal: Unified Shell version constant or runtime Plugin class is loaded; no Shell header, sidebar, or layout resolver is replaced.', 'sabri-complete-home-news-feed' );
+			$detail = __( 'Connected signal: SABRI_SHELL_VERSION or Sabri\\UnifiedShell\\Plugin is loaded; no Shell header, sidebar, or layout resolver is replaced.', 'sabri-complete-home-news-feed' );
 		} elseif ( ! empty( $settings['integrations']['composer_page_url'] ) ) {
 			$status = 'Configured';
 			$detail = __( 'Composer page URL is configured, but no confirmed Unified Shell runtime signal is loaded.', 'sabri-complete-home-news-feed' );

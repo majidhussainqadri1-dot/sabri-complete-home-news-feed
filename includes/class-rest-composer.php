@@ -223,7 +223,40 @@ final class RestComposer {
 	 * @return bool
 	 */
 	public static function validate_optional_datetime( $value ) {
-		return '' === trim( (string) $value ) || false !== strtotime( (string) $value );
+		return '' === trim( (string) $value ) || false !== self::parse_datetime( $value );
+	}
+
+	/**
+	 * Parse one accepted date/time format with round-trip validation.
+	 *
+	 * @param mixed $value Value.
+	 * @return int|false
+	 */
+	public static function parse_datetime( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return false;
+		}
+
+		foreach ( self::accepted_datetime_formats() as $format ) {
+			$date = \DateTimeImmutable::createFromFormat( '!' . $format, $value );
+			$errors = \DateTimeImmutable::getLastErrors();
+			$valid = is_array( $errors ) ? 0 === (int) $errors['warning_count'] && 0 === (int) $errors['error_count'] : true;
+			if ( $date && $valid && $date->format( $format ) === $value ) {
+				return $date->getTimestamp();
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Accepted scheduled-date formats.
+	 *
+	 * @return array<int,string>
+	 */
+	public static function accepted_datetime_formats() {
+		return array( 'Y-m-d H:i:s', 'Y-m-d H:i', 'Y-m-d\TH:i' );
 	}
 
 	/**
@@ -338,7 +371,12 @@ final class RestComposer {
 	 * @return int
 	 */
 	public static function sanitize_bool( $value ) {
-		return empty( $value ) ? 0 : 1;
+		if ( is_bool( $value ) ) {
+			return $value ? 1 : 0;
+		}
+
+		$value = strtolower( trim( (string) $value ) );
+		return in_array( $value, array( '1', 'true' ), true ) ? 1 : 0;
 	}
 
 	/**

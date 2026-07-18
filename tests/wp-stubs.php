@@ -56,6 +56,7 @@ $sabri_test_users = array(
 	'user@example.com' => 42,
 );
 $sabri_test_is_admin = false;
+$sabri_test_is_attachment = false;
 
 function sabri_test_default_user_roles() {
 	return array(
@@ -70,12 +71,13 @@ function sabri_test_default_user_roles() {
 }
 
 function sabri_test_reset_state( $reset_data = false ) {
-	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
+	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_is_attachment, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
 
 	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
 	$sabri_test_user_roles = sabri_test_default_user_roles();
 	$sabri_test_is_admin = false;
+	$sabri_test_is_attachment = false;
 	$sabri_test_filter_overrides = array();
 	$sabri_test_rest_routes = array();
 	$sabri_test_enqueued_styles = array();
@@ -189,10 +191,11 @@ function wp_safe_redirect() { return true; }
 function wp_die( $message = '' ) { throw new Exception( (string) $message ); }
 function status_header() {}
 function nocache_headers() {}
+function is_attachment() { global $sabri_test_is_attachment; return (bool) $sabri_test_is_attachment; }
 function is_singular( $post_type = '' ) { unset( $post_type ); return false; }
 function in_the_loop() { return true; }
 function is_main_query() { return true; }
-function get_queried_object_id() { return 0; }
+function get_queried_object_id() { global $sabri_test_current_post_id; return isset( $sabri_test_current_post_id ) ? (int) $sabri_test_current_post_id : 0; }
 
 class Sabri_Test_Role {
 	public $capabilities = array();
@@ -254,6 +257,7 @@ function sabri_test_add_post( $args = array(), $meta = array(), $terms = array()
 		'post_date'         => gmdate( 'Y-m-d H:i:s', time() - ( $id * 60 ) ),
 		'post_modified'     => gmdate( 'Y-m-d H:i:s', time() - ( $id * 30 ) ),
 		'post_mime_type'    => '',
+		'post_parent'       => 0,
 	);
 	$sabri_test_posts[ $id ] = (object) array_merge( $defaults, $args, array( 'ID' => $id ) );
 	$sabri_test_post_meta[ $id ] = isset( $sabri_test_post_meta[ $id ] ) ? $sabri_test_post_meta[ $id ] : array();

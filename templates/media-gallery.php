@@ -11,6 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 ?>
 <div class="sabri-hnf-gallery">
 	<?php foreach ( $attachment_ids as $attachment_id ) : ?>
+		<?php if ( class_exists( 'Sabri\\HomeNewsFeed\\MediaHandler' ) && ! \Sabri\HomeNewsFeed\MediaHandler::attachment_publicly_visible( $attachment_id ) ) : ?>
+			<?php continue; ?>
+		<?php endif; ?>
 		<figure class="sabri-hnf-gallery__item">
 			<?php
 			$mime = function_exists( 'get_post_mime_type' ) ? (string) get_post_mime_type( $attachment_id ) : '';

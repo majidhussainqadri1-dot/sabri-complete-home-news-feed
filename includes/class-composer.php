@@ -196,6 +196,7 @@ final class Composer {
 		}
 
 		PostMetadata::save_for_post( $saved_id, $data );
+		MediaHandler::associate_attachments_with_post( $data['attachments'], $saved_id );
 		FeedQuery::invalidate_cache();
 		AuditLog::record( 'composer_post_saved', array( 'post_id' => $saved_id, 'status' => $status['status'] ) );
 

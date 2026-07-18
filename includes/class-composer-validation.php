@@ -198,8 +198,10 @@ final class ComposerValidation {
 
 		$scan_fields = array_merge(
 			array(
-				'title'   => isset( $data['title'] ) ? $data['title'] : '',
-				'content' => isset( $data['content'] ) ? wp_strip_all_tags( $data['content'] ) : '',
+				'title'          => isset( $data['title'] ) ? $data['title'] : '',
+				'content'        => isset( $data['content'] ) ? wp_strip_all_tags( $data['content'] ) : '',
+				'media_alt_text' => isset( $data['media_alt_text'] ) ? $data['media_alt_text'] : '',
+				'media_caption'  => isset( $data['media_caption'] ) ? $data['media_caption'] : '',
 			),
 			isset( $data['clinical_case'] ) && is_array( $data['clinical_case'] ) ? $data['clinical_case'] : array()
 		);
@@ -322,7 +324,7 @@ final class ComposerValidation {
 			'/\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b/i',
 			'/\b(?:\+92|0092|0)?3[0-9]{2}[\s\-]?[0-9]{7}\b/',
 			'/\b[0-9]{5}[\s\-]?[0-9]{7}[\s\-]?[0-9]\b/',
-			'/\b(?:CNIC|Passport|National\s*ID|Phone|Mobile|Address|MRN|Medical\s*Record|Registration\s*Number|Patient\s*Registration)\s*[:#-]\s*\S+/i',
+			'/\b(?:CNIC|Passport|National\s*ID|Phone|Mobile|Address|MRN|Medical\s*Record|Registration\s*Number|Patient\s*Registration)\s*[:#：-]\s*\S+/iu',
 			'/\b(?:house|flat|street|road|sector|block|town|city|district)\b.+\b(?:Pakistan|Karachi|Lahore|Islamabad|Rawalpindi|Peshawar|Quetta|Multan|Faisalabad)\b/i',
 		);
 
@@ -343,7 +345,7 @@ final class ComposerValidation {
 	 */
 	private static function contains_ambiguous_patient_name_pattern( array $fields ) {
 		foreach ( $fields as $value ) {
-			if ( preg_match( '/\b(?:Patient\s*Name|Full\s*Name)\s*[:#-]\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/', (string) $value ) ) {
+			if ( preg_match( '/(?:\b(?:Patient\s*Name|Full\s*Name)\b|(?:نام|اسم))\s*[:#：-]\s*\S+/iu', (string) $value ) ) {
 				return true;
 			}
 		}
