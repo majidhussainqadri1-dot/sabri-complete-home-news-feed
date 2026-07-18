@@ -9,7 +9,6 @@ require_once __DIR__ . '/bootstrap.php';
 
 use Sabri\HomeNewsFeed\Database;
 use Sabri\HomeNewsFeed\EngagementService;
-use Sabri\HomeNewsFeed\InteractionPermissions;
 use Sabri\HomeNewsFeed\InteractionQueryRepository;
 use Sabri\HomeNewsFeed\Phase3FeatureSettings;
 use Sabri\HomeNewsFeed\PostMetadata;
@@ -26,20 +25,19 @@ if ( ! function_exists( 'wp_login_url' ) ) {
 	function wp_login_url( $redirect = '' ) { return 'http://example.test/login?redirect=' . rawurlencode( (string) $redirect ); }
 }
 
-/**
- * Request double.
- */
 final class Sabri_Phase3B_Request {
 	private $params;
 	private $headers;
 	public function __construct( array $params = array(), array $headers = array() ) { $this->params = $params; $this->headers = $headers; }
 	public function get_param( $key ) { return array_key_exists( $key, $this->params ) ? $this->params[ $key ] : null; }
-	public function get_header( $key ) { foreach ( $this->headers as $name => $value ) { if ( strtolower( $name ) === strtolower( $key ) ) { return $value; } } return ''; }
+	public function get_header( $key ) {
+		foreach ( $this->headers as $name => $value ) {
+			if ( strtolower( $name ) === strtolower( $key ) ) { return $value; }
+		}
+		return '';
+	}
 }
 
-/**
- * Stateful wpdb double for Phase 3B.
- */
 class Sabri_Phase3B_WPDB extends Sabri_Test_WPDB {
 	public $insert_id = 0;
 
@@ -75,10 +73,7 @@ class Sabri_Phase3B_WPDB extends Sabri_Test_WPDB {
 		$affected = 0;
 		$out = array();
 		foreach ( isset( $sabri_test_rows[ $table ] ) ? $sabri_test_rows[ $table ] : array() as $row ) {
-			if ( $this->matches_where( $row, $where ) ) {
-				$affected++;
-				continue;
-			}
+			if ( $this->matches_where( $row, $where ) ) { $affected++; continue; }
 			$out[] = $row;
 		}
 		$sabri_test_rows[ $table ] = $out;
@@ -88,17 +83,10 @@ class Sabri_Phase3B_WPDB extends Sabri_Test_WPDB {
 	public function get_row( $query, $output = null ) {
 		global $sabri_test_rows;
 		unset( $output );
-		if ( ! preg_match( '/FROM `([^`]+)` WHERE (.+) ORDER BY id DESC LIMIT 1/', $query, $matches ) ) {
-			return null;
-		}
-		$table = $matches[1];
+		if ( ! preg_match( '/FROM `([^`]+)` WHERE (.+) ORDER BY id DESC LIMIT 1/', $query, $matches ) ) { return null; }
+		$rows = array_reverse( isset( $sabri_test_rows[ $matches[1] ] ) ? $sabri_test_rows[ $matches[1] ] : array() );
 		$where = $this->parse_where( $matches[2] );
-		$rows = array_reverse( isset( $sabri_test_rows[ $table ] ) ? $sabri_test_rows[ $table ] : array() );
-		foreach ( $rows as $row ) {
-			if ( $this->matches_where( $row, $where ) ) {
-				return $row;
-			}
-		}
+		foreach ( $rows as $row ) { if ( $this->matches_where( $row, $where ) ) { return $row; } }
 		return null;
 	}
 
@@ -122,23 +110,19 @@ class Sabri_Phase3B_WPDB extends Sabri_Test_WPDB {
 
 	public function get_col( $query ) {
 		global $sabri_test_rows;
-		if ( ! preg_match( '/SELECT post_id FROM `([^`]+)` WHERE user_id = ([0-9]+) AND status = \'([^\']+)\' ORDER BY updated_at DESC, id DESC LIMIT ([0-9]+)/', $query, $matches ) ) {
-			return array();
-		}
+		if ( ! preg_match( '/SELECT post_id FROM `([^`]+)` WHERE user_id = ([0-9]+) AND status = \'([^\']+)\' ORDER BY updated_at DESC, id DESC LIMIT ([0-9]+)/', $query, $matches ) ) { return array(); }
 		$rows = array_reverse( isset( $sabri_test_rows[ $matches[1] ] ) ? $sabri_test_rows[ $matches[1] ] : array() );
 		$out = array();
 		foreach ( $rows as $row ) {
-			if ( (int) $row['user_id'] === (int) $matches[2] && $row['status'] === $matches[3] ) {
-				$out[] = (int) $row['post_id'];
-			}
+			if ( (int) $row['user_id'] === (int) $matches[2] && $row['status'] === $matches[3] ) { $out[] = (int) $row['post_id']; }
 			if ( count( $out ) >= (int) $matches[4] ) { break; }
 		}
 		return $out;
 	}
 
-	private function parse_where( $where_sql ) {
+	private function parse_where( $sql ) {
 		$where = array();
-		foreach ( preg_split( '/\s+AND\s+/i', $where_sql ) as $clause ) {
+		foreach ( preg_split( '/\s+AND\s+/i', $sql ) as $clause ) {
 			if ( preg_match( '/([a-z_]+) = ([0-9]+)/i', $clause, $matches ) ) { $where[ $matches[1] ] = (int) $matches[2]; }
 			elseif ( preg_match( "/([a-z_]+) = '([^']*)'/i", $clause, $matches ) ) { $where[ $matches[1] ] = stripslashes( $matches[2] ); }
 		}
@@ -174,8 +158,8 @@ $pending_post = sabri_test_add_post(
 	array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'pending', PostMetadata::META_TYPE => 'standard-post' )
 );
 
-sabri_phase3b_assert( Phase3FeatureSettings::enabled( 'reactions_enabled' ), 'Implemented reactions must be enabled by the Phase 3B runtime defaults.' );
-sabri_phase3b_assert( Phase3FeatureSettings::enabled( 'saves_enabled' ), 'Implemented private saves must be enabled by the Phase 3B runtime defaults.' );
+sabri_phase3b_assert( Phase3FeatureSettings::enabled( 'reactions_enabled' ), 'Implemented reactions must be enabled by Phase 3B defaults.' );
+sabri_phase3b_assert( Phase3FeatureSettings::enabled( 'saves_enabled' ), 'Implemented saves must be enabled by Phase 3B defaults.' );
 sabri_phase3b_assert( ! Phase3FeatureSettings::enabled( 'comments_enabled' ), 'Unimplemented comments must remain disabled.' );
 
 $sabri_test_current_user_id = 7;
@@ -184,21 +168,21 @@ $like = ReactionService::set( $public_post, 'like', 'rest-nonce', 7 );
 sabri_phase3b_assert( ! empty( $like['ok'] ) && 'like' === $like['data']['current_reaction'] && 1 === $like['data']['like_count'], 'First Like must create one active reaction.' );
 $toggle = ReactionService::set( $public_post, 'like', 'rest-nonce', 7 );
 sabri_phase3b_assert( ! empty( $toggle['ok'] ) && '' === $toggle['data']['current_reaction'] && 0 === $toggle['data']['like_count'], 'Selecting the active reaction must remove it.' );
-$like_again = ReactionService::set( $public_post, 'like', 'rest-nonce', 7 );
+ReactionService::set( $public_post, 'like', 'rest-nonce', 7 );
 $switch = ReactionService::set( $public_post, 'dislike', 'rest-nonce', 7 );
 sabri_phase3b_assert( ! empty( $switch['ok'] ) && 'dislike' === $switch['data']['current_reaction'] && 0 === $switch['data']['like_count'] && 1 === $switch['data']['dislike_count'], 'Like to Dislike switching must update one active row.' );
 
 $sabri_test_current_user_id = 6;
 $other_like = ReactionService::set( $public_post, 'like', 'rest-nonce', 6 );
 sabri_phase3b_assert( ! empty( $other_like['ok'] ) && 1 === $other_like['data']['like_count'] && 1 === $other_like['data']['dislike_count'], 'Two users must have isolated reactions with aggregate counts.' );
-$sabri_phase3b_assert( 'like' === EngagementService::summary( $public_post, 6 )['current_reaction'], 'Current reaction must remain private to the requesting user.' );
+sabri_phase3b_assert( 'like' === EngagementService::summary( $public_post, 6 )['current_reaction'], 'Current reaction must remain private to the requesting user.' );
 
 $invalid_reaction = ReactionService::set( $public_post, 'angry', 'rest-nonce', 6 );
 sabri_phase3b_assert( empty( $invalid_reaction['ok'] ) && 'invalid_reaction' === $invalid_reaction['code'], 'Unknown reaction types must fail closed.' );
 $pending_reaction = ReactionService::set( $pending_post, 'like', 'rest-nonce', 6 );
 sabri_phase3b_assert( empty( $pending_reaction['ok'] ) && 'post_unavailable' === $pending_reaction['code'], 'Pending posts must reject reactions.' );
 $forged_reaction = ReactionService::set( $public_post, 'like', 'rest-nonce', 7 );
-sabri_phase3b_assert( empty( $forged_reaction['ok'] ) && 'authentication_required' === $forged_reaction['code'], 'Reaction user ID must match the current session.' );
+sabri_phase3b_assert( empty( $forged_reaction['ok'] ) && 'authentication_required' === $forged_reaction['code'], 'Reaction identity must match the current session.' );
 
 $sabri_test_current_user_id = 7;
 $saved = SaveService::save( $public_post, 'rest-nonce', 7 );
@@ -207,11 +191,11 @@ $saved_again = SaveService::save( $public_post, 'rest-nonce', 7 );
 sabri_phase3b_assert( ! empty( $saved_again['ok'] ) && true === $saved_again['data']['saved'], 'Repeated Save must be idempotent.' );
 SaveService::save( $second_post, 'rest-nonce', 7 );
 $list = SaveService::saved_posts( 'rest-nonce', 7, 100 );
-sabri_phase3b_assert( ! empty( $list['ok'] ) && 2 === $list['data']['count'], 'Private Saved Posts list must return visible saved posts.' );
+sabri_phase3b_assert( ! empty( $list['ok'] ) && 2 === $list['data']['count'], 'Saved Posts list must return the current user’s visible items.' );
 $unsaved = SaveService::unsave( $public_post, 'rest-nonce', 7 );
-sabri_phase3b_assert( ! empty( $unsaved['ok'] ) && false === $unsaved['data']['saved'], 'Unsave must hide the item from current state.' );
+sabri_phase3b_assert( ! empty( $unsaved['ok'] ) && false === $unsaved['data']['saved'], 'Unsave must clear private state.' );
 $list_after = SaveService::saved_posts( 'rest-nonce', 7, 100 );
-sabri_phase3b_assert( 1 === $list_after['data']['count'] && $second_post === $list_after['data']['items'][0]['id'], 'Unsave must remove only the selected post from the private list.' );
+sabri_phase3b_assert( 1 === $list_after['data']['count'] && $second_post === $list_after['data']['items'][0]['id'], 'Unsave must remove only the selected post.' );
 
 $sabri_test_current_user_id = 6;
 $other_list = SaveService::saved_posts( 'rest-nonce', 6, 100 );
@@ -221,30 +205,33 @@ sabri_phase3b_assert( empty( $pending_save['ok'] ) && 'post_unavailable' === $pe
 
 $sabri_test_current_user_id = 7;
 $bar = SocialRuntime::render_action_bar( $second_post );
-sabri_phase3b_assert( false !== strpos( $bar, 'data-sabri-interactions' ) && false !== strpos( $bar, 'data-nonce="rest-nonce"' ), 'Logged-in action bar must expose bounded URLs and REST nonce.' );
-sabri_phase3b_assert( false !== strpos( $bar, 'aria-pressed="true"' ) && false !== strpos( $bar, '>Saved<' ), 'Action bar must render current private save state accessibly.' );
+sabri_phase3b_assert( false !== strpos( $bar, 'data-sabri-interactions' ) && false !== strpos( $bar, 'data-nonce="rest-nonce"' ), 'Logged-in action bar must contain bounded URLs and REST nonce.' );
+sabri_phase3b_assert( false !== strpos( $bar, 'aria-pressed="true"' ) && false !== strpos( $bar, '>Saved<' ), 'Action bar must render current save state accessibly.' );
 
 $sabri_test_current_user_id = 0;
 $visitor_bar = SocialRuntime::render_action_bar( $public_post );
-sabri_phase3b_assert( false !== strpos( $visitor_bar, 'data-logged-in="0"' ) && false !== strpos( $visitor_bar, 'data-login-url=' ), 'Visitor action bar must direct interaction to login without exposing a nonce.' );
-sabri_phase3b_assert( false === strpos( $visitor_bar, 'data-nonce="rest-nonce"' ), 'Visitor markup must not contain an authenticated nonce.' );
+sabri_phase3b_assert( false !== strpos( $visitor_bar, 'data-logged-in="0"' ) && false !== strpos( $visitor_bar, 'data-login-url=' ), 'Visitor actions must direct to login.' );
+sabri_phase3b_assert( false === strpos( $visitor_bar, 'data-nonce="rest-nonce"' ), 'Visitor markup must not expose an authenticated nonce.' );
 
 $sabri_test_rest_routes = array();
 RestInteractions::register_routes();
-sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/engagement' ] ), 'Engagement REST route must be registered.' );
-sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/reaction' ] ), 'Reaction REST route must be registered.' );
-sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/save' ] ), 'Save REST route must be registered.' );
-sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/me/saves' ] ), 'Private Saved Posts REST route must be registered.' );
+sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/engagement' ] ), 'Engagement route must register.' );
+sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/reaction' ] ), 'Reaction route must register.' );
+sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/posts/(?P<id>\d+)/save' ] ), 'Save route must register.' );
+sabri_phase3b_assert( isset( $sabri_test_rest_routes[ RestFoundation::NAMESPACE . '/me/saves' ] ), 'Private Saved Posts route must register.' );
 
 $sabri_test_current_user_id = 7;
 $request = new Sabri_Phase3B_Request( array( 'id' => $public_post, 'reaction_type' => 'like' ), array( 'X-WP-Nonce' => 'rest-nonce' ) );
-sabri_phase3b_assert( RestInteractions::private_permission( $request ), 'Private REST permission must require current login and valid nonce.' );
+sabri_phase3b_assert( RestInteractions::private_permission( $request ), 'Private REST route must require login and nonce.' );
 $bad_request = new Sabri_Phase3B_Request( array( 'id' => $public_post ), array( 'X-WP-Nonce' => 'invalid' ) );
-sabri_phase3b_assert( ! RestInteractions::private_permission( $bad_request ), 'Invalid REST nonce must fail permission checks.' );
+sabri_phase3b_assert( ! RestInteractions::private_permission( $bad_request ), 'Invalid REST nonce must fail permission.' );
 
-$reaction_rows = isset( $sabri_test_rows[ InteractionQueryRepository::active_reaction( 6, $public_post ) ? $wpdb->prefix . 'sabri_feed_reactions' : '' ] ) ? $sabri_test_rows[ $wpdb->prefix . 'sabri_feed_reactions' ] : array();
-$active_user6 = array_filter( $reaction_rows, static function ( $row ) use ( $public_post ) { return (int) $row['user_id'] === 6 && (int) $row['post_id'] === $public_post && 'active' === $row['status']; } );
-sabri_phase3b_assert( 1 === count( $active_user6 ), 'Sequential duplicate reaction requests must not create duplicate active rows.' );
+$reaction_table = $wpdb->prefix . 'sabri_feed_reactions';
+$active_user6 = array_filter(
+	isset( $sabri_test_rows[ $reaction_table ] ) ? $sabri_test_rows[ $reaction_table ] : array(),
+	static function ( $row ) use ( $public_post ) { return (int) $row['user_id'] === 6 && (int) $row['post_id'] === $public_post && 'active' === $row['status']; }
+);
+sabri_phase3b_assert( 1 === count( $active_user6 ), 'Sequential duplicate requests must not create duplicate active reaction rows.' );
 
 if ( $failures ) {
 	echo "FAILED\n";
