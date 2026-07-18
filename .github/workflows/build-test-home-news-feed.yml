@@ -38,12 +38,20 @@ jobs:
           set -o pipefail
           php tests/run-phase3-infrastructure-tests.php 2>&1 | tee phase3a-test.log
 
-      - name: Upload Phase 3A test log
+      - name: Phase 3B reactions and saves tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase3b-reactions-saves-tests.php 2>&1 | tee phase3b-test.log
+
+      - name: Upload Phase 3 test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase3a-test-log
-          path: phase3a-test.log
+          name: phase3-test-logs
+          path: |
+            phase3a-test.log
+            phase3b-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
