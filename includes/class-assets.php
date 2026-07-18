@@ -45,6 +45,11 @@ final class Assets {
 		if ( function_exists( 'wp_enqueue_script' ) ) {
 			wp_enqueue_script( 'sabri-feed-admin', SABRI_HNF_URL . 'assets/js/admin.js', array(), SABRI_HNF_VERSION, true );
 		}
+
+		if ( false !== strpos( (string) $hook_suffix, 'sabri-feed-staging-preview' ) ) {
+			self::enqueue_feed();
+			self::enqueue_composer();
+		}
 	}
 
 	/**
