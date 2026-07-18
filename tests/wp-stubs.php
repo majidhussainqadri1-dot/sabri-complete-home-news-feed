@@ -59,6 +59,10 @@ $sabri_test_is_admin = false;
 $sabri_test_is_attachment = false;
 $sabri_test_is_front_page = false;
 $sabri_test_is_home = false;
+$sabri_test_insert_post_error = false;
+$sabri_test_insert_attachment_error = false;
+$sabri_test_deleted_attachments = array();
+$sabri_test_deleted_files = array();
 
 function sabri_test_default_user_roles() {
 	return array(
@@ -74,6 +78,7 @@ function sabri_test_default_user_roles() {
 
 function sabri_test_reset_state( $reset_data = false ) {
 	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_filetype_override, $sabri_test_next_post_id, $sabri_test_transients, $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_user_roles, $sabri_test_is_admin, $sabri_test_is_attachment, $sabri_test_is_front_page, $sabri_test_is_home, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts, $sabri_test_current_post_id;
+	global $sabri_test_insert_post_error, $sabri_test_insert_attachment_error, $sabri_test_deleted_attachments, $sabri_test_deleted_files;
 
 	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
@@ -88,6 +93,10 @@ function sabri_test_reset_state( $reset_data = false ) {
 	$sabri_test_enqueued_scripts = array();
 	$sabri_test_current_post_id = 0;
 	$sabri_test_filetype_override = null;
+	$sabri_test_insert_post_error = false;
+	$sabri_test_insert_attachment_error = false;
+	$sabri_test_deleted_attachments = array();
+	$sabri_test_deleted_files = array();
 
 	$_GET = array();
 	$_POST = array();
@@ -125,6 +134,7 @@ function esc_html( $text ) { return htmlspecialchars( (string) $text, ENT_QUOTES
 function esc_attr( $text ) { return esc_html( $text ); }
 function esc_url( $text ) { return (string) $text; }
 function esc_url_raw( $text ) { return filter_var( (string) $text, FILTER_VALIDATE_URL ) ? (string) $text : ''; }
+function is_email( $text ) { return false !== filter_var( (string) $text, FILTER_VALIDATE_EMAIL ); }
 function sanitize_key( $key ) { return strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $key ) ); }
 function sanitize_text_field( $text ) { return trim( strip_tags( (string) $text ) ); }
 function sanitize_textarea_field( $text ) { return trim( strip_tags( (string) $text ) ); }
@@ -282,7 +292,7 @@ function get_post_status( $post_id ) { return get_post_field( 'post_status', $po
 function get_post_meta( $post_id, $key = '', $single = false ) { global $sabri_test_post_meta; $post_id = (int) $post_id; if ( '' === $key ) { return isset( $sabri_test_post_meta[ $post_id ] ) ? $sabri_test_post_meta[ $post_id ] : array(); } if ( ! isset( $sabri_test_post_meta[ $post_id ][ $key ] ) ) { return $single ? '' : array(); } return $single ? $sabri_test_post_meta[ $post_id ][ $key ] : array( $sabri_test_post_meta[ $post_id ][ $key ] ); }
 function update_post_meta( $post_id, $key, $value ) { global $sabri_test_post_meta; $sabri_test_post_meta[ (int) $post_id ][ $key ] = $value; return true; }
 function delete_post_meta( $post_id, $key ) { global $sabri_test_post_meta; unset( $sabri_test_post_meta[ (int) $post_id ][ $key ] ); return true; }
-function wp_insert_post( $postarr, $wp_error = false ) { unset( $wp_error ); return sabri_test_add_post( $postarr ); }
+function wp_insert_post( $postarr, $wp_error = false ) { global $sabri_test_insert_post_error; unset( $wp_error ); if ( $sabri_test_insert_post_error ) { return new WP_Error( 'insert_failed', 'Insert failed' ); } return sabri_test_add_post( $postarr ); }
 function wp_update_post( $postarr, $wp_error = false ) { global $sabri_test_posts; unset( $wp_error ); if ( empty( $postarr['ID'] ) || empty( $sabri_test_posts[ (int) $postarr['ID'] ] ) ) { return new WP_Error( 'missing_post', 'Missing post' ); } $id = (int) $postarr['ID']; foreach ( $postarr as $key => $value ) { $sabri_test_posts[ $id ]->$key = $value; } return $id; }
 function wp_set_object_terms( $object_id, $terms, $taxonomy, $append = false ) { global $sabri_test_post_terms; unset( $append ); $sabri_test_post_terms[ (int) $object_id ][ $taxonomy ] = (array) $terms; return true; }
 function get_the_terms( $post_id, $taxonomy ) { global $sabri_test_post_terms; $terms = isset( $sabri_test_post_terms[ (int) $post_id ][ $taxonomy ] ) ? $sabri_test_post_terms[ (int) $post_id ][ $taxonomy ] : array(); return array_map( static function ( $term ) { return (object) array( 'slug' => sanitize_key( $term ), 'name' => ucwords( str_replace( '-', ' ', $term ) ) ); }, $terms ); }
@@ -304,9 +314,11 @@ function wp_get_attachment_url( $attachment_id ) { return home_url( 'uploads/att
 function get_post_mime_type( $post_id ) { return get_post_field( 'post_mime_type', $post_id ); }
 function wp_check_filetype_and_ext( $file, $filename, $mimes = array() ) { global $sabri_test_filetype_override; unset( $file ); if ( is_array( $sabri_test_filetype_override ) ) { return $sabri_test_filetype_override; } $ext = strtolower( pathinfo( $filename, PATHINFO_EXTENSION ) ); foreach ( $mimes as $pattern => $mime ) { if ( in_array( $ext, explode( '|', $pattern ), true ) ) { return array( 'ext' => $ext, 'type' => $mime ); } } return array( 'ext' => $ext, 'type' => '' ); }
 function wp_handle_upload( $file, $overrides = array() ) { unset( $overrides ); return array( 'file' => isset( $file['tmp_name'] ) ? $file['tmp_name'] : sys_get_temp_dir() . '/' . $file['name'], 'url' => home_url( 'uploads/' . $file['name'] ), 'type' => $file['type'] ); }
-function wp_insert_attachment( $args, $file = '' ) { unset( $file ); return sabri_test_add_post( array_merge( $args, array( 'post_type' => 'attachment' ) ) ); }
+function wp_insert_attachment( $args, $file = '' ) { global $sabri_test_insert_attachment_error; unset( $file ); if ( $sabri_test_insert_attachment_error ) { return new WP_Error( 'attachment_failed', 'Attachment failed' ); } return sabri_test_add_post( array_merge( $args, array( 'post_type' => 'attachment' ) ) ); }
 function wp_generate_attachment_metadata() { return array(); }
 function wp_update_attachment_metadata() { return true; }
+function wp_delete_attachment( $attachment_id, $force_delete = false ) { global $sabri_test_posts, $sabri_test_post_meta, $sabri_test_post_terms, $sabri_test_deleted_attachments; unset( $force_delete ); $attachment_id = (int) $attachment_id; if ( empty( $sabri_test_posts[ $attachment_id ] ) ) { return false; } unset( $sabri_test_posts[ $attachment_id ], $sabri_test_post_meta[ $attachment_id ], $sabri_test_post_terms[ $attachment_id ] ); $sabri_test_deleted_attachments[] = $attachment_id; return true; }
+function wp_delete_file( $path ) { global $sabri_test_deleted_files; $sabri_test_deleted_files[] = (string) $path; return true; }
 
 class WP_Query {
 	public $posts = array();
