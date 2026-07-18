@@ -7,6 +7,7 @@
 - Added Clinical Case and Research structured metadata validation, including patient-identifier blocking and controlled evidence levels.
 - Added WordPress media handling with MIME, size, executable-file, and attachment ownership validation.
 - Hardened Phase 2 composer validation, pending-media privacy, failed-upload cleanup, attachment reuse, author privacy, settings gates, and disabled feed-type enforcement after full staging audit.
+- Prevented plugin-owned hooks and shortcode fallbacks from rendering Home Feed on single-post permalinks, preserving the post detail view behind every Read More link.
 - Added shortcode fallbacks `[sabri_complete_home_feed]` and `[sabri_public_post_composer]`, plus a plugin-owned Home rendering hook with duplicate protection.
 - Added REST feed and composer routes with explicit permission callbacks and shared server-side composer policy.
 - Added feed/composer public assets, templates, Phase 2 admin settings, behavior tests, workflow updates, and Phase 2 release-builder labels.
