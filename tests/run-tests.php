@@ -762,6 +762,42 @@ function sabri_test_phase2_composer_duplicate_render_guard() {
 	sabri_assert( false !== strpos( $next_request, 'data-sabri-composer' ), 'Composer guard must reset for a later request.' );
 }
 
+function sabri_test_phase2_home_center_route_guard() {
+	global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_is_front_page, $sabri_test_is_home;
+
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$sabri_test_current_user_id = 0;
+	$sabri_test_current_caps = array();
+	sabri_test_add_post(
+		array( 'post_author' => 2, 'post_title' => 'Front Page Only' ),
+		array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_TYPE => 'standard-post' ),
+		array( 'sabri_feed_type' => array( 'standard-post' ) )
+	);
+
+	$sabri_test_is_front_page = false;
+	$sabri_test_is_home = false;
+	HomeIntegration::reset_runtime_guards();
+	ob_start();
+	HomeIntegration::render_home_center();
+	$single_output = ob_get_clean();
+	sabri_assert( '' === $single_output, 'Plugin-owned Home Feed hook must not replace ordinary pages or single-post content.' );
+
+	$sabri_test_is_front_page = true;
+	HomeIntegration::reset_runtime_guards();
+	ob_start();
+	HomeIntegration::render_home_center();
+	$front_output = ob_get_clean();
+	sabri_assert( false !== strpos( $front_output, 'sabri-hnf-feed' ), 'Plugin-owned Home Feed hook must render on the static front page.' );
+
+	$sabri_test_is_home = true;
+	HomeIntegration::reset_runtime_guards();
+	ob_start();
+	HomeIntegration::render_home_center();
+	$posts_index_output = ob_get_clean();
+	sabri_assert( '' === $posts_index_output, 'Plugin-owned Home Feed hook must not replace the WordPress posts index.' );
+}
+
 function sabri_test_phase2_media_mime_fail_closed() {
 	global $sabri_test_current_user_id, $sabri_test_filetype_override;
 	sabri_reset_options();
@@ -1112,6 +1148,7 @@ $tests = array(
 	'sabri_test_phase2_pending_media_visibility',
 	'sabri_test_phase2_meta_auth_idor_protection',
 	'sabri_test_phase2_composer_duplicate_render_guard',
+	'sabri_test_phase2_home_center_route_guard',
 	'sabri_test_phase2_media_mime_fail_closed',
 	'sabri_test_phase2_research_doi_source_validation',
 	'sabri_test_phase2_duplicate_rest_safe_mode_and_cache',
