@@ -83,6 +83,10 @@ final class SafeMode {
 			return false;
 		}
 
+		if ( empty( $settings['general']['enabled'] ) ) {
+			return false;
+		}
+
 		if ( 'composer' === $feature ) {
 			return ! empty( $settings['composer']['public_composer_enabled'] );
 		}
