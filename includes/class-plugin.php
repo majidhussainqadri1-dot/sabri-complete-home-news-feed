@@ -71,12 +71,14 @@ final class Plugin {
 		SocialRuntime::register();
 		CommentRuntime::register();
 		SavedPostsRuntime::register();
+		FollowingRuntime::register();
 		Shortcodes::register();
 		Composer::register();
 		RestFeed::register();
 		RestComposer::register();
 		RestInteractions::register();
 		RestComments::register();
+		RestFollows::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();
