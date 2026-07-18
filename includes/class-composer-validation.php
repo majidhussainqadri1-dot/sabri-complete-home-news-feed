@@ -98,20 +98,25 @@ final class ComposerValidation {
 		$user_id  = $user_id ? (int) $user_id : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
 		$errors   = array();
 		$data     = array();
+		$raw_feed_type = self::clean_key( isset( $input['feed_type'] ) ? $input['feed_type'] : 'standard-post' );
+		$raw_visibility = self::clean_key( isset( $input['visibility'] ) ? $input['visibility'] : 'public' );
+		$allowed_feed_types = isset( $settings['composer']['allowed_feed_types'] ) && is_array( $settings['composer']['allowed_feed_types'] ) ? array_map( 'sanitize_key', $settings['composer']['allowed_feed_types'] ) : FeedContext::phase2_feed_type_slugs();
+		$allowed_visibility = FeedContext::allowed_composer_visibility( $settings, true );
+		$target_post_id = self::positive_id( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
 
 		$data['action']      = self::clean_key( isset( $input['composer_action'] ) ? $input['composer_action'] : ( isset( $input['action'] ) ? $input['action'] : 'submit' ) );
 		$data['title']       = self::clean_text( isset( $input['title'] ) ? $input['title'] : '' );
 		$data['content']     = self::clean_content( isset( $input['content'] ) ? $input['content'] : '' );
-		$data['feed_type']   = self::normalize_feed_type( isset( $input['feed_type'] ) ? $input['feed_type'] : 'standard-post', $settings );
+		$data['feed_type']   = self::normalize_feed_type( $raw_feed_type, $settings );
 		$data['topic']       = self::clean_text( isset( $input['topic'] ) ? $input['topic'] : '' );
-		$data['visibility']  = FeedContext::normalize_visibility( isset( $input['visibility'] ) ? $input['visibility'] : 'public', $settings, true );
+		$data['visibility']  = FeedContext::normalize_visibility( $raw_visibility, $settings, true );
 		$data['language']    = self::clean_text( isset( $input['language'] ) ? $input['language'] : '' );
 		$data['country_region'] = self::clean_text( isset( $input['country_region'] ) ? $input['country_region'] : ( isset( $input['country'] ) ? $input['country'] : '' ) );
-		$data['comments_enabled'] = ! empty( $input['comments_enabled'] ) ? 1 : 0;
+		$data['comments_enabled'] = ! empty( $settings['composer']['comments_metadata_enabled'] ) && self::bool_value( isset( $input['comments_enabled'] ) ? $input['comments_enabled'] : false ) ? 1 : 0;
 		$data['media_alt_text'] = self::clean_text( isset( $input['media_alt_text'] ) ? $input['media_alt_text'] : '' );
 		$data['media_caption'] = self::clean_textarea( isset( $input['media_caption'] ) ? $input['media_caption'] : '' );
-		$data['medical_disclaimer_confirmed'] = ! empty( $input['medical_disclaimer_confirmed'] ) ? 1 : 0;
-		$data['patient_privacy_confirmed'] = ! empty( $input['patient_privacy_confirmed'] ) ? 1 : 0;
+		$data['medical_disclaimer_confirmed'] = self::bool_value( isset( $input['medical_disclaimer_confirmed'] ) ? $input['medical_disclaimer_confirmed'] : false ) ? 1 : 0;
+		$data['patient_privacy_confirmed'] = self::bool_value( isset( $input['patient_privacy_confirmed'] ) ? $input['patient_privacy_confirmed'] : false ) ? 1 : 0;
 		$data['privacy_review_required'] = 0;
 		$data['scheduled_date'] = self::clean_text( isset( $input['scheduled_date'] ) ? $input['scheduled_date'] : '' );
 		$data['clinical_case'] = self::sanitize_structured_fields( isset( $input['clinical_case'] ) && is_array( $input['clinical_case'] ) ? $input['clinical_case'] : array(), self::clinical_fields() );
@@ -123,17 +128,27 @@ final class ComposerValidation {
 			$data['action'] = 'submit';
 		}
 
+		if ( ! in_array( $raw_feed_type, $allowed_feed_types, true ) ) {
+			$errors[] = array( 'code' => 'invalid_feed_type', 'message' => __( 'The selected post type is not available.', 'sabri-complete-home-news-feed' ) );
+		}
+
+		if ( ! in_array( $raw_visibility, $allowed_visibility, true ) ) {
+			$errors[] = array( 'code' => 'invalid_visibility', 'message' => __( 'The selected visibility is not available.', 'sabri-complete-home-news-feed' ) );
+		}
+
 		if ( ! in_array( $data['action'], array( 'preview', 'draft' ), true ) && '' === trim( wp_strip_all_tags( $data['content'] ) ) ) {
 			$errors[] = array( 'code' => 'content_required', 'message' => __( 'Post content is required.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		if ( 'followers' === self::clean_key( isset( $input['visibility'] ) ? $input['visibility'] : '' ) ) {
+		if ( 'followers' === $raw_visibility ) {
 			$errors[] = array( 'code' => 'followers_visibility_deferred', 'message' => __( 'Followers visibility is not available until the follow runtime is implemented.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		if ( ! MediaHandler::validate_attachment_ownership( $data['attachments'], $user_id ) || ! MediaHandler::validate_attachment_ownership( $data['gallery'], $user_id ) ) {
+		if ( ! MediaHandler::validate_attachment_ownership( $data['attachments'], $user_id, $target_post_id ) || ! MediaHandler::validate_attachment_ownership( $data['gallery'], $user_id, $target_post_id ) ) {
 			$errors[] = array( 'code' => 'attachment_denied', 'message' => __( 'One or more attachments cannot be used by this account.', 'sabri-complete-home-news-feed' ) );
 		}
+
+		$errors = array_merge( $errors, self::bounded_field_errors( $data ) );
 
 		if ( 'clinical-case' === $data['feed_type'] ) {
 			foreach ( self::validate_clinical_case( $input, $data, $settings ) as $clinical_error ) {
@@ -205,6 +220,7 @@ final class ComposerValidation {
 			),
 			isset( $data['clinical_case'] ) && is_array( $data['clinical_case'] ) ? $data['clinical_case'] : array()
 		);
+		$scan_fields = array_merge( $scan_fields, self::attachment_privacy_fields( array_merge( $data['attachments'], $data['gallery'] ) ) );
 
 		foreach ( $scan_fields as $field => $value ) {
 			if ( self::contains_deterministic_identifier( (string) $value ) ) {
@@ -388,6 +404,100 @@ final class ComposerValidation {
 		}
 
 		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Read existing media text for Clinical Case privacy scanning.
+	 *
+	 * @param array<int,int> $attachment_ids Attachment IDs.
+	 * @return array<string,string>
+	 */
+	private static function attachment_privacy_fields( array $attachment_ids ) {
+		$fields = array();
+		foreach ( array_unique( array_map( 'absint', $attachment_ids ) ) as $attachment_id ) {
+			$caption = function_exists( 'get_post_field' ) ? (string) get_post_field( 'post_excerpt', $attachment_id ) : '';
+			$alt = function_exists( 'get_post_meta' ) ? (string) get_post_meta( $attachment_id, '_wp_attachment_image_alt', true ) : '';
+			if ( '' !== trim( $caption ) ) {
+				$fields[ 'attachment_caption_' . $attachment_id ] = $caption;
+			}
+			if ( '' !== trim( $alt ) ) {
+				$fields[ 'attachment_alt_' . $attachment_id ] = $alt;
+			}
+		}
+		return $fields;
+	}
+
+	/**
+	 * Reject oversized values before they reach metadata or expensive scans.
+	 *
+	 * @param array<string,mixed> $data Sanitized data.
+	 * @return array<int,array<string,string>>
+	 */
+	private static function bounded_field_errors( array $data ) {
+		$limits = array(
+			'title' => 500,
+			'content' => 20000,
+			'topic' => 500,
+			'language' => 100,
+			'country_region' => 500,
+			'media_alt_text' => 500,
+			'media_caption' => 5000,
+		);
+		foreach ( $limits as $field => $limit ) {
+			if ( isset( $data[ $field ] ) && self::text_length( (string) $data[ $field ] ) > $limit ) {
+				return array( array( 'code' => 'field_too_long', 'field' => $field, 'message' => __( 'One or more fields exceed the allowed length.', 'sabri-complete-home-news-feed' ) ) );
+			}
+		}
+		foreach ( array( 'clinical_case', 'research' ) as $group ) {
+			if ( empty( $data[ $group ] ) || ! is_array( $data[ $group ] ) ) {
+				continue;
+			}
+			foreach ( $data[ $group ] as $field => $value ) {
+				if ( self::text_length( (string) $value ) > 5000 ) {
+					return array( array( 'code' => 'field_too_long', 'field' => sanitize_key( $field ), 'message' => __( 'One or more fields exceed the allowed length.', 'sabri-complete-home-news-feed' ) ) );
+				}
+			}
+		}
+		return array();
+	}
+
+	/**
+	 * Parse a form or REST boolean without treating the string "false" as true.
+	 *
+	 * @param mixed $value Value.
+	 * @return bool
+	 */
+	private static function bool_value( $value ) {
+		if ( true === $value || 1 === $value || 1.0 === $value ) {
+			return true;
+		}
+		if ( ! is_scalar( $value ) ) {
+			return false;
+		}
+		return in_array( strtolower( trim( (string) $value ) ), array( '1', 'true', 'on', 'yes' ), true );
+	}
+
+	/**
+	 * Accept only an unambiguous positive integer identifier.
+	 *
+	 * @param mixed $value Value.
+	 * @return int
+	 */
+	private static function positive_id( $value ) {
+		if ( ! is_scalar( $value ) || ! preg_match( '/^[1-9][0-9]*$/', trim( (string) $value ) ) ) {
+			return 0;
+		}
+		return (int) $value;
+	}
+
+	/**
+	 * Multibyte-safe length when available.
+	 *
+	 * @param string $value Value.
+	 * @return int
+	 */
+	private static function text_length( $value ) {
+		return function_exists( 'mb_strlen' ) ? mb_strlen( $value ) : strlen( $value );
 	}
 
 	/**
