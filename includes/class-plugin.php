@@ -69,6 +69,7 @@ final class Plugin {
 		FeedQuery::register();
 		HomeIntegration::register();
 		SocialRuntime::register();
+		SavedPostsRuntime::register();
 		Shortcodes::register();
 		Composer::register();
 		RestFeed::register();
