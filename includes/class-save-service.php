@@ -44,15 +44,7 @@ final class SaveService {
 
 		$current = InteractionQueryRepository::save_record( $user_id, $post_id, self::DEFAULT_COLLECTION );
 		if ( is_array( $current ) ) {
-			$result = InteractionRepository::update_rows(
-				'saves',
-				array( 'status' => 'active' ),
-				array(
-					'user_id'        => $user_id,
-					'post_id'        => $post_id,
-					'collection_key' => self::DEFAULT_COLLECTION,
-				)
-			);
+			$result = self::set_status( $user_id, $post_id, 'active' );
 		} else {
 			$result = InteractionRepository::insert_row(
 				'saves',
@@ -63,6 +55,12 @@ final class SaveService {
 					'status'         => 'active',
 				)
 			);
+
+			// A concurrent request may win the unique insert. Re-read and activate
+			// the existing private row rather than returning a duplicate error.
+			if ( empty( $result['ok'] ) && is_array( InteractionQueryRepository::save_record( $user_id, $post_id, self::DEFAULT_COLLECTION ) ) ) {
+				$result = self::set_status( $user_id, $post_id, 'active' );
+			}
 		}
 
 		if ( empty( $result['ok'] ) ) {
@@ -105,15 +103,7 @@ final class SaveService {
 
 		$current = InteractionQueryRepository::save_record( $user_id, $post_id, self::DEFAULT_COLLECTION );
 		if ( is_array( $current ) && isset( $current['status'] ) && 'active' === sanitize_key( $current['status'] ) ) {
-			$result = InteractionRepository::update_rows(
-				'saves',
-				array( 'status' => 'removed' ),
-				array(
-					'user_id'        => $user_id,
-					'post_id'        => $post_id,
-					'collection_key' => self::DEFAULT_COLLECTION,
-				)
-			);
+			$result = self::set_status( $user_id, $post_id, 'removed' );
 			if ( empty( $result['ok'] ) ) {
 				return $result;
 			}
@@ -149,6 +139,22 @@ final class SaveService {
 			return InteractionResult::error( 'invalid_nonce', 'The security token is missing or invalid.', array(), 403 );
 		}
 
+		return self::saved_posts_for_user( $user_id, $limit );
+	}
+
+	/**
+	 * Server-rendered private saved posts for an already authenticated session.
+	 *
+	 * @param int $user_id Current session user ID.
+	 * @param int $limit Maximum records.
+	 * @return array<string,mixed>
+	 */
+	public static function saved_posts_for_user( $user_id, $limit = 100 ) {
+		$user_id = InteractionPermissions::authenticated_user_id( $user_id );
+		if ( $user_id <= 0 ) {
+			return InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 );
+		}
+
 		$ids   = InteractionQueryRepository::saved_post_ids( $user_id, $limit );
 		$items = array();
 		foreach ( $ids as $post_id ) {
@@ -170,6 +176,26 @@ final class SaveService {
 			),
 			'Saved posts loaded.',
 			200
+		);
+	}
+
+	/**
+	 * Set the private save row status.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param int    $post_id Post ID.
+	 * @param string $status Active or removed.
+	 * @return array<string,mixed>
+	 */
+	private static function set_status( $user_id, $post_id, $status ) {
+		return InteractionRepository::update_rows(
+			'saves',
+			array( 'status' => $status ),
+			array(
+				'user_id'        => $user_id,
+				'post_id'        => $post_id,
+				'collection_key' => self::DEFAULT_COLLECTION,
+			)
 		);
 	}
 }
