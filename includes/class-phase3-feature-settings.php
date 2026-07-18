@@ -48,7 +48,9 @@ final class Phase3FeatureSettings {
 	}
 
 	/**
-	 * Safe runtime defaults for completed checkpoints only.
+	 * Safe runtime defaults for accepted public checkpoints.
+	 *
+	 * Checkpoint 3C comments remain gated until Hostinger staging acceptance.
 	 *
 	 * @return array<string,int>
 	 */
@@ -58,7 +60,7 @@ final class Phase3FeatureSettings {
 			'dislikes_enabled'             => 1,
 			'saves_enabled'                => 1,
 			'show_public_reaction_counts'  => 1,
-			'comments_enabled'             => 1,
+			'comments_enabled'             => 0,
 			'follows_enabled'              => 0,
 			'followers_visibility_enabled' => 0,
 			'reports_enabled'              => 0,
