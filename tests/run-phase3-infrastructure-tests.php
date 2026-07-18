@@ -78,6 +78,8 @@ $authorized = InteractionPermissions::authorize_post_write( $public_post, 'rest-
 sabri_phase3a_assert( ! empty( $authorized['ok'] ) && 'authorized' === $authorized['code'], 'Post write authorization must combine login, nonce, and visibility.' );
 $denied_nonce = InteractionPermissions::authorize_post_write( $public_post, 'invalid', 7 );
 sabri_phase3a_assert( empty( $denied_nonce['ok'] ) && 'invalid_nonce' === $denied_nonce['code'], 'Invalid write nonce must be rejected before mutation.' );
+$forged_user = InteractionPermissions::authorize_post_write( $public_post, 'rest-nonce', 6 );
+sabri_phase3a_assert( empty( $forged_user['ok'] ) && 'authentication_required' === $forged_user['code'], 'Request data must not select a different existing user identity.' );
 sabri_phase3a_assert( InteractionPermissions::owns_private_resource( 7, 7 ), 'Private resource owner must be recognized.' );
 sabri_phase3a_assert( ! InteractionPermissions::owns_private_resource( 6, 7 ), 'Private resource IDOR must fail closed.' );
 
@@ -140,6 +142,16 @@ $invalid_column = InteractionRepository::insert_row(
 	)
 );
 sabri_phase3a_assert( empty( $invalid_column['ok'] ) && 'invalid_repository_column' === $invalid_column['code'], 'Unknown repository columns must be rejected.' );
+$invalid_integer = InteractionRepository::insert_row(
+	'reactions',
+	array(
+		'post_id'       => -1,
+		'user_id'       => 7,
+		'reaction_type' => 'like',
+		'status'        => 'active',
+	)
+);
+sabri_phase3a_assert( empty( $invalid_integer['ok'] ) && 'invalid_repository_integer' === $invalid_integer['code'], 'Negative identifiers must not be converted into a valid identity.' );
 $invalid_status = InteractionRepository::insert_row(
 	'reactions',
 	array(
@@ -161,7 +173,9 @@ $valid_insert = InteractionRepository::insert_row(
 );
 sabri_phase3a_assert( ! empty( $valid_insert['ok'] ) && 'row_inserted' === $valid_insert['code'], 'Allow-listed repository insert must use the plugin-owned table.' );
 $missing_where = InteractionRepository::update_rows( 'reactions', array( 'status' => 'removed' ), array() );
-sabri_phase3a_assert( empty( $missing_where['ok'] ) && 'missing_update_condition' === $missing_where['code'], 'Unbounded repository updates must be rejected.' );
+sabri_phase3a_assert( empty( $missing_where['ok'] ) && 'missing_update_condition' === $missing_where['code'], 'Empty repository update conditions must be rejected.' );
+$status_only_where = InteractionRepository::update_rows( 'reactions', array( 'reaction_type' => 'dislike' ), array( 'status' => 'active' ) );
+sabri_phase3a_assert( empty( $status_only_where['ok'] ) && 'unbounded_update_condition' === $status_only_where['code'], 'Status-only conditions must not update many interaction rows.' );
 $valid_update = InteractionRepository::update_rows(
 	'reactions',
 	array( 'status' => 'removed' ),
@@ -171,6 +185,8 @@ $valid_update = InteractionRepository::update_rows(
 	)
 );
 sabri_phase3a_assert( ! empty( $valid_update['ok'] ) && 'row_updated' === $valid_update['code'], 'Bounded allow-listed repository update must pass.' );
+$append_only_update = InteractionRepository::update_rows( 'audit_log', array( 'action' => 'changed' ), array( 'id' => 1 ) );
+sabri_phase3a_assert( empty( $append_only_update['ok'] ) && 'append_only_repository' === $append_only_update['code'], 'Audit log repository must remain append-only.' );
 $invalid_hash = InteractionRepository::insert_row(
 	'reports',
 	array(
