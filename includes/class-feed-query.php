@@ -141,12 +141,23 @@ final class FeedQuery {
 		);
 
 		$mode_map = FeedContext::mode_type_map();
+		$all_types = array_keys( Taxonomies::feed_type_terms() );
+		$configured_types = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
+		$allowed_types = array_values( array_intersect( $all_types, $configured_types ) );
 		if ( isset( $mode_map[ $mode ] ) ) {
 			$args['tax_query'] = array(
 				array(
 					'taxonomy' => 'sabri_feed_type',
 					'field'    => 'slug',
-					'terms'    => array( $mode_map[ $mode ] ),
+					'terms'    => in_array( $mode_map[ $mode ], $allowed_types, true ) ? array( $mode_map[ $mode ] ) : array( '__sabri_disabled_feed_type__' ),
+				),
+			);
+		} elseif ( count( $allowed_types ) !== count( $all_types ) ) {
+			$args['tax_query'] = array(
+				array(
+					'taxonomy' => 'sabri_feed_type',
+					'field'    => 'slug',
+					'terms'    => ! empty( $allowed_types ) ? $allowed_types : array( '__sabri_no_allowed_types__' ),
 				),
 			);
 		}
@@ -306,16 +317,19 @@ final class FeedQuery {
 	 */
 	private static function filter_posts_for_tests( array $posts, $mode, $user_id, array $settings ) {
 		$mode_map = FeedContext::mode_type_map();
+		$all_types = array_keys( Taxonomies::feed_type_terms() );
+		$configured_types = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
+		$allowed_types = array_values( array_intersect( $all_types, $configured_types ) );
 		return array_values(
 			array_filter(
 				$posts,
-				static function ( $post ) use ( $mode, $mode_map, $user_id, $settings ) {
-					unset( $settings );
+				static function ( $post ) use ( $mode, $mode_map, $user_id, $allowed_types ) {
 					$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
 					if ( ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
 						return false;
 					}
-					return ! isset( $mode_map[ $mode ] ) || $mode_map[ $mode ] === PostMetadata::feed_type( $post_id );
+					$type = PostMetadata::feed_type( $post_id );
+					return in_array( $type, $allowed_types, true ) && ( ! isset( $mode_map[ $mode ] ) || $mode_map[ $mode ] === $type );
 				}
 			)
 		);
