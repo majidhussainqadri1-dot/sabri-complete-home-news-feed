@@ -764,32 +764,61 @@ function sabri_test_phase2_composer_duplicate_render_guard() {
 
 function sabri_test_phase2_home_center_route_guard() {
 	global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_is_front_page, $sabri_test_is_home;
+	global $sabri_test_current_post_id, $sabri_test_is_singular, $sabri_test_singular_post_type;
 
 	sabri_reset_options();
 	Settings::ensure_defaults();
 	$sabri_test_current_user_id = 0;
 	$sabri_test_current_caps = array();
-	sabri_test_add_post(
-		array( 'post_author' => 2, 'post_title' => 'Front Page Only' ),
+	$feed_post_id = sabri_test_add_post(
+		array( 'post_author' => 2, 'post_title' => 'Read More Target' ),
 		array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_TYPE => 'standard-post' ),
 		array( 'sabri_feed_type' => array( 'standard-post' ) )
 	);
+	$front_page_id = sabri_test_add_post(
+		array( 'post_author' => 1, 'post_title' => 'Static Front Page', 'post_type' => 'page' )
+	);
+	update_option( 'show_on_front', 'page', false );
+	update_option( 'page_on_front', $front_page_id, false );
+	$sabri_test_current_post_id = $front_page_id;
 
 	$sabri_test_is_front_page = false;
 	$sabri_test_is_home = false;
 	HomeIntegration::reset_runtime_guards();
 	ob_start();
 	HomeIntegration::render_home_center();
-	$single_output = ob_get_clean();
-	sabri_assert( '' === $single_output, 'Plugin-owned Home Feed hook must not replace ordinary pages or single-post content.' );
+	$ordinary_output = ob_get_clean();
+	sabri_assert( '' === $ordinary_output, 'Plugin-owned Home Feed hook must not replace ordinary pages.' );
 
 	$sabri_test_is_front_page = true;
 	HomeIntegration::reset_runtime_guards();
 	ob_start();
 	HomeIntegration::render_home_center();
 	$front_output = ob_get_clean();
-	sabri_assert( false !== strpos( $front_output, 'sabri-hnf-feed' ), 'Plugin-owned Home Feed hook must render on the static front page.' );
+	$target_permalink = esc_url( get_permalink( $feed_post_id ) );
+	sabri_assert( false !== strpos( $front_output, 'sabri-hnf-feed' ), 'Plugin-owned Home Feed hook must render on the configured static front page.' );
+	sabri_assert( substr_count( $front_output, 'href="' . $target_permalink . '"' ) >= 2, 'Feed title and Read More must link to the selected post permalink.' );
 
+	$sabri_test_current_post_id = $feed_post_id;
+	$sabri_test_is_singular = true;
+	$sabri_test_singular_post_type = 'post';
+	$sabri_test_is_front_page = true;
+	$sabri_test_is_home = false;
+	HomeIntegration::reset_runtime_guards();
+	ob_start();
+	HomeIntegration::render_home_center();
+	$single_hook_output = ob_get_clean();
+	sabri_assert( '' === $single_hook_output, 'A single-post request must fail closed even if a theme or Shell reports it as the front page.' );
+
+	HomeIntegration::reset_runtime_guards();
+	$single_shortcode_output = Shortcodes::home_feed();
+	sabri_assert( '' === $single_shortcode_output, 'Home Feed shortcode fallback must not replace single-post content.' );
+	$single_content = HomeIntegration::append_single_post_context( 'Single post body.' );
+	sabri_assert( 0 === strpos( $single_content, 'Single post body.' ) && false === strpos( $single_content, 'sabri-hnf-feed' ), 'Read More destination must preserve the single-post body instead of rendering Home Feed.' );
+
+	$sabri_test_is_singular = false;
+	$sabri_test_singular_post_type = '';
+	$sabri_test_current_post_id = $front_page_id;
 	$sabri_test_is_home = true;
 	HomeIntegration::reset_runtime_guards();
 	ob_start();
