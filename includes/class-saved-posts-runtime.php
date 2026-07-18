@@ -45,7 +45,14 @@ final class SavedPostsRuntime {
 
 		Assets::enqueue_feed();
 		if ( $user_id <= 0 ) {
-			$login_url = function_exists( 'wp_login_url' ) ? wp_login_url( function_exists( 'get_permalink' ) ? get_permalink() : '' ) : '';
+			$redirect = '';
+			$page_id = function_exists( 'get_queried_object_id' ) ? (int) get_queried_object_id() : 0;
+			if ( $page_id > 0 && function_exists( 'get_permalink' ) ) {
+				$redirect = (string) get_permalink( $page_id );
+			} elseif ( function_exists( 'home_url' ) ) {
+				$redirect = (string) home_url( '/' );
+			}
+			$login_url = function_exists( 'wp_login_url' ) ? wp_login_url( $redirect ) : '';
 			return FeedRenderer::template( 'saved-posts', array( 'logged_in' => false, 'login_url' => $login_url, 'items' => array() ) );
 		}
 
