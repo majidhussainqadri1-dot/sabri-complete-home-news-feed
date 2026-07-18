@@ -1122,6 +1122,190 @@ function sabri_test_documentation_consistency() {
 	}
 }
 
+
+function sabri_test_phase2_full_audit_hardening() {
+	global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_users_by_id;
+	global $sabri_test_insert_post_error, $sabri_test_insert_attachment_error, $sabri_test_deleted_attachments, $sabri_test_deleted_files;
+
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$settings = Settings::get();
+	$clinical_base = array(
+		'content' => 'A de-identified clinical summary.',
+		'feed_type' => 'clinical-case',
+		'visibility' => 'public',
+	);
+
+	$false_flags = ComposerValidation::validate(
+		array_merge(
+			$clinical_base,
+			array(
+				'comments_enabled' => 'false',
+				'medical_disclaimer_confirmed' => 'false',
+				'patient_privacy_confirmed' => 'false',
+			)
+		),
+		4,
+		$settings
+	);
+	$false_codes = array_column( $false_flags['errors'], 'code' );
+	sabri_assert( 0 === $false_flags['data']['comments_enabled'] && 0 === $false_flags['data']['medical_disclaimer_confirmed'] && 0 === $false_flags['data']['patient_privacy_confirmed'], 'String false values must remain false in direct composer validation.' );
+	sabri_assert( in_array( 'medical_disclaimer_required', $false_codes, true ) && in_array( 'patient_privacy_required', $false_codes, true ), 'String false confirmations must not bypass Clinical Case requirements.' );
+
+	$invalid_controls = ComposerValidation::validate(
+		array(
+			'content' => 'Invalid controls.',
+			'feed_type' => 'future-secret-type',
+			'visibility' => 'future-secret-scope',
+		),
+		4,
+		$settings
+	);
+	$invalid_codes = array_column( $invalid_controls['errors'], 'code' );
+	sabri_assert( in_array( 'invalid_feed_type', $invalid_codes, true ) && in_array( 'invalid_visibility', $invalid_codes, true ), 'Unknown type and visibility values must fail closed instead of widening to public defaults.' );
+
+	$long_field = ComposerValidation::validate(
+		array(
+			'content' => str_repeat( 'a', 20001 ),
+			'feed_type' => 'standard-post',
+			'visibility' => 'public',
+		),
+		4,
+		$settings
+	);
+	sabri_assert( in_array( 'field_too_long', array_column( $long_field['errors'], 'code' ), true ), 'Composer validation must reject oversized text fields.' );
+
+	$disabled_comments = $settings;
+	$disabled_comments['composer']['comments_metadata_enabled'] = 0;
+	$comment_result = ComposerValidation::validate(
+		array(
+			'content' => 'Comments setting test.',
+			'feed_type' => 'standard-post',
+			'visibility' => 'public',
+			'comments_enabled' => '1',
+		),
+		4,
+		$disabled_comments
+	);
+	sabri_assert( 0 === $comment_result['data']['comments_enabled'], 'Disabled comments metadata setting must override submitted checkbox values.' );
+
+	$privacy_media = sabri_test_add_post(
+		array(
+			'post_author' => 4,
+			'post_type' => 'attachment',
+			'post_mime_type' => 'image/jpeg',
+			'post_excerpt' => 'Mobile: 03001234567',
+		)
+	);
+	$privacy_media_result = ComposerValidation::validate(
+		array_merge(
+			$clinical_base,
+			array(
+				'attachments' => array( $privacy_media ),
+				'medical_disclaimer_confirmed' => 1,
+				'patient_privacy_confirmed' => 1,
+			)
+		),
+		4,
+		$settings
+	);
+	sabri_assert( in_array( 'forbidden_patient_identifier', array_column( $privacy_media_result['errors'], 'code' ), true ), 'Existing Clinical Case attachment captions and alt text must be privacy scanned.' );
+
+	$other_parent = sabri_test_add_post( array( 'post_author' => 4, 'post_status' => 'draft' ) );
+	$parented_media = sabri_test_add_post( array( 'post_author' => 4, 'post_type' => 'attachment', 'post_parent' => $other_parent ) );
+	sabri_assert( ! MediaHandler::validate_attachment_ownership( array( $parented_media ), 4, 0 ), 'Media already attached to another post must not be silently reparented.' );
+	sabri_assert( MediaHandler::validate_attachment_ownership( array( $parented_media ), 4, $other_parent ), 'Media may remain associated with its current edited post.' );
+
+	$pending_media = sabri_test_add_post(
+		array( 'post_author' => 4, 'post_type' => 'attachment', 'post_parent' => 0 ),
+		array( MediaHandler::META_COMPOSER_PENDING => 1 )
+	);
+	sabri_assert( ! MediaHandler::attachment_publicly_visible( $pending_media, 0 ), 'Parentless composer media must stay private until post association succeeds.' );
+
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$settings = Settings::get();
+	$settings['feed']['allowed_types'] = array( 'standard-post' );
+	update_option( Settings::OPTION_NAME, $settings, false );
+	$standard = sabri_test_add_post(
+		array( 'post_author' => 2, 'post_title' => 'Allowed Standard' ),
+		array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_TYPE => 'standard-post' ),
+		array( 'sabri_feed_type' => array( 'standard-post' ) )
+	);
+	$blocked_clinical = sabri_test_add_post(
+		array( 'post_author' => 2, 'post_title' => 'Blocked Clinical' ),
+		array( PostMetadata::META_VISIBILITY => 'public', PostMetadata::META_REVIEW_STATE => 'approved', PostMetadata::META_TYPE => 'clinical-case' ),
+		array( 'sabri_feed_type' => array( 'clinical-case' ) )
+	);
+	$latest = FeedQuery::query( array( 'mode' => 'latest', 'page' => 1, 'per_page' => 10 ) );
+	$latest_ids = array_map( static function ( $post ) { return (int) $post->ID; }, $latest['posts'] );
+	sabri_assert( in_array( $standard, $latest_ids, true ) && ! in_array( $blocked_clinical, $latest_ids, true ), 'Feed allowed_types must filter broad feed modes.' );
+	$clinical_feed = FeedQuery::query( array( 'mode' => 'clinical-cases', 'page' => 1, 'per_page' => 10 ) );
+	sabri_assert( empty( $clinical_feed['posts'] ), 'A disabled feed type must remain empty even when its filter mode is requested.' );
+
+	$old_display_name = $sabri_test_users_by_id[2]['display_name'];
+	$sabri_test_users_by_id[2]['display_name'] = 'founder@example.com';
+	$card = FeedRenderer::render_card( $standard, Settings::get() );
+	$sabri_test_users_by_id[2]['display_name'] = $old_display_name;
+	sabri_assert( false === strpos( $card, 'founder@example.com' ) && false !== strpos( $card, 'Sabri member' ), 'Email-shaped display names must not leak into public feed cards.' );
+
+	$settings = Settings::get();
+	$settings['general']['enabled'] = 0;
+	update_option( Settings::OPTION_NAME, $settings, false );
+	sabri_assert( ! SafeMode::feature_enabled( 'feed' ) && ! SafeMode::feature_enabled( 'composer' ), 'General master disable must gate feed and composer features.' );
+
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$sabri_test_current_user_id = 1;
+	$sabri_test_current_caps = array( 'manage_options' => true );
+	$target = sabri_test_add_post( array( 'post_author' => 4, 'post_status' => 'pending', 'post_title' => 'Original Author' ) );
+	$edited = Composer::create_or_update_from_request(
+		array(
+			'post_id' => $target,
+			'content' => 'Moderated content.',
+			'feed_type' => 'standard-post',
+			'visibility' => 'public',
+			'composer_action' => 'publish',
+		),
+		array(),
+		1
+	);
+	sabri_assert( ! empty( $edited['ok'] ) && 4 === (int) get_post_field( 'post_author', $target ), 'Moderator edits must preserve the original post author.' );
+
+	sabri_reset_options();
+	Settings::ensure_defaults();
+	$sabri_test_current_user_id = 4;
+	$sabri_test_current_caps = array();
+	$sabri_test_insert_post_error = true;
+	$failed = Composer::create_or_update_from_request(
+		array(
+			'content' => 'Save failure cleanup.',
+			'feed_type' => 'standard-post',
+			'visibility' => 'public',
+			'composer_action' => 'submit',
+		),
+		array( 'name' => 'cleanup.pdf', 'type' => 'application/pdf', 'size' => 1024, 'tmp_name' => 'cleanup.pdf', 'error' => 0 ),
+		4
+	);
+	$sabri_test_insert_post_error = false;
+	sabri_assert( empty( $failed['ok'] ) && 'save_failed' === $failed['code'] && 1 === count( $sabri_test_deleted_attachments ), 'Failed post saves must delete media created by that request.' );
+
+	sabri_test_reset_state();
+	$sabri_test_current_user_id = 4;
+	$sabri_test_insert_attachment_error = true;
+	$attachment_failure = MediaHandler::upload_files(
+		array( 'name' => 'unregistered.pdf', 'type' => 'application/pdf', 'size' => 1024, 'tmp_name' => 'unregistered.pdf', 'error' => 0 ),
+		4
+	);
+	$sabri_test_insert_attachment_error = false;
+	sabri_assert( 'attachment_create_failed' === $attachment_failure['errors'][0]['code'] && in_array( 'unregistered.pdf', $sabri_test_deleted_files, true ), 'Attachment registration failures must remove the uploaded physical file.' );
+
+	$template = file_get_contents( SABRI_HNF_PATH . 'templates/composer.php' );
+	$script = file_get_contents( SABRI_HNF_PATH . 'assets/js/composer.js' );
+	sabri_assert( false !== strpos( $template, 'data-sabri-medical-confirmation' ) && false !== strpos( $template, 'data-sabri-patient-confirmation' ), 'Composer confirmation controls must be type-aware.' );
+	sabri_assert( false === strpos( $template, 'name="medical_disclaimer_confirmed" value="1" required' ) && false !== strpos( $script, 'updateConfirmations' ), 'Composer UI must not require medical confirmations for unrelated standard posts.' );
+}
+
 $tests = array(
 	'sabri_test_identity',
 	'sabri_test_bootstrap_no_wrappers',
@@ -1149,6 +1333,7 @@ $tests = array(
 	'sabri_test_phase2_meta_auth_idor_protection',
 	'sabri_test_phase2_composer_duplicate_render_guard',
 	'sabri_test_phase2_home_center_route_guard',
+	'sabri_test_phase2_full_audit_hardening',
 	'sabri_test_phase2_media_mime_fail_closed',
 	'sabri_test_phase2_research_doi_source_validation',
 	'sabri_test_phase2_duplicate_rest_safe_mode_and_cache',
