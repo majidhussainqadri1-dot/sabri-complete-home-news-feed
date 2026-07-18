@@ -32,3 +32,5 @@ The plugin does not create broad site roles and does not alter unrelated WordPre
 Activation captures a snapshot before capability mutation. Rollback restores plugin capability assignments from that snapshot.
 
 Emergency Disable centrally blocks future public create, publish, and submit behavior while preserving data and admin access.
+
+Uninstall removes only Sabri Complete Home and News Feed capabilities from existing roles, regardless of whether plugin data retention is enabled. It does not remove users, roles, WordPress core capabilities, or companion-plugin capabilities.

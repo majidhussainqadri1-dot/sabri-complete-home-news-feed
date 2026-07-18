@@ -64,6 +64,8 @@ Stores restricted administrative audit events.
 - Activation is non-destructive.
 - Migration preview is available before execution.
 - A snapshot is captured before schema mutation.
+- The schema version option is updated only after dbDelta is available and expected tables, indexes, and unique constraints verify successfully.
+- Failed installation leaves the previous schema version unchanged and records missing structure in a structured report.
 - Runtime user data SQL uses prepared statements or internally constructed, whitelisted identifiers.
 - Rollback does not delete WordPress content or companion-plugin data.
 

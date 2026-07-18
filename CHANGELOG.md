@@ -14,5 +14,6 @@
 - Added privacy export and erasure foundations.
 - Added authenticated REST diagnostics.
 - Added admin screens, local assets, stub behavior tests, static checks, GitHub Actions workflow, and Phase 1 release-builder tooling.
+- Fixed Phase 1 safety details for schema-version verification, nested integration settings preservation, privacy export format, and uninstall capability cleanup.
 
 This is not the final complete Home and News Feed feature release.

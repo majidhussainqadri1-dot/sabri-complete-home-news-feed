@@ -282,10 +282,15 @@ final class Settings {
 		}
 
 		if ( 'integrations' === $tab && isset( $input['functions'] ) && is_array( $input['functions'] ) ) {
-			$out['functions'] = array();
+			$functions = isset( $out['functions'] ) && is_array( $out['functions'] ) ? self::sanitize_function_map( $out['functions'] ) : array();
+			$recognized = self::recognized_integration_function_keys();
 			foreach ( $input['functions'] as $key => $function_name ) {
-				$out['functions'][ self::clean_key( $key ) ] = preg_replace( '/[^A-Za-z0-9_\\\\]/', '', (string) $function_name );
+				$key = self::clean_key( $key );
+				if ( in_array( $key, $recognized, true ) ) {
+					$functions[ $key ] = self::clean_function_name( $function_name );
+				}
 			}
+			$out['functions'] = $functions;
 		}
 
 		foreach ( $input as $key => $value ) {
@@ -422,6 +427,43 @@ final class Settings {
 		}
 
 		return array_values( array_unique( $clean ) );
+	}
+
+	/**
+	 * Recognized integration function keys.
+	 *
+	 * @return array<int,string>
+	 */
+	private static function recognized_integration_function_keys() {
+		return array( 'notifications', 'network', 'messages', 'appointments' );
+	}
+
+	/**
+	 * Sanitize a function map while preserving existing future keys.
+	 *
+	 * @param array<string,mixed> $functions Function map.
+	 * @return array<string,string>
+	 */
+	private static function sanitize_function_map( array $functions ) {
+		$out = array();
+		foreach ( $functions as $key => $function_name ) {
+			$key = self::clean_key( $key );
+			if ( '' !== $key ) {
+				$out[ $key ] = self::clean_function_name( $function_name );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Sanitize a callable function name.
+	 *
+	 * @param mixed $function_name Function name.
+	 * @return string
+	 */
+	private static function clean_function_name( $function_name ) {
+		return preg_replace( '/[^A-Za-z0-9_\\\\]/', '', (string) $function_name );
 	}
 
 	/**

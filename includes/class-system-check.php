@@ -25,6 +25,7 @@ final class SystemCheck {
 			self::row( 'PHP version', version_compare( PHP_VERSION, SABRI_HNF_MINIMUM_PHP, '>=' ) ? 'Connected' : 'Unsupported', PHP_VERSION ),
 			self::row( 'WordPress version', self::wp_supported() ? 'Connected' : 'Unsupported', self::wp_version() ),
 			self::row( 'Database access', self::database_available() ? 'Connected' : 'Missing', self::database_available() ? 'wpdb is available.' : 'wpdb was not available in this environment.' ),
+			self::row( 'Schema migration', self::migration_status(), self::migration_detail() ),
 			self::row( 'Options', function_exists( 'get_option' ) ? 'Connected' : 'Missing', Settings::OPTION_NAME ),
 			self::row( 'Cron availability', self::cron_available() ? 'Connected' : 'Disabled', self::cron_available() ? 'WP-Cron is not disabled by constant.' : 'DISABLE_WP_CRON is true.' ),
 			self::row( 'REST availability', function_exists( 'register_rest_route' ) ? 'Connected' : 'Missing', 'Foundation diagnostics routes are admin-only.' ),
@@ -100,7 +101,45 @@ final class SystemCheck {
 	 * @return string
 	 */
 	public static function migration_status() {
-		return SABRI_HNF_SCHEMA_VERSION === Migrations::current_version() ? 'Connected' : 'Available but not configured';
+		$current      = Migrations::current_version();
+		$verification = Database::verify_schema();
+
+		if ( SABRI_HNF_SCHEMA_VERSION === $current && $verification['verified'] ) {
+			return 'Schema version current and verified';
+		}
+
+		if ( SABRI_HNF_SCHEMA_VERSION === $current && ! $verification['verified'] ) {
+			return 'Schema version current but structure incomplete';
+		}
+
+		$last = function_exists( 'get_option' ) ? get_option( Database::INSTALL_RESULT_OPTION, array() ) : array();
+		if ( is_array( $last ) && isset( $last['status'] ) && 'failed' === $last['status'] ) {
+			return 'Installation failed';
+		}
+
+		return 'Available but not configured';
+	}
+
+	/**
+	 * Schema migration detail.
+	 *
+	 * @return string
+	 */
+	private static function migration_detail() {
+		$verification = Database::verify_schema();
+		if ( $verification['verified'] ) {
+			return 'Expected tables, indexes, and unique constraints are present.';
+		}
+
+		$parts = array();
+		if ( ! empty( $verification['missing_tables'] ) ) {
+			$parts[] = 'Missing tables: ' . implode( ', ', $verification['missing_tables'] );
+		}
+		if ( ! empty( $verification['missing_indexes'] ) ) {
+			$parts[] = 'Missing or invalid indexes: ' . implode( ', ', $verification['missing_indexes'] );
+		}
+
+		return $parts ? implode( ' ', $parts ) : 'Schema verification did not complete.';
 	}
 
 	/**

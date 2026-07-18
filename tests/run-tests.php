@@ -10,6 +10,7 @@ require_once __DIR__ . '/bootstrap.php';
 use Sabri\HomeNewsFeed\Activator;
 use Sabri\HomeNewsFeed\Capabilities;
 use Sabri\HomeNewsFeed\Database;
+use Sabri\HomeNewsFeed\DataRetention;
 use Sabri\HomeNewsFeed\Migrations;
 use Sabri\HomeNewsFeed\Plugin;
 use Sabri\HomeNewsFeed\Repair;
@@ -18,6 +19,7 @@ use Sabri\HomeNewsFeed\Rollback;
 use Sabri\HomeNewsFeed\SafeMode;
 use Sabri\HomeNewsFeed\Settings;
 use Sabri\HomeNewsFeed\Snapshot;
+use Sabri\HomeNewsFeed\SystemCheck;
 use Sabri\HomeNewsFeed\Taxonomies;
 
 $failures = array();
@@ -30,10 +32,30 @@ function sabri_assert( $condition, $message ) {
 }
 
 function sabri_reset_options() {
-	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms;
+	global $sabri_test_options, $sabri_test_update_log, $sabri_test_terms, $sabri_test_filter_overrides, $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index, $sabri_test_rows;
 	$sabri_test_options = array();
 	$sabri_test_update_log = array();
 	$sabri_test_terms = array();
+	$sabri_test_filter_overrides = array();
+	$sabri_test_tables = array();
+	$sabri_test_indexes = array();
+	$sabri_test_dbdelta_skip_table = '';
+	$sabri_test_dbdelta_skip_index = '';
+	$sabri_test_rows = array();
+}
+
+function sabri_reset_roles() {
+	global $sabri_test_roles;
+	$sabri_test_roles = array(
+		'administrator'   => new Sabri_Test_Role( array( 'manage_options' => true ) ),
+		'editor'          => new Sabri_Test_Role( array( 'edit_posts' => true ) ),
+		'founder'         => new Sabri_Test_Role(),
+		'verified_doctor' => new Sabri_Test_Role(),
+		'doctor'          => new Sabri_Test_Role(),
+		'student'         => new Sabri_Test_Role(),
+		'patient'         => new Sabri_Test_Role(),
+		'subscriber'      => new Sabri_Test_Role( array( 'read' => true ) ),
+	);
 }
 
 function sabri_test_identity() {
@@ -65,6 +87,38 @@ function sabri_test_activation_snapshot_order() {
 	Activator::activate();
 	sabri_assert( Snapshot::OPTION_NAME === $sabri_test_update_log[0], 'Activation snapshot must be saved before settings, schema, taxonomy, or capability mutations.' );
 	sabri_assert( get_option( Migrations::SCHEMA_OPTION_NAME ) === SABRI_HNF_SCHEMA_VERSION, 'Activation must install schema version idempotently.' );
+}
+
+function sabri_test_schema_install_failures_do_not_advance_version() {
+	global $sabri_test_filter_overrides, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index;
+
+	sabri_reset_options();
+	update_option( Migrations::SCHEMA_OPTION_NAME, '0.9.0', false );
+	$sabri_test_filter_overrides['sabri_feed_dbdelta_available'] = false;
+	$result = Database::install();
+	sabri_assert( false === $result['success'], 'Schema install must fail when dbDelta is unavailable.' );
+	sabri_assert( '0.9.0' === get_option( Migrations::SCHEMA_OPTION_NAME ), 'Schema version must not advance when dbDelta is unavailable.' );
+	sabri_assert( 'Installation failed' === SystemCheck::migration_status(), 'System Check must report failed schema installation.' );
+
+	sabri_reset_options();
+	update_option( Migrations::SCHEMA_OPTION_NAME, '0.9.0', false );
+	$sabri_test_dbdelta_skip_table = 'wp_sabri_feed_saves';
+	$result = Database::install();
+	sabri_assert( false === $result['success'], 'Schema install must fail when a required table is missing.' );
+	sabri_assert( in_array( 'saves', $result['missing_tables'], true ), 'Missing table report must include saves.' );
+	sabri_assert( '0.9.0' === get_option( Migrations::SCHEMA_OPTION_NAME ), 'Schema version must not advance when a table is missing.' );
+
+	sabri_reset_options();
+	update_option( Migrations::SCHEMA_OPTION_NAME, '0.9.0', false );
+	$sabri_test_dbdelta_skip_index = 'user_post_status';
+	$result = Database::install();
+	sabri_assert( false === $result['success'], 'Schema install must fail when a required index is missing.' );
+	sabri_assert( in_array( 'reactions.user_post_status:Missing', $result['missing_indexes'], true ), 'Missing index report must include reactions.user_post_status.' );
+	sabri_assert( '0.9.0' === get_option( Migrations::SCHEMA_OPTION_NAME ), 'Schema version must not advance when an index is missing.' );
+
+	sabri_reset_options();
+	update_option( Migrations::SCHEMA_OPTION_NAME, SABRI_HNF_SCHEMA_VERSION, false );
+	sabri_assert( 'Schema version current but structure incomplete' === SystemCheck::migration_status(), 'System Check must distinguish current version with incomplete structure.' );
 }
 
 function sabri_test_database_schema() {
@@ -106,6 +160,32 @@ function sabri_test_settings_isolation() {
 	sabri_assert( 'https://example.test/news' === $updated['news']['source_url'], 'Updating one tab must preserve other tabs.' );
 	sabri_assert( 'keep' === $updated['future_namespace']['future_key'], 'Unknown future namespaces must be preserved.' );
 	sabri_assert( 'still here' === $updated['feed']['unknown_future_key'], 'Unknown future keys in a tab must be preserved.' );
+}
+
+function sabri_test_integration_function_settings_preservation() {
+	sabri_reset_options();
+	$settings = Settings::defaults();
+	$settings['integrations']['shell_required'] = 1;
+	$settings['integrations']['functions']['messages'] = 'Existing_Message_Callback';
+	$settings['integrations']['functions']['future_hook'] = 'Future\\Safe_Callback';
+	update_option( Settings::OPTION_NAME, $settings, false );
+
+	Settings::update_tab(
+		'integrations',
+		array(
+			'functions' => array(
+				'notifications' => 'New\\Notifications_Callback',
+				'future_incoming' => 'unsafe!value',
+			),
+		)
+	);
+
+	$updated = Settings::get();
+	sabri_assert( 0 === $updated['integrations']['shell_required'], 'Recognized integration checkbox must turn off when omitted.' );
+	sabri_assert( 'New\\Notifications_Callback' === $updated['integrations']['functions']['notifications'], 'Recognized incoming function key must update.' );
+	sabri_assert( 'Existing_Message_Callback' === $updated['integrations']['functions']['messages'], 'Unsubmitted recognized integration function key must be preserved.' );
+	sabri_assert( 'Future\\Safe_Callback' === $updated['integrations']['functions']['future_hook'], 'Existing unknown future integration function key must be preserved.' );
+	sabri_assert( ! isset( $updated['integrations']['functions']['future_incoming'] ), 'Unsafe incoming unknown integration function key must not be preserved.' );
 }
 
 function sabri_test_capability_policy() {
@@ -160,6 +240,108 @@ function sabri_test_rest_permissions() {
 	sabri_assert( RestFoundation::permission_callback(), 'REST diagnostics must allow plugin administrators.' );
 }
 
+function sabri_test_privacy_exporter_payload_structure() {
+	global $sabri_test_rows;
+	sabri_reset_options();
+	$tables = Database::table_names();
+	$user_id = 42;
+	$sabri_test_rows[ $tables['saves'] ] = array();
+	for ( $i = 1; $i <= 51; $i++ ) {
+		$sabri_test_rows[ $tables['saves'] ][] = array(
+			'id'             => $i,
+			'user_id'        => $user_id,
+			'post_id'        => 1000 + $i,
+			'collection_key' => 'default',
+			'status'         => 'active',
+			'created_at'     => '2026-07-18 00:00:00',
+		);
+	}
+	$sabri_test_rows[ $tables['follows'] ] = array(
+		array(
+			'id'               => 71,
+			'follower_user_id' => $user_id,
+			'target_user_id'   => 99,
+			'target_type'      => 'user',
+			'status'           => 'active',
+			'created_at'       => '2026-07-18 00:00:00',
+		),
+	);
+	$sabri_test_rows[ $tables['reports'] ] = array(
+		array(
+			'id'               => 81,
+			'reporter_user_id' => $user_id,
+			'object_type'      => 'post',
+			'object_id'        => 123,
+			'reason'           => 'spam',
+			'status'           => 'open',
+			'notes'            => 'confidential moderator note',
+			'duplicate_hash'   => 'raw-secret-hash',
+			'created_at'       => '2026-07-18 00:00:00',
+		),
+	);
+
+	$page_one = DataRetention::exporter( 'user@example.com', 1 );
+	sabri_assert( 50 === count( $page_one['data'] ), 'Privacy exporter page one must return the page size.' );
+	sabri_assert( false === $page_one['done'], 'Privacy exporter page one must not be done when more rows exist.' );
+
+	foreach ( $page_one['data'] as $item ) {
+		sabri_assert( isset( $item['group_id'], $item['group_label'], $item['item_id'], $item['data'] ), 'Each export item must include group_id, group_label, item_id, and data.' );
+		foreach ( $item['data'] as $entry ) {
+			sabri_assert( isset( $entry['name'], $entry['value'] ), 'Each export data entry must be a flat name/value pair.' );
+			sabri_assert( is_string( $entry['name'] ) && is_string( $entry['value'] ), 'Export entry name/value must be strings.' );
+		}
+	}
+
+	$page_two = DataRetention::exporter( 'user@example.com', 2 );
+	sabri_assert( true === $page_two['done'], 'Privacy exporter page two must be done for the test data set.' );
+	$json = wp_json_encode( $page_two );
+	sabri_assert( false === strpos( $json, 'confidential moderator note' ), 'Privacy exporter must not expose confidential moderation notes.' );
+	sabri_assert( false === strpos( $json, 'raw-secret-hash' ), 'Privacy exporter must not expose duplicate hashes or raw internal secrets.' );
+	sabri_assert( false === strpos( $json, 'target_user_id' ), 'Privacy exporter must not expose other users private raw column names.' );
+}
+
+function sabri_test_uninstall_capability_cleanup() {
+	global $sabri_test_roles;
+	sabri_reset_options();
+	sabri_reset_roles();
+	if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
+		define( 'WP_UNINSTALL_PLUGIN', 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' );
+	}
+
+	foreach ( $sabri_test_roles as $role ) {
+		$role->add_cap( 'sabri_feed_manage_settings' );
+		$role->add_cap( 'sabri_feed_publish_posts' );
+		$role->add_cap( 'unrelated_companion_capability' );
+	}
+
+	update_option( Settings::OPTION_NAME, Settings::defaults(), false );
+	include dirname( __DIR__ ) . '/uninstall.php';
+
+	foreach ( $sabri_test_roles as $role_slug => $role ) {
+		sabri_assert( empty( $role->capabilities['sabri_feed_manage_settings'] ), 'Uninstall must remove plugin manage capability from ' . $role_slug . ' when retention is on.' );
+		sabri_assert( empty( $role->capabilities['sabri_feed_publish_posts'] ), 'Uninstall must remove plugin publish capability from ' . $role_slug . ' when retention is on.' );
+		sabri_assert( ! empty( $role->capabilities['unrelated_companion_capability'] ), 'Uninstall must preserve unrelated capabilities when retention is on.' );
+	}
+	sabri_assert( is_array( get_option( Settings::OPTION_NAME ) ), 'Retention-on uninstall must preserve plugin data.' );
+
+	sabri_reset_options();
+	sabri_reset_roles();
+	foreach ( $sabri_test_roles as $role ) {
+		$role->add_cap( 'sabri_feed_run_rollbacks' );
+		$role->add_cap( 'read' );
+	}
+	$settings = Settings::defaults();
+	$settings['privacy']['retain_data_on_uninstall'] = 0;
+	update_option( Settings::OPTION_NAME, $settings, false );
+	include dirname( __DIR__ ) . '/uninstall.php';
+
+	foreach ( $sabri_test_roles as $role_slug => $role ) {
+		sabri_assert( empty( $role->capabilities['sabri_feed_run_rollbacks'] ), 'Uninstall must remove plugin rollback capability from ' . $role_slug . ' when retention is off.' );
+		sabri_assert( ! empty( $role->capabilities['read'] ), 'Uninstall must preserve unrelated WordPress capabilities when retention is off.' );
+	}
+	sabri_assert( false === get_option( Settings::OPTION_NAME, false ), 'Retention-off uninstall may remove plugin options.' );
+}
+
 function sabri_test_taxonomies() {
 	$terms = Taxonomies::feed_type_terms();
 	sabri_assert( 22 === count( $terms ), 'Default feed types must include the required 22 terms.' );
@@ -201,12 +383,16 @@ $tests = array(
 	'sabri_test_identity',
 	'sabri_test_bootstrap_no_wrappers',
 	'sabri_test_activation_snapshot_order',
+	'sabri_test_schema_install_failures_do_not_advance_version',
 	'sabri_test_database_schema',
 	'sabri_test_settings_isolation',
+	'sabri_test_integration_function_settings_preservation',
 	'sabri_test_capability_policy',
 	'sabri_test_safe_mode_and_emergency',
 	'sabri_test_rollback_and_repair_boundaries',
 	'sabri_test_rest_permissions',
+	'sabri_test_privacy_exporter_payload_structure',
+	'sabri_test_uninstall_capability_cleanup',
 	'sabri_test_taxonomies',
 	'sabri_test_static_safety',
 	'sabri_test_documentation_consistency',

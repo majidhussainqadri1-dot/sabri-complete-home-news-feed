@@ -4,6 +4,8 @@
 
 Phase 1 registers personal data exporter and eraser hooks for plugin-owned social data.
 
+The exporter emits one WordPress-compatible export item per personal-data row. Each item contains a flat list of `name` and `value` entries.
+
 ## Saved Posts
 
 Saved-post data is private to the saving user. The plugin does not publicly expose who saved a post.
@@ -15,6 +17,8 @@ Follow data is exportable for the requesting user and can be marked removed or a
 ## Reports
 
 Report data remains confidential and is restricted to authorized moderation and administration contexts.
+
+Personal-data exports do not expose confidential moderation notes, duplicate hashes, raw internal secrets, or unrelated private user data.
 
 ## Audit Log
 

@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Defines and installs versioned social data tables.
  */
 final class Database {
+	const INSTALL_RESULT_OPTION = 'sabri_feed_last_schema_install_result';
+
 	/**
 	 * Table slugs.
 	 *
@@ -87,6 +89,23 @@ final class Database {
 			'views'      => array( 'PRIMARY', 'view_identity', 'post_date', 'user_date' ),
 			'poll_votes' => array( 'PRIMARY', 'vote_identity', 'poll_status', 'user_status' ),
 			'audit_log'  => array( 'PRIMARY', 'action_created', 'actor_created', 'object_lookup' ),
+		);
+	}
+
+	/**
+	 * Expected unique index names by table.
+	 *
+	 * @return array<string,array<int,string>>
+	 */
+	public static function expected_unique_indexes() {
+		return array(
+			'reactions'  => array( 'PRIMARY', 'user_post_status' ),
+			'follows'    => array( 'PRIMARY', 'follower_target' ),
+			'saves'      => array( 'PRIMARY', 'user_post_collection' ),
+			'reports'    => array( 'PRIMARY', 'duplicate_control' ),
+			'views'      => array( 'PRIMARY', 'view_identity' ),
+			'poll_votes' => array( 'PRIMARY', 'vote_identity' ),
+			'audit_log'  => array( 'PRIMARY' ),
 		);
 	}
 
@@ -215,25 +234,89 @@ final class Database {
 	 */
 	public static function install() {
 		$report = array(
-			'schema_version' => SABRI_HNF_SCHEMA_VERSION,
-			'tables'         => array_keys( self::schema() ),
+			'success'                 => false,
+			'status'                  => 'failed',
+			'previous_schema_version' => function_exists( 'get_option' ) ? (string) get_option( Migrations::SCHEMA_OPTION_NAME, '' ) : '',
+			'target_schema_version'   => SABRI_HNF_SCHEMA_VERSION,
+			'dbdelta_available'       => false,
+			'dbdelta_results'         => array(),
+			'missing_tables'          => array(),
+			'missing_indexes'         => array(),
+			'table_status'            => array(),
+			'index_status'            => array(),
+			'message'                 => '',
 		);
 
 		if ( ! function_exists( 'dbDelta' ) && defined( 'ABSPATH' ) && file_exists( ABSPATH . 'wp-admin/includes/upgrade.php' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		}
 
-		if ( function_exists( 'dbDelta' ) ) {
-			foreach ( self::schema() as $sql ) {
-				dbDelta( $sql );
-			}
+		$report['dbdelta_available'] = self::dbdelta_available();
+		if ( ! $report['dbdelta_available'] ) {
+			$report['message'] = 'dbDelta is unavailable; schema installation was not attempted.';
+			return self::record_install_failure( $report );
 		}
+
+		foreach ( self::schema() as $slug => $sql ) {
+			$result = dbDelta( $sql );
+			$report['dbdelta_results'][ $slug ] = is_array( $result ) ? $result : array();
+		}
+
+		$verification = self::verify_schema();
+		$report['table_status']    = $verification['table_status'];
+		$report['index_status']    = $verification['index_status'];
+		$report['missing_tables']  = $verification['missing_tables'];
+		$report['missing_indexes'] = $verification['missing_indexes'];
+
+		if ( ! $verification['verified'] ) {
+			$report['message'] = 'Schema installation completed but structure verification failed.';
+			return self::record_install_failure( $report );
+		}
+
+		$report['success'] = true;
+		$report['status']  = 'verified';
+		$report['message'] = 'Schema installed and verified.';
 
 		if ( function_exists( 'update_option' ) ) {
 			update_option( Migrations::SCHEMA_OPTION_NAME, SABRI_HNF_SCHEMA_VERSION, false );
+			update_option( self::INSTALL_RESULT_OPTION, $report, false );
 		}
 
 		return $report;
+	}
+
+	/**
+	 * Verify expected tables, indexes, and unique constraints.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public static function verify_schema() {
+		$table_status    = self::table_status();
+		$index_status    = self::index_status();
+		$missing_tables  = array();
+		$missing_indexes = array();
+
+		foreach ( $table_status as $slug => $status ) {
+			if ( 'Connected' !== $status ) {
+				$missing_tables[] = $slug;
+			}
+		}
+
+		foreach ( $index_status as $slug => $indexes ) {
+			foreach ( $indexes as $index => $status ) {
+				if ( 'Connected' !== $status ) {
+					$missing_indexes[] = $slug . '.' . $index . ':' . $status;
+				}
+			}
+		}
+
+		return array(
+			'verified'        => empty( $missing_tables ) && empty( $missing_indexes ),
+			'table_status'    => $table_status,
+			'index_status'    => $index_status,
+			'missing_tables'  => $missing_tables,
+			'missing_indexes' => $missing_indexes,
+		);
 	}
 
 	/**
@@ -281,12 +364,50 @@ final class Database {
 			}
 
 			foreach ( $found as $row ) {
-				if ( ! empty( $row['Key_name'] ) && isset( $status[ $slug ][ $row['Key_name'] ] ) ) {
+				if ( empty( $row['Key_name'] ) || ! isset( $status[ $slug ][ $row['Key_name'] ] ) ) {
+					continue;
+				}
+
+				if ( in_array( $row['Key_name'], self::expected_unique_indexes()[ $slug ], true ) ) {
+					$status[ $slug ][ $row['Key_name'] ] = isset( $row['Non_unique'] ) && 0 === (int) $row['Non_unique'] ? 'Connected' : 'Not unique';
+				} else {
 					$status[ $slug ][ $row['Key_name'] ] = 'Connected';
 				}
 			}
 		}
 
 		return $status;
+	}
+
+	/**
+	 * Check dbDelta availability, with a filterable seam for host diagnostics and tests.
+	 *
+	 * @return bool
+	 */
+	private static function dbdelta_available() {
+		$available = function_exists( 'dbDelta' );
+		if ( function_exists( 'apply_filters' ) ) {
+			$available = apply_filters( 'sabri_feed_dbdelta_available', $available );
+		}
+
+		return (bool) $available;
+	}
+
+	/**
+	 * Store a failed install report without advancing the schema version.
+	 *
+	 * @param array<string,mixed> $report Report.
+	 * @return array<string,mixed>
+	 */
+	private static function record_install_failure( array $report ) {
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::INSTALL_RESULT_OPTION, $report, false );
+		}
+
+		if ( class_exists( __NAMESPACE__ . '\\AuditLog' ) ) {
+			AuditLog::record( 'schema_install_failed', $report );
+		}
+
+		return $report;
 	}
 }

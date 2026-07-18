@@ -12,9 +12,18 @@ $wp_version = '6.6';
 $sabri_test_options = array();
 $sabri_test_actions = array();
 $sabri_test_filters = array();
+$sabri_test_filter_overrides = array();
 $sabri_test_update_log = array();
 $sabri_test_terms = array();
 $sabri_test_current_caps = array( 'manage_options' => true, 'sabri_feed_manage_settings' => true );
+$sabri_test_tables = array();
+$sabri_test_indexes = array();
+$sabri_test_dbdelta_skip_table = '';
+$sabri_test_dbdelta_skip_index = '';
+$sabri_test_rows = array();
+$sabri_test_users = array(
+	'user@example.com' => 42,
+);
 
 function __( $text, $domain = null ) { unset( $domain ); return $text; }
 function esc_html__( $text, $domain = null ) { unset( $domain ); return $text; }
@@ -39,8 +48,10 @@ function register_deactivation_hook() {}
 function is_admin() { return true; }
 function current_user_can( $capability ) { global $sabri_test_current_caps; return ! empty( $sabri_test_current_caps[ $capability ] ); }
 function get_current_user_id() { return 1; }
+function get_user_by( $field, $value ) { global $sabri_test_users; if ( 'email' !== $field || ! isset( $sabri_test_users[ $value ] ) ) { return false; } return (object) array( 'ID' => $sabri_test_users[ $value ], 'user_email' => $value ); }
 function add_action( $hook, $callback = null, $priority = 10, $args = 1 ) { global $sabri_test_actions; $sabri_test_actions[] = compact( 'hook', 'callback', 'priority', 'args' ); }
 function add_filter( $hook, $callback = null, $priority = 10, $args = 1 ) { global $sabri_test_filters; $sabri_test_filters[] = compact( 'hook', 'callback', 'priority', 'args' ); }
+function apply_filters( $hook, $value ) { global $sabri_test_filter_overrides; return array_key_exists( $hook, $sabri_test_filter_overrides ) ? $sabri_test_filter_overrides[ $hook ] : $value; }
 function register_setting() {}
 function register_post_meta() {}
 function register_taxonomy() {}
@@ -97,12 +108,86 @@ class Sabri_Test_WPDB {
 		}
 		return $query;
 	}
-	public function get_var( $query ) { unset( $query ); return 0; }
-	public function get_results( $query, $output = null ) { unset( $query, $output ); return array(); }
+	public function get_var( $query ) {
+		global $sabri_test_tables;
+		if ( preg_match( "/SHOW TABLES LIKE '([^']+)'/", $query, $matches ) ) {
+			return ! empty( $sabri_test_tables[ $matches[1] ] ) ? $matches[1] : null;
+		}
+		return 0;
+	}
+	public function get_results( $query, $output = null ) {
+		global $sabri_test_indexes, $sabri_test_rows;
+		unset( $output );
+		if ( preg_match( '/SHOW INDEX FROM `([^`]+)`/', $query, $matches ) ) {
+			return isset( $sabri_test_indexes[ $matches[1] ] ) ? array_values( $sabri_test_indexes[ $matches[1] ] ) : array();
+		}
+		if ( preg_match( '/SELECT \* FROM `([^`]+)` WHERE `([^`]+)` = ([0-9]+) ORDER BY id ASC/', $query, $matches ) ) {
+			$table = $matches[1];
+			$column = $matches[2];
+			$user_id = (int) $matches[3];
+			$rows = isset( $sabri_test_rows[ $table ] ) ? $sabri_test_rows[ $table ] : array();
+			$rows = array_values(
+				array_filter(
+					$rows,
+					static function ( $row ) use ( $column, $user_id ) {
+						return isset( $row[ $column ] ) && (int) $row[ $column ] === $user_id;
+					}
+				)
+			);
+			usort(
+				$rows,
+				static function ( $a, $b ) {
+					return (int) $a['id'] <=> (int) $b['id'];
+				}
+			);
+			return $rows;
+		}
+		return array();
+	}
 	public function insert( $table, $data, $formats = null ) { unset( $table, $data, $formats ); return true; }
 	public function update( $table, $data, $where, $formats = null, $where_formats = null ) { unset( $table, $data, $where, $formats, $where_formats ); return true; }
+	public function query( $query ) {
+		global $sabri_test_tables, $sabri_test_indexes;
+		if ( preg_match( '/DROP TABLE IF EXISTS `([^`]+)`/', $query, $matches ) ) {
+			unset( $sabri_test_tables[ $matches[1] ], $sabri_test_indexes[ $matches[1] ] );
+		}
+		return true;
+	}
 }
 
 $wpdb = new Sabri_Test_WPDB();
 
-function dbDelta( $sql ) { return array( $sql => 'created' ); }
+function dbDelta( $sql ) {
+	global $sabri_test_tables, $sabri_test_indexes, $sabri_test_dbdelta_skip_table, $sabri_test_dbdelta_skip_index;
+
+	if ( ! preg_match( '/CREATE TABLE\s+`?([^`\s(]+)`?/i', $sql, $matches ) ) {
+		return array();
+	}
+
+	$table = $matches[1];
+	if ( $table === $sabri_test_dbdelta_skip_table ) {
+		return array( $table => 'skipped' );
+	}
+
+	$sabri_test_tables[ $table ] = true;
+	$sabri_test_indexes[ $table ] = array();
+
+	foreach ( preg_split( '/\R/', $sql ) as $line ) {
+		$line = trim( $line, " \t\n\r\0\x0B," );
+		if ( preg_match( '/^PRIMARY KEY/i', $line ) ) {
+			if ( 'PRIMARY' !== $sabri_test_dbdelta_skip_index ) {
+				$sabri_test_indexes[ $table ]['PRIMARY'] = array( 'Key_name' => 'PRIMARY', 'Non_unique' => 0 );
+			}
+		} elseif ( preg_match( '/^UNIQUE KEY\s+`?([^\s`(]+)/i', $line, $index_matches ) ) {
+			if ( $index_matches[1] !== $sabri_test_dbdelta_skip_index ) {
+				$sabri_test_indexes[ $table ][ $index_matches[1] ] = array( 'Key_name' => $index_matches[1], 'Non_unique' => 0 );
+			}
+		} elseif ( preg_match( '/^KEY\s+`?([^\s`(]+)/i', $line, $index_matches ) ) {
+			if ( $index_matches[1] !== $sabri_test_dbdelta_skip_index ) {
+				$sabri_test_indexes[ $table ][ $index_matches[1] ] = array( 'Key_name' => $index_matches[1], 'Non_unique' => 1 );
+			}
+		}
+	}
+
+	return array( $table => 'created' );
+}

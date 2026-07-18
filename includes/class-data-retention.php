@@ -15,6 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Registers export and erasure hooks for plugin-owned social data.
  */
 final class DataRetention {
+	const EXPORT_PAGE_SIZE = 50;
+
 	/**
 	 * Register privacy hooks.
 	 *
@@ -81,29 +83,19 @@ final class DataRetention {
 	 * @return array<string,mixed>
 	 */
 	public static function exporter( $email_address, $page = 1 ) {
-		unset( $page );
-
 		$user = function_exists( 'get_user_by' ) ? get_user_by( 'email', $email_address ) : false;
 		if ( ! $user ) {
 			return array( 'data' => array(), 'done' => true );
 		}
 
 		$user_id = absint( $user->ID );
-		$data    = array();
+		$page    = max( 1, absint( $page ) );
+		$items   = self::export_items( $user_id );
+		$offset  = ( $page - 1 ) * self::EXPORT_PAGE_SIZE;
+		$data    = array_slice( $items, $offset, self::EXPORT_PAGE_SIZE );
+		$done    = count( $items ) <= $offset + self::EXPORT_PAGE_SIZE;
 
-		foreach ( self::export_groups( $user_id ) as $group_id => $items ) {
-			if ( empty( $items ) ) {
-				continue;
-			}
-			$data[] = array(
-				'group_id'    => 'sabri-home-news-feed-' . $group_id,
-				'group_label' => __( 'Sabri Home and News Feed', 'sabri-complete-home-news-feed' ),
-				'item_id'     => 'sabri-home-news-feed-' . $group_id . '-' . $user_id,
-				'data'        => $items,
-			);
-		}
-
-		return array( 'data' => $data, 'done' => true );
+		return array( 'data' => $data, 'done' => $done );
 	}
 
 	/**
@@ -135,16 +127,46 @@ final class DataRetention {
 	}
 
 	/**
-	 * Export row groups.
+	 * Export WordPress-compatible privacy items.
 	 *
 	 * @param int $user_id User ID.
-	 * @return array<string,array<int,array<string,string>>>
+	 * @return array<int,array<string,mixed>>
 	 */
-	private static function export_groups( $user_id ) {
-		return array(
-			'saves'   => self::export_rows( 'saves', 'user_id', $user_id, array( 'post_id', 'collection_key', 'status', 'created_at' ) ),
-			'follows' => self::export_rows( 'follows', 'follower_user_id', $user_id, array( 'target_user_id', 'target_type', 'status', 'created_at' ) ),
-			'reports' => self::export_rows( 'reports', 'reporter_user_id', $user_id, array( 'object_type', 'object_id', 'reason', 'status', 'created_at' ) ),
+	private static function export_items( $user_id ) {
+		return array_merge(
+			self::export_rows(
+				'saves',
+				'user_id',
+				$user_id,
+				array(
+					'post_id'        => __( 'Saved post ID', 'sabri-complete-home-news-feed' ),
+					'collection_key' => __( 'Collection', 'sabri-complete-home-news-feed' ),
+					'status'         => __( 'Status', 'sabri-complete-home-news-feed' ),
+					'created_at'     => __( 'Created at', 'sabri-complete-home-news-feed' ),
+				)
+			),
+			self::export_rows(
+				'follows',
+				'follower_user_id',
+				$user_id,
+				array(
+					'target_type' => __( 'Follow target type', 'sabri-complete-home-news-feed' ),
+					'status'      => __( 'Status', 'sabri-complete-home-news-feed' ),
+					'created_at'  => __( 'Created at', 'sabri-complete-home-news-feed' ),
+				)
+			),
+			self::export_rows(
+				'reports',
+				'reporter_user_id',
+				$user_id,
+				array(
+					'object_type' => __( 'Reported object type', 'sabri-complete-home-news-feed' ),
+					'object_id'   => __( 'Reported object ID', 'sabri-complete-home-news-feed' ),
+					'reason'      => __( 'Report reason', 'sabri-complete-home-news-feed' ),
+					'status'      => __( 'Report status', 'sabri-complete-home-news-feed' ),
+					'created_at'  => __( 'Created at', 'sabri-complete-home-news-feed' ),
+				)
+			)
 		);
 	}
 
@@ -154,8 +176,8 @@ final class DataRetention {
 	 * @param string            $table_slug Table slug.
 	 * @param string            $user_column User column.
 	 * @param int               $user_id User ID.
-	 * @param array<int,string> $columns Columns.
-	 * @return array<int,array<string,string>>
+	 * @param array<string,string> $columns Columns and labels.
+	 * @return array<int,array<string,mixed>>
 	 */
 	private static function export_rows( $table_slug, $user_column, $user_id, array $columns ) {
 		global $wpdb;
@@ -171,26 +193,51 @@ final class DataRetention {
 
 		$table = str_replace( '`', '', $tables[ $table_slug ] );
 		$user_column = str_replace( '`', '', $user_column );
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE `{$user_column}` = %d LIMIT 100", $user_id ), ARRAY_A );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$table}` WHERE `{$user_column}` = %d ORDER BY id ASC", $user_id ), ARRAY_A );
 		if ( ! is_array( $rows ) ) {
 			return array();
 		}
 
 		$out = array();
 		foreach ( $rows as $row ) {
-			$item = array();
-			foreach ( $columns as $column ) {
+			$data = array();
+			foreach ( $columns as $column => $label ) {
 				if ( isset( $row[ $column ] ) ) {
-					$item[] = array(
-						'name'  => $column,
+					$data[] = array(
+						'name'  => $label,
 						'value' => (string) $row[ $column ],
 					);
 				}
 			}
-			$out[] = $item;
+
+			if ( empty( $data ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'group_id'    => 'sabri-home-news-feed-' . $table_slug,
+				'group_label' => __( 'Sabri Home and News Feed', 'sabri-complete-home-news-feed' ),
+				'item_id'     => self::export_item_id( $table_slug, $row ),
+				'data'        => $data,
+			);
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Create a stable export item ID without exposing extra row data.
+	 *
+	 * @param string              $table_slug Table slug.
+	 * @param array<string,mixed> $row Row.
+	 * @return string
+	 */
+	private static function export_item_id( $table_slug, array $row ) {
+		if ( isset( $row['id'] ) ) {
+			return 'sabri-home-news-feed-' . $table_slug . '-' . absint( $row['id'] );
+		}
+
+		return 'sabri-home-news-feed-' . $table_slug . '-' . hash( 'sha256', wp_json_encode( $row ) );
 	}
 
 	/**
