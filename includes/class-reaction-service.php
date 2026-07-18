@@ -55,17 +55,7 @@ final class ReactionService {
 		}
 
 		if ( is_array( $current ) ) {
-			$result = InteractionRepository::update_rows(
-				'reactions',
-				array(
-					'reaction_type' => $reaction_type,
-					'status'        => 'active',
-				),
-				array(
-					'user_id' => $user_id,
-					'post_id' => $post_id,
-				)
-			);
+			$result = self::update_active( $user_id, $post_id, $reaction_type );
 		} else {
 			$result = InteractionRepository::insert_row(
 				'reactions',
@@ -76,6 +66,12 @@ final class ReactionService {
 					'status'        => 'active',
 				)
 			);
+
+			// A concurrent request may have inserted the unique active row after
+			// the initial lookup. Re-read and safely update instead of duplicating.
+			if ( empty( $result['ok'] ) && is_array( InteractionQueryRepository::active_reaction( $user_id, $post_id ) ) ) {
+				$result = self::update_active( $user_id, $post_id, $reaction_type );
+			}
 		}
 
 		if ( empty( $result['ok'] ) ) {
@@ -139,6 +135,28 @@ final class ReactionService {
 			EngagementService::summary( $post_id, $user_id ),
 			'Reaction removed.',
 			200
+		);
+	}
+
+	/**
+	 * Update the one active row.
+	 *
+	 * @param int    $user_id User ID.
+	 * @param int    $post_id Post ID.
+	 * @param string $reaction_type Reaction type.
+	 * @return array<string,mixed>
+	 */
+	private static function update_active( $user_id, $post_id, $reaction_type ) {
+		return InteractionRepository::update_rows(
+			'reactions',
+			array(
+				'reaction_type' => $reaction_type,
+				'status'        => 'active',
+			),
+			array(
+				'user_id' => $user_id,
+				'post_id' => $post_id,
+			)
 		);
 	}
 }
