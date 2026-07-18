@@ -9,7 +9,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 ?>
-<form class="sabri-hnf-composer" method="post" action="<?php echo esc_url( $action_url ); ?>" enctype="multipart/form-data" data-sabri-composer>
+<form class="sabri-hnf-composer" method="post" action="<?php echo esc_url( $action_url ); ?>" enctype="multipart/form-data" data-sabri-composer data-require-medical-disclaimer="<?php echo ! empty( $settings['composer']['require_medical_disclaimer'] ) ? '1' : '0'; ?>" data-require-patient-consent="<?php echo ! empty( $settings['composer']['require_patient_consent'] ) ? '1' : '0'; ?>">
 	<input type="hidden" name="action" value="sabri_public_composer" />
 	<?php if ( function_exists( 'wp_nonce_field' ) ) : ?>
 		<?php wp_nonce_field( 'sabri_public_composer' ); ?>
@@ -36,7 +36,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<span><?php esc_html_e( 'Visibility', 'sabri-complete-home-news-feed' ); ?></span>
 			<select name="visibility">
 				<?php foreach ( $visibility as $slug ) : ?>
-					<option value="<?php echo esc_attr( $slug ); ?>"><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></option>
+					<option value="<?php echo esc_attr( $slug ); ?>" <?php selected( $default_visibility, $slug ); ?>><?php echo esc_html( ucwords( str_replace( '-', ' ', $slug ) ) ); ?></option>
 				<?php endforeach; ?>
 			</select>
 		</label>
@@ -61,32 +61,36 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</div>
 	<?php include SABRI_HNF_PATH . 'templates/composer-clinical-case.php'; ?>
 	<?php include SABRI_HNF_PATH . 'templates/composer-research.php'; ?>
-	<label class="sabri-hnf-check">
-		<input type="checkbox" name="comments_enabled" value="1" checked />
-		<span><?php esc_html_e( 'Comments enabled metadata', 'sabri-complete-home-news-feed' ); ?></span>
-	</label>
-	<label class="sabri-hnf-check">
-		<input type="checkbox" name="medical_disclaimer_confirmed" value="1" required />
+	<?php if ( ! empty( $settings['composer']['comments_metadata_enabled'] ) ) : ?>
+		<label class="sabri-hnf-check">
+			<input type="checkbox" name="comments_enabled" value="1" checked />
+			<span><?php esc_html_e( 'Comments enabled metadata', 'sabri-complete-home-news-feed' ); ?></span>
+		</label>
+	<?php endif; ?>
+	<label class="sabri-hnf-check" data-sabri-medical-confirmation hidden>
+		<input type="checkbox" name="medical_disclaimer_confirmed" value="1" disabled />
 		<span><?php esc_html_e( 'Medical disclaimer confirmed', 'sabri-complete-home-news-feed' ); ?></span>
 	</label>
-	<label class="sabri-hnf-check">
-		<input type="checkbox" name="patient_privacy_confirmed" value="1" required />
+	<label class="sabri-hnf-check" data-sabri-patient-confirmation hidden>
+		<input type="checkbox" name="patient_privacy_confirmed" value="1" disabled />
 		<span><?php esc_html_e( 'Patient consent and anonymization confirmed', 'sabri-complete-home-news-feed' ); ?></span>
 	</label>
-	<label>
-		<span><?php esc_html_e( 'Media', 'sabri-complete-home-news-feed' ); ?></span>
-		<input type="file" name="sabri_media[]" multiple />
-	</label>
-	<div class="sabri-hnf-composer__grid">
+	<?php if ( ! empty( $settings['media']['uploads_enabled'] ) ) : ?>
 		<label>
-			<span><?php esc_html_e( 'Alt Text', 'sabri-complete-home-news-feed' ); ?></span>
-			<input type="text" name="media_alt_text" maxlength="180" />
+			<span><?php esc_html_e( 'Media', 'sabri-complete-home-news-feed' ); ?></span>
+			<input type="file" name="sabri_media[]" accept="<?php echo esc_attr( implode( ',', (array) $settings['composer']['allowed_mime_types'] ) ); ?>" multiple />
 		</label>
-		<label>
-			<span><?php esc_html_e( 'Caption', 'sabri-complete-home-news-feed' ); ?></span>
-			<input type="text" name="media_caption" maxlength="220" />
-		</label>
-	</div>
+		<div class="sabri-hnf-composer__grid">
+			<label>
+				<span><?php esc_html_e( 'Alt Text', 'sabri-complete-home-news-feed' ); ?></span>
+				<input type="text" name="media_alt_text" maxlength="180" />
+			</label>
+			<label>
+				<span><?php esc_html_e( 'Caption', 'sabri-complete-home-news-feed' ); ?></span>
+				<input type="text" name="media_caption" maxlength="220" />
+			</label>
+		</div>
+	<?php endif; ?>
 	<div class="sabri-hnf-composer__actions">
 		<?php if ( ! empty( $settings['composer']['drafts_enabled'] ) ) : ?>
 			<button type="submit" name="composer_action" value="draft"><?php esc_html_e( 'Save Draft', 'sabri-complete-home-news-feed' ); ?></button>
