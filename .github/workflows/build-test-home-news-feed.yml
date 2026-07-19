@@ -27,7 +27,10 @@ jobs:
         run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
       - name: Complete PHP behavior test suite
-        run: php tools/run-tests.php
+        shell: bash
+        run: |
+          set -o pipefail
+          php tools/run-tests.php 2>&1 | tee phase2-behavior-test.log
 
       - name: Phase 3 checkpoint contract tests
         run: php tests/run-phase3-contract-tests.php
@@ -92,6 +95,7 @@ jobs:
         with:
           name: phase3-test-logs
           path: |
+            phase2-behavior-test.log
             phase3a-test.log
             phase3b-test.log
             phase3b-race-test.log
