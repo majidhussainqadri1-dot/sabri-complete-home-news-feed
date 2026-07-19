@@ -49,6 +49,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 			</button>
 		<?php endif; ?>
 
+		<?php if ( $views_enabled ) : ?>
+			<span class="sabri-hnf-action sabri-hnf-action--views" aria-label="<?php echo esc_attr( sprintf( __( '%d views', 'sabri-complete-home-news-feed' ), (int) $summary['view_count'] ) ); ?>">
+				<span><?php esc_html_e( 'Views', 'sabri-complete-home-news-feed' ); ?></span>
+				<span class="sabri-hnf-action__count" data-count="views"><?php echo esc_html( (string) $summary['view_count'] ); ?></span>
+			</span>
+		<?php endif; ?>
+
 		<?php if ( $follows_enabled && '' !== $profile_url ) : ?>
 			<a class="sabri-hnf-action sabri-hnf-action--profile" href="<?php echo esc_url( $profile_url ); ?>"><span><?php esc_html_e( 'View Profile', 'sabri-complete-home-news-feed' ); ?></span></a>
 		<?php endif; ?>
