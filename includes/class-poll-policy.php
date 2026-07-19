@@ -26,9 +26,10 @@ final class PollPolicy {
 	 * Sanitize and validate a raw poll definition.
 	 *
 	 * @param mixed $raw Raw definition.
+	 * @param bool  $require_future_close Whether a supplied close time must be future.
 	 * @return array<string,mixed>
 	 */
-	public static function validate_definition( $raw ) {
+	public static function validate_definition( $raw, $require_future_close = false ) {
 		$definition = self::sanitize_definition( $raw );
 		$errors     = array();
 
@@ -44,7 +45,7 @@ final class PollPolicy {
 			$errors[] = array( 'code' => 'poll_options_exceeded', 'message' => __( 'A poll may contain no more than eight options.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		if ( '' !== $definition['closes_at'] && self::timestamp( $definition['closes_at'] ) <= self::now() ) {
+		if ( $require_future_close && '' !== $definition['closes_at'] && self::timestamp( $definition['closes_at'] ) <= self::now() ) {
 			$errors[] = array( 'code' => 'poll_close_must_be_future', 'message' => __( 'Poll closing time must be in the future.', 'sabri-complete-home-news-feed' ) );
 		}
 
@@ -68,7 +69,7 @@ final class PollPolicy {
 		$seen     = array();
 		$raw_options = isset( $raw['options'] ) && is_array( $raw['options'] ) ? $raw['options'] : array();
 
-		foreach ( $raw_options as $index => $option ) {
+		foreach ( $raw_options as $option ) {
 			$label = is_array( $option ) && array_key_exists( 'label', $option ) ? $option['label'] : $option;
 			$label = self::bounded_text( $label, self::OPTION_MAX );
 			if ( '' === $label ) {
@@ -124,7 +125,7 @@ final class PollPolicy {
 			return false;
 		}
 
-		$validated = self::validate_definition( $definition );
+		$validated = self::validate_definition( $definition, false );
 		if ( empty( $validated['valid'] ) ) {
 			return false;
 		}
@@ -165,7 +166,7 @@ final class PollPolicy {
 		if ( 'poll' !== PostMetadata::feed_type( $post_id ) ) {
 			return false;
 		}
-		$validated = self::validate_definition( self::definition( $post_id ) );
+		$validated = self::validate_definition( self::definition( $post_id ), false );
 		return ! empty( $validated['valid'] );
 	}
 
