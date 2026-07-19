@@ -11,25 +11,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 $items = isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : array();
 ?>
-<?php if ( ! empty( $_GET['report_updated'] ) ) : ?>
-	<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Report updated.', 'sabri-complete-home-news-feed' ); ?></p></div>
-<?php endif; ?>
-<?php if ( ! empty( $_GET['report_error'] ) ) : ?>
-	<div class="notice notice-error"><p><?php esc_html_e( 'The report could not be updated. Review the requested transition and try again.', 'sabri-complete-home-news-feed' ); ?></p></div>
-<?php endif; ?>
+<?php if ( ! empty( $_GET['report_updated'] ) ) : ?><div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Report updated.', 'sabri-complete-home-news-feed' ); ?></p></div><?php endif; ?>
+<?php if ( ! empty( $_GET['report_error'] ) ) : ?><div class="notice notice-error"><p><?php esc_html_e( 'The report could not be updated. Review the requested transition and try again.', 'sabri-complete-home-news-feed' ); ?></p></div><?php endif; ?>
 
 <p><?php esc_html_e( 'This queue is confidential. Reporter identities, report details, and moderator notes must not be copied into public posts or comments.', 'sabri-complete-home-news-feed' ); ?></p>
-<?php if ( ! \Sabri\HomeNewsFeed\Phase3FeatureSettings::enabled( 'reports_enabled' ) ) : ?>
-	<div class="notice notice-warning inline"><p><?php esc_html_e( 'New public report submissions are disabled. Existing reports remain available for moderation and accountability.', 'sabri-complete-home-news-feed' ); ?></p></div>
-<?php endif; ?>
+<?php if ( ! \Sabri\HomeNewsFeed\Phase3FeatureSettings::enabled( 'reports_enabled' ) ) : ?><div class="notice notice-warning inline"><p><?php esc_html_e( 'New public report submissions are disabled. Existing reports remain available for moderation and accountability.', 'sabri-complete-home-news-feed' ); ?></p></div><?php endif; ?>
 
 <form method="get" class="sabri-feed-report-filters">
 	<input type="hidden" name="page" value="<?php echo esc_attr( \Sabri\HomeNewsFeed\ReportAdmin::PAGE_SLUG ); ?>" />
 	<label><span><?php esc_html_e( 'Status', 'sabri-complete-home-news-feed' ); ?></span><select name="report_status"><option value=""><?php esc_html_e( 'All statuses', 'sabri-complete-home-news-feed' ); ?></option><?php foreach ( $state_labels as $state_key => $state_label ) : ?><option value="<?php echo esc_attr( $state_key ); ?>" <?php selected( isset( $filters['status'] ) ? $filters['status'] : '', $state_key ); ?>><?php echo esc_html( $state_label ); ?></option><?php endforeach; ?></select></label>
 	<label><span><?php esc_html_e( 'Reason', 'sabri-complete-home-news-feed' ); ?></span><select name="report_reason"><option value=""><?php esc_html_e( 'All reasons', 'sabri-complete-home-news-feed' ); ?></option><?php foreach ( $reason_labels as $reason_key => $reason_label ) : ?><option value="<?php echo esc_attr( $reason_key ); ?>" <?php selected( isset( $filters['reason'] ) ? $filters['reason'] : '', $reason_key ); ?>><?php echo esc_html( $reason_label ); ?></option><?php endforeach; ?></select></label>
 	<label><span><?php esc_html_e( 'Content type', 'sabri-complete-home-news-feed' ); ?></span><select name="report_object_type"><option value=""><?php esc_html_e( 'Posts and comments', 'sabri-complete-home-news-feed' ); ?></option><option value="post" <?php selected( isset( $filters['object_type'] ) ? $filters['object_type'] : '', 'post' ); ?>><?php esc_html_e( 'Posts', 'sabri-complete-home-news-feed' ); ?></option><option value="comment" <?php selected( isset( $filters['object_type'] ) ? $filters['object_type'] : '', 'comment' ); ?>><?php esc_html_e( 'Comments', 'sabri-complete-home-news-feed' ); ?></option></select></label>
-	<button type="submit" class="button"><?php esc_html_e( 'Filter', 'sabri-complete-home-news-feed' ); ?></button>
-	<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . \Sabri\HomeNewsFeed\ReportAdmin::PAGE_SLUG ) ); ?>"><?php esc_html_e( 'Reset', 'sabri-complete-home-news-feed' ); ?></a>
+	<button type="submit" class="button"><?php esc_html_e( 'Filter', 'sabri-complete-home-news-feed' ); ?></button><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=' . \Sabri\HomeNewsFeed\ReportAdmin::PAGE_SLUG ) ); ?>"><?php esc_html_e( 'Reset', 'sabri-complete-home-news-feed' ); ?></a>
 </form>
 
 <p><strong><?php echo esc_html( sprintf( __( '%d confidential reports', 'sabri-complete-home-news-feed' ), isset( $data['total'] ) ? (int) $data['total'] : 0 ) ); ?></strong></p>
