@@ -150,9 +150,10 @@ final class DataRetention {
 				'follower_user_id',
 				$user_id,
 				array(
-					'target_type' => __( 'Follow target type', 'sabri-complete-home-news-feed' ),
-					'status'      => __( 'Status', 'sabri-complete-home-news-feed' ),
-					'created_at'  => __( 'Created at', 'sabri-complete-home-news-feed' ),
+					'target_user_id' => __( 'Followed user ID', 'sabri-complete-home-news-feed' ),
+					'target_type'    => __( 'Follow target type', 'sabri-complete-home-news-feed' ),
+					'status'         => __( 'Status', 'sabri-complete-home-news-feed' ),
+					'created_at'     => __( 'Created at', 'sabri-complete-home-news-feed' ),
 				)
 			),
 			self::export_rows(
@@ -173,9 +174,9 @@ final class DataRetention {
 	/**
 	 * Export whitelisted columns from a user-owned table.
 	 *
-	 * @param string            $table_slug Table slug.
-	 * @param string            $user_column User column.
-	 * @param int               $user_id User ID.
+	 * @param string               $table_slug Table slug.
+	 * @param string               $user_column User column.
+	 * @param int                  $user_id User ID.
 	 * @param array<string,string> $columns Columns and labels.
 	 * @return array<int,array<string,mixed>>
 	 */
@@ -258,6 +259,7 @@ final class DataRetention {
 
 		$wpdb->update( $tables['saves'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['follows'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'follower_user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
+		$wpdb->update( $tables['follows'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'target_user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['reports'], array( 'reporter_user_id' => 0, 'updated_at' => $now ), array( 'reporter_user_id' => $user_id ), array( '%d', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['views'], array( 'user_id' => 0, 'anonymous_hash' => '', 'updated_at' => $now ), array( 'user_id' => $user_id ), array( '%d', '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['audit_log'], array( 'actor_user_id' => 0 ), array( 'actor_user_id' => $user_id ), array( '%d' ), array( '%d' ) );
