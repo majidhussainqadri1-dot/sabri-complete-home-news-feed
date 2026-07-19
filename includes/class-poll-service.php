@@ -56,6 +56,7 @@ final class PollService {
 		if ( $record && 'active' === (string) $record['status'] && empty( $definition['allow_change'] ) ) {
 			return InteractionResult::error( 'poll_vote_change_disabled', 'This poll does not allow changing an existing vote.', array(), 409 );
 		}
+		$new_active_vote = ! $record || 'active' !== (string) $record['status'];
 
 		if ( $record ) {
 			$updated = InteractionRepository::update_rows(
@@ -98,6 +99,9 @@ final class PollService {
 		}
 
 		AuditLog::record( 'poll_vote_saved', array( 'option_key' => $option_key ), 'post', $post_id );
+		if ( $new_active_vote ) {
+			NotificationBridge::post_event( 'poll_vote', $user_id, $post_id );
+		}
 		return self::success_with_results( 'poll_vote_saved', 'Vote saved.', $post_id, $user_id, 200 );
 	}
 
