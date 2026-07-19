@@ -37,6 +37,7 @@ final class Plugin {
 
 		Settings::register();
 		Phase3FeatureSettings::register();
+		PollComposerIntegration::register();
 		Capabilities::register();
 		PostTypes::register();
 		Taxonomies::register();
@@ -49,6 +50,7 @@ final class Plugin {
 		MediaHandler::register();
 		FeedQuery::register();
 		HomeIntegration::register();
+		PollRuntime::register();
 		SocialRuntime::register();
 		CommentRuntime::register();
 		SavedPostsRuntime::register();
@@ -61,6 +63,7 @@ final class Plugin {
 		RestComments::register();
 		RestFollows::register();
 		RestReports::register();
+		RestPolls::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();
