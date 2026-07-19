@@ -42,7 +42,7 @@ final class PollService {
 			return InteractionResult::error( 'invalid_poll_option', 'The selected poll option is unavailable.', array(), 400 );
 		}
 
-		$limit = InteractionRateLimiter::attempt( 'polls', $user_id, $post_id );
+		$limit = InteractionRateLimiter::attempt( 'poll_votes', $user_id, $post_id );
 		if ( empty( $limit['ok'] ) ) {
 			return $limit;
 		}
@@ -123,7 +123,7 @@ final class PollService {
 			return InteractionResult::error( 'poll_closed', 'This poll is closed.', array(), 409 );
 		}
 
-		$limit = InteractionRateLimiter::attempt( 'polls', $user_id, $post_id );
+		$limit = InteractionRateLimiter::attempt( 'poll_votes', $user_id, $post_id );
 		if ( empty( $limit['ok'] ) ) {
 			return $limit;
 		}
@@ -193,7 +193,7 @@ final class PollService {
 			);
 		}
 
-		$has_vote    = '' !== $current_key;
+		$has_vote     = '' !== $current_key;
 		$allow_change = ! empty( $definition['allow_change'] );
 		return array(
 			'post_id'         => (int) $post_id,
