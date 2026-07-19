@@ -11,7 +11,6 @@ use Sabri\HomeNewsFeed\ComposerValidation;
 use Sabri\HomeNewsFeed\Database;
 use Sabri\HomeNewsFeed\FeedContext;
 use Sabri\HomeNewsFeed\FollowersVisibility;
-use Sabri\HomeNewsFeed\InteractionQueryRepository;
 use Sabri\HomeNewsFeed\Phase3Contracts;
 use Sabri\HomeNewsFeed\Phase3FeatureSettings;
 use Sabri\HomeNewsFeed\PostMetadata;
@@ -24,6 +23,40 @@ final class Sabri_Phase3H_Query {
 	public function __construct( array $vars = array() ) { $this->vars = $vars; }
 	public function get( $key ) { return isset( $this->vars[ $key ] ) ? $this->vars[ $key ] : null; }
 	public function set( $key, $value ) { $this->vars[ $key ] = $value; }
+}
+
+final class Sabri_Phase3H_WPDB extends Sabri_Test_WPDB {
+	public $postmeta = 'wp_postmeta';
+
+	public function get_row( $query, $output = null ) {
+		global $sabri_test_rows;
+		unset( $output );
+		if ( ! preg_match( '/FROM `([^`]+)` WHERE (.+) ORDER BY id DESC LIMIT 1/', $query, $matches ) ) {
+			return null;
+		}
+		$where = array();
+		foreach ( preg_split( '/\s+AND\s+/i', $matches[2] ) as $clause ) {
+			if ( preg_match( '/([a-z_]+) = ([0-9]+)/i', $clause, $part ) ) {
+				$where[ $part[1] ] = (int) $part[2];
+			} elseif ( preg_match( "/([a-z_]+) = '([^']*)'/i", $clause, $part ) ) {
+				$where[ $part[1] ] = stripslashes( $part[2] );
+			}
+		}
+		$rows = array_reverse( isset( $sabri_test_rows[ $matches[1] ] ) ? $sabri_test_rows[ $matches[1] ] : array() );
+		foreach ( $rows as $row ) {
+			$match = true;
+			foreach ( $where as $key => $value ) {
+				if ( ! array_key_exists( $key, $row ) || (string) $row[ $key ] !== (string) $value ) {
+					$match = false;
+					break;
+				}
+			}
+			if ( $match ) {
+				return $row;
+			}
+		}
+		return null;
+	}
 }
 
 $phase3h_failures = array();
@@ -43,7 +76,7 @@ function sabri_phase3h_set_features( $followers_visibility ) {
 
 sabri_test_reset_state( true );
 global $wpdb, $sabri_test_rows, $sabri_test_current_user_id, $sabri_test_current_caps;
-$wpdb = new Sabri_Test_WPDB();
+$wpdb = new Sabri_Phase3H_WPDB();
 Database::install();
 update_option( Settings::OPTION_NAME, Settings::defaults(), false );
 
