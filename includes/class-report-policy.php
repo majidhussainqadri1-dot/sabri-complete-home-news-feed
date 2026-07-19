@@ -11,45 +11,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Central allow-lists and bounded transitions for confidential reports.
- */
+/** Central allow-lists and bounded transitions for confidential reports. */
 final class ReportPolicy {
 	const REPORTER_NOTE_MAX = 1000;
 	const MODERATOR_NOTE_MAX = 2000;
 
-	/**
-	 * Reportable object types.
-	 *
-	 * @return array<int,string>
-	 */
-	public static function object_types() {
-		return array( 'post', 'comment' );
-	}
+	/** @return array<int,string> */
+	public static function object_types() { return array( 'post', 'comment' ); }
+	/** @return array<int,string> */
+	public static function reasons() { return Phase3Contracts::report_reasons(); }
+	/** @return array<int,string> */
+	public static function states() { return Phase3Contracts::report_states(); }
 
-	/**
-	 * Allowed report reasons.
-	 *
-	 * @return array<int,string>
-	 */
-	public static function reasons() {
-		return Phase3Contracts::report_reasons();
-	}
-
-	/**
-	 * Allowed report states.
-	 *
-	 * @return array<int,string>
-	 */
-	public static function states() {
-		return Phase3Contracts::report_states();
-	}
-
-	/**
-	 * Human-readable reason labels.
-	 *
-	 * @return array<string,string>
-	 */
+	/** @return array<string,string> */
 	public static function reason_labels() {
 		return array(
 			'spam'                => __( 'Spam', 'sabri-complete-home-news-feed' ),
@@ -64,11 +38,7 @@ final class ReportPolicy {
 		);
 	}
 
-	/**
-	 * Human-readable state labels.
-	 *
-	 * @return array<string,string>
-	 */
+	/** @return array<string,string> */
 	public static function state_labels() {
 		return array(
 			'open'      => __( 'Open', 'sabri-complete-home-news-feed' ),
@@ -79,80 +49,40 @@ final class ReportPolicy {
 		);
 	}
 
-	/**
-	 * Whether an object type is allowed.
-	 *
-	 * @param mixed $type Object type.
-	 * @return bool
-	 */
-	public static function object_type_allowed( $type ) {
-		return in_array( self::clean_key( $type ), self::object_types(), true );
-	}
+	/** @param mixed $type @return bool */
+	public static function object_type_allowed( $type ) { return in_array( self::clean_key( $type ), self::object_types(), true ); }
+	/** @param mixed $reason @return bool */
+	public static function reason_allowed( $reason ) { return in_array( self::clean_key( $reason ), self::reasons(), true ); }
+	/** @param mixed $state @return bool */
+	public static function state_allowed( $state ) { return in_array( self::clean_key( $state ), self::states(), true ); }
 
 	/**
-	 * Whether a reason is allowed.
-	 *
-	 * @param mixed $reason Reason.
-	 * @return bool
-	 */
-	public static function reason_allowed( $reason ) {
-		return in_array( self::clean_key( $reason ), self::reasons(), true );
-	}
-
-	/**
-	 * Whether a state is allowed.
-	 *
-	 * @param mixed $state State.
-	 * @return bool
-	 */
-	public static function state_allowed( $state ) {
-		return in_array( self::clean_key( $state ), self::states(), true );
-	}
-
-	/**
-	 * Whether a moderation transition is allowed.
+	 * Return the current state plus only valid next states.
 	 *
 	 * @param string $from Current state.
-	 * @param string $to Requested state.
-	 * @return bool
+	 * @return array<int,string>
 	 */
-	public static function transition_allowed( $from, $to ) {
+	public static function transition_targets( $from ) {
 		$from = self::clean_key( $from );
-		$to   = self::clean_key( $to );
-		if ( $from === $to && self::state_allowed( $from ) ) {
-			return true;
-		}
-
-		$map = array(
-			'open'      => array( 'triaged', 'resolved', 'dismissed', 'duplicate' ),
-			'triaged'   => array( 'open', 'resolved', 'dismissed', 'duplicate' ),
-			'resolved'  => array( 'triaged' ),
-			'dismissed' => array( 'triaged' ),
-			'duplicate' => array( 'triaged' ),
+		$map  = array(
+			'open'      => array( 'open', 'triaged', 'resolved', 'dismissed', 'duplicate' ),
+			'triaged'   => array( 'triaged', 'open', 'resolved', 'dismissed', 'duplicate' ),
+			'resolved'  => array( 'resolved', 'triaged' ),
+			'dismissed' => array( 'dismissed', 'triaged' ),
+			'duplicate' => array( 'duplicate', 'triaged' ),
 		);
-
-		return isset( $map[ $from ] ) && in_array( $to, $map[ $from ], true );
+		return isset( $map[ $from ] ) ? $map[ $from ] : array();
 	}
 
-	/**
-	 * Sanitize a bounded reporter note.
-	 *
-	 * @param mixed $note Note.
-	 * @return string
-	 */
-	public static function reporter_note( $note ) {
-		return self::bounded_textarea( $note, self::REPORTER_NOTE_MAX );
+	/** @param string $from @param string $to @return bool */
+	public static function transition_allowed( $from, $to ) {
+		return in_array( self::clean_key( $to ), self::transition_targets( $from ), true );
 	}
 
-	/**
-	 * Sanitize a bounded moderator note.
-	 *
-	 * @param mixed $note Note.
-	 * @return string
-	 */
-	public static function moderator_note( $note ) {
-		return self::bounded_textarea( $note, self::MODERATOR_NOTE_MAX );
-	}
+	/** @param mixed $note @return string */
+	public static function reporter_note( $note ) { return self::bounded_textarea( $note, self::REPORTER_NOTE_MAX ); }
+	/** @param mixed $note @return string */
+	public static function moderator_note( $note ) { return self::bounded_textarea( $note, self::MODERATOR_NOTE_MAX ); }
 
 	/**
 	 * Encode confidential notes without exposing them through public responses.
@@ -173,12 +103,7 @@ final class ReportPolicy {
 		return function_exists( 'wp_json_encode' ) ? (string) wp_json_encode( $payload ) : (string) json_encode( $payload );
 	}
 
-	/**
-	 * Decode confidential notes with safe defaults.
-	 *
-	 * @param mixed $notes Stored notes.
-	 * @return array<string,mixed>
-	 */
+	/** @param mixed $notes @return array<string,mixed> */
 	public static function decode_notes( $notes ) {
 		$data = json_decode( (string) $notes, true );
 		$data = is_array( $data ) ? $data : array();
@@ -190,23 +115,10 @@ final class ReportPolicy {
 		);
 	}
 
-	/**
-	 * Sanitize a key.
-	 *
-	 * @param mixed $value Value.
-	 * @return string
-	 */
-	private static function clean_key( $value ) {
-		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
-	}
+	/** @param mixed $value @return string */
+	private static function clean_key( $value ) { return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) ); }
 
-	/**
-	 * Sanitize and truncate textarea text.
-	 *
-	 * @param mixed $value Value.
-	 * @param int   $max Maximum characters.
-	 * @return string
-	 */
+	/** @param mixed $value @param int $max @return string */
 	private static function bounded_textarea( $value, $max ) {
 		$value = function_exists( 'wp_unslash' ) ? wp_unslash( $value ) : $value;
 		$value = function_exists( 'sanitize_textarea_field' ) ? sanitize_textarea_field( $value ) : trim( strip_tags( (string) $value ) );
