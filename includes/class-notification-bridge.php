@@ -19,14 +19,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * keeping the originating social write independent from delivery success.
  */
 final class NotificationBridge {
-	const EVENT_HOOK       = 'sabri_feed_notification_event';
-	const FAILURE_HOOK     = 'sabri_feed_notification_bridge_failed';
-	const DEDUPE_PREFIX    = 'sabri_hnf_notify_';
-	const DEDUPE_TTL       = 300;
+	const EVENT_HOOK    = 'sabri_feed_notification_event';
+	const FAILURE_HOOK  = 'sabri_feed_notification_bridge_failed';
+	const DEDUPE_PREFIX = 'sabri_hnf_notify_';
+	const DEDUPE_TTL    = 300;
 
-	/** Register approval-time comment notifications. */
+	/** Register approved-comment notification hooks. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
+			add_action( 'comment_post', array( __CLASS__, 'handle_comment_created' ), 10, 3 );
 			add_action( 'transition_comment_status', array( __CLASS__, 'handle_comment_status_transition' ), 10, 3 );
 		}
 	}
@@ -42,17 +43,7 @@ final class NotificationBridge {
 		);
 	}
 
-	/**
-	 * Dispatch one normalized event without exposing private content.
-	 *
-	 * @param string              $event Event key.
-	 * @param int                 $actor_user_id Actor user ID.
-	 * @param int                 $recipient_user_id Recipient user ID.
-	 * @param string              $object_type Object type.
-	 * @param int                 $object_id Object ID.
-	 * @param array<string,mixed> $context Bounded non-content context.
-	 * @return array<string,mixed>
-	 */
+	/** Dispatch one normalized event without exposing private content. */
 	public static function dispatch( $event, $actor_user_id, $recipient_user_id, $object_type, $object_id, array $context = array() ) {
 		if ( ! Phase3FeatureSettings::enabled( 'notification_bridge_enabled' ) ) {
 			return InteractionResult::success( 'notification_bridge_disabled', array( 'dispatched' => false ), 'Notification bridge disabled.', 200 );
@@ -107,10 +98,10 @@ final class NotificationBridge {
 				do_action(
 					self::FAILURE_HOOK,
 					array(
-						'event'         => $event,
-						'object_type'   => $object_type,
-						'object_id'     => $object_id,
-						'failure_code'  => 'callback_exception',
+						'event'        => $event,
+						'object_type'  => $object_type,
+						'object_id'    => $object_id,
+						'failure_code' => 'callback_exception',
 					)
 				);
 			}
@@ -134,8 +125,8 @@ final class NotificationBridge {
 
 	/** Dispatch a post-author event. */
 	public static function post_event( $event, $actor_user_id, $post_id, array $context = array() ) {
-		$post_id   = self::positive_id( $post_id );
-		$recipient = $post_id > 0 && function_exists( 'get_post_field' ) ? self::positive_id( get_post_field( 'post_author', $post_id ) ) : 0;
+		$post_id            = self::positive_id( $post_id );
+		$recipient          = $post_id > 0 && function_exists( 'get_post_field' ) ? self::positive_id( get_post_field( 'post_author', $post_id ) ) : 0;
 		$context['post_id'] = $post_id;
 		return self::dispatch( $event, $actor_user_id, $recipient, 'post', $post_id, $context );
 	}
@@ -159,9 +150,9 @@ final class NotificationBridge {
 		$event         = 'post_comment';
 
 		if ( $parent_id > 0 ) {
-			$parent = self::comment_object( $parent_id );
+			$parent    = self::comment_object( $parent_id );
 			$recipient = $parent ? self::positive_id( $parent->user_id ) : 0;
-			$event = 'comment_reply';
+			$event     = 'comment_reply';
 		} elseif ( $post_id > 0 && function_exists( 'get_post_field' ) ) {
 			$recipient = self::positive_id( get_post_field( 'post_author', $post_id ) );
 		}
@@ -174,6 +165,16 @@ final class NotificationBridge {
 			self::positive_id( $comment->comment_ID ),
 			array( 'post_id' => $post_id )
 		);
+	}
+
+	/** Dispatch an immediately approved newly inserted plugin comment. */
+	public static function handle_comment_created( $comment_id, $approved, $commentdata = array() ) {
+		unset( $commentdata );
+		$approved = self::clean_key( $approved );
+		if ( ! in_array( $approved, array( 'approved', 'approve', '1' ), true ) ) {
+			return;
+		}
+		self::comment_event( $comment_id );
 	}
 
 	/** Send a pending comment notification only when it becomes approved. */
@@ -214,7 +215,7 @@ final class NotificationBridge {
 			return ProfileLinkResolver::url( $object_id );
 		}
 		$post_id = isset( $context['post_id'] ) ? self::positive_id( $context['post_id'] ) : ( 'post' === $object_type ? self::positive_id( $object_id ) : 0 );
-		$url = $post_id > 0 && function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
+		$url     = $post_id > 0 && function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
 		if ( 'comment' === $object_type && $url ) {
 			$url .= '#comment-' . self::positive_id( $object_id );
 		}
