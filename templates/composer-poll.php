@@ -43,6 +43,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 			<input type="datetime-local" name="poll[closes_at]" disabled />
 		</label>
 	</div>
+	<input type="hidden" name="poll[allow_change]" value="0" disabled />
 	<label class="sabri-hnf-check">
 		<input type="checkbox" name="poll[allow_change]" value="1" checked disabled />
 		<span><?php esc_html_e( 'Allow members to change or remove their vote while the poll is open', 'sabri-complete-home-news-feed' ); ?></span>
