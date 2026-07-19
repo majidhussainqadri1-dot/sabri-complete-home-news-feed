@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders progressive-enhancement reactions, comments, saves, and follows.
+ * Renders progressive-enhancement reactions, comments, saves, follows, and reports.
  */
 final class SocialRuntime {
 	/**
@@ -22,11 +22,7 @@ final class SocialRuntime {
 	 */
 	private static $single_rendered = array();
 
-	/**
-	 * Register hooks.
-	 *
-	 * @return void
-	 */
+	/** Register hooks. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'the_content', array( __CLASS__, 'append_single_actions' ), 30 );
@@ -45,18 +41,19 @@ final class SocialRuntime {
 		$saves_enabled     = Phase3FeatureSettings::enabled( 'saves_enabled' );
 		$comments_enabled  = Phase3FeatureSettings::enabled( 'comments_enabled' );
 		$follows_enabled   = Phase3FeatureSettings::enabled( 'follows_enabled' );
-		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled && ! $follows_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
+		$reports_enabled   = Phase3FeatureSettings::enabled( 'reports_enabled' );
+		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled && ! $follows_enabled && ! $reports_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
 			return '';
 		}
 
 		Assets::enqueue_feed();
-		$user_id       = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
-		$logged_in     = $user_id > 0;
-		$summary       = EngagementService::summary( $post_id, $user_id );
-		$base          = function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/posts/' . $post_id ) : '';
-		$nonce         = $logged_in && function_exists( 'wp_create_nonce' ) ? wp_create_nonce( InteractionPermissions::REST_NONCE_ACTION ) : '';
-		$permalink     = function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '';
-		$login_url     = function_exists( 'wp_login_url' ) ? wp_login_url( $permalink ) : '';
+		$user_id        = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		$logged_in      = $user_id > 0;
+		$summary        = EngagementService::summary( $post_id, $user_id );
+		$base           = function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/posts/' . $post_id ) : '';
+		$nonce          = $logged_in && function_exists( 'wp_create_nonce' ) ? wp_create_nonce( InteractionPermissions::REST_NONCE_ACTION ) : '';
+		$permalink      = function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '';
+		$login_url      = function_exists( 'wp_login_url' ) ? wp_login_url( $permalink ) : '';
 		$target_user_id = function_exists( 'get_post_field' ) ? self::positive_id( get_post_field( 'post_author', $post_id ) ) : 0;
 		$follow_summary = $follows_enabled && $target_user_id > 0 ? FollowService::summary( $target_user_id, $user_id ) : array(
 			'target_user_id' => 0,
@@ -65,8 +62,9 @@ final class SocialRuntime {
 			'follower_count' => 0,
 			'profile_url'    => '',
 		);
-		$can_follow = $follows_enabled && $target_user_id > 0 && ( ! $logged_in || $target_user_id !== $user_id );
-		$follow_url = $target_user_id > 0 && function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/users/' . $target_user_id . '/follow' ) : '';
+		$can_follow    = $follows_enabled && $target_user_id > 0 && ( ! $logged_in || $target_user_id !== $user_id );
+		$follow_url    = $target_user_id > 0 && function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/users/' . $target_user_id . '/follow' ) : '';
+		$report_control = $reports_enabled ? ReportRuntime::render_control( 'post', $post_id, $target_user_id ) : '';
 
 		return FeedRenderer::template(
 			'action-bar',
@@ -90,6 +88,8 @@ final class SocialRuntime {
 				'saves_enabled'       => $saves_enabled,
 				'comments_enabled'    => $comments_enabled,
 				'follows_enabled'     => $follows_enabled,
+				'reports_enabled'     => $reports_enabled,
+				'report_control'      => $report_control,
 				'show_public_counts'  => Phase3FeatureSettings::enabled( 'show_public_reaction_counts' ),
 			)
 		);
@@ -120,21 +120,12 @@ final class SocialRuntime {
 		return $content . self::render_action_bar( $post_id );
 	}
 
-	/**
-	 * Reset guards for tests.
-	 *
-	 * @return void
-	 */
+	/** Reset guards for tests. */
 	public static function reset_runtime_guards() {
 		self::$single_rendered = array();
 	}
 
-	/**
-	 * Strict positive ID.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Strict positive ID. */
 	private static function positive_id( $value ) {
 		if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
 			return 0;
