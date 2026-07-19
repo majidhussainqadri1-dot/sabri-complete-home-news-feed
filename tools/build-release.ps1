@@ -5,7 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $slug = 'sabri-complete-home-news-feed'
-$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-2'
+$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -69,19 +69,22 @@ try {
 } finally {
 	$archive.Dispose()
 }
+
 $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $(Split-Path $zipPath -Leaf)" | Set-Content -LiteralPath $shaPath -Encoding ASCII
 
 $report = @(
-	'# Sabri Complete Home and News Feed Phase 2 Test Report',
+	'# Sabri Complete Home and News Feed Phase 3 Staging Candidate Test Report',
 	'',
-	'- Version: 1.0.0',
+	'- Accepted plugin version shown in WordPress: 1.0.0',
+	'- Target release after staging acceptance: 1.1.0',
 	"- Artifact: $(Split-Path $zipPath -Leaf)",
 	"- SHA-256: $hash",
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
 	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', ')",
-	'- Release status: Phase 2 development artifact only; Phase 3 social interactions and Phase 4 complete News remain deferred.'
+	'- Package status: Hostinger staging candidate only; not approved for main merge or live deployment.',
+	'- Compatibility guard: WordPress dynamic option-filter recursion regression test must pass before this package is uploaded.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
