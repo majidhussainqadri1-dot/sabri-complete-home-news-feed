@@ -15,43 +15,24 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Coordinates the plugin runtime.
  */
 final class Plugin {
-	/**
-	 * Singleton instance.
-	 *
-	 * @var Plugin|null
-	 */
+	/** @var Plugin|null */
 	private static $instance = null;
-
-	/**
-	 * Whether hooks are registered.
-	 *
-	 * @var bool
-	 */
+	/** @var bool */
 	private $registered = false;
 
-	/**
-	 * Return singleton.
-	 *
-	 * @return Plugin
-	 */
+	/** Return singleton. */
 	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
-
 		return self::$instance;
 	}
 
-	/**
-	 * Register plugin hooks.
-	 *
-	 * @return void
-	 */
+	/** Register plugin hooks. */
 	public function register() {
 		if ( $this->registered ) {
 			return;
 		}
-
 		$this->registered = true;
 
 		Settings::register();
@@ -79,17 +60,15 @@ final class Plugin {
 		RestInteractions::register();
 		RestComments::register();
 		RestFollows::register();
+		RestReports::register();
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			Admin::register();
+			ReportAdmin::register();
 		}
 	}
 
-	/**
-	 * Return a concise identity payload.
-	 *
-	 * @return array<string,string>
-	 */
+	/** Return a concise identity payload. */
 	public static function identity() {
 		return array(
 			'name'           => 'Sabri Complete Home and News Feed',
