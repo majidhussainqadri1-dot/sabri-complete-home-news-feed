@@ -18,7 +18,15 @@
 		}
 		poll.setAttribute('aria-busy', busy ? 'true' : 'false');
 		Array.prototype.forEach.call(poll.querySelectorAll('button, input'), function (control) {
-			control.disabled = !!busy || (control.hasAttribute('data-originally-disabled'));
+			if (busy) {
+				if (control.disabled) {
+					control.setAttribute('data-poll-was-disabled', '1');
+				}
+				control.disabled = true;
+				return;
+			}
+			control.disabled = control.hasAttribute('data-poll-was-disabled');
+			control.removeAttribute('data-poll-was-disabled');
 		});
 	}
 
