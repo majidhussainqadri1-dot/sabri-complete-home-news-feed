@@ -11,46 +11,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Defines the bounded Phase 3 social-interaction contract without enabling runtime UI.
- */
+/** Defines bounded Phase 3 social-interaction contracts. */
 final class Phase3Contracts {
 	const TARGET_VERSION = '1.1.0';
 	const CHECKPOINT = '3.0';
 	const REST_NAMESPACE = 'sabri-home-news-feed/v1';
 
-	/**
-	 * Feature flags introduced by Phase 3.
-	 *
-	 * Every public runtime flag is disabled at checkpoint 3.0 so Phase 2 behavior
-	 * remains unchanged until the relevant checkpoint is implemented and tested.
-	 *
-	 * @return array<string,int>
-	 */
+	/** Feature flags introduced by Phase 3. */
 	public static function feature_flags() {
 		return array(
-			'reactions_enabled'             => 0,
-			'dislikes_enabled'              => 0,
-			'comments_enabled'              => 0,
-			'saves_enabled'                 => 0,
-			'follows_enabled'               => 0,
-			'followers_visibility_enabled'  => 0,
-			'reports_enabled'               => 0,
-			'polls_enabled'                 => 0,
-			'notification_bridge_enabled'   => 0,
-			'view_logging_enabled'          => 0,
+			'reactions_enabled'            => 0,
+			'dislikes_enabled'             => 0,
+			'comments_enabled'             => 0,
+			'saves_enabled'                => 0,
+			'follows_enabled'              => 0,
+			'followers_visibility_enabled' => 0,
+			'reports_enabled'              => 0,
+			'polls_enabled'                => 0,
+			'notification_bridge_enabled'  => 0,
+			'view_logging_enabled'         => 0,
 		);
 	}
 
-	/**
-	 * Frozen Phase 3 settings names and safe defaults.
-	 *
-	 * These contracts are not merged into the live Settings runtime during
-	 * checkpoint 3.0. Checkpoint 3A will integrate them after permission,
-	 * repository, schema, and rate-limit behavior is implemented.
-	 *
-	 * @return array<string,array<string,mixed>>
-	 */
+	/** Frozen settings names and safe defaults. */
 	public static function settings_defaults() {
 		return array(
 			'social' => array(
@@ -70,6 +53,9 @@ final class Phase3Contracts {
 			'moderation' => array(
 				'reports_enabled'               => 0,
 				'allowed_report_reasons'        => self::report_reasons(),
+				'allowed_report_states'         => self::report_states(),
+				'reporter_note_max_length'      => 1000,
+				'moderator_note_max_length'     => 2000,
 				'clinical_comment_privacy_scan' => 1,
 				'new_comment_policy'            => 'hold',
 				'rate_limit_window_seconds'     => 300,
@@ -89,129 +75,77 @@ final class Phase3Contracts {
 		);
 	}
 
-	/**
-	 * Fail-closed feature check against a future settings payload.
-	 *
-	 * @param string              $feature Feature key.
-	 * @param array<string,mixed> $settings Settings payload.
-	 * @return bool
-	 */
+	/** Fail-closed feature check against a settings payload. */
 	public static function feature_enabled( $feature, array $settings = array() ) {
 		$feature = self::clean_key( $feature );
 		$flags   = self::feature_flags();
-
 		if ( ! array_key_exists( $feature, $flags ) ) {
 			return false;
 		}
-
 		if ( isset( $settings['social'] ) && is_array( $settings['social'] ) && array_key_exists( $feature, $settings['social'] ) ) {
 			return 1 === (int) $settings['social'][ $feature ];
 		}
-
 		if ( 'reports_enabled' === $feature && isset( $settings['moderation'] ) && is_array( $settings['moderation'] ) && array_key_exists( $feature, $settings['moderation'] ) ) {
 			return 1 === (int) $settings['moderation'][ $feature ];
 		}
-
 		if ( 'view_logging_enabled' === $feature && isset( $settings['performance'] ) && is_array( $settings['performance'] ) && array_key_exists( 'log_views', $settings['performance'] ) ) {
 			return 1 === (int) $settings['performance']['log_views'];
 		}
-
 		return false;
 	}
 
-	/**
-	 * Shared result keys for every Phase 3 service and REST mutation.
-	 *
-	 * @return array<int,string>
-	 */
+	/** Shared result keys for every Phase 3 service and REST mutation. */
 	public static function response_keys() {
 		return array( 'ok', 'code', 'message', 'data', 'status' );
 	}
 
-	/**
-	 * Frozen REST route contracts. Registration is intentionally deferred.
-	 *
-	 * @return array<string,array<string,mixed>>
-	 */
+	/** Frozen REST route contracts. */
 	public static function rest_routes() {
 		return array(
-			'engagement' => array( 'method' => 'GET', 'path' => '/posts/{id}/engagement', 'permission' => 'visible_post' ),
-			'reaction_create' => array( 'method' => 'POST', 'path' => '/posts/{id}/reaction', 'permission' => 'authenticated_nonce' ),
-			'reaction_delete' => array( 'method' => 'DELETE', 'path' => '/posts/{id}/reaction', 'permission' => 'authenticated_nonce' ),
-			'comments' => array( 'method' => 'GET', 'path' => '/posts/{id}/comments', 'permission' => 'visible_post' ),
-			'comment_create' => array( 'method' => 'POST', 'path' => '/posts/{id}/comments', 'permission' => 'authenticated_nonce' ),
-			'comment_update' => array( 'method' => 'PATCH', 'path' => '/comments/{id}', 'permission' => 'owner_window_or_moderator' ),
-			'comment_delete' => array( 'method' => 'DELETE', 'path' => '/comments/{id}', 'permission' => 'owner_or_moderator' ),
-			'save_create' => array( 'method' => 'POST', 'path' => '/posts/{id}/save', 'permission' => 'authenticated_nonce' ),
-			'save_delete' => array( 'method' => 'DELETE', 'path' => '/posts/{id}/save', 'permission' => 'authenticated_nonce' ),
-			'my_saves' => array( 'method' => 'GET', 'path' => '/me/saves', 'permission' => 'current_user_only' ),
-			'follow_create' => array( 'method' => 'POST', 'path' => '/users/{id}/follow', 'permission' => 'authenticated_nonce' ),
-			'follow_delete' => array( 'method' => 'DELETE', 'path' => '/users/{id}/follow', 'permission' => 'authenticated_nonce' ),
-			'my_following' => array( 'method' => 'GET', 'path' => '/me/following', 'permission' => 'current_user_only' ),
-			'report_create' => array( 'method' => 'POST', 'path' => '/reports', 'permission' => 'authenticated_nonce' ),
-			'poll_vote' => array( 'method' => 'POST', 'path' => '/polls/{id}/vote', 'permission' => 'authenticated_nonce' ),
-			'poll_vote_delete' => array( 'method' => 'DELETE', 'path' => '/polls/{id}/vote', 'permission' => 'authenticated_nonce' ),
-			'poll_results' => array( 'method' => 'GET', 'path' => '/polls/{id}/results', 'permission' => 'results_policy' ),
+			'engagement'             => array( 'method' => 'GET', 'path' => '/posts/{id}/engagement', 'permission' => 'visible_post' ),
+			'reaction_create'        => array( 'method' => 'POST', 'path' => '/posts/{id}/reaction', 'permission' => 'authenticated_nonce' ),
+			'reaction_delete'        => array( 'method' => 'DELETE', 'path' => '/posts/{id}/reaction', 'permission' => 'authenticated_nonce' ),
+			'comments'               => array( 'method' => 'GET', 'path' => '/posts/{id}/comments', 'permission' => 'visible_post' ),
+			'comment_create'         => array( 'method' => 'POST', 'path' => '/posts/{id}/comments', 'permission' => 'authenticated_nonce' ),
+			'comment_update'         => array( 'method' => 'PATCH', 'path' => '/comments/{id}', 'permission' => 'owner_window_or_moderator' ),
+			'comment_delete'         => array( 'method' => 'DELETE', 'path' => '/comments/{id}', 'permission' => 'owner_or_moderator' ),
+			'save_create'            => array( 'method' => 'POST', 'path' => '/posts/{id}/save', 'permission' => 'authenticated_nonce' ),
+			'save_delete'            => array( 'method' => 'DELETE', 'path' => '/posts/{id}/save', 'permission' => 'authenticated_nonce' ),
+			'my_saves'               => array( 'method' => 'GET', 'path' => '/me/saves', 'permission' => 'current_user_only' ),
+			'follow_create'          => array( 'method' => 'POST', 'path' => '/users/{id}/follow', 'permission' => 'authenticated_nonce' ),
+			'follow_delete'          => array( 'method' => 'DELETE', 'path' => '/users/{id}/follow', 'permission' => 'authenticated_nonce' ),
+			'my_following'           => array( 'method' => 'GET', 'path' => '/me/following', 'permission' => 'current_user_only' ),
+			'report_create'          => array( 'method' => 'POST', 'path' => '/reports', 'permission' => 'authenticated_nonce' ),
+			'report_queue'           => array( 'method' => 'GET', 'path' => '/moderation/reports', 'permission' => 'manage_reports_nonce' ),
+			'report_update'          => array( 'method' => 'PATCH', 'path' => '/moderation/reports/{id}', 'permission' => 'manage_reports_nonce' ),
+			'poll_vote'              => array( 'method' => 'POST', 'path' => '/polls/{id}/vote', 'permission' => 'authenticated_nonce' ),
+			'poll_vote_delete'       => array( 'method' => 'DELETE', 'path' => '/polls/{id}/vote', 'permission' => 'authenticated_nonce' ),
+			'poll_results'           => array( 'method' => 'GET', 'path' => '/polls/{id}/results', 'permission' => 'results_policy' ),
 		);
 	}
 
-	/**
-	 * Phase 3 reaction allow-list.
-	 *
-	 * @return array<int,string>
-	 */
+	/** Phase 3 reaction allow-list. */
 	public static function reaction_types() {
 		return array( 'like', 'dislike' );
 	}
 
-	/**
-	 * Phase 3 report reason allow-list.
-	 *
-	 * @return array<int,string>
-	 */
+	/** Phase 3 report reason allow-list. */
 	public static function report_reasons() {
-		return array(
-			'spam',
-			'harassment',
-			'hate-abuse',
-			'misinformation',
-			'medical-safety-risk',
-			'patient-privacy',
-			'copyright-source',
-			'impersonation',
-			'other',
-		);
+		return array( 'spam', 'harassment', 'hate-abuse', 'misinformation', 'medical-safety-risk', 'patient-privacy', 'copyright-source', 'impersonation', 'other' );
 	}
 
-	/**
-	 * Phase 3 report states.
-	 *
-	 * @return array<int,string>
-	 */
+	/** Phase 3 report states. */
 	public static function report_states() {
 		return array( 'open', 'triaged', 'resolved', 'dismissed', 'duplicate' );
 	}
 
-	/**
-	 * Phase 3 poll results policies.
-	 *
-	 * @return array<int,string>
-	 */
+	/** Phase 3 poll results policies. */
 	public static function poll_results_policies() {
 		return array( 'after_vote', 'after_close', 'always' );
 	}
 
-	/**
-	 * Clean a contract key without depending on a fully bootstrapped WordPress runtime.
-	 *
-	 * @param mixed $value Key value.
-	 * @return string
-	 */
+	/** Clean a contract key. */
 	private static function clean_key( $value ) {
-		if ( function_exists( 'sanitize_key' ) ) {
-			return sanitize_key( $value );
-		}
-
-		return strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
 	}
 }
