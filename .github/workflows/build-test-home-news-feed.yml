@@ -95,6 +95,12 @@ jobs:
           set -o pipefail
           php tests/run-wordpress-option-filter-compatibility-tests.php 2>&1 | tee wordpress-option-filter-test.log
 
+      - name: Duplicate plugin-folder activation compatibility tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-duplicate-plugin-compat-tests.php 2>&1 | tee duplicate-plugin-test.log
+
       - name: Upload Phase 3 test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -112,6 +118,7 @@ jobs:
             phase3g-test.log
             phase3h-test.log
             wordpress-option-filter-test.log
+            duplicate-plugin-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
@@ -145,7 +152,11 @@ jobs:
             if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php' })) {
               throw 'Missing corrected Poll Composer integration.'
             }
-            $bad = $entries | Where-Object { $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or $_ -match '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' }
+            $bad = $entries | Where-Object {
+              $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
+              $_ -match '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
+              $_ -match '\.log$'
+            }
             if ($bad) {
               throw "Development files included in staging ZIP: $($bad -join ', ')"
             }
