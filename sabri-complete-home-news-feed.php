@@ -112,6 +112,7 @@ spl_autoload_register(
 
 /** Register a safe-boot notice without requiring the full plugin runtime. */
 function sabri_hnf_register_safe_boot_notice() {
+	\Sabri\HomeNewsFeed\SafeBoot::register_recovery_hooks();
 	if ( function_exists( 'add_action' ) ) {
 		add_action( 'admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
 		add_action( 'network_admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
