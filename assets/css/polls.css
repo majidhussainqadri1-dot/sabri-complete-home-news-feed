@@ -1,0 +1,165 @@
+.sabri-hnf-poll,
+.sabri-hnf-poll * {
+	box-sizing: border-box;
+}
+
+.sabri-hnf-poll {
+	margin-top: 16px;
+	border: 1px solid #d8e2dc;
+	border-radius: 12px;
+	padding: 16px;
+	background: #ffffff;
+	color: #17251d;
+}
+
+.sabri-hnf-poll__header h3 {
+	margin: 0;
+	font-size: 1.08rem;
+	line-height: 1.4;
+}
+
+.sabri-hnf-poll__meta,
+.sabri-hnf-poll__notice,
+.sabri-hnf-poll__total,
+.sabri-hnf-poll__status {
+	margin: 6px 0 0;
+	color: #52665c;
+	font-size: 0.88rem;
+	line-height: 1.4;
+}
+
+.sabri-hnf-poll__form fieldset {
+	margin: 14px 0 0;
+	border: 0;
+	padding: 0;
+}
+
+.sabri-hnf-poll__options {
+	display: grid;
+	gap: 9px;
+}
+
+.sabri-hnf-poll__option {
+	display: grid;
+	gap: 7px;
+	border: 1px solid #d9e2dd;
+	border-radius: 9px;
+	padding: 10px 12px;
+	background: #f9fbfa;
+	cursor: pointer;
+}
+
+.sabri-hnf-poll__option:hover {
+	border-color: #91a89a;
+	background: #f4f8f5;
+}
+
+.sabri-hnf-poll__option.is-selected {
+	border-color: #1f7a55;
+	background: #edf7f1;
+}
+
+.sabri-hnf-poll__choice {
+	display: flex;
+	align-items: flex-start;
+	gap: 9px;
+	font-weight: 650;
+	line-height: 1.35;
+}
+
+.sabri-hnf-poll__choice input {
+	width: 18px;
+	height: 18px;
+	margin: 1px 0 0;
+	flex: 0 0 18px;
+}
+
+.sabri-hnf-poll__result {
+	display: grid;
+	grid-template-columns: minmax(80px, 1fr) auto;
+	align-items: center;
+	gap: 10px;
+	font-size: 0.82rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.sabri-hnf-poll__bar {
+	display: block;
+	height: 7px;
+	overflow: hidden;
+	border-radius: 999px;
+	background: #dfe7e2;
+}
+
+.sabri-hnf-poll__bar > span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: #1f7a55;
+}
+
+.sabri-hnf-poll__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 12px;
+}
+
+.sabri-hnf-poll__actions button {
+	min-height: 44px;
+	border: 1px solid #1f7a55;
+	border-radius: 9px;
+	padding: 8px 14px;
+	background: #1f7a55;
+	color: #ffffff;
+	font: inherit;
+	font-weight: 700;
+	cursor: pointer;
+}
+
+.sabri-hnf-poll__actions .sabri-hnf-poll__remove {
+	background: #ffffff;
+	color: #1f5f43;
+}
+
+.sabri-hnf-poll__actions button:disabled,
+.sabri-hnf-poll[aria-busy="true"] button {
+	cursor: progress;
+	opacity: 0.62;
+}
+
+.sabri-hnf-poll input:focus-visible,
+.sabri-hnf-poll button:focus-visible {
+	outline: 3px solid #2a72d4;
+	outline-offset: 2px;
+}
+
+.sabri-hnf-poll.is-closed {
+	background: #f8faf9;
+}
+
+@media (max-width: 480px) {
+	.sabri-hnf-poll {
+		padding: 13px;
+	}
+
+	.sabri-hnf-poll__result {
+		grid-template-columns: 1fr;
+		gap: 5px;
+	}
+
+	.sabri-hnf-poll__actions {
+		display: grid;
+		grid-template-columns: 1fr;
+	}
+
+	.sabri-hnf-poll__actions button {
+		width: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sabri-hnf-poll__bar > span {
+		transition: none;
+	}
+}
