@@ -8,9 +8,7 @@ Status: implementation and automated validation complete on the integration bran
 
 ## Storage model
 
-Checkpoint 3E reuses the accepted plugin-owned `sabri_feed_reports` table and schema version `1.0.0`.
-
-Each relationship contains an authenticated reporter, a `post` or plugin-owned `comment` target, an allow-listed reason and bounded state, a SHA-256 duplicate-control identity, JSON-encoded confidential notes, and UTC timestamps. No new table, schema-version increase, or destructive cleanup is required.
+Checkpoint 3E reuses the accepted plugin-owned `sabri_feed_reports` table and schema version `1.0.0`. Each report contains an authenticated reporter, a `post` or plugin-owned `comment` target, an allow-listed reason and bounded state, a SHA-256 duplicate-control identity, JSON-encoded confidential notes, and UTC timestamps. No new table, schema-version increase, or destructive cleanup is required.
 
 ## Public policy
 
