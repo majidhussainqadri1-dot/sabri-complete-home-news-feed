@@ -28,50 +28,61 @@ final class Plugin {
 		return self::$instance;
 	}
 
-	/** Register plugin hooks. */
+	/** Register plugin hooks through isolated compatibility boundaries. */
 	public function register() {
 		if ( $this->registered ) {
 			return;
 		}
 		$this->registered = true;
 
-		Settings::register();
-		Phase3FeatureSettings::register();
-		PollComposerIntegration::register();
-		Capabilities::register();
-		PostTypes::register();
-		Taxonomies::register();
-		Integrations::register();
-		ReleaseReadiness::register();
-		SafeMode::register();
-		RestFoundation::register();
-		DataRetention::register();
-		NotificationBridge::register();
-		Assets::register();
-		PostMetadata::register();
-		FollowersVisibility::register();
-		MediaHandler::register();
-		FeedQuery::register();
-		HomeIntegration::register();
-		ViewRuntime::register();
-		PollRuntime::register();
-		SocialRuntime::register();
-		CommentRuntime::register();
-		SavedPostsRuntime::register();
-		FollowingRuntime::register();
-		Shortcodes::register();
-		Composer::register();
-		RestFeed::register();
-		RestComposer::register();
-		RestInteractions::register();
-		RestComments::register();
-		RestFollows::register();
-		RestReports::register();
-		RestPolls::register();
+		$modules = array(
+			Settings::class,
+			Phase3FeatureSettings::class,
+			PollComposerIntegration::class,
+			Capabilities::class,
+			PostTypes::class,
+			Taxonomies::class,
+			Integrations::class,
+			ReleaseReadiness::class,
+			SafeMode::class,
+			RestFoundation::class,
+			DataRetention::class,
+			NotificationBridge::class,
+			Assets::class,
+			PostMetadata::class,
+			FollowersVisibility::class,
+			MediaHandler::class,
+			FeedQuery::class,
+			HomeIntegration::class,
+			ViewRuntime::class,
+			PollRuntime::class,
+			SocialRuntime::class,
+			CommentRuntime::class,
+			SavedPostsRuntime::class,
+			FollowingRuntime::class,
+			Shortcodes::class,
+			Composer::class,
+			RestFeed::class,
+			RestComposer::class,
+			RestInteractions::class,
+			RestComments::class,
+			RestFollows::class,
+			RestReports::class,
+			RestPolls::class,
+		);
+
+		foreach ( $modules as $module ) {
+			if ( ! SafeBoot::register_module( $module ) ) {
+				return;
+			}
+		}
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
-			Admin::register();
-			ReportAdmin::register();
+			foreach ( array( Admin::class, ReportAdmin::class ) as $module ) {
+				if ( ! SafeBoot::register_module( $module ) ) {
+					return;
+				}
+			}
 		}
 	}
 
