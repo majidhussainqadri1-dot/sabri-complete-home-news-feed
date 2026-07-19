@@ -56,6 +56,12 @@ jobs:
           set -o pipefail
           php tests/run-phase3c-comments-tests.php 2>&1 | tee phase3c-test.log
 
+      - name: Phase 3D Follow and Following tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase3d-follows-tests.php 2>&1 | tee phase3d-test.log
+
       - name: Upload Phase 3 test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,6 +72,7 @@ jobs:
             phase3b-test.log
             phase3b-race-test.log
             phase3c-test.log
+            phase3d-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
