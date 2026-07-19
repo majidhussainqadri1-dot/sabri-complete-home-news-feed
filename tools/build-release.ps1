@@ -31,13 +31,14 @@ $excludedFiles = @('TASK_LOG.md', '.gitignore')
 $copied = 0
 
 Get-ChildItem -LiteralPath $Root -Force | ForEach-Object {
-	if ($excludedDirs -contains $_.Name -or $excludedFiles -contains $_.Name) {
+	if ($excludedDirs -contains $_.Name -or $excludedFiles -contains $_.Name -or $_.Name -like '*.log') {
 		return
 	}
 
 	$destination = Join-Path $topDir $_.Name
 	if ($_.PSIsContainer) {
 		Copy-Item -LiteralPath $_.FullName -Destination $destination -Recurse -Force
+		Get-ChildItem -LiteralPath $destination -Recurse -File -Filter '*.log' | Remove-Item -Force
 		$copied += (Get-ChildItem -LiteralPath $destination -Recurse -File | Measure-Object).Count
 	} else {
 		Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
@@ -82,9 +83,9 @@ $report = @(
 	"- SHA-256: $hash",
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
-	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', ')",
+	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', '), *.log",
 	'- Package status: Hostinger staging candidate only; not approved for main merge or live deployment.',
-	'- Compatibility guard: WordPress dynamic option-filter recursion regression test must pass before this package is uploaded.'
+	'- Compatibility guards: WordPress dynamic option-filter recursion and duplicate plugin-folder activation tests must pass before upload.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
