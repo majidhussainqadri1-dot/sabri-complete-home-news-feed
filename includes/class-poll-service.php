@@ -15,15 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Implements bounded vote creation, replacement, removal, and results policy.
  */
 final class PollService {
-	/**
-	 * Create or replace the current authenticated user's vote.
-	 *
-	 * @param int    $post_id Poll post ID.
-	 * @param string $option_key Option key.
-	 * @param string $nonce REST nonce.
-	 * @param int    $user_id Optional current session user ID.
-	 * @return array<string,mixed>
-	 */
+	/** Create or replace the current authenticated user's vote. */
 	public static function vote( $post_id, $option_key, $nonce = '', $user_id = 0 ) {
 		if ( ! Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
 			return InteractionResult::error( 'polls_disabled', 'Poll voting is currently unavailable.', array(), 503 );
@@ -68,15 +60,8 @@ final class PollService {
 		if ( $record ) {
 			$updated = InteractionRepository::update_rows(
 				'poll_votes',
-				array(
-					'option_key' => $option_key,
-					'status'     => 'active',
-				),
-				array(
-					'poll_post_id'  => $post_id,
-					'user_id'       => $user_id,
-					'vote_group_key'=> $group,
-				)
+				array( 'option_key' => $option_key, 'status' => 'active' ),
+				array( 'poll_post_id' => $post_id, 'user_id' => $user_id, 'vote_group_key' => $group )
 			);
 			if ( empty( $updated['ok'] ) ) {
 				return $updated;
@@ -85,12 +70,12 @@ final class PollService {
 			$inserted = InteractionRepository::insert_row(
 				'poll_votes',
 				array(
-					'poll_post_id'  => $post_id,
-					'option_key'    => $option_key,
-					'user_id'       => $user_id,
-					'anonymous_hash'=> '',
-					'vote_group_key'=> $group,
-					'status'        => 'active',
+					'poll_post_id'   => $post_id,
+					'option_key'     => $option_key,
+					'user_id'        => $user_id,
+					'anonymous_hash' => '',
+					'vote_group_key' => $group,
+					'status'         => 'active',
 				)
 			);
 			if ( empty( $inserted['ok'] ) ) {
@@ -116,14 +101,7 @@ final class PollService {
 		return self::success_with_results( 'poll_vote_saved', 'Vote saved.', $post_id, $user_id, 200 );
 	}
 
-	/**
-	 * Remove the current authenticated user's active vote while the poll is open.
-	 *
-	 * @param int    $post_id Poll post ID.
-	 * @param string $nonce REST nonce.
-	 * @param int    $user_id Optional current session user ID.
-	 * @return array<string,mixed>
-	 */
+	/** Remove the current authenticated user's active vote while the poll is open. */
 	public static function remove_vote( $post_id, $nonce = '', $user_id = 0 ) {
 		if ( ! Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
 			return InteractionResult::error( 'polls_disabled', 'Poll voting is currently unavailable.', array(), 503 );
@@ -155,6 +133,9 @@ final class PollService {
 		if ( ! $record || 'active' !== (string) $record['status'] ) {
 			return self::success_with_results( 'poll_vote_removed', 'Vote removed.', $post_id, $user_id, 200 );
 		}
+		if ( empty( $definition['allow_change'] ) ) {
+			return InteractionResult::error( 'poll_vote_change_disabled', 'This poll does not allow removing an existing vote.', array(), 409 );
+		}
 
 		$updated = InteractionRepository::update_rows(
 			'poll_votes',
@@ -169,13 +150,7 @@ final class PollService {
 		return self::success_with_results( 'poll_vote_removed', 'Vote removed.', $post_id, $user_id, 200 );
 	}
 
-	/**
-	 * Return visibility-safe poll state and aggregate-only results.
-	 *
-	 * @param int $post_id Poll post ID.
-	 * @param int $user_id Optional current session user ID.
-	 * @return array<string,mixed>
-	 */
+	/** Return visibility-safe poll state and aggregate-only results. */
 	public static function results( $post_id, $user_id = 0 ) {
 		if ( ! Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
 			return InteractionResult::error( 'polls_disabled', 'Polls are currently unavailable.', array(), 503 );
@@ -183,11 +158,7 @@ final class PollService {
 
 		$post_id = self::positive_id( $post_id );
 		$current = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
-		if ( $user_id && (int) $user_id !== $current ) {
-			$user_id = 0;
-		} else {
-			$user_id = $current;
-		}
+		$user_id = $user_id && (int) $user_id !== $current ? 0 : $current;
 
 		if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id, $user_id ) || ! PollPolicy::is_poll( $post_id ) ) {
 			return InteractionResult::error( 'poll_unavailable', 'The requested poll is unavailable.', array(), 404 );
@@ -196,23 +167,17 @@ final class PollService {
 		return InteractionResult::success( 'poll_results_loaded', self::results_data( $post_id, $user_id ), 'Poll loaded.', 200 );
 	}
 
-	/**
-	 * Build safe result data without voter identities.
-	 *
-	 * @param int $post_id Poll post ID.
-	 * @param int $user_id Current user ID or zero.
-	 * @return array<string,mixed>
-	 */
+	/** Build safe result data without voter identities. */
 	public static function results_data( $post_id, $user_id = 0 ) {
-		$definition = PollPolicy::definition( $post_id );
-		$group      = isset( $definition['vote_group_key'] ) ? (string) $definition['vote_group_key'] : PollPolicy::VOTE_GROUP;
-		$record     = $user_id > 0 ? PollVoteRepository::vote_record( $post_id, $user_id, $group ) : null;
+		$definition  = PollPolicy::definition( $post_id );
+		$group       = isset( $definition['vote_group_key'] ) ? (string) $definition['vote_group_key'] : PollPolicy::VOTE_GROUP;
+		$record      = $user_id > 0 ? PollVoteRepository::vote_record( $post_id, $user_id, $group ) : null;
 		$current_key = $record && 'active' === (string) $record['status'] ? PollPolicy::option_key( $record['option_key'] ) : '';
-		$closed     = PollPolicy::is_closed( $definition );
-		$visible    = PollPolicy::results_visible( $definition, '' !== $current_key );
-		$counts     = $visible ? PollVoteRepository::aggregate_counts( $post_id, $group ) : array();
-		$total      = $visible ? array_sum( $counts ) : 0;
-		$options    = array();
+		$closed      = PollPolicy::is_closed( $definition );
+		$visible     = PollPolicy::results_visible( $definition, '' !== $current_key );
+		$counts      = $visible ? PollVoteRepository::aggregate_counts( $post_id, $group ) : array();
+		$total       = $visible ? array_sum( $counts ) : 0;
+		$options     = array();
 
 		foreach ( $definition['options'] as $option ) {
 			$key     = (string) $option['key'];
@@ -228,7 +193,7 @@ final class PollService {
 			);
 		}
 
-		$has_vote = '' !== $current_key;
+		$has_vote    = '' !== $current_key;
 		$allow_change = ! empty( $definition['allow_change'] );
 		return array(
 			'post_id'         => (int) $post_id,
@@ -243,30 +208,16 @@ final class PollService {
 			'has_voted'       => $has_vote,
 			'allow_change'    => $allow_change,
 			'can_vote'        => $user_id > 0 && ! $closed && ( ! $has_vote || $allow_change ),
-			'can_remove'      => $user_id > 0 && ! $closed && $has_vote,
+			'can_remove'      => $user_id > 0 && ! $closed && $has_vote && $allow_change,
 		);
 	}
 
-	/**
-	 * Return a successful mutation with refreshed results.
-	 *
-	 * @param string $code Code.
-	 * @param string $message Message.
-	 * @param int    $post_id Post ID.
-	 * @param int    $user_id User ID.
-	 * @param int    $status HTTP status.
-	 * @return array<string,mixed>
-	 */
+	/** Return a successful mutation with refreshed results. */
 	private static function success_with_results( $code, $message, $post_id, $user_id, $status ) {
 		return InteractionResult::success( $code, self::results_data( $post_id, $user_id ), $message, $status );
 	}
 
-	/**
-	 * Strict positive ID.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Strict positive ID. */
 	private static function positive_id( $value ) {
 		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/', (string) $value ) ? (int) $value : 0;
 	}
