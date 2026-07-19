@@ -30,19 +30,25 @@ final class PollPolicy {
 	 * @return array<string,mixed>
 	 */
 	public static function validate_definition( $raw, $require_future_close = false ) {
+		$raw        = is_array( $raw ) ? $raw : array();
 		$definition = self::sanitize_definition( $raw );
 		$errors     = array();
+		$option_audit = self::audit_raw_options( isset( $raw['options'] ) ? $raw['options'] : array() );
 
 		if ( '' === $definition['question'] ) {
 			$errors[] = array( 'code' => 'poll_question_required', 'message' => __( 'Poll question is required.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		if ( count( $definition['options'] ) < self::MIN_OPTIONS ) {
+		if ( $option_audit['non_empty_count'] < self::MIN_OPTIONS ) {
 			$errors[] = array( 'code' => 'poll_options_required', 'message' => __( 'A poll requires at least two distinct options.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		if ( count( $definition['options'] ) > self::MAX_OPTIONS ) {
+		if ( $option_audit['non_empty_count'] > self::MAX_OPTIONS ) {
 			$errors[] = array( 'code' => 'poll_options_exceeded', 'message' => __( 'A poll may contain no more than eight options.', 'sabri-complete-home-news-feed' ) );
+		}
+
+		if ( ! empty( $option_audit['duplicate'] ) ) {
+			$errors[] = array( 'code' => 'poll_options_duplicate', 'message' => __( 'Poll options must be distinct.', 'sabri-complete-home-news-feed' ) );
 		}
 
 		if ( $require_future_close && '' !== $definition['closes_at'] && self::timestamp( $definition['closes_at'] ) <= self::now() ) {
@@ -76,7 +82,7 @@ final class PollPolicy {
 				continue;
 			}
 
-			$identity = function_exists( 'mb_strtolower' ) ? mb_strtolower( $label ) : strtolower( $label );
+			$identity = self::lower( $label );
 			if ( isset( $seen[ $identity ] ) ) {
 				continue;
 			}
@@ -112,13 +118,7 @@ final class PollPolicy {
 		);
 	}
 
-	/**
-	 * Save a validated poll definition.
-	 *
-	 * @param int                 $post_id Post ID.
-	 * @param array<string,mixed> $definition Definition.
-	 * @return bool
-	 */
+	/** Save a validated poll definition. */
 	public static function save_definition( $post_id, array $definition ) {
 		$post_id = self::positive_id( $post_id );
 		if ( $post_id <= 0 || ! function_exists( 'update_post_meta' ) ) {
@@ -133,35 +133,20 @@ final class PollPolicy {
 		return false !== update_post_meta( $post_id, self::META_KEY, $validated['definition'] );
 	}
 
-	/**
-	 * Remove poll definition from a non-poll post.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return bool
-	 */
+	/** Remove poll definition from a non-poll post. */
 	public static function delete_definition( $post_id ) {
 		$post_id = self::positive_id( $post_id );
 		return $post_id > 0 && function_exists( 'delete_post_meta' ) ? (bool) delete_post_meta( $post_id, self::META_KEY ) : false;
 	}
 
-	/**
-	 * Return a safe stored definition.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return array<string,mixed>
-	 */
+	/** Return a safe stored definition. */
 	public static function definition( $post_id ) {
 		$post_id = self::positive_id( $post_id );
 		$raw     = $post_id > 0 && function_exists( 'get_post_meta' ) ? get_post_meta( $post_id, self::META_KEY, true ) : array();
 		return self::sanitize_definition( is_array( $raw ) ? $raw : array() );
 	}
 
-	/**
-	 * Whether a post is a valid poll post.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return bool
-	 */
+	/** Whether a post is a valid poll post. */
 	public static function is_poll( $post_id ) {
 		if ( 'poll' !== PostMetadata::feed_type( $post_id ) ) {
 			return false;
@@ -170,23 +155,12 @@ final class PollPolicy {
 		return ! empty( $validated['valid'] );
 	}
 
-	/**
-	 * Whether the poll is closed by UTC time.
-	 *
-	 * @param array<string,mixed> $definition Definition.
-	 * @return bool
-	 */
+	/** Whether the poll is closed by UTC time. */
 	public static function is_closed( array $definition ) {
 		return ! empty( $definition['closes_at'] ) && self::timestamp( $definition['closes_at'] ) <= self::now();
 	}
 
-	/**
-	 * Whether aggregate results may be shown to this requester.
-	 *
-	 * @param array<string,mixed> $definition Definition.
-	 * @param bool                $has_voted Whether current user has an active vote.
-	 * @return bool
-	 */
+	/** Whether aggregate results may be shown to this requester. */
 	public static function results_visible( array $definition, $has_voted ) {
 		$policy = isset( $definition['results_policy'] ) ? self::clean_key( $definition['results_policy'] ) : 'after_vote';
 		if ( 'always' === $policy ) {
@@ -198,13 +172,7 @@ final class PollPolicy {
 		return (bool) $has_voted;
 	}
 
-	/**
-	 * Return one option label or an empty string.
-	 *
-	 * @param array<string,mixed> $definition Definition.
-	 * @param mixed               $key Option key.
-	 * @return string
-	 */
+	/** Return one option label or an empty string. */
 	public static function option_label( array $definition, $key ) {
 		$key = self::option_key( $key );
 		foreach ( isset( $definition['options'] ) && is_array( $definition['options'] ) ? $definition['options'] : array() as $option ) {
@@ -215,33 +183,41 @@ final class PollPolicy {
 		return '';
 	}
 
-	/**
-	 * Normalize an option key.
-	 *
-	 * @param mixed $value Value.
-	 * @return string
-	 */
+	/** Normalize an option key. */
 	public static function option_key( $value ) {
 		$value = self::clean_key( $value );
 		return substr( $value, 0, 64 );
 	}
 
-	/**
-	 * Filterable current UTC timestamp for deterministic tests.
-	 *
-	 * @return int
-	 */
+	/** Filterable current UTC timestamp for deterministic tests. */
 	public static function now() {
 		$now = time();
 		return function_exists( 'apply_filters' ) ? (int) apply_filters( 'sabri_feed_poll_now', $now ) : (int) $now;
 	}
 
-	/**
-	 * Normalize accepted date/time input to UTC storage format.
-	 *
-	 * @param mixed $value Value.
-	 * @return string
-	 */
+	/** Audit raw option cardinality and duplicates before truncation. */
+	private static function audit_raw_options( $raw_options ) {
+		$raw_options = is_array( $raw_options ) ? $raw_options : array();
+		$seen        = array();
+		$count       = 0;
+		$duplicate   = false;
+		foreach ( $raw_options as $option ) {
+			$label = is_array( $option ) && array_key_exists( 'label', $option ) ? $option['label'] : $option;
+			$label = self::bounded_text( $label, self::OPTION_MAX );
+			if ( '' === $label ) {
+				continue;
+			}
+			$count++;
+			$key = self::lower( $label );
+			if ( isset( $seen[ $key ] ) ) {
+				$duplicate = true;
+			}
+			$seen[ $key ] = true;
+		}
+		return array( 'non_empty_count' => $count, 'duplicate' => $duplicate );
+	}
+
+	/** Normalize accepted date/time input to UTC storage format. */
 	private static function normalize_datetime( $value ) {
 		$value = trim( (string) $value );
 		if ( '' === $value ) {
@@ -258,24 +234,13 @@ final class PollPolicy {
 		return '';
 	}
 
-	/**
-	 * Parse normalized UTC date.
-	 *
-	 * @param string $value Value.
-	 * @return int
-	 */
+	/** Parse normalized UTC date. */
 	private static function timestamp( $value ) {
 		$date = \DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s', (string) $value, new \DateTimeZone( 'UTC' ) );
 		return $date ? $date->getTimestamp() : 0;
 	}
 
-	/**
-	 * Bounded plain text.
-	 *
-	 * @param mixed $value Value.
-	 * @param int   $max Maximum characters.
-	 * @return string
-	 */
+	/** Bounded plain text. */
 	private static function bounded_text( $value, $max ) {
 		$value = function_exists( 'wp_unslash' ) ? wp_unslash( $value ) : $value;
 		$value = function_exists( 'sanitize_text_field' ) ? sanitize_text_field( $value ) : trim( strip_tags( (string) $value ) );
@@ -283,12 +248,12 @@ final class PollPolicy {
 		return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, $max ) : substr( $value, 0, $max );
 	}
 
-	/**
-	 * Boolean-like sanitizer.
-	 *
-	 * @param mixed $value Value.
-	 * @return bool
-	 */
+	/** Lowercase a label consistently. */
+	private static function lower( $value ) {
+		return function_exists( 'mb_strtolower' ) ? mb_strtolower( (string) $value ) : strtolower( (string) $value );
+	}
+
+	/** Boolean-like sanitizer. */
 	private static function bool_value( $value ) {
 		if ( is_bool( $value ) ) {
 			return $value;
@@ -296,22 +261,12 @@ final class PollPolicy {
 		return in_array( strtolower( trim( (string) $value ) ), array( '1', 'true', 'yes', 'on' ), true );
 	}
 
-	/**
-	 * Strict positive ID.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Strict positive ID. */
 	private static function positive_id( $value ) {
 		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/', (string) $value ) ? (int) $value : 0;
 	}
 
-	/**
-	 * Sanitized key.
-	 *
-	 * @param mixed $value Value.
-	 * @return string
-	 */
+	/** Sanitized key. */
 	private static function clean_key( $value ) {
 		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
 	}
