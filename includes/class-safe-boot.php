@@ -15,7 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Prevents one plugin module from taking down the complete WordPress site.
  */
 final class SafeBoot {
-	const OPTION_NAME = 'sabri_hnf_safe_boot_state';
+	const OPTION_NAME  = 'sabri_hnf_safe_boot_state';
+	const RETRY_ACTION = 'sabri_hnf_retry_safe_boot';
 
 	/** @var bool */
 	private static $shutdown_registered = false;
@@ -29,7 +30,14 @@ final class SafeBoot {
 		register_shutdown_function( array( __CLASS__, 'handle_shutdown' ) );
 	}
 
-	/** Clear an earlier safe-boot stop before an explicit activation attempt. */
+	/** Register administrator recovery hooks while the runtime is paused. */
+	public static function register_recovery_hooks() {
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'admin_post_' . self::RETRY_ACTION, array( __CLASS__, 'handle_retry' ) );
+		}
+	}
+
+	/** Clear an earlier safe-boot stop before an explicit activation or retry. */
 	public static function clear() {
 		if ( function_exists( 'delete_option' ) ) {
 			delete_option( self::OPTION_NAME );
@@ -98,7 +106,8 @@ final class SafeBoot {
 			return;
 		}
 		$file = isset( $error['file'] ) ? (string) $error['file'] : '';
-		if ( '' === $file || 0 !== strpos( self::normalize_path( $file ), self::normalize_path( SABRI_HNF_PATH ) ) ) {
+		$root = rtrim( self::normalize_path( SABRI_HNF_PATH ), '/' ) . '/';
+		if ( '' === $file || 0 !== strpos( self::normalize_path( $file ), $root ) ) {
 			return;
 		}
 		self::record_failure(
@@ -127,12 +136,35 @@ final class SafeBoot {
 		echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'Sabri Home & News Feed Safe Boot is active.', 'sabri-complete-home-news-feed' ) . '</strong> ';
 		echo esc_html__( 'The plugin runtime was paused so the rest of WordPress can continue working. No posts, media, or database content were deleted.', 'sabri-complete-home-news-feed' );
 		echo '</p><p>' . esc_html( 'Component: ' . $component . ( $location ? ' | Location: ' . $location : '' ) . ' | Diagnostic code: ' . $code ) . '</p>';
-		echo '<p>' . esc_html( $message ) . '</p></div>';
+		echo '<p>' . esc_html( $message ) . '</p>';
+		if ( function_exists( 'wp_nonce_url' ) && function_exists( 'admin_url' ) ) {
+			$url = wp_nonce_url( admin_url( 'admin-post.php?action=' . self::RETRY_ACTION ), self::RETRY_ACTION );
+			echo '<p><a class="button button-secondary" href="' . esc_url( $url ) . '">' . esc_html__( 'Retry Safe Boot', 'sabri-complete-home-news-feed' ) . '</a></p>';
+		}
+		echo '</div>';
+	}
+
+	/** Clear the stop flag and return the administrator to Plugins. */
+	public static function handle_retry() {
+		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
+			if ( function_exists( 'wp_die' ) ) {
+				wp_die( esc_html__( 'You do not have permission to retry this plugin.', 'sabri-complete-home-news-feed' ) );
+			}
+			return;
+		}
+		if ( function_exists( 'check_admin_referer' ) ) {
+			check_admin_referer( self::RETRY_ACTION );
+		}
+		self::clear();
+		if ( function_exists( 'wp_safe_redirect' ) && function_exists( 'admin_url' ) ) {
+			wp_safe_redirect( admin_url( 'plugins.php?sabri_safe_boot_retry=1' ) );
+			exit;
+		}
 	}
 
 	/** Store only a bounded, administrator-safe diagnostic. */
 	private static function record_failure( $module, $type, $message, $file, $line ) {
-		$module  = sanitize_key( str_replace( '\\', '-', (string) $module ) );
+		$module  = function_exists( 'sanitize_key' ) ? sanitize_key( str_replace( '\\', '-', (string) $module ) ) : 'plugin-runtime';
 		$type    = preg_replace( '/[^A-Za-z0-9_\\-]/', '', (string) $type );
 		$message = self::bounded_text( $message, 320 );
 		$file    = self::relative_file( $file );
@@ -156,22 +188,24 @@ final class SafeBoot {
 	/** Safe module label. */
 	private static function module_name( $class ) {
 		$parts = explode( '\\', (string) $class );
-		return sanitize_key( end( $parts ) );
+		$name  = end( $parts );
+		return function_exists( 'sanitize_key' ) ? sanitize_key( $name ) : strtolower( preg_replace( '/[^A-Za-z0-9_-]/', '', (string) $name ) );
 	}
 
 	/** Convert an internal absolute file path into a plugin-relative path. */
 	private static function relative_file( $file ) {
 		$file = self::normalize_path( $file );
-		$root = self::normalize_path( SABRI_HNF_PATH );
+		$root = rtrim( self::normalize_path( SABRI_HNF_PATH ), '/' ) . '/';
 		if ( '' !== $file && 0 === strpos( $file, $root ) ) {
 			return ltrim( substr( $file, strlen( $root ) ), '/' );
 		}
 		return '';
 	}
 
-	/** Normalize filesystem separators. */
+	/** Normalize filesystem separators without exposing host-specific paths. */
 	private static function normalize_path( $path ) {
-		return rtrim( str_replace( '\\', '/', (string) $path ), '/' ) . '/';
+		$path = str_replace( '\\', '/', (string) $path );
+		return function_exists( 'wp_normalize_path' ) ? wp_normalize_path( $path ) : $path;
 	}
 
 	/** Bounded text without HTML or control characters. */
