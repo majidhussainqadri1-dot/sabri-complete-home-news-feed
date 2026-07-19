@@ -205,8 +205,9 @@ sabri_phase3d_assert( 1 === count( $race_rows ), 'Race recovery must leave one f
 $sabri_test_filter_overrides['sabri_feed_profile_url'] = 'http://example.test/profiles/member/';
 $list = FollowService::following( 'rest-nonce', 7, 100 );
 sabri_phase3d_assert( ! empty( $list['ok'] ) && 2 === $list['data']['count'], 'Private Following list must include only active, available targets.' );
+$profile_urls = array_column( $list['data']['items'], 'profile_url' );
 $list_json = wp_json_encode( $list['data'] );
-sabri_phase3d_assert( false !== strpos( $list_json, 'http://example.test/profiles/member/' ), 'Profile URL filter must integrate without modifying a Profiles repository.' );
+sabri_phase3d_assert( in_array( 'http://example.test/profiles/member/', $profile_urls, true ), 'Profile URL filter must integrate without modifying a Profiles repository.' );
 sabri_phase3d_assert( false === strpos( $list_json, 'user_email' ) && false === strpos( $list_json, '@example.com' ) && false === strpos( $list_json, 'roles' ), 'Following serialization must not expose email addresses or role data.' );
 unset( $sabri_test_filter_overrides['sabri_feed_profile_url'] );
 
