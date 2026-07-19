@@ -17,11 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class DataRetention {
 	const EXPORT_PAGE_SIZE = 50;
 
-	/**
-	 * Register privacy hooks.
-	 *
-	 * @return void
-	 */
+	/** Register privacy hooks. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'wp_privacy_personal_data_exporters', array( __CLASS__, 'register_exporter' ) );
@@ -39,39 +35,28 @@ final class DataRetention {
 			'saves'       => 'Saved posts are private to the saving user and are exposed only through authenticated personal data export.',
 			'follows'     => 'Follow relationships are exportable for the requesting user and removable or anonymized during erasure.',
 			'reports'     => 'Reports remain confidential to authorized moderators and administrators.',
+			'poll_votes'  => 'Individual poll choices are private user data; public poll results contain aggregates only.',
 			'audit_log'   => 'Audit logs are restricted to administrators and retain administrative accountability.',
 			'views'       => 'Anonymous view data is minimized through hashed identities and date-level aggregation.',
 			'uninstall'   => 'Default uninstall behavior retains data unless an administrator intentionally changes the retention setting.',
 		);
 	}
 
-	/**
-	 * Register exporter.
-	 *
-	 * @param array<string,mixed> $exporters Exporters.
-	 * @return array<string,mixed>
-	 */
+	/** Register exporter. */
 	public static function register_exporter( $exporters ) {
 		$exporters['sabri-home-news-feed'] = array(
 			'exporter_friendly_name' => __( 'Sabri Home and News Feed data', 'sabri-complete-home-news-feed' ),
 			'callback'               => array( __CLASS__, 'exporter' ),
 		);
-
 		return $exporters;
 	}
 
-	/**
-	 * Register eraser.
-	 *
-	 * @param array<string,mixed> $erasers Erasers.
-	 * @return array<string,mixed>
-	 */
+	/** Register eraser. */
 	public static function register_eraser( $erasers ) {
 		$erasers['sabri-home-news-feed'] = array(
 			'eraser_friendly_name' => __( 'Sabri Home and News Feed data', 'sabri-complete-home-news-feed' ),
 			'callback'             => array( __CLASS__, 'eraser' ),
 		);
-
 		return $erasers;
 	}
 
@@ -167,6 +152,17 @@ final class DataRetention {
 					'status'      => __( 'Report status', 'sabri-complete-home-news-feed' ),
 					'created_at'  => __( 'Created at', 'sabri-complete-home-news-feed' ),
 				)
+			),
+			self::export_rows(
+				'poll_votes',
+				'user_id',
+				$user_id,
+				array(
+					'poll_post_id' => __( 'Poll post ID', 'sabri-complete-home-news-feed' ),
+					'option_key'   => __( 'Selected poll option', 'sabri-complete-home-news-feed' ),
+					'status'       => __( 'Status', 'sabri-complete-home-news-feed' ),
+					'created_at'   => __( 'Created at', 'sabri-complete-home-news-feed' ),
+				)
 			)
 		);
 	}
@@ -256,11 +252,14 @@ final class DataRetention {
 
 		$tables = Database::table_names();
 		$now    = gmdate( 'Y-m-d H:i:s' );
+		$salt   = function_exists( 'wp_salt' ) ? wp_salt( 'auth' ) : SABRI_HNF_SLUG;
+		$poll_hash = hash( 'sha256', 'erased-poll-vote|' . (int) $user_id . '|' . $salt );
 
 		$wpdb->update( $tables['saves'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['follows'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'follower_user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['follows'], array( 'status' => 'removed', 'updated_at' => $now ), array( 'target_user_id' => $user_id ), array( '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['reports'], array( 'reporter_user_id' => 0, 'updated_at' => $now ), array( 'reporter_user_id' => $user_id ), array( '%d', '%s' ), array( '%d' ) );
+		$wpdb->update( $tables['poll_votes'], array( 'user_id' => 0, 'anonymous_hash' => $poll_hash, 'status' => 'removed', 'updated_at' => $now ), array( 'user_id' => $user_id ), array( '%d', '%s', '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['views'], array( 'user_id' => 0, 'anonymous_hash' => '', 'updated_at' => $now ), array( 'user_id' => $user_id ), array( '%d', '%s', '%s' ), array( '%d' ) );
 		$wpdb->update( $tables['audit_log'], array( 'actor_user_id' => 0 ), array( 'actor_user_id' => $user_id ), array( '%d' ), array( '%d' ) );
 	}
