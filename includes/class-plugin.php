@@ -42,12 +42,14 @@ final class Plugin {
 		PostTypes::register();
 		Taxonomies::register();
 		Integrations::register();
+		ReleaseReadiness::register();
 		SafeMode::register();
 		RestFoundation::register();
 		DataRetention::register();
 		NotificationBridge::register();
 		Assets::register();
 		PostMetadata::register();
+		FollowersVisibility::register();
 		MediaHandler::register();
 		FeedQuery::register();
 		HomeIntegration::register();
