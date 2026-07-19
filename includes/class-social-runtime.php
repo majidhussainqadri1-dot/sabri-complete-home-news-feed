@@ -12,14 +12,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Renders progressive-enhancement reactions, comments, saves, follows, and reports.
+ * Renders progressive-enhancement reactions, comments, saves, follows, reports, and views.
  */
 final class SocialRuntime {
-	/**
-	 * Single-post duplicate guard.
-	 *
-	 * @var array<int,bool>
-	 */
+	/** @var array<int,bool> */
 	private static $single_rendered = array();
 
 	/** Register hooks. */
@@ -29,12 +25,7 @@ final class SocialRuntime {
 		}
 	}
 
-	/**
-	 * Render one action bar.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return string
-	 */
+	/** Render one action bar. */
 	public static function render_action_bar( $post_id ) {
 		$post_id = self::positive_id( $post_id );
 		$reactions_enabled = Phase3FeatureSettings::enabled( 'reactions_enabled' );
@@ -42,7 +33,8 @@ final class SocialRuntime {
 		$comments_enabled  = Phase3FeatureSettings::enabled( 'comments_enabled' );
 		$follows_enabled   = Phase3FeatureSettings::enabled( 'follows_enabled' );
 		$reports_enabled   = Phase3FeatureSettings::enabled( 'reports_enabled' );
-		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled && ! $follows_enabled && ! $reports_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
+		$views_enabled     = Phase3FeatureSettings::enabled( 'view_logging_enabled' );
+		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled && ! $follows_enabled && ! $reports_enabled && ! $views_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
 			return '';
 		}
 
@@ -62,45 +54,41 @@ final class SocialRuntime {
 			'follower_count' => 0,
 			'profile_url'    => '',
 		);
-		$can_follow    = $follows_enabled && $target_user_id > 0 && ( ! $logged_in || $target_user_id !== $user_id );
-		$follow_url    = $target_user_id > 0 && function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/users/' . $target_user_id . '/follow' ) : '';
+		$can_follow     = $follows_enabled && $target_user_id > 0 && ( ! $logged_in || $target_user_id !== $user_id );
+		$follow_url     = $target_user_id > 0 && function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/users/' . $target_user_id . '/follow' ) : '';
 		$report_control = $reports_enabled ? ReportRuntime::render_control( 'post', $post_id, $target_user_id ) : '';
 
 		return FeedRenderer::template(
 			'action-bar',
 			array(
-				'post_id'             => $post_id,
-				'summary'             => $summary,
-				'logged_in'           => $logged_in,
-				'nonce'               => $nonce,
-				'login_url'           => $login_url,
-				'engagement_url'      => $base . '/engagement',
-				'reaction_url'        => $base . '/reaction',
-				'save_url'            => $base . '/save',
-				'comments_url'        => $permalink . '#sabri-hnf-comments-' . $post_id,
-				'comment_count'       => $comments_enabled ? CommentService::approved_count( $post_id ) : 0,
-				'follow_url'          => $follow_url,
-				'follow_summary'      => $follow_summary,
-				'profile_url'         => isset( $follow_summary['profile_url'] ) ? (string) $follow_summary['profile_url'] : '',
-				'can_follow'          => $can_follow,
-				'reactions_enabled'   => $reactions_enabled,
-				'dislikes_enabled'    => Phase3FeatureSettings::enabled( 'dislikes_enabled' ),
-				'saves_enabled'       => $saves_enabled,
-				'comments_enabled'    => $comments_enabled,
-				'follows_enabled'     => $follows_enabled,
-				'reports_enabled'     => $reports_enabled,
-				'report_control'      => $report_control,
-				'show_public_counts'  => Phase3FeatureSettings::enabled( 'show_public_reaction_counts' ),
+				'post_id'            => $post_id,
+				'summary'            => $summary,
+				'logged_in'          => $logged_in,
+				'nonce'              => $nonce,
+				'login_url'          => $login_url,
+				'engagement_url'     => $base . '/engagement',
+				'reaction_url'       => $base . '/reaction',
+				'save_url'           => $base . '/save',
+				'comments_url'       => $permalink . '#sabri-hnf-comments-' . $post_id,
+				'comment_count'      => $comments_enabled ? CommentService::approved_count( $post_id ) : 0,
+				'follow_url'         => $follow_url,
+				'follow_summary'     => $follow_summary,
+				'profile_url'        => isset( $follow_summary['profile_url'] ) ? (string) $follow_summary['profile_url'] : '',
+				'can_follow'         => $can_follow,
+				'reactions_enabled'  => $reactions_enabled,
+				'dislikes_enabled'   => Phase3FeatureSettings::enabled( 'dislikes_enabled' ),
+				'saves_enabled'      => $saves_enabled,
+				'comments_enabled'   => $comments_enabled,
+				'follows_enabled'    => $follows_enabled,
+				'reports_enabled'    => $reports_enabled,
+				'views_enabled'      => $views_enabled,
+				'report_control'     => $report_control,
+				'show_public_counts' => Phase3FeatureSettings::enabled( 'show_public_reaction_counts' ),
 			)
 		);
 	}
 
-	/**
-	 * Append actions to a visible single post once.
-	 *
-	 * @param string $content Content.
-	 * @return string
-	 */
+	/** Append actions to a visible single post once. */
 	public static function append_single_actions( $content ) {
 		if ( ! HomeIntegration::is_single_post_request() ) {
 			return $content;
