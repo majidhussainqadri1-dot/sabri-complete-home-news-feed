@@ -52,11 +52,13 @@ final class Assets {
 			wp_register_style( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/css/feed.css', array(), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-interactions', SABRI_HNF_URL . 'assets/css/interactions.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/css/comments.css', array( 'sabri-hnf-feed', 'sabri-hnf-interactions' ), SABRI_HNF_VERSION );
+			wp_register_style( 'sabri-hnf-polls', SABRI_HNF_URL . 'assets/css/polls.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/css/composer.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 		}
 		if ( function_exists( 'wp_register_script' ) ) {
 			wp_register_script( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/js/feed.js', array(), SABRI_HNF_VERSION, true );
 			wp_register_script( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/js/comments.js', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION, true );
+			wp_register_script( 'sabri-hnf-polls', SABRI_HNF_URL . 'assets/js/polls.js', array(), SABRI_HNF_VERSION, true );
 			wp_register_script( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/js/composer.js', array(), SABRI_HNF_VERSION, true );
 		}
 	}
@@ -86,6 +88,20 @@ final class Assets {
 		}
 		if ( function_exists( 'wp_enqueue_script' ) ) {
 			wp_enqueue_script( 'sabri-hnf-comments' );
+		}
+	}
+
+	/** Enqueue poll assets only when a poll is rendered. */
+	public static function enqueue_polls() {
+		self::enqueue_feed();
+		if ( ! Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
+			return;
+		}
+		if ( function_exists( 'wp_enqueue_style' ) ) {
+			wp_enqueue_style( 'sabri-hnf-polls' );
+		}
+		if ( function_exists( 'wp_enqueue_script' ) ) {
+			wp_enqueue_script( 'sabri-hnf-polls' );
 		}
 	}
 
