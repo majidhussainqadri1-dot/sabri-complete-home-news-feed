@@ -4,11 +4,11 @@ Target release: `1.1.0`
 
 Integration branch: `build/phase-3-social-interactions-1.1.0`
 
-This checkpoint freezes the Phase 3 service, settings, REST, result, and safety contracts without enabling any public social-interaction runtime. The accepted Phase 2 plugin and schema versions remain `1.0.0`.
+This checkpoint froze the Phase 3 service, settings, REST, result, and safety contracts without enabling public social-interaction runtime. The accepted Phase 2 plugin and schema versions remain `1.0.0` throughout the integration branch until the release checkpoint.
 
 ## Scope
 
-Checkpoint 3.0 adds only:
+Checkpoint 3.0 added only:
 
 - fail-closed feature-flag names, all disabled by default;
 - settings-name contracts for social, moderation, performance, and privacy behavior;
@@ -17,11 +17,11 @@ Checkpoint 3.0 adds only:
 - reaction, report-state, report-reason, and poll-policy allow-lists;
 - an isolated contract test runner in CI.
 
-It does not register Phase 3 routes, render action buttons, mutate the Phase 2 settings option, alter the database schema, or enable likes, dislikes, comments, saves, follows, reports, polls, notifications, views, or followers-only visibility.
+It did not register Phase 3 routes, render action buttons, mutate the Phase 2 settings option, alter the database schema, or enable likes, dislikes, comments, saves, follows, reports, polls, notifications, views, or followers-only visibility.
 
 ## Feature Flags
 
-All flags default to disabled:
+All frozen flags default to disabled:
 
 - `reactions_enabled`
 - `dislikes_enabled`
@@ -75,19 +75,15 @@ Unknown feature names fail closed.
 - `retain_reports_for_accountability`
 - `anonymize_views`
 
-Settings integration is intentionally deferred to Checkpoint 3A, after shared permissions, repository boundaries, schema audit, and rate limiting are implemented and tested.
-
 ## REST Contract
 
 Namespace: `sabri-home-news-feed/v1`
 
-Proposed routes are frozen in `Phase3Contracts::rest_routes()`. No Phase 3 route is registered at Checkpoint 3.0.
-
-Every later write route must require authentication, a valid REST nonce, centralized object visibility or ownership authorization, strict allow-list validation, bounded payloads, rate limiting, and no-store responses.
+Every write route requires authentication, a valid REST nonce, centralized object visibility or ownership authorization, strict allow-list validation, bounded payloads, rate limiting, and no-store responses.
 
 ## Service Result Contract
 
-Every Phase 3 service will return exactly:
+Every Phase 3 service returns exactly:
 
 ```php
 array(
@@ -99,16 +95,25 @@ array(
 )
 ```
 
-`InteractionResult` provides the frozen builder. REST controllers must not expose raw SQL, exception details, private report notes, user email, phone, patient identifiers, or internal integration errors.
+`InteractionResult` provides the frozen builder. REST controllers must not expose raw SQL, exception details, private report notes, user email, phone, patient identifiers, voter identities, or internal integration errors.
 
-## Checkpoint Exit
+## Implemented bounded checkpoints
 
-Checkpoint 3.0 exits only when:
+- 3A: shared permissions, repository boundaries, rate limits, and schema audit.
+- 3B: reactions and private saves.
+- 3C: comments and replies.
+- 3D: Follow and Following.
+- 3E: reports and confidential moderation queue.
+- 3F: bounded Poll creation, authenticated voting, results policies, privacy lifecycle, and accessible rendering.
 
-- the Phase 2 behavior suite remains green;
-- the Phase 3 contract suite is green;
-- PHP lint and static checks are green;
-- the branch remains non-destructive and has no public Phase 3 UI;
-- GitHub Actions is green.
+Each completed surface remains controlled by isolated feature settings and the Draft PR remains unmerged pending the remaining Phase 3 plan verification and Hostinger staging acceptance.
 
-The next permitted work is Checkpoint 3A: shared permissions, repository wrappers, rate limits, and schema audit. Phase 3B and later runtime work must not start before Checkpoint 3A passes.
+## Remaining frozen scope
+
+The following frozen runtime areas remain deliberately unimplemented and disabled:
+
+- notification bridge;
+- view logging and analytics;
+- followers-only visibility.
+
+Their checkpoint names and order must be verified against the approved Phase 3 plan rather than inferred.
