@@ -158,7 +158,7 @@ $sabri_test_rows[ $audit_table ] = array();
 
 // Feature gate and definition validation.
 sabri_phase3f_assert( 0 === Phase3FeatureSettings::defaults()['polls_enabled'], 'Poll runtime must remain disabled by default until staging acceptance.' );
-$sabri_phase3f_assert( ! PollPolicy::validate_definition( array( 'question' => 'Q', 'options' => array( 'Only one' ) ) )['valid'], 'Polls must require at least two options.' );
+sabri_phase3f_assert( ! PollPolicy::validate_definition( array( 'question' => 'Q', 'options' => array( 'Only one' ) ) )['valid'], 'Polls must require at least two options.' );
 sabri_phase3f_assert( ! PollPolicy::validate_definition( array( 'question' => 'Q', 'options' => array( 'Same', 'Same' ) ) )['valid'], 'Duplicate Poll options must fail closed.' );
 sabri_phase3f_assert( ! PollPolicy::validate_definition( array( 'question' => 'Q', 'options' => range( 1, 9 ) ) )['valid'], 'More than eight Poll options must fail closed before truncation.' );
 $sabri_test_filter_overrides['sabri_feed_poll_now'] = strtotime( '2026-07-19 00:00:00 UTC' );
@@ -268,7 +268,6 @@ for ( $attempt = 1; $attempt <= 21; $attempt++ ) {
 	$limited = PollService::vote( $rate_poll, 'option-1', 'rest-nonce', 7 );
 }
 sabri_phase3f_assert( empty( $limited['ok'] ) && 429 === $limited['status'], 'Poll vote actions must enforce the bounded per-user/per-poll rate limit.' );
-$other_user_after_limit = null;
 $sabri_test_current_user_id = 6;
 $other_user_after_limit = PollService::vote( $rate_poll, 'option-2', 'rest-nonce', 6 );
 sabri_phase3f_assert( ! empty( $other_user_after_limit['ok'] ), 'Rate-limit buckets must remain isolated by user.' );
