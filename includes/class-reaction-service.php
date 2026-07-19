@@ -80,6 +80,7 @@ final class ReactionService {
 
 		EngagementService::invalidate( $post_id );
 		AuditLog::record( 'reaction_set', array( 'post_id' => $post_id, 'reaction_type' => $reaction_type ) );
+		NotificationBridge::post_event( 'post_reaction', $user_id, $post_id, array( 'state_key' => $reaction_type ) );
 
 		return InteractionResult::success(
 			'reaction_saved',
