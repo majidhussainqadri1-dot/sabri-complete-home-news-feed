@@ -81,7 +81,7 @@ final class Assets {
 		self::register_public();
 		if ( function_exists( 'wp_enqueue_style' ) ) {
 			wp_enqueue_style( 'sabri-hnf-feed' );
-			if ( Phase3FeatureSettings::enabled( 'reactions_enabled' ) || Phase3FeatureSettings::enabled( 'saves_enabled' ) || Phase3FeatureSettings::enabled( 'comments_enabled' ) ) {
+			if ( Phase3FeatureSettings::enabled( 'reactions_enabled' ) || Phase3FeatureSettings::enabled( 'saves_enabled' ) || Phase3FeatureSettings::enabled( 'comments_enabled' ) || Phase3FeatureSettings::enabled( 'follows_enabled' ) ) {
 				wp_enqueue_style( 'sabri-hnf-interactions' );
 			}
 		}
