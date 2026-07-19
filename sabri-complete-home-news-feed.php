@@ -17,6 +17,81 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+/*
+ * Duplicate-copy recovery.
+ *
+ * Hostinger staging may retain an older copy under a different folder name.
+ * Loading both copies would otherwise redeclare global functions and crash
+ * WordPress before Safe Boot can run. The newer copy therefore registers a
+ * one-time recovery callback, avoids all declarations, and lets WordPress
+ * deactivate the previously loaded copy during activation/admin bootstrap.
+ */
+$sabri_hnf_loaded_file      = defined( 'SABRI_HNF_FILE' ) ? str_replace( '\\', '/', (string) SABRI_HNF_FILE ) : '';
+$sabri_hnf_current_file     = str_replace( '\\', '/', __FILE__ );
+$sabri_hnf_duplicate_loaded = ( '' !== $sabri_hnf_loaded_file && rtrim( $sabri_hnf_loaded_file, '/' ) !== rtrim( $sabri_hnf_current_file, '/' ) )
+	|| ( '' === $sabri_hnf_loaded_file && ( function_exists( 'sabri_hnf_bootstrap' ) || function_exists( 'sabri_hnf_activate' ) ) );
+
+if ( '' !== $sabri_hnf_loaded_file && rtrim( $sabri_hnf_loaded_file, '/' ) === rtrim( $sabri_hnf_current_file, '/' ) ) {
+	return;
+}
+
+if ( $sabri_hnf_duplicate_loaded ) {
+	$sabri_hnf_resolve_duplicate = static function () use ( $sabri_hnf_loaded_file, $sabri_hnf_current_file ) {
+		if ( ! function_exists( 'deactivate_plugins' ) && defined( 'ABSPATH' ) ) {
+			$plugin_api = ABSPATH . 'wp-admin/includes/plugin.php';
+			if ( is_readable( $plugin_api ) ) {
+				require_once $plugin_api;
+			}
+		}
+
+		$current_basename = function_exists( 'plugin_basename' ) ? plugin_basename( $sabri_hnf_current_file ) : '';
+		$duplicates       = array();
+		if ( '' !== $sabri_hnf_loaded_file && function_exists( 'plugin_basename' ) ) {
+			$duplicates[] = plugin_basename( $sabri_hnf_loaded_file );
+		}
+
+		if ( function_exists( 'get_plugins' ) ) {
+			foreach ( get_plugins() as $plugin_basename => $headers ) {
+				$plugin_name = isset( $headers['Name'] ) ? (string) $headers['Name'] : '';
+				$text_domain = isset( $headers['TextDomain'] ) ? (string) $headers['TextDomain'] : '';
+				if ( $plugin_basename !== $current_basename && ( 'Sabri Complete Home and News Feed' === $plugin_name || 'sabri-complete-home-news-feed' === $text_domain ) ) {
+					$duplicates[] = $plugin_basename;
+				}
+			}
+		}
+
+		$duplicates = array_values( array_unique( array_filter( $duplicates ) ) );
+		if ( function_exists( 'deactivate_plugins' ) ) {
+			foreach ( $duplicates as $duplicate ) {
+				if ( $duplicate !== $current_basename ) {
+					deactivate_plugins( $duplicate, true );
+				}
+			}
+		}
+
+		if ( function_exists( 'update_option' ) ) {
+			update_option(
+				'sabri_hnf_duplicate_plugin_resolution',
+				array(
+					'resolved'        => 1,
+					'previous_copies' => $duplicates,
+					'current_copy'    => $current_basename,
+					'resolved_at_utc' => gmdate( 'Y-m-d H:i:s' ),
+				),
+				false
+			);
+		}
+	};
+
+	if ( function_exists( 'register_activation_hook' ) ) {
+		register_activation_hook( __FILE__, $sabri_hnf_resolve_duplicate );
+	}
+	if ( function_exists( 'add_action' ) ) {
+		add_action( 'admin_init', $sabri_hnf_resolve_duplicate, 1 );
+	}
+	return;
+}
+
 define( 'SABRI_HNF_VERSION', '1.0.0' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
@@ -28,48 +103,58 @@ define( 'SABRI_HNF_MINIMUM_PHP', '8.1' );
 define( 'SABRI_HNF_MINIMUM_WP', '6.0' );
 
 /** Escape helper that remains safe in lean test stubs. */
-function sabri_hnf_escape_html( $value ) {
-	if ( function_exists( 'esc_html' ) ) {
-		return esc_html( $value );
+if ( ! function_exists( 'sabri_hnf_escape_html' ) ) {
+	function sabri_hnf_escape_html( $value ) {
+		if ( function_exists( 'esc_html' ) ) {
+			return esc_html( $value );
+		}
+		return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
 	}
-	return htmlspecialchars( (string) $value, ENT_QUOTES, 'UTF-8' );
 }
 
 /** PHP compatibility check. */
-function sabri_hnf_php_supported() {
-	return version_compare( PHP_VERSION, SABRI_HNF_MINIMUM_PHP, '>=' );
+if ( ! function_exists( 'sabri_hnf_php_supported' ) ) {
+	function sabri_hnf_php_supported() {
+		return version_compare( PHP_VERSION, SABRI_HNF_MINIMUM_PHP, '>=' );
+	}
 }
 
 /** WordPress compatibility check. */
-function sabri_hnf_wp_supported() {
-	global $wp_version;
-	if ( empty( $wp_version ) ) {
-		return true;
+if ( ! function_exists( 'sabri_hnf_wp_supported' ) ) {
+	function sabri_hnf_wp_supported() {
+		global $wp_version;
+		if ( empty( $wp_version ) ) {
+			return true;
+		}
+		return version_compare( $wp_version, SABRI_HNF_MINIMUM_WP, '>=' );
 	}
-	return version_compare( $wp_version, SABRI_HNF_MINIMUM_WP, '>=' );
 }
 
 /** Render the PHP guard notice. */
-function sabri_hnf_php_notice() {
-	$message = sprintf(
-		/* translators: 1: required PHP version, 2: current PHP version. */
-		__( 'Sabri Complete Home and News Feed requires PHP %1$s or higher. Current PHP version: %2$s.', 'sabri-complete-home-news-feed' ),
-		SABRI_HNF_MINIMUM_PHP,
-		PHP_VERSION
-	);
-	echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+if ( ! function_exists( 'sabri_hnf_php_notice' ) ) {
+	function sabri_hnf_php_notice() {
+		$message = sprintf(
+			/* translators: 1: required PHP version, 2: current PHP version. */
+			__( 'Sabri Complete Home and News Feed requires PHP %1$s or higher. Current PHP version: %2$s.', 'sabri-complete-home-news-feed' ),
+			SABRI_HNF_MINIMUM_PHP,
+			PHP_VERSION
+		);
+		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+	}
 }
 
 /** Render the WordPress guard notice. */
-function sabri_hnf_wp_notice() {
-	global $wp_version;
-	$message = sprintf(
-		/* translators: 1: required WordPress version, 2: current WordPress version. */
-		__( 'Sabri Complete Home and News Feed requires WordPress %1$s or higher. Current WordPress version: %2$s.', 'sabri-complete-home-news-feed' ),
-		SABRI_HNF_MINIMUM_WP,
-		$wp_version ? $wp_version : __( 'unknown', 'sabri-complete-home-news-feed' )
-	);
-	echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+if ( ! function_exists( 'sabri_hnf_wp_notice' ) ) {
+	function sabri_hnf_wp_notice() {
+		global $wp_version;
+		$message = sprintf(
+			/* translators: 1: required WordPress version, 2: current WordPress version. */
+			__( 'Sabri Complete Home and News Feed requires WordPress %1$s or higher. Current WordPress version: %2$s.', 'sabri-complete-home-news-feed' ),
+			SABRI_HNF_MINIMUM_WP,
+			$wp_version ? $wp_version : __( 'unknown', 'sabri-complete-home-news-feed' )
+		);
+		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+	}
 }
 
 if ( ! sabri_hnf_php_supported() ) {
@@ -111,35 +196,41 @@ spl_autoload_register(
 );
 
 /** Register a safe-boot notice without requiring the full plugin runtime. */
-function sabri_hnf_register_safe_boot_notice() {
-	\Sabri\HomeNewsFeed\SafeBoot::register_recovery_hooks();
-	if ( function_exists( 'add_action' ) ) {
-		add_action( 'admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
-		add_action( 'network_admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
+if ( ! function_exists( 'sabri_hnf_register_safe_boot_notice' ) ) {
+	function sabri_hnf_register_safe_boot_notice() {
+		\Sabri\HomeNewsFeed\SafeBoot::register_recovery_hooks();
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
+			add_action( 'network_admin_notices', array( '\\Sabri\\HomeNewsFeed\\SafeBoot', 'admin_notice' ) );
+		}
 	}
 }
 
 /** Activation boundary. */
-function sabri_hnf_activate() {
-	if ( ! sabri_hnf_php_supported() || ! sabri_hnf_wp_supported() ) {
-		return;
-	}
-	try {
-		\Sabri\HomeNewsFeed\SafeBoot::register_shutdown_guard();
-		\Sabri\HomeNewsFeed\SafeBoot::clear();
-		\Sabri\HomeNewsFeed\Activator::activate();
-	} catch ( \Throwable $error ) {
-		\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'activation', $error );
+if ( ! function_exists( 'sabri_hnf_activate' ) ) {
+	function sabri_hnf_activate() {
+		if ( ! sabri_hnf_php_supported() || ! sabri_hnf_wp_supported() ) {
+			return;
+		}
+		try {
+			\Sabri\HomeNewsFeed\SafeBoot::register_shutdown_guard();
+			\Sabri\HomeNewsFeed\SafeBoot::clear();
+			\Sabri\HomeNewsFeed\Activator::activate();
+		} catch ( \Throwable $error ) {
+			\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'activation', $error );
+		}
 	}
 }
 
 /** Deactivation boundary. */
-function sabri_hnf_deactivate() {
-	try {
-		\Sabri\HomeNewsFeed\Deactivator::deactivate();
-		\Sabri\HomeNewsFeed\SafeBoot::clear();
-	} catch ( \Throwable $error ) {
-		\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'deactivation', $error );
+if ( ! function_exists( 'sabri_hnf_deactivate' ) ) {
+	function sabri_hnf_deactivate() {
+		try {
+			\Sabri\HomeNewsFeed\Deactivator::deactivate();
+			\Sabri\HomeNewsFeed\SafeBoot::clear();
+		} catch ( \Throwable $error ) {
+			\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'deactivation', $error );
+		}
 	}
 }
 
@@ -151,32 +242,34 @@ if ( function_exists( 'register_deactivation_hook' ) ) {
 }
 
 /** Runtime bootstrap. */
-function sabri_hnf_bootstrap() {
-	if ( ! sabri_hnf_wp_supported() ) {
-		if ( function_exists( 'add_action' ) ) {
-			add_action( 'admin_notices', 'sabri_hnf_wp_notice' );
-		}
-		return;
-	}
-
-	try {
-		\Sabri\HomeNewsFeed\SafeBoot::register_shutdown_guard();
-		if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) {
-			sabri_hnf_register_safe_boot_notice();
+if ( ! function_exists( 'sabri_hnf_bootstrap' ) ) {
+	function sabri_hnf_bootstrap() {
+		if ( ! sabri_hnf_wp_supported() ) {
+			if ( function_exists( 'add_action' ) ) {
+				add_action( 'admin_notices', 'sabri_hnf_wp_notice' );
+			}
 			return;
 		}
 
-		if ( function_exists( 'load_plugin_textdomain' ) ) {
-			load_plugin_textdomain( SABRI_HNF_TEXT_DOMAIN, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
-		}
+		try {
+			\Sabri\HomeNewsFeed\SafeBoot::register_shutdown_guard();
+			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) {
+				sabri_hnf_register_safe_boot_notice();
+				return;
+			}
 
-		\Sabri\HomeNewsFeed\Plugin::instance()->register();
-		if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) {
+			if ( function_exists( 'load_plugin_textdomain' ) ) {
+				load_plugin_textdomain( SABRI_HNF_TEXT_DOMAIN, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+			}
+
+			\Sabri\HomeNewsFeed\Plugin::instance()->register();
+			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) {
+				sabri_hnf_register_safe_boot_notice();
+			}
+		} catch ( \Throwable $error ) {
+			\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'bootstrap', $error );
 			sabri_hnf_register_safe_boot_notice();
 		}
-	} catch ( \Throwable $error ) {
-		\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'bootstrap', $error );
-		sabri_hnf_register_safe_boot_notice();
 	}
 }
 
