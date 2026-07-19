@@ -45,11 +45,13 @@ final class Plugin {
 		SafeMode::register();
 		RestFoundation::register();
 		DataRetention::register();
+		NotificationBridge::register();
 		Assets::register();
 		PostMetadata::register();
 		MediaHandler::register();
 		FeedQuery::register();
 		HomeIntegration::register();
+		ViewRuntime::register();
 		PollRuntime::register();
 		SocialRuntime::register();
 		CommentRuntime::register();
