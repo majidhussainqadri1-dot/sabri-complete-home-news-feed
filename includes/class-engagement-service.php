@@ -32,6 +32,7 @@ final class EngagementService {
 				'like_count'       => 0,
 				'dislike_count'    => 0,
 				'reaction_count'   => 0,
+				'view_count'       => 0,
 				'current_reaction' => '',
 				'saved'            => false,
 			);
@@ -58,6 +59,7 @@ final class EngagementService {
 			'like_count'       => $counts['like'],
 			'dislike_count'    => $counts['dislike'],
 			'reaction_count'   => $counts['like'] + $counts['dislike'],
+			'view_count'       => $counts['views'],
 			'current_reaction' => $current_reaction,
 			'saved'            => $saved,
 		);
@@ -76,20 +78,16 @@ final class EngagementService {
 		}
 	}
 
-	/**
-	 * Return cached public counts.
-	 *
-	 * @param int $post_id Post ID.
-	 * @return array<string,int>
-	 */
+	/** Return cached aggregate counts. */
 	private static function public_counts( $post_id ) {
-		$defaults = array( 'like' => 0, 'dislike' => 0 );
+		$defaults = array( 'like' => 0, 'dislike' => 0, 'views' => 0 );
 		$key = self::CACHE_PREFIX . $post_id;
 		$cached = function_exists( 'get_transient' ) ? get_transient( $key ) : false;
-		if ( is_array( $cached ) && isset( $cached['like'], $cached['dislike'] ) ) {
+		if ( is_array( $cached ) && isset( $cached['like'], $cached['dislike'], $cached['views'] ) ) {
 			return array(
 				'like'    => max( 0, (int) $cached['like'] ),
 				'dislike' => max( 0, (int) $cached['dislike'] ),
+				'views'   => max( 0, (int) $cached['views'] ),
 			);
 		}
 
@@ -97,6 +95,7 @@ final class EngagementService {
 		$counts = array(
 			'like'    => max( 0, (int) $counts['like'] ),
 			'dislike' => max( 0, (int) $counts['dislike'] ),
+			'views'   => Phase3FeatureSettings::enabled( 'view_logging_enabled' ) ? ViewService::count( $post_id ) : 0,
 		);
 
 		if ( function_exists( 'set_transient' ) ) {
@@ -110,12 +109,7 @@ final class EngagementService {
 		return $counts;
 	}
 
-	/**
-	 * Strict positive ID.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Strict positive ID. */
 	private static function positive_id( $value ) {
 		if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
 			return 0;
