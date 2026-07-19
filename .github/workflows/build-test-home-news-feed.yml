@@ -89,6 +89,12 @@ jobs:
           set -o pipefail
           php tests/run-phase3h-hardening-tests.php 2>&1 | tee phase3h-test.log
 
+      - name: WordPress dynamic option-filter compatibility tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-wordpress-option-filter-compatibility-tests.php 2>&1 | tee wordpress-option-filter-test.log
+
       - name: Upload Phase 3 test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -105,6 +111,7 @@ jobs:
             phase3f-test.log
             phase3g-test.log
             phase3h-test.log
+            wordpress-option-filter-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
@@ -114,7 +121,7 @@ jobs:
         shell: pwsh
         run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-      - name: Build Phase 2 release artifact
+      - name: Build Phase 3 staging candidate
         shell: pwsh
         run: ./tools/build-release.ps1
 
@@ -122,16 +129,25 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
+          $zip = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
+          if (-not $zip) {
+            throw 'Phase 3 staging candidate ZIP was not created.'
+          }
           $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
           try {
             $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
             if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/' })) {
               throw 'Missing single top-level plugin folder.'
             }
+            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' })) {
+              throw 'Missing main WordPress plugin file.'
+            }
+            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php' })) {
+              throw 'Missing corrected Poll Composer integration.'
+            }
             $bad = $entries | Where-Object { $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or $_ -match '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' }
             if ($bad) {
-              throw "Development files included in release ZIP: $($bad -join ', ')"
+              throw "Development files included in staging ZIP: $($bad -join ', ')"
             }
           } finally {
             $archive.Dispose()
@@ -140,19 +156,22 @@ jobs:
       - name: SHA-256 verification
         shell: pwsh
         run: |
-          $zip = Get-ChildItem release/*-PHASE-2.zip | Select-Object -First 1
-          $sha = Get-ChildItem release/*-PHASE-2.sha256 | Select-Object -First 1
+          $zip = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
+          $sha = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.sha256 | Select-Object -First 1
+          if (-not $zip -or -not $sha) {
+            throw 'Staging ZIP or checksum file is missing.'
+          }
           $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
           $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -ne $actual) {
-            throw "SHA-256 mismatch."
+            throw 'SHA-256 mismatch.'
           }
 
-      - name: Upload Phase 2 artifacts
+      - name: Upload Phase 3 staging candidate
         uses: actions/upload-artifact@v4
         with:
-          name: sabri-home-news-feed-phase-2
+          name: sabri-home-news-feed-phase-3-staging-candidate
           path: |
-            release/*-PHASE-2.zip
-            release/*-PHASE-2.sha256
-            release/*-PHASE-2-TEST-REPORT.md
+            release/*-PHASE-3-STAGING-CANDIDATE.zip
+            release/*-PHASE-3-STAGING-CANDIDATE.sha256
+            release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
