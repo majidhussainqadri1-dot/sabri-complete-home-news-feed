@@ -46,6 +46,7 @@ final class FollowService {
 		if ( is_array( $current ) && isset( $current['status'] ) && 'blocked' === sanitize_key( $current['status'] ) ) {
 			return InteractionResult::error( 'relationship_blocked', 'This relationship is unavailable.', array(), 403 );
 		}
+		$became_active = ! is_array( $current ) || 'active' !== sanitize_key( isset( $current['status'] ) ? $current['status'] : '' );
 
 		if ( is_array( $current ) ) {
 			$result = self::set_status( $user_id, $target_user_id, 'active' );
@@ -74,6 +75,9 @@ final class FollowService {
 		}
 
 		AuditLog::record( 'user_followed', array( 'target_user_id' => $target_user_id ) );
+		if ( $became_active ) {
+			NotificationBridge::follow_event( $user_id, $target_user_id );
+		}
 		return InteractionResult::success(
 			'user_followed',
 			self::summary( $target_user_id, $user_id ),
@@ -204,10 +208,10 @@ final class FollowService {
 				continue;
 			}
 			$items[] = array(
-				'id'          => $target_user_id,
-				'display_name'=> ProfileLinkResolver::display_name( $target_user_id ),
-				'profile_url' => ProfileLinkResolver::url( $target_user_id ),
-				'avatar'      => function_exists( 'get_avatar' ) ? get_avatar( $target_user_id, 48, '', '', array( 'class' => 'sabri-hnf-following__avatar-img' ) ) : '',
+				'id'           => $target_user_id,
+				'display_name' => ProfileLinkResolver::display_name( $target_user_id ),
+				'profile_url'  => ProfileLinkResolver::url( $target_user_id ),
+				'avatar'       => function_exists( 'get_avatar' ) ? get_avatar( $target_user_id, 48, '', '', array( 'class' => 'sabri-hnf-following__avatar-img' ) ) : '',
 			);
 		}
 
@@ -270,14 +274,7 @@ final class FollowService {
 		);
 	}
 
-	/**
-	 * Update one natural-key relationship row.
-	 *
-	 * @param int    $follower_user_id Follower.
-	 * @param int    $target_user_id Target.
-	 * @param string $status Status.
-	 * @return array<string,mixed>
-	 */
+	/** Update one natural-key relationship row. */
 	private static function set_status( $follower_user_id, $target_user_id, $status ) {
 		return InteractionRepository::update_rows(
 			'follows',
@@ -290,23 +287,13 @@ final class FollowService {
 		);
 	}
 
-	/**
-	 * Existing user object.
-	 *
-	 * @param int $user_id User ID.
-	 * @return mixed
-	 */
+	/** Existing user object. */
 	private static function user( $user_id ) {
 		$user_id = self::positive_id( $user_id );
 		return $user_id > 0 && function_exists( 'get_userdata' ) ? get_userdata( $user_id ) : false;
 	}
 
-	/**
-	 * Strict positive ID.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Strict positive ID. */
 	private static function positive_id( $value ) {
 		if ( ! is_int( $value ) && ! ( is_string( $value ) && preg_match( '/^[0-9]+$/', $value ) ) ) {
 			return 0;
