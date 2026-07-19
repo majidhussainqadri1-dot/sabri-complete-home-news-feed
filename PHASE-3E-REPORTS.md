@@ -62,8 +62,8 @@ The complete workflow also validates Phase 2 and checkpoints 3.0–3D, PHP and J
 
 ## Deliberately deferred
 
-No public reporter identity, report counts, automatic content removal, blocking UI, polls, notifications, view analytics, followers-only visibility, Phase 4 Editorial News, production deployment, or merge to `main` is included.
+No public reporter identity, report counts, automatic content removal, blocking UI, notifications, view analytics, followers-only visibility, Phase 4 Editorial News, production deployment, or merge to `main` is included.
 
-## Next permitted checkpoint
+## Subsequent checkpoint
 
-Checkpoint 3F — Polls: bounded options, authenticated voting and replacement, one vote identity per user/poll, results policy, close rules, aggregate-only results, accessible UI, and duplicate/race/IDOR/privacy/two-user tests.
+Checkpoint 3F — Polls was subsequently implemented and is documented in `PHASE-3F-POLLS.md`.
