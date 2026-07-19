@@ -80,6 +80,12 @@ jobs:
           set -o pipefail
           php tests/run-phase3g-notifications-views-tests.php 2>&1 | tee phase3g-test.log
 
+      - name: Phase 3H hardening and release-readiness tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase3h-hardening-tests.php 2>&1 | tee phase3h-test.log
+
       - name: Upload Phase 3 test logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -94,6 +100,7 @@ jobs:
             phase3e-test.log
             phase3f-test.log
             phase3g-test.log
+            phase3h-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
