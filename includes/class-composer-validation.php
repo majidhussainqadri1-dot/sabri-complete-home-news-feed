@@ -106,7 +106,7 @@ final class ComposerValidation {
 			$errors[] = array( 'code' => 'invalid_visibility', 'message' => __( 'The selected visibility is not available.', 'sabri-complete-home-news-feed' ) );
 		}
 		if ( 'followers' === $raw_visibility && ! Phase3FeatureSettings::enabled( 'followers_visibility_enabled' ) ) {
-			$errors[] = array( 'code' => 'followers_visibility_disabled', 'message' => __( 'Followers visibility is currently unavailable.', 'sabri-complete-home-news-feed' ) );
+			$errors[] = array( 'code' => 'followers_visibility_deferred', 'message' => __( 'Followers visibility is currently unavailable.', 'sabri-complete-home-news-feed' ) );
 		}
 		if ( ! in_array( $data['action'], array( 'preview', 'draft' ), true ) && '' === trim( wp_strip_all_tags( $data['content'] ) ) ) {
 			$errors[] = array( 'code' => 'content_required', 'message' => __( 'Post content is required.', 'sabri-complete-home-news-feed' ) );
@@ -185,7 +185,7 @@ final class ComposerValidation {
 		$evidence = self::clean_key( isset( $input['evidence_level'] ) ? $input['evidence_level'] : 'unverified-claim' );
 		$errors = array();
 		if ( ! in_array( $evidence, array_keys( Taxonomies::evidence_level_terms() ), true ) ) {
-			$errors[] = array( 'code' => 'invalid_evidence_level', 'message' => __( 'Research evidence level must use a controlled value.', 'sabri-complete-home-news-feed' ) );
+			$errors[] = array( 'code' => 'invalid_evidence_level', 'message' => __( 'Research evidence level must use controlled terms.', 'sabri-complete-home-news-feed' ) );
 			$evidence = 'unverified-claim';
 		}
 		$source = self::validate_doi_source( isset( $input['doi_source_url'] ) ? $input['doi_source_url'] : '' );
