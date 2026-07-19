@@ -83,12 +83,12 @@
 		}
 	}
 
-	function request(bar, url, method, payload) {
+	function request(context, url, method, payload) {
 		var headers = {
 			'Accept': 'application/json',
 			'Content-Type': 'application/json'
 		};
-		var nonce = bar.getAttribute('data-nonce');
+		var nonce = context ? context.getAttribute('data-nonce') : '';
 		if (nonce) {
 			headers['X-WP-Nonce'] = nonce;
 		}
@@ -170,6 +170,83 @@
 				setBusy(bar, false);
 			});
 	}
+
+	function reportContext(form) {
+		return form ? form.closest('[data-sabri-interactions], [data-sabri-comments]') : null;
+	}
+
+	function reportStatus(form, message) {
+		var target = form ? form.querySelector('[data-report-status]') : null;
+		if (target) {
+			target.textContent = message || '';
+		}
+	}
+
+	function setReportBusy(form, busy) {
+		if (!form) {
+			return;
+		}
+		form.setAttribute('aria-busy', busy ? 'true' : 'false');
+		Array.prototype.forEach.call(form.querySelectorAll('button, select, textarea'), function (control) {
+			control.disabled = !!busy;
+		});
+	}
+
+	document.addEventListener('submit', function (event) {
+		var form = event.target.closest('[data-sabri-report-form]');
+		if (!form) {
+			return;
+		}
+		event.preventDefault();
+		var context = reportContext(form);
+		if (!context || form.getAttribute('aria-busy') === 'true') {
+			return;
+		}
+		if (context.getAttribute('data-logged-in') !== '1') {
+			var loginUrl = context.getAttribute('data-login-url');
+			if (loginUrl) {
+				window.location.assign(loginUrl);
+			}
+			return;
+		}
+
+		var reasonField = form.querySelector('[data-report-reason]');
+		var noteField = form.querySelector('[data-report-note]');
+		var reason = reasonField ? reasonField.value : '';
+		var note = noteField ? noteField.value.trim() : '';
+		var url = form.getAttribute('data-report-url');
+		if (!reason || !url) {
+			reportStatus(form, !reason ? 'Select a report reason.' : 'Reporting is unavailable.');
+			return;
+		}
+		if (reason === 'other' && note.length < 10) {
+			reportStatus(form, 'Describe the concern when selecting Other.');
+			return;
+		}
+
+		setReportBusy(form, true);
+		reportStatus(form, 'Submitting report');
+		request(context, url, 'POST', {
+			object_type: form.getAttribute('data-object-type'),
+			object_id: parseInt(form.getAttribute('data-object-id'), 10) || 0,
+			reason: reason,
+			note: note
+		})
+			.then(function (result) {
+				form.reset();
+				reportStatus(form, result.message || 'Report submitted for confidential review.');
+				var details = form.closest('[data-sabri-report-control]');
+				if (details) {
+					window.setTimeout(function () { details.open = false; }, 900);
+				}
+			})
+			.catch(function (error) {
+				reportStatus(form, error.message || 'The report could not be submitted.');
+			})
+			.then(function () {
+				setReportBusy(form, false);
+			});
+	});
 
 	ready(function () {
 		Array.prototype.forEach.call(document.querySelectorAll('[data-sabri-load-more]'), function (button) {
