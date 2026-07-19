@@ -79,13 +79,24 @@ final class Phase3FeatureSettings {
 		return $out;
 	}
 
-	/** Fail-closed feature check with global safety controls. */
-	public static function enabled( $feature ) {
+	/**
+	 * Return the configured flag without consulting the Phase 2 settings option.
+	 *
+	 * This method is safe to call from dynamic WordPress option filters. It must
+	 * not invoke SafeMode because SafeMode reads Settings::OPTION_NAME and would
+	 * re-enter an option_{$option} filter recursively.
+	 */
+	public static function configured_enabled( $feature ) {
 		$feature  = function_exists( 'sanitize_key' ) ? sanitize_key( $feature ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $feature ) );
 		$settings = self::get();
-		if ( ! array_key_exists( $feature, $settings ) || SafeMode::public_features_disabled() ) {
+		return array_key_exists( $feature, $settings ) && 1 === (int) $settings[ $feature ];
+	}
+
+	/** Fail-closed feature check with global safety controls. */
+	public static function enabled( $feature ) {
+		if ( ! self::configured_enabled( $feature ) ) {
 			return false;
 		}
-		return 1 === (int) $settings[ $feature ];
+		return ! SafeMode::public_features_disabled();
 	}
 }
