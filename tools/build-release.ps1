@@ -18,7 +18,11 @@ $requiredRuntimeFiles = @(
 	'includes/class-poll-composer-integration.php',
 	'includes/class-public-query-guard.php',
 	'includes/class-followers-query-guard.php',
-	'includes/class-rewrite-rules.php'
+	'includes/class-rewrite-rules.php',
+	'includes/class-phase3-feature-settings.php',
+	'admin/views/social-features.php',
+	'assets/js/share.js',
+	'templates/action-bar.php'
 )
 foreach ($relativePath in $requiredRuntimeFiles) {
 	$requiredPath = Join-Path $Root $relativePath
@@ -104,11 +108,13 @@ $report = @(
 	"- SHA-256: $hash",
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
-	"- Required routing repairs: $($requiredRuntimeFiles -join ', ')",
+	"- Required runtime files: $($requiredRuntimeFiles -join ', ')",
 	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', '), *.log",
 	'- Package status: WordPress Playground-tested Hostinger staging candidate only; not approved for main merge or live deployment.',
 	'- Required real integration matrix: WordPress latest/PHP 8.3 and WordPress 6.8/PHP 8.1.',
-	'- Lifecycle coverage: activation, late-init rewrite repair, Sample Page, plain page_id, shortcode rendering, direct Post, unknown route, deactivation, and reactivation.'
+	'- Lifecycle coverage: installation, activation, late-init rewrite repair, Sample Page, plain page_id, shortcode Feed, direct Post, Like, Dislike, Comment, Save, Share, Views, unknown route, deactivation, and reactivation.',
+	'- Administrator controls: isolated Social Features panel with fail-closed dependencies and individual staging toggles.',
+	'- Final delivery requires a separate independent second QA pass after the initial build and packaged matrix pass.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
