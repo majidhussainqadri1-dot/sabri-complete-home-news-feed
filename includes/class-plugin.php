@@ -52,6 +52,7 @@ final class Plugin {
 			PostMetadata::class,
 			PublicQueryGuard::class,
 			FollowersVisibility::class,
+			FollowersQueryGuard::class,
 			MediaHandler::class,
 			FeedQuery::class,
 			HomeIntegration::class,
