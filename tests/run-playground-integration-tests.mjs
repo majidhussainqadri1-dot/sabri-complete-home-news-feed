@@ -101,7 +101,7 @@ try {
 		php: phpVersion,
 		wp: wpVersion,
 		debug: true,
-		login: true,
+		login: false,
 		mount: [
 			{
 				hostPath: path.resolve('.'),
