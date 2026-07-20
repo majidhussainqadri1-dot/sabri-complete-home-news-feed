@@ -6,6 +6,7 @@ cd "$ROOT"
 
 TARGET_SECONDS=3600
 START_EPOCH="$(date +%s)"
+TESTED_COMMIT="$(git rev-parse HEAD)"
 ZIP_PATH="release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip"
 SHA_PATH="release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.sha256"
 LOG_DIR="one-hour-soak-qa"
@@ -119,7 +120,7 @@ run_cycle() {
 }
 
 log "One-hour Phase 3 second QA started. Target minimum duration: ${TARGET_SECONDS} seconds."
-log "Commit under test: ${GITHUB_SHA:-local-working-tree}."
+log "Commit under test: ${TESTED_COMMIT}."
 
 for cycle in 1 2 3 4 5 6; do
   run_cycle "$cycle"
@@ -136,7 +137,6 @@ if (( ELAPSED < TARGET_SECONDS )); then
   sleep "$REMAINING"
 fi
 
-# Final verification after the full soak interval.
 verify_checksum "final"
 verify_package_contract "final" | tee "$LOG_DIR/final-package.log"
 php tests/run-phase3-social-features-share-tests.php 2>&1 | tee "$LOG_DIR/final-social-features.log"
@@ -159,7 +159,7 @@ fi
   echo "end_epoch=${END_EPOCH}"
   echo "duration_seconds=${TOTAL}"
   echo "cycles=6"
-  echo "final_commit=${GITHUB_SHA:-local-working-tree}"
+  echo "final_commit=${TESTED_COMMIT}"
   echo "final_zip_sha256=$(sha256sum "$ZIP_PATH" | awk '{print $1}')"
 } > "$LOG_DIR/result.env"
 
