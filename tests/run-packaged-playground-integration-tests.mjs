@@ -46,6 +46,20 @@ async function page(url, sentinel, label) {
 	return response;
 }
 
+function assertCompleteSocialSurface(response, label) {
+	[
+		'sabri-hnf-action--like',
+		'sabri-hnf-action--dislike',
+		'sabri-hnf-action--comment',
+		'sabri-hnf-action--save',
+		'sabri-hnf-action--share',
+		'data-sabri-share',
+		'sabri-hnf-action--views',
+		'class="sabri-hnf-comments"',
+		'assets/js/share.js'
+	].forEach((marker) => assert(response.body.includes(marker), `${label} missing ${marker}`));
+}
+
 async function scheduleAndRunRewriteRepair(label) {
 	await php(`
 		update_option( 'permalink_structure', '/%postname%/' );
@@ -95,6 +109,7 @@ try {
 			return;
 		}
 		$schema = get_option( \\Sabri\\HomeNewsFeed\\Database::INSTALL_RESULT_OPTION, array() );
+		$catalog = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::catalog();
 		echo wp_json_encode( array(
 			'installed' => file_exists( WP_PLUGIN_DIR . '/${pluginPath}' ),
 			'active' => is_plugin_active( '${pluginPath}' ),
@@ -102,11 +117,15 @@ try {
 			'schema_success' => is_array( $schema ) && ! empty( $schema['success'] ),
 			'schema_status' => is_array( $schema ) && isset( $schema['status'] ) ? $schema['status'] : '',
 			'missing_tables' => is_array( $schema ) && isset( $schema['missing_tables'] ) ? $schema['missing_tables'] : array(),
+			'social_view' => file_exists( WP_PLUGIN_DIR . '/sabri-complete-home-news-feed/admin/views/social-features.php' ),
+			'share_script' => file_exists( WP_PLUGIN_DIR . '/sabri-complete-home-news-feed/assets/js/share.js' ),
+			'catalog_complete' => isset( $catalog['share_enabled'], $catalog['comments_enabled'], $catalog['view_logging_enabled'], $catalog['reports_enabled'], $catalog['polls_enabled'] ),
 		) );
 	`));
 	assert(!install.error && install.installed && install.active, `Packaged ZIP installation failed: ${JSON.stringify(install)}`);
 	assert(install.version === '1.0.0', `Unexpected packaged plugin version: ${install.version}`);
 	assert(install.schema_success && install.schema_status === 'verified' && install.missing_tables.length === 0, `Packaged activation did not install and verify the schema: ${JSON.stringify(install)}`);
+	assert(install.social_view && install.share_script && install.catalog_complete, `Packaged social controls are incomplete: ${JSON.stringify(install)}`);
 
 	const setup = JSON.parse(await php(`
 		$features = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::defaults();
@@ -133,6 +152,7 @@ try {
 	assert(shortcode.body.includes('class="sabri-hnf-feed"') && !shortcode.body.includes('[sabri_complete_home_feed]'), 'Packaged shortcode did not render the feed.');
 	const direct = await page('/package-direct-post/', 'SABRI_PACKAGE_DIRECT_OK', 'Packaged direct Post');
 	assert(!direct.body.includes('class="sabri-hnf-feed"'), 'Packaged direct Post rendered the Home Feed.');
+	assertCompleteSocialSurface(direct, 'Packaged direct Post');
 	const missingActive = await get('/packaged-route-must-not-exist/');
 	assert(missingActive.status === 404 && /page not found|not found|nothing here/i.test(missingActive.body), 'Packaged plugin changed unknown-route semantics.');
 
@@ -156,6 +176,8 @@ try {
 	await page('/package-sample-page/', 'SABRI_PACKAGE_SAMPLE_OK', 'Packaged Page after reactivation');
 	const feedAgain = await page('/package-shortcode-page/', 'Home Feed', 'Packaged shortcode after reactivation');
 	assert(feedAgain.body.includes('class="sabri-hnf-feed"'), 'Packaged feed missing after reactivation.');
+	const directAgain = await page('/package-direct-post/', 'SABRI_PACKAGE_DIRECT_OK', 'Packaged direct Post after reactivation');
+	assertCompleteSocialSurface(directAgain, 'Packaged direct Post after reactivation');
 	assert((await get('/packaged-route-must-not-exist/')).status === 404, 'Packaged reactivation changed unknown-route status.');
 
 	console.log(`Packaged ZIP Playground tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
