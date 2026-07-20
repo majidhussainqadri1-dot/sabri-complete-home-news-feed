@@ -50,6 +50,7 @@ final class Plugin {
 			NotificationBridge::class,
 			Assets::class,
 			PostMetadata::class,
+			PublicQueryGuard::class,
 			FollowersVisibility::class,
 			MediaHandler::class,
 			FeedQuery::class,
