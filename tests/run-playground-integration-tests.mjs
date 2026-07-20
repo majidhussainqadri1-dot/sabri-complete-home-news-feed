@@ -62,7 +62,7 @@ async function page(url, sentinel, label) {
 	return response;
 }
 
-async function enableFeatures() {
+async function enableFeaturesAndScheduleRewriteRepair() {
 	const output = await php(`
 		$features = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::defaults();
 		foreach ( $features as $key => $unused ) { $features[ $key ] = 1; }
@@ -73,10 +73,25 @@ async function enableFeatures() {
 		$settings['advanced']['emergency_disabled'] = 0;
 		update_option( \\Sabri\\HomeNewsFeed\\Settings::OPTION_NAME, $settings, false );
 		update_option( 'permalink_structure', '/%postname%/' );
-		flush_rewrite_rules( false );
-		echo 'enabled';
+		update_option( \\Sabri\\HomeNewsFeed\\RewriteRules::FLUSH_OPTION, 1, false );
+		echo 'scheduled';
 	`);
-	assert(output.includes('enabled'), 'Feature enable step failed.');
+	assert(output.includes('scheduled'), 'Feature enable and rewrite scheduling step failed.');
+}
+
+async function runRewriteRepairRequest(label) {
+	const response = await get('/');
+	assert(response.status === 200, `${label} bootstrap request failed: ${JSON.stringify(summary(response))}`);
+	const state = JSON.parse(await php(`
+		$rules = get_option( 'rewrite_rules', array() );
+		echo wp_json_encode( array(
+			'flush_pending' => (int) get_option( \\Sabri\\HomeNewsFeed\\RewriteRules::FLUSH_OPTION, 0 ),
+			'rule_count' => is_array( $rules ) ? count( $rules ) : 0,
+			'has_post_rule' => is_array( $rules ) && array_key_exists( '([^/]+)(?:/([0-9]+))?/?$', $rules ),
+		) );
+	`));
+	assert(state.flush_pending === 0, `${label} did not clear the scheduled rewrite flag: ${JSON.stringify(state)}`);
+	assert(state.rule_count > 0 && state.has_post_rule, `${label} did not create a complete pretty-permalink map: ${JSON.stringify(state)}`);
 }
 
 try {
@@ -130,7 +145,8 @@ add_action( 'wp', static function () {
 			'legacy_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\PostMetadata::class,'filter_public_queries')),
 			'followers_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\FollowersVisibility::class,'extend_post_queries')),
 			'public_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\PublicQueryGuard::class,'filter_public_queries')),
-			'result_filter'=>has_filter('the_posts', array(\\Sabri\\HomeNewsFeed\\PublicQueryGuard::class,'filter_public_post_results'))
+			'result_filter'=>has_filter('the_posts', array(\\Sabri\\HomeNewsFeed\\PublicQueryGuard::class,'filter_public_post_results')),
+			'rewrite_repair'=>has_action('init', array(\\Sabri\\HomeNewsFeed\\RewriteRules::class,'flush_scheduled'))
 		) );
 	`));
 	assert(setup.active, 'Plugin was not active after Blueprint activation.');
@@ -138,9 +154,10 @@ add_action( 'wp', static function () {
 	assert(setup.followers_pre_query === false, `Followers pre_get_posts hook remains: ${JSON.stringify(setup)}`);
 	assert(setup.public_pre_query === false, `Replacement pre_get_posts hook remains: ${JSON.stringify(setup)}`);
 	assert(setup.result_filter !== false, `Resolved-result filter missing: ${JSON.stringify(setup)}`);
+	assert(setup.rewrite_repair !== false, `Late-init rewrite repair hook missing: ${JSON.stringify(setup)}`);
 
-	await enableFeatures();
-	assert((await get('/')).status === 200, 'Home route failed.');
+	await enableFeaturesAndScheduleRewriteRepair();
+	await runRewriteRepairRequest('Initial activation');
 	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Pretty Sample Page');
 	await page(`/?page_id=${setup.sample_id}`, 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Plain Sample Page');
 	const shortcode = await page('/phase-3-playground-test/', 'Home Feed', 'Shortcode Page');
@@ -151,7 +168,7 @@ add_action( 'wp', static function () {
 	const missingActive = await get('/sabri-route-that-must-not-exist/');
 	const activeDiagnostic = await lastQueryDiagnostic();
 
-	assert((await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; deactivate_plugins('${pluginPath}',true); flush_rewrite_rules(false); echo is_plugin_active('${pluginPath}')?'active':'inactive';`)).includes('inactive'), 'Deactivation failed.');
+	assert((await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; deactivate_plugins('${pluginPath}',true); echo is_plugin_active('${pluginPath}')?'active':'inactive';`)).includes('inactive'), 'Deactivation failed.');
 	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after deactivation');
 	const inactiveShort = await page('/phase-3-playground-test/', '[sabri_complete_home_feed]', 'Shortcode after deactivation');
 	assert(!inactiveShort.body.includes('class="sabri-hnf-feed"'), 'Deactivated plugin still rendered feed.');
@@ -164,7 +181,8 @@ add_action( 'wp', static function () {
 
 	const reactivation = await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; $r=activate_plugin('${pluginPath}','','',true); echo is_wp_error($r)?$r->get_error_message():(is_plugin_active('${pluginPath}')?'active':'inactive');`);
 	assert(reactivation.includes('active'), `Reactivation failed: ${reactivation}`);
-	await enableFeatures();
+	await enableFeaturesAndScheduleRewriteRepair();
+	await runRewriteRepairRequest('Reactivation');
 	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after reactivation');
 	const activeAgain = await page('/phase-3-playground-test/', 'Home Feed', 'Shortcode after reactivation');
 	assert(activeAgain.body.includes('class="sabri-hnf-feed"'), 'Reactivated feed missing.');
