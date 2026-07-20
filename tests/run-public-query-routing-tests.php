@@ -22,6 +22,7 @@ if ( ! function_exists( 'remove_action' ) ) {
 
 require_once __DIR__ . '/bootstrap.php';
 
+use Sabri\HomeNewsFeed\FollowersVisibility;
 use Sabri\HomeNewsFeed\Plugin;
 use Sabri\HomeNewsFeed\PostMetadata;
 use Sabri\HomeNewsFeed\PublicQueryGuard;
@@ -89,22 +90,39 @@ function sabri_public_routing_assert_filtered( array $vars, array $flags, $messa
 sabri_test_reset_state( true );
 Plugin::instance()->register();
 
-global $sabri_test_actions;
-$legacy_hook = false;
-$guard_hook  = false;
+global $sabri_test_actions, $sabri_test_filters;
+$legacy_prequery_hook    = false;
+$followers_prequery_hook = false;
+$public_prequery_hook    = false;
+$posts_result_filter     = false;
 foreach ( $sabri_test_actions as $action ) {
-	if ( 'pre_get_posts' !== $action['hook'] || 10 !== (int) $action['priority'] ) {
+	if ( 'pre_get_posts' !== $action['hook'] ) {
 		continue;
 	}
 	if ( array( PostMetadata::class, 'filter_public_queries' ) === $action['callback'] ) {
-		$legacy_hook = true;
+		$legacy_prequery_hook = true;
+	}
+	if ( array( FollowersVisibility::class, 'extend_post_queries' ) === $action['callback'] ) {
+		$followers_prequery_hook = true;
 	}
 	if ( array( PublicQueryGuard::class, 'filter_public_queries' ) === $action['callback'] ) {
-		$guard_hook = true;
+		$public_prequery_hook = true;
 	}
 }
-sabri_public_routing_assert( ! $legacy_hook, 'The unsafe PostMetadata pre_get_posts callback must be removed.' );
-sabri_public_routing_assert( $guard_hook, 'The strict PublicQueryGuard callback must be registered.' );
+foreach ( $sabri_test_filters as $filter ) {
+	if ( 'the_posts' === $filter['hook'] && array( PublicQueryGuard::class, 'filter_public_post_results' ) === $filter['callback'] ) {
+		$posts_result_filter = true;
+	}
+}
+sabri_public_routing_assert( ! $legacy_prequery_hook, 'The unsafe PostMetadata pre_get_posts callback must be removed.' );
+sabri_public_routing_assert( ! $followers_prequery_hook, 'The followers pre_get_posts callback must be removed.' );
+sabri_public_routing_assert( ! $public_prequery_hook, 'No replacement pre_get_posts callback may mutate unresolved public routes.' );
+sabri_public_routing_assert( $posts_result_filter, 'Resolved post visibility filter must be registered on the_posts.' );
+
+$page = (object) array( 'ID' => 14, 'post_type' => 'page' );
+$page_results = PublicQueryGuard::filter_public_post_results( array( $page ), new Sabri_Public_Query_Routing_Fixture() );
+sabri_public_routing_assert( 1 === count( $page_results ) && $page === $page_results[0], 'Resolved Page objects must pass through unchanged.' );
+sabri_public_routing_assert( array() === PublicQueryGuard::filter_public_post_results( array(), new Sabri_Public_Query_Routing_Fixture() ), 'Empty missing-route results must remain empty.' );
 
 sabri_public_routing_assert_preserved( array( 'post_type' => 'page' ), array( 'page' => true ), 'Explicit Page query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'page_id' => 14 ), array(), 'page_id query must be preserved.' );
@@ -120,15 +138,15 @@ sabri_public_routing_assert_preserved( array(), array( 'single' => true ), 'Ambi
 sabri_public_routing_assert_preserved( array(), array(), 'Unknown untyped query must fail closed without mutation.' );
 sabri_public_routing_assert_preserved( array( 'post_type' => 'post' ), array( 'not_main' => true ), 'Secondary post query must be preserved.' );
 
-sabri_public_routing_assert_filtered( array( 'post_type' => 'post' ), array(), 'Explicit post query must be filtered.' );
-sabri_public_routing_assert_filtered( array( 'post_type' => array( 'post' ) ), array(), 'Exclusive post array query must be filtered.' );
-sabri_public_routing_assert_filtered( array( 'p' => 25 ), array(), 'Direct numeric post query must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'home' => true ), 'Posts index query must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'category' => true ), 'Category post archive must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'tag' => true ), 'Tag post archive must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'date' => true ), 'Date post archive must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'author' => true ), 'Author post archive must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'feed' => true ), 'Core post feed must be filtered.' );
+sabri_public_routing_assert_filtered( array( 'post_type' => 'post' ), array(), 'Explicit post query compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array( 'post_type' => array( 'post' ) ), array(), 'Exclusive post array compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array( 'p' => 25 ), array(), 'Direct numeric post compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'home' => true ), 'Posts index compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'category' => true ), 'Category archive compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'tag' => true ), 'Tag archive compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'date' => true ), 'Date archive compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'author' => true ), 'Author archive compatibility method must be filtered.' );
+sabri_public_routing_assert_filtered( array(), array( 'feed' => true ), 'Core post feed compatibility method must be filtered.' );
 
 if ( ! empty( $failures ) ) {
 	fwrite( STDERR, "Public query routing tests failed:\n- " . implode( "\n- ", $failures ) . "\n" );
