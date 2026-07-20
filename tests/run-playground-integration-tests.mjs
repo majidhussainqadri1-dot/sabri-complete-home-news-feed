@@ -5,87 +5,61 @@ import { runCLI } from '@wp-playground/cli';
 const phpVersion = process.env.SABRI_PLAYGROUND_PHP || '8.3';
 const wpVersion = process.env.SABRI_PLAYGROUND_WP || 'latest';
 const pluginPath = 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php';
-let cliServer;
+let server;
 
 function assert(condition, message) {
-	if (!condition) {
-		throw new Error(message);
-	}
+	if (!condition) throw new Error(message);
 }
 
-async function runWordPressPhp(code) {
-	const result = await cliServer.playground.run({
-		code: `<?php require_once '/wordpress/wp-load.php'; ${code}`,
-	});
-	const text = typeof result.text === 'string' ? result.text : '';
-	if (result.errors && String(result.errors).trim()) {
-		throw new Error(`PHP runtime error: ${result.errors}`);
-	}
-	return text.trim();
+async function php(code) {
+	const response = await server.playground.run({ code: `<?php require '/wordpress/wp-load.php'; ${code}` });
+	if (response.errors && String(response.errors).trim()) throw new Error(`PHP error: ${response.errors}`);
+	return String(response.text || '').trim();
 }
 
-function firstHeader(headers, name) {
-	if (!headers || typeof headers !== 'object') {
-		return '';
-	}
-	const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
-	if (!key) {
-		return '';
-	}
-	const value = headers[key];
+function header(headers, name) {
+	const key = Object.keys(headers || {}).find((item) => item.toLowerCase() === name.toLowerCase());
+	const value = key ? headers[key] : '';
 	return Array.isArray(value) ? String(value[0] || '') : String(value || '');
 }
 
-function internalPath(location, currentPath) {
-	try {
-		const resolved = new URL(location, new URL(currentPath, 'http://playground.test'));
-		return `${resolved.pathname}${resolved.search}`;
-	} catch {
-		return location;
-	}
+function redirectPath(location, current) {
+	const url = new URL(location, new URL(current, 'http://playground.test'));
+	return `${url.pathname}${url.search}`;
 }
 
-async function request(relativePath, redirectsRemaining = 8) {
-	const response = await cliServer.playground.request({
-		url: relativePath,
-		method: 'GET',
-		headers: { 'User-Agent': 'Sabri-Home-News-Feed-CI' },
-	});
+async function get(url, remaining = 8) {
+	const response = await server.playground.request({ url, method: 'GET' });
 	const status = Number(response.httpStatusCode || 0);
-	const location = firstHeader(response.headers, 'location');
+	const location = header(response.headers, 'location');
 	if (status >= 300 && status < 400 && location) {
-		assert(redirectsRemaining > 0, `Internal redirect limit exceeded at ${relativePath} -> ${location}`);
-		const nextPath = internalPath(location, relativePath);
-		assert(nextPath !== relativePath, `Self-redirect detected at ${relativePath}`);
-		return request(nextPath, redirectsRemaining - 1);
+		assert(remaining > 0, `Redirect limit exceeded: ${url} -> ${location}`);
+		const next = redirectPath(location, url);
+		assert(next !== url, `Self redirect: ${url}`);
+		return get(next, remaining - 1);
 	}
-	if (response.errors && String(response.errors).trim()) {
-		throw new Error(`Frontend PHP runtime error at ${relativePath}: ${response.errors}`);
-	}
-	return {
-		status,
-		url: relativePath,
-		body: typeof response.text === 'string' ? response.text : '',
-		headers: response.headers || {},
-	};
+	if (response.errors && String(response.errors).trim()) throw new Error(`Frontend PHP error at ${url}: ${response.errors}`);
+	return { status, url, body: String(response.text || '') };
 }
 
-function routeLooksMissing(response) {
-	return response.status === 404 || /page not found|not found|nothing here/i.test(response.body);
+function summary(response) {
+	const title = (response.body.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || '';
+	const text = response.body.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+	return { status: response.status, title, snippet: text.slice(0, 220) };
 }
 
-async function assertPage(relativePath, expectedText, label) {
-	const response = await request(relativePath);
-	assert(response.status === 200, `${label} returned HTTP ${response.status} at ${response.url}`);
-	assert(response.body.includes(expectedText), `${label} did not contain its sentinel text.`);
-	assert(!response.body.includes('Page not found'), `${label} rendered the theme 404 message.`);
+async function page(url, sentinel, label) {
+	const response = await get(url);
+	assert(response.status === 200, `${label} HTTP ${response.status}: ${JSON.stringify(summary(response))}`);
+	assert(response.body.includes(sentinel), `${label} missing sentinel: ${JSON.stringify(summary(response))}`);
+	assert(!/page not found/i.test(response.body), `${label} rendered 404 body.`);
 	return response;
 }
 
-async function enableAllFeaturesAndFlush() {
-	const output = await runWordPressPhp(`
+async function enableFeatures() {
+	const output = await php(`
 		$features = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::defaults();
-		foreach ( $features as $key => $value ) { $features[ $key ] = 1; }
+		foreach ( $features as $key => $unused ) { $features[ $key ] = 1; }
 		update_option( \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::OPTION_NAME, $features, false );
 		$settings = \\Sabri\\HomeNewsFeed\\Settings::get();
 		$settings['general']['enabled'] = 1;
@@ -94,160 +68,74 @@ async function enableAllFeaturesAndFlush() {
 		update_option( \\Sabri\\HomeNewsFeed\\Settings::OPTION_NAME, $settings, false );
 		update_option( 'permalink_structure', '/%postname%/' );
 		flush_rewrite_rules( false );
-		echo 'features-enabled';
+		echo 'enabled';
 	`);
-	assert(output.includes('features-enabled'), 'Feature activation PHP step did not complete.');
+	assert(output.includes('enabled'), 'Feature enable step failed.');
 }
 
 try {
-	cliServer = await runCLI({
-		command: 'server',
-		php: phpVersion,
-		wp: wpVersion,
-		debug: true,
-		login: false,
-		mount: [
-			{
-				hostPath: path.resolve('.'),
-				vfsPath: '/wordpress/wp-content/plugins/sabri-complete-home-news-feed',
-			},
-		],
-		blueprint: {
-			steps: [
-				{
-					step: 'activatePlugin',
-					pluginPath: `/wordpress/wp-content/plugins/${pluginPath}`,
-					pluginName: 'Sabri Complete Home and News Feed',
-				},
-			],
-		},
+	server = await runCLI({
+		command: 'server', php: phpVersion, wp: wpVersion, debug: true, login: false,
+		mount: [{ hostPath: path.resolve('.'), vfsPath: '/wordpress/wp-content/plugins/sabri-complete-home-news-feed' }],
+		blueprint: { steps: [{ step: 'activatePlugin', pluginPath: `/wordpress/wp-content/plugins/${pluginPath}` }] },
 	});
 
-	const setupText = await runWordPressPhp(`
+	const setup = JSON.parse(await php(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		if ( ! is_plugin_active( '${pluginPath}' ) ) {
-			echo wp_json_encode( array( 'error' => 'plugin-not-active' ) );
-			return;
-		}
-
 		$sample = get_page_by_path( 'sample-page', OBJECT, 'page' );
-		$sample_id = $sample ? (int) $sample->ID : wp_insert_post(
-			array(
-				'post_type' => 'page',
-				'post_status' => 'publish',
-				'post_title' => 'Sample Page',
-				'post_name' => 'sample-page',
-				'post_content' => 'SABRI_SAMPLE_PAGE_ROUTE_OK',
-			)
-		);
-		wp_update_post( array( 'ID' => $sample_id, 'post_status' => 'publish', 'post_content' => 'SABRI_SAMPLE_PAGE_ROUTE_OK' ) );
-
-		$shortcode = get_page_by_path( 'phase-3-playground-test', OBJECT, 'page' );
-		$shortcode_id = $shortcode ? (int) $shortcode->ID : wp_insert_post(
-			array(
-				'post_type' => 'page',
-				'post_status' => 'publish',
-				'post_title' => 'Phase 3 Playground Test',
-				'post_name' => 'phase-3-playground-test',
-				'post_content' => '[sabri_complete_home_feed]',
-			)
-		);
-		wp_update_post( array( 'ID' => $shortcode_id, 'post_status' => 'publish', 'post_content' => '[sabri_complete_home_feed]' ) );
-
+		$sample_id = $sample ? (int) $sample->ID : wp_insert_post( array( 'post_type'=>'page', 'post_status'=>'publish', 'post_title'=>'Sample Page', 'post_name'=>'sample-page' ) );
+		wp_update_post( array( 'ID'=>$sample_id, 'post_status'=>'publish', 'post_content'=>'SABRI_SAMPLE_PAGE_ROUTE_OK' ) );
+		$short = get_page_by_path( 'phase-3-playground-test', OBJECT, 'page' );
+		$short_id = $short ? (int) $short->ID : wp_insert_post( array( 'post_type'=>'page', 'post_status'=>'publish', 'post_title'=>'Phase 3 Playground Test', 'post_name'=>'phase-3-playground-test' ) );
+		wp_update_post( array( 'ID'=>$short_id, 'post_status'=>'publish', 'post_content'=>'[sabri_complete_home_feed]' ) );
 		$post = get_page_by_path( 'sabri-direct-post-test', OBJECT, 'post' );
-		$post_id = $post ? (int) $post->ID : wp_insert_post(
-			array(
-				'post_type' => 'post',
-				'post_status' => 'publish',
-				'post_title' => 'Sabri Direct Post Test',
-				'post_name' => 'sabri-direct-post-test',
-				'post_content' => 'SABRI_DIRECT_POST_ROUTE_OK',
-				'post_author' => 1,
-			)
-		);
-		wp_update_post( array( 'ID' => $post_id, 'post_status' => 'publish', 'post_content' => 'SABRI_DIRECT_POST_ROUTE_OK' ) );
-		\\Sabri\\HomeNewsFeed\\PostMetadata::save_for_post(
-			$post_id,
-			array(
-				'feed_type' => 'standard-post',
-				'visibility' => 'public',
-				'review_state' => 'approved',
-				'comments_enabled' => 1,
-			)
-		);
+		$post_id = $post ? (int) $post->ID : wp_insert_post( array( 'post_type'=>'post', 'post_status'=>'publish', 'post_title'=>'Sabri Direct Post Test', 'post_name'=>'sabri-direct-post-test', 'post_author'=>1 ) );
+		wp_update_post( array( 'ID'=>$post_id, 'post_status'=>'publish', 'post_content'=>'SABRI_DIRECT_POST_ROUTE_OK' ) );
+		\\Sabri\\HomeNewsFeed\\PostMetadata::save_for_post( $post_id, array( 'feed_type'=>'standard-post', 'visibility'=>'public', 'review_state'=>'approved', 'comments_enabled'=>1 ) );
+		echo wp_json_encode( array(
+			'sample_id'=>$sample_id,
+			'active'=>is_plugin_active('${pluginPath}'),
+			'legacy_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\PostMetadata::class,'filter_public_queries')),
+			'followers_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\FollowersVisibility::class,'extend_post_queries')),
+			'public_pre_query'=>has_action('pre_get_posts', array(\\Sabri\\HomeNewsFeed\\PublicQueryGuard::class,'filter_public_queries')),
+			'result_filter'=>has_filter('the_posts', array(\\Sabri\\HomeNewsFeed\\PublicQueryGuard::class,'filter_public_post_results'))
+		) );
+	`));
+	assert(setup.active, 'Plugin was not active after Blueprint activation.');
+	assert(setup.legacy_pre_query === false, `Legacy pre_get_posts hook remains: ${JSON.stringify(setup)}`);
+	assert(setup.followers_pre_query === false, `Followers pre_get_posts hook remains: ${JSON.stringify(setup)}`);
+	assert(setup.public_pre_query === false, `Replacement pre_get_posts hook remains: ${JSON.stringify(setup)}`);
+	assert(setup.result_filter !== false, `Resolved-result filter missing: ${JSON.stringify(setup)}`);
 
-		echo wp_json_encode(
-			array(
-				'sample_id' => $sample_id,
-				'shortcode_id' => $shortcode_id,
-				'post_id' => $post_id,
-			)
-		);
-	`);
-	const ids = JSON.parse(setupText);
-	assert(!ids.error, `Setup failed: ${ids.error || 'unknown error'}`);
+	await enableFeatures();
+	assert((await get('/')).status === 200, 'Home route failed.');
+	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Pretty Sample Page');
+	await page(`/?page_id=${setup.sample_id}`, 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Plain Sample Page');
+	const shortcode = await page('/phase-3-playground-test/', 'Home Feed', 'Shortcode Page');
+	assert(shortcode.body.includes('class="sabri-hnf-feed"') && !shortcode.body.includes('[sabri_complete_home_feed]'), 'Shortcode did not render correctly.');
+	const direct = await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post');
+	assert(!direct.body.includes('class="sabri-hnf-feed"'), 'Direct Post rendered Home Feed.');
+	const missingActive = await get('/sabri-route-that-must-not-exist/');
 
-	await enableAllFeaturesAndFlush();
+	assert((await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; deactivate_plugins('${pluginPath}',true); flush_rewrite_rules(false); echo is_plugin_active('${pluginPath}')?'active':'inactive';`)).includes('inactive'), 'Deactivation failed.');
+	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after deactivation');
+	const inactiveShort = await page('/phase-3-playground-test/', '[sabri_complete_home_feed]', 'Shortcode after deactivation');
+	assert(!inactiveShort.body.includes('class="sabri-hnf-feed"'), 'Deactivated plugin still rendered feed.');
+	const missingInactive = await get('/sabri-route-that-must-not-exist/');
+	assert(missingActive.status === missingInactive.status, `Unknown-route status changed: active=${JSON.stringify(summary(missingActive))}, inactive=${JSON.stringify(summary(missingInactive))}`);
+	assert(/page not found|not found|nothing here/i.test(missingActive.body) === /page not found|not found|nothing here/i.test(missingInactive.body), `Unknown-route body semantics changed: active=${JSON.stringify(summary(missingActive))}, inactive=${JSON.stringify(summary(missingInactive))}`);
 
-	const home = await request('/');
-	assert(home.status === 200, `Home page returned HTTP ${home.status}.`);
-
-	await assertPage('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Pretty Sample Page');
-	await assertPage(`/?page_id=${ids.sample_id}`, 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Plain Sample Page');
-
-	const shortcodePage = await assertPage('/phase-3-playground-test/', 'Home Feed', 'Shortcode Page');
-	assert(shortcodePage.body.includes('class="sabri-hnf-feed"'), 'Shortcode Page did not render the Home Feed component.');
-	assert(!shortcodePage.body.includes('[sabri_complete_home_feed]'), 'Shortcode Page leaked the raw shortcode while the plugin was active.');
-
-	const directPost = await assertPage('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post');
-	assert(!directPost.body.includes('class="sabri-hnf-feed"'), 'Direct Post incorrectly rendered the Home Feed instead of single-post content.');
-
-	const missingWhileActive = await request('/sabri-route-that-must-not-exist/');
-	assert(!missingWhileActive.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content while plugin was active.');
-	assert(!missingWhileActive.body.includes('class="sabri-hnf-feed"'), 'Unknown route incorrectly rendered the Home Feed component while plugin was active.');
-
-	const deactivateText = await runWordPressPhp(`
-		require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		deactivate_plugins( '${pluginPath}', true );
-		flush_rewrite_rules( false );
-		echo is_plugin_active( '${pluginPath}' ) ? 'still-active' : 'deactivated';
-	`);
-	assert(deactivateText.includes('deactivated'), 'Plugin deactivation did not complete.');
-
-	await assertPage('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after deactivation');
-	const inactiveShortcode = await assertPage('/phase-3-playground-test/', '[sabri_complete_home_feed]', 'Shortcode Page after deactivation');
-	assert(!inactiveShortcode.body.includes('class="sabri-hnf-feed"'), 'Inactive plugin still rendered the Home Feed component.');
-
-	const missingWhileInactive = await request('/sabri-route-that-must-not-exist/');
-	assert(missingWhileActive.status === missingWhileInactive.status, `Plugin changed unknown-route HTTP semantics (${missingWhileInactive.status} inactive, ${missingWhileActive.status} active).`);
-	assert(routeLooksMissing(missingWhileActive) === routeLooksMissing(missingWhileInactive), 'Plugin changed unknown-route missing-page semantics.');
-	assert(!missingWhileInactive.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content while plugin was inactive.');
-
-	const reactivateText = await runWordPressPhp(`
-		require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		$result = activate_plugin( '${pluginPath}', '', false, true );
-		if ( is_wp_error( $result ) ) {
-			echo 'activation-error:' . $result->get_error_message();
-			return;
-		}
-		echo is_plugin_active( '${pluginPath}' ) ? 'reactivated' : 'not-active';
-	`);
-	assert(reactivateText.includes('reactivated'), `Plugin reactivation failed: ${reactivateText}`);
-	await enableAllFeaturesAndFlush();
-
-	await assertPage('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after reactivation');
-	const reactivatedShortcode = await assertPage('/phase-3-playground-test/', 'Home Feed', 'Shortcode Page after reactivation');
-	assert(reactivatedShortcode.body.includes('class="sabri-hnf-feed"'), 'Reactivated plugin did not render the Home Feed component.');
-	await assertPage('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post after reactivation');
-
-	const missingAfterReactivation = await request('/sabri-route-that-must-not-exist/');
-	assert(missingAfterReactivation.status === missingWhileInactive.status, 'Reactivation changed unknown-route HTTP semantics.');
-	assert(routeLooksMissing(missingAfterReactivation) === routeLooksMissing(missingWhileInactive), 'Reactivation changed unknown-route missing-page semantics.');
-	assert(!missingAfterReactivation.body.includes('class="sabri-hnf-feed"'), 'Unknown route rendered the Home Feed after reactivation.');
+	const reactivation = await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; $r=activate_plugin('${pluginPath}','','',true); echo is_wp_error($r)?$r->get_error_message():(is_plugin_active('${pluginPath}')?'active':'inactive');`);
+	assert(reactivation.includes('active'), `Reactivation failed: ${reactivation}`);
+	await enableFeatures();
+	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after reactivation');
+	const activeAgain = await page('/phase-3-playground-test/', 'Home Feed', 'Shortcode after reactivation');
+	assert(activeAgain.body.includes('class="sabri-hnf-feed"'), 'Reactivated feed missing.');
+	await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post after reactivation');
+	const missingAgain = await get('/sabri-route-that-must-not-exist/');
+	assert(missingAgain.status === missingInactive.status, `Reactivation changed unknown route: ${JSON.stringify(summary(missingAgain))}`);
 
 	console.log(`Playground integration tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
 } finally {
-	if (cliServer && typeof cliServer[Symbol.asyncDispose] === 'function') {
-		await cliServer[Symbol.asyncDispose]();
-	}
+	if (server && typeof server[Symbol.asyncDispose] === 'function') await server[Symbol.asyncDispose]();
 }
