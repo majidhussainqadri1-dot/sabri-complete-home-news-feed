@@ -6,13 +6,12 @@
  */
 
 namespace Sabri\HomeNewsFeed;
-
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
 /**
- * Renders progressive-enhancement reactions, comments, saves, follows, reports, and views.
+ * Renders progressive-enhancement reactions, comments, saves, shares, follows, reports, and views.
  */
 final class SocialRuntime {
 	/** @var array<int,bool> */
@@ -27,14 +26,16 @@ final class SocialRuntime {
 
 	/** Render one action bar. */
 	public static function render_action_bar( $post_id ) {
-		$post_id = self::positive_id( $post_id );
-		$reactions_enabled = Phase3FeatureSettings::enabled( 'reactions_enabled' );
-		$saves_enabled     = Phase3FeatureSettings::enabled( 'saves_enabled' );
-		$comments_enabled  = Phase3FeatureSettings::enabled( 'comments_enabled' );
-		$follows_enabled   = Phase3FeatureSettings::enabled( 'follows_enabled' );
-		$reports_enabled   = Phase3FeatureSettings::enabled( 'reports_enabled' );
-		$views_enabled     = Phase3FeatureSettings::enabled( 'view_logging_enabled' );
-		if ( $post_id <= 0 || ( ! $reactions_enabled && ! $saves_enabled && ! $comments_enabled && ! $follows_enabled && ! $reports_enabled && ! $views_enabled ) || ! PostMetadata::user_can_view( $post_id ) ) {
+		$post_id            = self::positive_id( $post_id );
+		$reactions_enabled  = Phase3FeatureSettings::enabled( 'reactions_enabled' );
+		$saves_enabled      = Phase3FeatureSettings::enabled( 'saves_enabled' );
+		$share_enabled      = Phase3FeatureSettings::enabled( 'share_enabled' );
+		$comments_enabled   = Phase3FeatureSettings::enabled( 'comments_enabled' );
+		$follows_enabled    = Phase3FeatureSettings::enabled( 'follows_enabled' );
+		$reports_enabled    = Phase3FeatureSettings::enabled( 'reports_enabled' );
+		$views_enabled      = Phase3FeatureSettings::enabled( 'view_logging_enabled' );
+		$anything_enabled   = $reactions_enabled || $saves_enabled || $share_enabled || $comments_enabled || $follows_enabled || $reports_enabled || $views_enabled;
+		if ( $post_id <= 0 || ! $anything_enabled || ! PostMetadata::user_can_view( $post_id ) ) {
 			return '';
 		}
 
@@ -44,7 +45,8 @@ final class SocialRuntime {
 		$summary        = EngagementService::summary( $post_id, $user_id );
 		$base           = function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/posts/' . $post_id ) : '';
 		$nonce          = $logged_in && function_exists( 'wp_create_nonce' ) ? wp_create_nonce( InteractionPermissions::REST_NONCE_ACTION ) : '';
-		$permalink      = function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '';
+		$permalink      = function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
+		$share_title    = function_exists( 'get_the_title' ) ? (string) get_the_title( $post_id ) : '';
 		$login_url      = function_exists( 'wp_login_url' ) ? wp_login_url( $permalink ) : '';
 		$target_user_id = function_exists( 'get_post_field' ) ? self::positive_id( get_post_field( 'post_author', $post_id ) ) : 0;
 		$follow_summary = $follows_enabled && $target_user_id > 0 ? FollowService::summary( $target_user_id, $user_id ) : array(
@@ -69,6 +71,8 @@ final class SocialRuntime {
 				'engagement_url'     => $base . '/engagement',
 				'reaction_url'       => $base . '/reaction',
 				'save_url'           => $base . '/save',
+				'share_url'          => $permalink,
+				'share_title'        => $share_title,
 				'comments_url'       => $permalink . '#sabri-hnf-comments-' . $post_id,
 				'comment_count'      => $comments_enabled ? CommentService::approved_count( $post_id ) : 0,
 				'follow_url'         => $follow_url,
@@ -78,6 +82,7 @@ final class SocialRuntime {
 				'reactions_enabled'  => $reactions_enabled,
 				'dislikes_enabled'   => Phase3FeatureSettings::enabled( 'dislikes_enabled' ),
 				'saves_enabled'      => $saves_enabled,
+				'share_enabled'      => $share_enabled,
 				'comments_enabled'   => $comments_enabled,
 				'follows_enabled'    => $follows_enabled,
 				'reports_enabled'    => $reports_enabled,
