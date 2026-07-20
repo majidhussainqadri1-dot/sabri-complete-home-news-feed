@@ -52,7 +52,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php endif; ?>
 
 		<?php if ( $share_enabled && '' !== $share_url ) : ?>
-			<button type="button" class="sabri-hnf-action sabri-hnf-action--share" data-sabri-action="share">
+			<button type="button" class="sabri-hnf-action sabri-hnf-action--share" data-sabri-share>
 				<span><?php esc_html_e( 'Share', 'sabri-complete-home-news-feed' ); ?></span>
 			</button>
 		<?php endif; ?>
