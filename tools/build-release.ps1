@@ -13,6 +13,20 @@ $zipPath = Join-Path $releaseDir "$base.zip"
 $shaPath = Join-Path $releaseDir "$base.sha256"
 $reportPath = Join-Path $releaseDir "$base-TEST-REPORT.md"
 
+$requiredRuntimeFiles = @(
+	'sabri-complete-home-news-feed.php',
+	'includes/class-poll-composer-integration.php',
+	'includes/class-public-query-guard.php',
+	'includes/class-followers-query-guard.php',
+	'includes/class-rewrite-rules.php'
+)
+foreach ($relativePath in $requiredRuntimeFiles) {
+	$requiredPath = Join-Path $Root $relativePath
+	if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+		throw "Required runtime repair file is missing: $relativePath"
+	}
+}
+
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
 $resolvedRelease = (Resolve-Path $releaseDir).Path
@@ -43,6 +57,13 @@ Get-ChildItem -LiteralPath $Root -Force | ForEach-Object {
 	} else {
 		Copy-Item -LiteralPath $_.FullName -Destination $destination -Force
 		$copied++
+	}
+}
+
+foreach ($relativePath in $requiredRuntimeFiles) {
+	$stagedPath = Join-Path $topDir $relativePath
+	if (-not (Test-Path -LiteralPath $stagedPath -PathType Leaf)) {
+		throw "Required runtime repair file was not staged: $relativePath"
 	}
 }
 
@@ -83,9 +104,11 @@ $report = @(
 	"- SHA-256: $hash",
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
+	"- Required routing repairs: $($requiredRuntimeFiles -join ', ')",
 	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', '), *.log",
-	'- Package status: Hostinger staging candidate only; not approved for main merge or live deployment.',
-	'- Compatibility guards: WordPress dynamic option-filter recursion and duplicate plugin-folder activation tests must pass before upload.'
+	'- Package status: WordPress Playground-tested Hostinger staging candidate only; not approved for main merge or live deployment.',
+	'- Required real integration matrix: WordPress latest/PHP 8.3 and WordPress 6.8/PHP 8.1.',
+	'- Lifecycle coverage: activation, late-init rewrite repair, Sample Page, plain page_id, shortcode rendering, direct Post, unknown route, deactivation, and reactivation.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
