@@ -89,6 +89,12 @@ jobs:
           set -o pipefail
           php tests/run-phase3h-hardening-tests.php 2>&1 | tee phase3h-test.log
 
+      - name: Public Page and post query routing regression tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-public-query-routing-tests.php 2>&1 | tee public-query-routing-test.log
+
       - name: WordPress dynamic option-filter compatibility tests
         shell: bash
         run: |
@@ -117,12 +123,15 @@ jobs:
             phase3f-test.log
             phase3g-test.log
             phase3h-test.log
+            public-query-routing-test.log
             wordpress-option-filter-test.log
             duplicate-plugin-test.log
           if-no-files-found: warn
 
       - name: JavaScript syntax validation
-        run: find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
+        run: |
+          find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
+          node --check tests/run-playground-integration-tests.mjs
 
       - name: CSS, JSON, security, and whitespace checks
         shell: pwsh
@@ -151,6 +160,9 @@ jobs:
             }
             if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php' })) {
               throw 'Missing corrected Poll Composer integration.'
+            }
+            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-public-query-guard.php' })) {
+              throw 'Missing Page-routing query guard.'
             }
             $bad = $entries | Where-Object {
               $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
@@ -186,3 +198,45 @@ jobs:
             release/*-PHASE-3-STAGING-CANDIDATE.zip
             release/*-PHASE-3-STAGING-CANDIDATE.sha256
             release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+
+  playground-integration:
+    name: Real Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run activation, Page, shortcode, direct-post, deactivate, and reactivate tests
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+        run: |
+          set -o pipefail
+          node tests/run-playground-integration-tests.mjs 2>&1 | tee playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+
+      - name: Upload Playground integration log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playground-${{ matrix.wp }}-php-${{ matrix.php }}-log
+          path: playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: warn
