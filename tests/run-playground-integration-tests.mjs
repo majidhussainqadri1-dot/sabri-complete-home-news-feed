@@ -24,15 +24,49 @@ async function runWordPressPhp(code) {
 	return text.trim();
 }
 
-async function request(relativePath) {
-	const response = await fetch(new URL(relativePath, cliServer.serverUrl), {
-		redirect: 'follow',
+function firstHeader(headers, name) {
+	if (!headers || typeof headers !== 'object') {
+		return '';
+	}
+	const key = Object.keys(headers).find((candidate) => candidate.toLowerCase() === name.toLowerCase());
+	if (!key) {
+		return '';
+	}
+	const value = headers[key];
+	return Array.isArray(value) ? String(value[0] || '') : String(value || '');
+}
+
+function internalPath(location, currentPath) {
+	try {
+		const resolved = new URL(location, new URL(currentPath, 'http://playground.test'));
+		return `${resolved.pathname}${resolved.search}`;
+	} catch {
+		return location;
+	}
+}
+
+async function request(relativePath, redirectsRemaining = 8) {
+	const response = await cliServer.playground.request({
+		url: relativePath,
+		method: 'GET',
 		headers: { 'User-Agent': 'Sabri-Home-News-Feed-CI' },
 	});
+	const status = Number(response.httpStatusCode || 0);
+	const location = firstHeader(response.headers, 'location');
+	if (status >= 300 && status < 400 && location) {
+		assert(redirectsRemaining > 0, `Internal redirect limit exceeded at ${relativePath} -> ${location}`);
+		const nextPath = internalPath(location, relativePath);
+		assert(nextPath !== relativePath, `Self-redirect detected at ${relativePath}`);
+		return request(nextPath, redirectsRemaining - 1);
+	}
+	if (response.errors && String(response.errors).trim()) {
+		throw new Error(`Frontend PHP runtime error at ${relativePath}: ${response.errors}`);
+	}
 	return {
-		status: response.status,
-		url: response.url,
-		body: await response.text(),
+		status,
+		url: relativePath,
+		body: typeof response.text === 'string' ? response.text : '',
+		headers: response.headers || {},
 	};
 }
 
