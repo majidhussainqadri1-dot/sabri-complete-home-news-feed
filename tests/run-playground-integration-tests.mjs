@@ -28,24 +28,30 @@ function redirectPath(location, current) {
 	return `${url.pathname}${url.search}`;
 }
 
-async function get(url, remaining = 8) {
+async function get(url, remaining = 8, redirects = []) {
 	const response = await server.playground.request({ url, method: 'GET' });
 	const status = Number(response.httpStatusCode || 0);
 	const location = header(response.headers, 'location');
+	const chain = [...redirects, { url, status, location }];
 	if (status >= 300 && status < 400 && location) {
-		assert(remaining > 0, `Redirect limit exceeded: ${url} -> ${location}`);
+		assert(remaining > 0, `Redirect limit exceeded: ${JSON.stringify(chain)}`);
 		const next = redirectPath(location, url);
-		assert(next !== url, `Self redirect: ${url}`);
-		return get(next, remaining - 1);
+		assert(next !== url, `Self redirect: ${JSON.stringify(chain)}`);
+		return get(next, remaining - 1, chain);
 	}
 	if (response.errors && String(response.errors).trim()) throw new Error(`Frontend PHP error at ${url}: ${response.errors}`);
-	return { status, url, body: String(response.text || '') };
+	return { status, url, body: String(response.text || ''), redirects: chain };
 }
 
 function summary(response) {
 	const title = (response.body.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1] || '';
 	const text = response.body.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-	return { status: response.status, title, snippet: text.slice(0, 220) };
+	return { status: response.status, title, snippet: text.slice(0, 220), redirects: response.redirects };
+}
+
+async function lastQueryDiagnostic() {
+	const raw = await php(`echo wp_json_encode(get_option('sabri_hnf_test_last_query', array()));`);
+	try { return JSON.parse(raw || '{}'); } catch { return { raw }; }
 }
 
 async function page(url, sentinel, label) {
@@ -79,6 +85,32 @@ try {
 		mount: [{ hostPath: path.resolve('.'), vfsPath: '/wordpress/wp-content/plugins/sabri-complete-home-news-feed' }],
 		blueprint: { steps: [{ step: 'activatePlugin', pluginPath: `/wordpress/wp-content/plugins/${pluginPath}` }] },
 	});
+
+	await server.playground.mkdir('/wordpress/wp-content/mu-plugins');
+	await server.playground.writeFile('/wordpress/wp-content/mu-plugins/sabri-hnf-query-diagnostic.php', `<?php
+add_action( 'wp', static function () {
+	global $wp, $wp_query;
+	$posts = array();
+	foreach ( (array) $wp_query->posts as $post ) {
+		$posts[] = array(
+			'ID' => isset( $post->ID ) ? (int) $post->ID : 0,
+			'post_type' => isset( $post->post_type ) ? (string) $post->post_type : '',
+			'post_name' => isset( $post->post_name ) ? (string) $post->post_name : '',
+		);
+	}
+	update_option( 'sabri_hnf_test_last_query', array(
+		'request' => isset( $wp->request ) ? (string) $wp->request : '',
+		'matched_rule' => isset( $wp->matched_rule ) ? (string) $wp->matched_rule : '',
+		'matched_query' => isset( $wp->matched_query ) ? (string) $wp->matched_query : '',
+		'query_vars' => is_array( $wp_query->query_vars ) ? $wp_query->query_vars : array(),
+		'is_404' => $wp_query->is_404(),
+		'is_home' => $wp_query->is_home(),
+		'is_single' => $wp_query->is_single(),
+		'is_page' => $wp_query->is_page(),
+		'posts' => $posts,
+	), false );
+}, 999 );
+`);
 
 	const setup = JSON.parse(await php(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -115,15 +147,20 @@ try {
 	assert(shortcode.body.includes('class="sabri-hnf-feed"') && !shortcode.body.includes('[sabri_complete_home_feed]'), 'Shortcode did not render correctly.');
 	const direct = await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post');
 	assert(!direct.body.includes('class="sabri-hnf-feed"'), 'Direct Post rendered Home Feed.');
+	await php(`delete_option('sabri_hnf_test_last_query');`);
 	const missingActive = await get('/sabri-route-that-must-not-exist/');
+	const activeDiagnostic = await lastQueryDiagnostic();
 
 	assert((await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; deactivate_plugins('${pluginPath}',true); flush_rewrite_rules(false); echo is_plugin_active('${pluginPath}')?'active':'inactive';`)).includes('inactive'), 'Deactivation failed.');
 	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after deactivation');
 	const inactiveShort = await page('/phase-3-playground-test/', '[sabri_complete_home_feed]', 'Shortcode after deactivation');
 	assert(!inactiveShort.body.includes('class="sabri-hnf-feed"'), 'Deactivated plugin still rendered feed.');
+	await php(`delete_option('sabri_hnf_test_last_query');`);
 	const missingInactive = await get('/sabri-route-that-must-not-exist/');
-	assert(missingActive.status === missingInactive.status, `Unknown-route status changed: active=${JSON.stringify(summary(missingActive))}, inactive=${JSON.stringify(summary(missingInactive))}`);
-	assert(/page not found|not found|nothing here/i.test(missingActive.body) === /page not found|not found|nothing here/i.test(missingInactive.body), `Unknown-route body semantics changed: active=${JSON.stringify(summary(missingActive))}, inactive=${JSON.stringify(summary(missingInactive))}`);
+	const inactiveDiagnostic = await lastQueryDiagnostic();
+	const diagnostic = `active=${JSON.stringify(summary(missingActive))}, active_query=${JSON.stringify(activeDiagnostic)}, inactive=${JSON.stringify(summary(missingInactive))}, inactive_query=${JSON.stringify(inactiveDiagnostic)}`;
+	assert(missingActive.status === missingInactive.status, `Unknown-route status changed: ${diagnostic}`);
+	assert(/page not found|not found|nothing here/i.test(missingActive.body) === /page not found|not found|nothing here/i.test(missingInactive.body), `Unknown-route body semantics changed: ${diagnostic}`);
 
 	const reactivation = await php(`require_once ABSPATH.'wp-admin/includes/plugin.php'; $r=activate_plugin('${pluginPath}','','',true); echo is_wp_error($r)?$r->get_error_message():(is_plugin_active('${pluginPath}')?'active':'inactive');`);
 	assert(reactivation.includes('active'), `Reactivation failed: ${reactivation}`);
