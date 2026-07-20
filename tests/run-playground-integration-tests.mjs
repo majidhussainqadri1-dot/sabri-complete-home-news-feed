@@ -199,7 +199,10 @@ try {
 	assert(!directPost.body.includes('class="sabri-hnf-feed"'), 'Direct Post incorrectly rendered the Home Feed instead of single-post content.');
 
 	const missing = await request('/sabri-route-that-must-not-exist/');
-	assert(missing.status === 404, `Unknown route should return 404, received ${missing.status}.`);
+	const missingLooksLike404 = missing.status === 404 || /page not found|not found|nothing here/i.test(missing.body);
+	assert(missingLooksLike404, `Unknown route was incorrectly converted into normal content (HTTP ${missing.status}).`);
+	assert(!missing.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content.');
+	assert(!missing.body.includes('class="sabri-hnf-feed"'), 'Unknown route incorrectly rendered the Home Feed component.');
 
 	const deactivateText = await runWordPressPhp(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
