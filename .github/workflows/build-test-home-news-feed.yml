@@ -89,6 +89,12 @@ jobs:
           set -o pipefail
           php tests/run-phase3h-hardening-tests.php 2>&1 | tee phase3h-test.log
 
+      - name: Phase 3 Social Features and Share tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase3-social-features-share-tests.php 2>&1 | tee phase3-social-features-share-test.log
+
       - name: Public Page and post query routing regression tests
         shell: bash
         run: |
@@ -123,6 +129,7 @@ jobs:
             phase3f-test.log
             phase3g-test.log
             phase3h-test.log
+            phase3-social-features-share-test.log
             public-query-routing-test.log
             wordpress-option-filter-test.log
             duplicate-plugin-test.log
@@ -132,6 +139,8 @@ jobs:
         run: |
           find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
           node --check tests/run-playground-integration-tests.mjs
+          node --check tests/run-packaged-playground-integration-tests.mjs
+          node --check tests/run-date-permalink-playground-tests.mjs
 
       - name: CSS, JSON, security, and whitespace checks
         shell: pwsh
@@ -152,17 +161,18 @@ jobs:
           $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
           try {
             $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
-            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/' })) {
-              throw 'Missing single top-level plugin folder.'
-            }
-            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' })) {
-              throw 'Missing main WordPress plugin file.'
-            }
-            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php' })) {
-              throw 'Missing corrected Poll Composer integration.'
-            }
-            if (-not ($entries | Where-Object { $_ -eq 'sabri-complete-home-news-feed/includes/class-public-query-guard.php' })) {
-              throw 'Missing Page-routing query guard.'
+            $required = @(
+              'sabri-complete-home-news-feed/',
+              'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php',
+              'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php',
+              'sabri-complete-home-news-feed/includes/class-public-query-guard.php',
+              'sabri-complete-home-news-feed/admin/views/social-features.php',
+              'sabri-complete-home-news-feed/assets/js/share.js'
+            )
+            foreach ($entry in $required) {
+              if (-not ($entries | Where-Object { $_ -eq $entry })) {
+                throw "Missing required package entry: $entry"
+              }
             }
             $bad = $entries | Where-Object {
               $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
@@ -224,7 +234,7 @@ jobs:
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
-      - name: Run activation, Page, shortcode, direct-post, deactivate, and reactivate tests
+      - name: Run activation, Pages, social action bar, comments, views, deactivate, and reactivate tests
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
