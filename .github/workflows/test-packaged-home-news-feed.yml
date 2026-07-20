@@ -10,7 +10,7 @@ on:
 
 jobs:
   packaged-playground:
-    name: Packaged ZIP (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    name: Initial packaged QA (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -65,22 +65,89 @@ jobs:
           actual=$(sha256sum release/*PHASE-3-STAGING-CANDIDATE.zip | awk '{print $1}')
           test "$expected" = "$actual"
 
-      - name: Upload exact tested candidate
-        if: matrix.wp == 'latest' && matrix.php == '8.3'
-        uses: actions/upload-artifact@v4
-        with:
-          name: sabri-home-news-feed-phase-3-exact-packaged-tested
-          path: |
-            release/*PHASE-3-STAGING-CANDIDATE.zip
-            release/*PHASE-3-STAGING-CANDIDATE.sha256
-            release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
-
-      - name: Upload packaged Playground logs
+      - name: Upload initial packaged QA logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}-logs
+          name: initial-packaged-qa-${{ matrix.wp }}-php-${{ matrix.php }}
           path: |
             packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
             date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: warn
+
+  second-independent-qa:
+    name: Mandatory second independent QA
+    needs: packaged-playground
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Fresh checkout for second QA
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Re-run PHP syntax and social feature contracts independently
+        shell: bash
+        run: |
+          set -o pipefail
+          find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l 2>&1 | tee second-qa-php-lint.log
+          php tests/run-phase3-social-features-share-tests.php 2>&1 | tee second-qa-social-features.log
+
+      - name: Rebuild exact candidate from clean checkout
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Re-run exact ZIP lifecycle and complete social surface
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
+        run: |
+          set -o pipefail
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee second-qa-packaged-playground.log
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee second-qa-date-permalink.log
+
+      - name: Independently inspect ZIP and checksum
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $zip = Get-ChildItem release/*PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
+          $sha = Get-ChildItem release/*PHASE-3-STAGING-CANDIDATE.sha256 | Select-Object -First 1
+          if (-not $zip -or -not $sha) { throw 'Second QA package or checksum is missing.' }
+          $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
+          $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($expected -ne $actual) { throw 'Second QA checksum mismatch.' }
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
+          try {
+            $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
+            foreach ($required in @(
+              'sabri-complete-home-news-feed/admin/views/social-features.php',
+              'sabri-complete-home-news-feed/assets/js/share.js',
+              'sabri-complete-home-news-feed/templates/action-bar.php'
+            )) {
+              if (-not ($entries -contains $required)) { throw "Second QA missing: $required" }
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Upload only second-QA-passed candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-home-news-feed-phase-3-SECOND-QA-PASSED
+          path: |
+            release/*PHASE-3-STAGING-CANDIDATE.zip
+            release/*PHASE-3-STAGING-CANDIDATE.sha256
+            release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+            second-qa-php-lint.log
+            second-qa-social-features.log
+            second-qa-packaged-playground.log
+            second-qa-date-permalink.log
