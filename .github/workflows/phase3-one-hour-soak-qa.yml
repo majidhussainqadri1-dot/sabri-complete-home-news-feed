@@ -1,7 +1,6 @@
 name: Phase 3 One-Hour Second QA
 
 on:
-  pull_request:
   push:
     branches:
       - build/phase-3-social-interactions-1.1.0
@@ -18,8 +17,10 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Fresh checkout of exact commit
+      - name: Fresh checkout of exact branch commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
