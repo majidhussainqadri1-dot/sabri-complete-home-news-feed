@@ -17,6 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	data-reaction-url="<?php echo esc_url( $reaction_url ); ?>"
 	data-save-url="<?php echo esc_url( $save_url ); ?>"
 	data-follow-url="<?php echo esc_url( $follow_url ); ?>"
+	data-share-url="<?php echo esc_url( $share_url ); ?>"
+	data-share-title="<?php echo esc_attr( $share_title ); ?>"
 	data-nonce="<?php echo esc_attr( $nonce ); ?>"
 	data-login-url="<?php echo esc_url( $login_url ); ?>"
 	data-logged-in="<?php echo $logged_in ? '1' : '0'; ?>"
@@ -46,6 +48,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php if ( $saves_enabled ) : ?>
 			<button type="button" class="sabri-hnf-action sabri-hnf-action--save<?php echo ! empty( $summary['saved'] ) ? ' is-active' : ''; ?>" data-sabri-action="save" aria-pressed="<?php echo ! empty( $summary['saved'] ) ? 'true' : 'false'; ?>">
 				<span data-save-label><?php echo ! empty( $summary['saved'] ) ? esc_html__( 'Saved', 'sabri-complete-home-news-feed' ) : esc_html__( 'Save', 'sabri-complete-home-news-feed' ); ?></span>
+			</button>
+		<?php endif; ?>
+
+		<?php if ( $share_enabled && '' !== $share_url ) : ?>
+			<button type="button" class="sabri-hnf-action sabri-hnf-action--share" data-sabri-action="share">
+				<span><?php esc_html_e( 'Share', 'sabri-complete-home-news-feed' ); ?></span>
 			</button>
 		<?php endif; ?>
 
