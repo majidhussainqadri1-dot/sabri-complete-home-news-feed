@@ -42,6 +42,7 @@ final class Plugin {
 			Capabilities::class,
 			PostTypes::class,
 			Taxonomies::class,
+			RewriteRules::class,
 			Integrations::class,
 			ReleaseReadiness::class,
 			SafeMode::class,
