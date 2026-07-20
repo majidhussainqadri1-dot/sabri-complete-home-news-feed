@@ -263,7 +263,7 @@ $required_policy_phrases = array(
 	'Synthetic, reconstructed, or AI-generated quotations are prohibited.',
 	'Until that workflow is implemented and approved, identifiable clinical photographs remain prohibited.',
 	'Institutional belief or clinical experience may be reported as such and must not be relabelled as universally established scientific proof.',
-	'Automatic translation cannot self-publish.',
+	'Machine translation may assist drafting but cannot self-publish.',
 );
 foreach ( $required_policy_phrases as $phrase ) {
 	sabri_phase4_assert( false !== strpos( $contents['PHASE-4-EDITORIAL-POLICY.md'], $phrase ), 'Missing editorial safety rule: ' . $phrase );
