@@ -15,9 +15,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Enforces author/follower visibility at metadata, query, and cache boundaries.
  */
 final class FollowersVisibility {
-	const VISIBILITY            = 'followers';
-	const DENIED_VISIBILITY     = 'followers-denied';
-	const QUERY_VIEWER_KEY      = 'sabri_hnf_followers_viewer';
+	const VISIBILITY        = 'followers';
+	const DENIED_VISIBILITY = 'followers-denied';
+	const QUERY_VIEWER_KEY  = 'sabri_hnf_followers_viewer';
 
 	/** Register runtime guards. */
 	public static function register() {
@@ -65,8 +65,13 @@ final class FollowersVisibility {
 	}
 
 	/**
-	 * Add the followers candidate scope to public post queries for authenticated
-	 * viewers. The SQL WHERE guard below still requires the author relationship.
+	 * Add the followers candidate scope only to core-post queries.
+	 *
+	 * WordPress fires pre_get_posts for page requests before templates render.
+	 * Treating an untyped page query as a post feed query adds post-only metadata
+	 * clauses and makes valid pages resolve as 404. The guard below therefore
+	 * requires an explicit post query or a confirmed single-post request and
+	 * rejects every page signal before mutating query variables.
 	 *
 	 * @param mixed $query WP_Query-like object.
 	 * @return void
@@ -75,17 +80,12 @@ final class FollowersVisibility {
 		if ( ! Phase3FeatureSettings::enabled( 'followers_visibility_enabled' ) || ( function_exists( 'is_admin' ) && is_admin() ) ) {
 			return;
 		}
-		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
+		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) || ! self::query_targets_core_posts( $query ) ) {
 			return;
 		}
 
 		$user_id = function_exists( 'get_current_user_id' ) ? self::positive_id( get_current_user_id() ) : 0;
 		if ( $user_id <= 0 ) {
-			return;
-		}
-
-		$post_type = $query->get( 'post_type' );
-		if ( $post_type && 'post' !== $post_type && ! ( is_array( $post_type ) && in_array( 'post', $post_type, true ) ) ) {
 			return;
 		}
 
@@ -185,6 +185,38 @@ final class FollowersVisibility {
 		}
 		unset( $clause );
 		return $changed;
+	}
+
+	/**
+	 * Whether a query is safely scoped to core posts rather than pages.
+	 *
+	 * @param mixed $query WP_Query-like object.
+	 * @return bool
+	 */
+	private static function query_targets_core_posts( $query ) {
+		$page_id  = self::positive_id( $query->get( 'page_id' ) );
+		$pagename = $query->get( 'pagename' );
+		if ( $page_id > 0 || ( is_scalar( $pagename ) && '' !== trim( (string) $pagename ) ) ) {
+			return false;
+		}
+
+		if ( method_exists( $query, 'is_page' ) && $query->is_page() ) {
+			return false;
+		}
+
+		$post_type = $query->get( 'post_type' );
+		if ( is_array( $post_type ) ) {
+			return in_array( 'post', $post_type, true ) && ! in_array( 'page', $post_type, true );
+		}
+		if ( is_scalar( $post_type ) && '' !== trim( (string) $post_type ) ) {
+			return 'post' === (string) $post_type;
+		}
+
+		if ( method_exists( $query, 'is_single' ) && $query->is_single() ) {
+			return true;
+		}
+
+		return self::positive_id( $query->get( 'p' ) ) > 0;
 	}
 
 	/** Whether current viewer owns or can moderate the post. */
