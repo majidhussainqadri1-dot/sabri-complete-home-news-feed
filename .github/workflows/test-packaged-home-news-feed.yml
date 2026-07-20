@@ -48,6 +48,16 @@ jobs:
           set -o pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
 
+      - name: Reproduce Day and name Hello World permalink
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
+        run: |
+          set -o pipefail
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
+
       - name: Verify package checksum
         shell: bash
         run: |
@@ -65,10 +75,12 @@ jobs:
             release/*PHASE-3-STAGING-CANDIDATE.sha256
             release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
 
-      - name: Upload packaged Playground log
+      - name: Upload packaged Playground logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}-log
-          path: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          name: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}-logs
+          path: |
+            packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+            date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: warn
