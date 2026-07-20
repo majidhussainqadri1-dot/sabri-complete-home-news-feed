@@ -70,6 +70,10 @@ async function request(relativePath, redirectsRemaining = 8) {
 	};
 }
 
+function routeLooksMissing(response) {
+	return response.status === 404 || /page not found|not found|nothing here/i.test(response.body);
+}
+
 async function assertPage(relativePath, expectedText, label) {
 	const response = await request(relativePath);
 	assert(response.status === 200, `${label} returned HTTP ${response.status} at ${response.url}`);
@@ -198,11 +202,9 @@ try {
 	const directPost = await assertPage('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post');
 	assert(!directPost.body.includes('class="sabri-hnf-feed"'), 'Direct Post incorrectly rendered the Home Feed instead of single-post content.');
 
-	const missing = await request('/sabri-route-that-must-not-exist/');
-	const missingLooksLike404 = missing.status === 404 || /page not found|not found|nothing here/i.test(missing.body);
-	assert(missingLooksLike404, `Unknown route was incorrectly converted into normal content (HTTP ${missing.status}).`);
-	assert(!missing.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content.');
-	assert(!missing.body.includes('class="sabri-hnf-feed"'), 'Unknown route incorrectly rendered the Home Feed component.');
+	const missingWhileActive = await request('/sabri-route-that-must-not-exist/');
+	assert(!missingWhileActive.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content while plugin was active.');
+	assert(!missingWhileActive.body.includes('class="sabri-hnf-feed"'), 'Unknown route incorrectly rendered the Home Feed component while plugin was active.');
 
 	const deactivateText = await runWordPressPhp(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -215,6 +217,11 @@ try {
 	await assertPage('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after deactivation');
 	const inactiveShortcode = await assertPage('/phase-3-playground-test/', '[sabri_complete_home_feed]', 'Shortcode Page after deactivation');
 	assert(!inactiveShortcode.body.includes('class="sabri-hnf-feed"'), 'Inactive plugin still rendered the Home Feed component.');
+
+	const missingWhileInactive = await request('/sabri-route-that-must-not-exist/');
+	assert(missingWhileActive.status === missingWhileInactive.status, `Plugin changed unknown-route HTTP semantics (${missingWhileInactive.status} inactive, ${missingWhileActive.status} active).`);
+	assert(routeLooksMissing(missingWhileActive) === routeLooksMissing(missingWhileInactive), 'Plugin changed unknown-route missing-page semantics.');
+	assert(!missingWhileInactive.body.includes('SABRI_SAMPLE_PAGE_ROUTE_OK'), 'Unknown route leaked Sample Page content while plugin was inactive.');
 
 	const reactivateText = await runWordPressPhp(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -232,6 +239,11 @@ try {
 	const reactivatedShortcode = await assertPage('/phase-3-playground-test/', 'Home Feed', 'Shortcode Page after reactivation');
 	assert(reactivatedShortcode.body.includes('class="sabri-hnf-feed"'), 'Reactivated plugin did not render the Home Feed component.');
 	await assertPage('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post after reactivation');
+
+	const missingAfterReactivation = await request('/sabri-route-that-must-not-exist/');
+	assert(missingAfterReactivation.status === missingWhileInactive.status, 'Reactivation changed unknown-route HTTP semantics.');
+	assert(routeLooksMissing(missingAfterReactivation) === routeLooksMissing(missingWhileInactive), 'Reactivation changed unknown-route missing-page semantics.');
+	assert(!missingAfterReactivation.body.includes('class="sabri-hnf-feed"'), 'Unknown route rendered the Home Feed after reactivation.');
 
 	console.log(`Playground integration tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
 } finally {
