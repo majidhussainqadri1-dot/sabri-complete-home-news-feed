@@ -69,6 +69,7 @@ final class Composer {
 				'evidence_terms' => Taxonomies::evidence_level_terms(),
 				'clinical_fields' => ComposerValidation::clinical_fields(),
 				'research_fields' => ComposerValidation::research_fields(),
+				'polls_enabled'  => Phase3FeatureSettings::enabled( 'polls_enabled' ),
 				'action_url'     => function_exists( 'admin_url' ) ? admin_url( 'admin-post.php' ) : '',
 			)
 		);
@@ -118,6 +119,19 @@ final class Composer {
 	public static function create_or_update_from_request( array $input, array $files = array(), $user_id = 0 ) {
 		$settings = Settings::get();
 		$user_id  = $user_id ? (int) $user_id : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
+		$post_id  = self::positive_id( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
+		$raw_type = isset( $input['feed_type'] ) ? sanitize_key( $input['feed_type'] ) : 'standard-post';
+
+		if ( 'poll' === $raw_type ) {
+			if ( ! Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
+				return self::error( 'polls_disabled', __( 'Poll creation is currently unavailable.', 'sabri-complete-home-news-feed' ), 503 );
+			}
+			if ( ! isset( $settings['composer']['allowed_feed_types'] ) || ! is_array( $settings['composer']['allowed_feed_types'] ) ) {
+				$settings['composer']['allowed_feed_types'] = FeedContext::phase2_feed_type_slugs();
+			}
+			$settings['composer']['allowed_feed_types'][] = 'poll';
+			$settings['composer']['allowed_feed_types'] = array_values( array_unique( $settings['composer']['allowed_feed_types'] ) );
+		}
 
 		if ( ! ComposerPermissions::user_can_create( $user_id, $settings ) ) {
 			return self::error( 'composer_denied', __( 'You do not have permission to create posts.', 'sabri-complete-home-news-feed' ), 403 );
@@ -133,7 +147,26 @@ final class Composer {
 		}
 
 		$data = $validation['data'];
-		$post_id = self::positive_id( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
+		if ( 'poll' === $data['feed_type'] ) {
+			if ( $post_id > 0 && PollPolicy::is_poll( $post_id ) && PollPolicy::is_closed( PollPolicy::definition( $post_id ) ) ) {
+				return self::error( 'poll_closed_edit_forbidden', __( 'A closed poll definition cannot be edited.', 'sabri-complete-home-news-feed' ), 409 );
+			}
+			$poll_validation = PollPolicy::validate_definition( isset( $input['poll'] ) ? $input['poll'] : array(), true );
+			if ( empty( $poll_validation['valid'] ) ) {
+				return self::error( 'validation_failed', __( 'Please correct the poll fields.', 'sabri-complete-home-news-feed' ), 400, $poll_validation['errors'] );
+			}
+			$data['poll'] = $poll_validation['definition'];
+
+			if ( $post_id > 0 && PollPolicy::is_poll( $post_id ) ) {
+				$active_votes = array_sum( PollVoteRepository::aggregate_counts( $post_id, PollPolicy::VOTE_GROUP ) );
+				if ( $active_votes > 0 && PollPolicy::definition( $post_id ) !== $data['poll'] ) {
+					return self::error( 'poll_definition_locked', __( 'Poll settings cannot be changed after voting has started.', 'sabri-complete-home-news-feed' ), 409 );
+				}
+			}
+		} else {
+			$data['poll'] = array();
+		}
+
 		if ( $post_id > 0 && ! ComposerPermissions::user_can_edit_post( $post_id, $user_id ) ) {
 			return self::error( 'edit_denied', __( 'You cannot edit this post.', 'sabri-complete-home-news-feed' ), 403 );
 		}
@@ -203,6 +236,16 @@ final class Composer {
 		$data['attachments'] = array_values( array_intersect( $data['attachments'], $associated ) );
 		$data['gallery'] = array_values( array_intersect( $data['gallery'], $associated ) );
 		PostMetadata::save_for_post( $saved_id, $data );
+
+		if ( 'poll' === $data['feed_type'] ) {
+			if ( ! PollPolicy::save_definition( $saved_id, $data['poll'] ) ) {
+				AuditLog::record( 'poll_definition_save_failed', array(), 'post', $saved_id );
+				return self::error( 'poll_metadata_failed', __( 'The post was saved, but its poll definition could not be stored.', 'sabri-complete-home-news-feed' ), 500 );
+			}
+		} else {
+			PollPolicy::delete_definition( $saved_id );
+		}
+
 		FeedQuery::invalidate_cache();
 		AuditLog::record( 'composer_post_saved', array( 'post_id' => $saved_id, 'status' => $status['status'] ) );
 
@@ -223,10 +266,13 @@ final class Composer {
 	private static function composer_feed_type_labels( array $settings ) {
 		$all     = Taxonomies::feed_type_terms();
 		$allowed = isset( $settings['composer']['allowed_feed_types'] ) && is_array( $settings['composer']['allowed_feed_types'] ) ? $settings['composer']['allowed_feed_types'] : FeedContext::phase2_feed_type_slugs();
-		$out     = array();
+		if ( Phase3FeatureSettings::enabled( 'polls_enabled' ) ) {
+			$allowed[] = 'poll';
+		}
+		$out = array();
 
-		foreach ( $allowed as $slug ) {
-			if ( isset( $all[ $slug ] ) ) {
+		foreach ( array_values( array_unique( $allowed ) ) as $slug ) {
+			if ( isset( $all[ $slug ] ) && ( 'poll' !== $slug || Phase3FeatureSettings::enabled( 'polls_enabled' ) ) ) {
 				$out[ $slug ] = $all[ $slug ];
 			}
 		}
@@ -266,7 +312,15 @@ final class Composer {
 	 * @return string
 	 */
 	private static function preview_html( array $data ) {
-		return '<article class="sabri-hnf-preview"><h2>' . esc_html( self::post_title_from_data( $data ) ) . '</h2><div>' . wp_kses_post( $data['content'] ) . '</div></article>';
+		$html = '<article class="sabri-hnf-preview"><h2>' . esc_html( self::post_title_from_data( $data ) ) . '</h2><div>' . wp_kses_post( $data['content'] ) . '</div>';
+		if ( 'poll' === $data['feed_type'] && ! empty( $data['poll']['question'] ) ) {
+			$html .= '<section><h3>' . esc_html( $data['poll']['question'] ) . '</h3><ul>';
+			foreach ( $data['poll']['options'] as $option ) {
+				$html .= '<li>' . esc_html( $option['label'] ) . '</li>';
+			}
+			$html .= '</ul></section>';
+		}
+		return $html . '</article>';
 	}
 
 	/**
@@ -278,6 +332,9 @@ final class Composer {
 	private static function post_title_from_data( array $data ) {
 		if ( ! empty( $data['title'] ) ) {
 			return $data['title'];
+		}
+		if ( 'poll' === $data['feed_type'] && ! empty( $data['poll']['question'] ) ) {
+			return $data['poll']['question'];
 		}
 
 		$text = trim( wp_strip_all_tags( $data['content'] ) );

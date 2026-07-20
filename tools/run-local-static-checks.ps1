@@ -16,16 +16,32 @@ function Add-Warning([string]$Message) {
 	$script:warnings.Add($Message) | Out-Null
 }
 
+function Get-NormalizedRelativePath([string]$FullName) {
+	$relative = [System.IO.Path]::GetRelativePath($Root, $FullName)
+	return $relative.Replace('\', '/')
+}
+
+$excludedDirectoryPrefixes = @(
+	'.git/',
+	'release/',
+	'node_modules/',
+	'vendor/'
+)
+
 $files = Get-ChildItem -LiteralPath $Root -Recurse -File -Force |
 	Where-Object {
-		$path = $_.FullName
-		$path -notmatch '\\\.git\\' -and
-		$path -notmatch '\\release\\' -and
-		$path -notmatch '\\node_modules\\' -and
-		$path -notmatch '\\vendor\\'
+		$relativePath = Get-NormalizedRelativePath $_.FullName
+		$excluded = $false
+		foreach ($prefix in $excludedDirectoryPrefixes) {
+			if ($relativePath.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+				$excluded = $true
+				break
+			}
+		}
+		-not $excluded
 	}
 
-$forbiddenRegex = '(?<![A-Za-z0-9_\\>])(?:eval|base64_decode|shell_exec|exec|passthru|system)\s*\('
+$forbiddenRegex = '(?<![A-Za-z0-9_\>])(?:eval|base64_decode|shell_exec|exec|passthru|system)\s*\('
 $remoteRegex = 'https?://(?:cdn\.|fonts\.googleapis\.com|fonts\.gstatic\.com|unpkg\.com|cdn\.jsdelivr\.net|jsdelivr\.net)|fonts\.googleapis\.com|fonts\.gstatic\.com|unpkg\.com|cdn\.jsdelivr\.net'
 
 foreach ($file in $files) {

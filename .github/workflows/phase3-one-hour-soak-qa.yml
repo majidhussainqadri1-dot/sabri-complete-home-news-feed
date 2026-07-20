@@ -1,0 +1,66 @@
+name: Phase 3 One-Hour Second QA
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: phase3-one-hour-second-qa-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  one-hour-soak-qa:
+    name: 60-minute repeated packaged QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Fresh checkout of exact branch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Execute six-cycle one-hour QA
+        shell: bash
+        run: bash tests/run-one-hour-soak-qa.sh
+
+      - name: Verify recorded duration and result
+        shell: bash
+        run: |
+          set -euo pipefail
+          source one-hour-soak-qa/result.env
+          test "$status" = "passed"
+          test "$duration_seconds" -ge 3600
+          test "$cycles" -eq 6
+          test "$final_commit" = "$(git rev-parse HEAD)"
+          actual=$(sha256sum release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip | awk '{print $1}')
+          test "$final_zip_sha256" = "$actual"
+
+      - name: Upload only one-hour-QA-passed package and evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-home-news-feed-PHASE-3-ONE-HOUR-QA-PASSED
+          retention-days: 30
+          path: |
+            release/*PHASE-3-STAGING-CANDIDATE.zip
+            release/*PHASE-3-STAGING-CANDIDATE.sha256
+            release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+            one-hour-soak-qa/
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3-one-hour-qa-failure-evidence
+          retention-days: 30
+          path: one-hour-soak-qa/
+          if-no-files-found: warn

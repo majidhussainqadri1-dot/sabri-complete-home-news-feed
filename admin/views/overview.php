@@ -7,6 +7,7 @@
 
 use Sabri\HomeNewsFeed\Database;
 use Sabri\HomeNewsFeed\Integrations;
+use Sabri\HomeNewsFeed\Phase3FeatureSettings;
 use Sabri\HomeNewsFeed\SafeMode;
 use Sabri\HomeNewsFeed\SystemCheck;
 
@@ -14,10 +15,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-$git          = SystemCheck::git_context();
-$tables       = Database::table_status();
-$caps         = SystemCheck::capability_status();
-$integrations = Integrations::detect();
+$git              = SystemCheck::git_context();
+$tables           = Database::table_status();
+$caps             = SystemCheck::capability_status();
+$integrations     = Integrations::detect();
+$phase3_features  = Phase3FeatureSettings::get();
+$enabled_features = array_keys( array_filter( $phase3_features ) );
 ?>
 <div class="sabri-feed-grid">
 	<section class="sabri-feed-panel">
@@ -27,7 +30,9 @@ $integrations = Integrations::detect();
 		<p><strong><?php esc_html_e( 'Environment:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $settings['general']['environment'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Branch:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $git['branch'] ); ?></p>
 		<p><strong><?php esc_html_e( 'Commit:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( $git['commit'] ); ?></p>
-		<p><strong><?php esc_html_e( 'Next implementation phase:', 'sabri-complete-home-news-feed' ); ?></strong> <?php esc_html_e( 'Social interactions runtime.', 'sabri-complete-home-news-feed' ); ?></p>
+		<p><strong><?php esc_html_e( 'Current phase:', 'sabri-complete-home-news-feed' ); ?></strong> <?php esc_html_e( 'Phase 3 social interactions — Playground and Hostinger staging acceptance.', 'sabri-complete-home-news-feed' ); ?></p>
+		<p><strong><?php esc_html_e( 'Enabled social feature flags:', 'sabri-complete-home-news-feed' ); ?></strong> <?php echo esc_html( (string) count( $enabled_features ) ); ?></p>
+		<p><a class="button button-secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=sabri-feed-social-features' ) ); ?>"><?php esc_html_e( 'Open Social Features', 'sabri-complete-home-news-feed' ); ?></a></p>
 	</section>
 
 	<section class="sabri-feed-panel">

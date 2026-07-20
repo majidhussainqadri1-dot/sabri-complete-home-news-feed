@@ -6,7 +6,6 @@
  */
 
 namespace Sabri\HomeNewsFeed;
-
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -24,6 +23,7 @@ final class Admin {
 		return array(
 			'overview'           => __( 'Overview', 'sabri-complete-home-news-feed' ),
 			'feed-settings'      => __( 'Feed Settings', 'sabri-complete-home-news-feed' ),
+			'social-features'    => __( 'Social Features', 'sabri-complete-home-news-feed' ),
 			'news-settings'      => __( 'News Settings', 'sabri-complete-home-news-feed' ),
 			'composer-settings'  => __( 'Composer', 'sabri-complete-home-news-feed' ),
 			'roles-capabilities' => __( 'Roles & Capabilities', 'sabri-complete-home-news-feed' ),
@@ -36,25 +36,18 @@ final class Admin {
 		);
 	}
 
-	/**
-	 * Register hooks.
-	 *
-	 * @return void
-	 */
+	/** Register hooks. */
 	public static function register() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_post_sabri_feed_save_settings', array( __CLASS__, 'handle_save_settings' ) );
+		add_action( 'admin_post_sabri_feed_save_phase3_features', array( __CLASS__, 'handle_save_phase3_features' ) );
 		add_action( 'admin_post_sabri_feed_emergency', array( __CLASS__, 'handle_emergency' ) );
 		add_action( 'admin_post_sabri_feed_repair', array( __CLASS__, 'handle_repair' ) );
 		add_action( 'admin_post_sabri_feed_migration', array( __CLASS__, 'handle_migration' ) );
 		add_action( 'admin_post_sabri_feed_rollback', array( __CLASS__, 'handle_rollback' ) );
 	}
 
-	/**
-	 * Register admin menu.
-	 *
-	 * @return void
-	 */
+	/** Register admin menu. */
 	public static function menu() {
 		$capability = self::capability();
 
@@ -90,13 +83,10 @@ final class Admin {
 		);
 	}
 
-	/**
-	 * Render callbacks.
-	 *
-	 * @return void
-	 */
+	/** Render callbacks. */
 	public static function render_overview() { self::render( 'overview' ); }
 	public static function render_feed_settings() { self::render( 'feed-settings' ); }
+	public static function render_social_features() { self::render( 'social-features' ); }
 	public static function render_news_settings() { self::render( 'news-settings' ); }
 	public static function render_composer_settings() { self::render( 'composer-settings' ); }
 	public static function render_roles_capabilities() { self::render( 'roles-capabilities' ); }
@@ -107,24 +97,15 @@ final class Admin {
 	public static function render_rollback() { self::render( 'rollback' ); }
 	public static function render_help() { self::render( 'help' ); }
 
-	/**
-	 * Render the administrator-only staging preview.
-	 *
-	 * @return void
-	 */
+	/** Render the administrator-only staging preview. */
 	public static function render_staging_preview() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to access the staging preview.', 'sabri-complete-home-news-feed' ) );
 		}
-
 		self::render( 'staging-preview' );
 	}
 
-	/**
-	 * Handle settings save.
-	 *
-	 * @return void
-	 */
+	/** Handle Phase 2 settings save. */
 	public static function handle_save_settings() {
 		self::require_admin_action( 'sabri_feed_save_settings' );
 		$tab   = isset( $_POST['tab'] ) ? sanitize_key( wp_unslash( $_POST['tab'] ) ) : '';
@@ -134,11 +115,23 @@ final class Admin {
 		self::redirect( 'sabri-feed-' . self::page_from_tab( $tab ), 'updated=1' );
 	}
 
-	/**
-	 * Handle emergency enable/disable.
-	 *
-	 * @return void
-	 */
+	/** Save the complete isolated Phase 3 checkbox state. */
+	public static function handle_save_phase3_features() {
+		self::require_admin_action( 'sabri_feed_save_phase3_features' );
+		$input   = isset( $_POST['features'] ) ? wp_unslash( $_POST['features'] ) : array();
+		$updated = Phase3FeatureSettings::update_from_admin( $input );
+		$enabled = array_keys( array_filter( $updated ) );
+		AuditLog::record(
+			'phase3_feature_settings_update',
+			array(
+				'enabled_features' => $enabled,
+				'enabled_count'    => count( $enabled ),
+			)
+		);
+		self::redirect( 'sabri-feed-social-features', 'updated=1' );
+	}
+
+	/** Handle emergency enable/disable. */
 	public static function handle_emergency() {
 		self::require_admin_action( 'sabri_feed_emergency' );
 		$state = isset( $_POST['state'] ) ? sanitize_key( wp_unslash( $_POST['state'] ) ) : 'disable';
@@ -146,25 +139,17 @@ final class Admin {
 		self::redirect( 'sabri-feed-overview', 'emergency=1' );
 	}
 
-	/**
-	 * Handle repair action.
-	 *
-	 * @return void
-	 */
+	/** Handle repair action. */
 	public static function handle_repair() {
 		self::require_admin_action( 'sabri_feed_repair' );
-		$action = isset( $_POST['repair_action'] ) ? sanitize_key( wp_unslash( $_POST['repair_action'] ) ) : '';
+		$action  = isset( $_POST['repair_action'] ) ? sanitize_key( wp_unslash( $_POST['repair_action'] ) ) : '';
 		$confirm = ! empty( $_POST['confirm_repair'] );
-		$result = $confirm ? Repair::execute( $action ) : array( 'error' => 'confirmation_required' );
+		$result  = $confirm ? Repair::execute( $action ) : array( 'error' => 'confirmation_required' );
 		update_option( 'sabri_feed_last_repair_report', $result, false );
 		self::redirect( 'sabri-feed-repair', 'repaired=1' );
 	}
 
-	/**
-	 * Handle migration action.
-	 *
-	 * @return void
-	 */
+	/** Handle migration action. */
 	public static function handle_migration() {
 		self::require_admin_action( 'sabri_feed_migration' );
 		$mode   = isset( $_POST['mode'] ) ? sanitize_key( wp_unslash( $_POST['mode'] ) ) : 'preview';
@@ -173,11 +158,7 @@ final class Admin {
 		self::redirect( 'sabri-feed-migration', 'migration=1' );
 	}
 
-	/**
-	 * Handle rollback action.
-	 *
-	 * @return void
-	 */
+	/** Handle rollback action. */
 	public static function handle_rollback() {
 		self::require_admin_action( 'sabri_feed_rollback' );
 		$mode   = isset( $_POST['mode'] ) ? sanitize_key( wp_unslash( $_POST['mode'] ) ) : 'preview';
@@ -186,12 +167,7 @@ final class Admin {
 		self::redirect( 'sabri-feed-rollback', 'rollback=1' );
 	}
 
-	/**
-	 * Render a view.
-	 *
-	 * @param string $view View name.
-	 * @return void
-	 */
+	/** Render a view. */
 	private static function render( $view ) {
 		if ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'sabri-complete-home-news-feed' ) );
@@ -210,43 +186,26 @@ final class Admin {
 		echo '</div>';
 	}
 
-	/**
-	 * Render admin tabs.
-	 *
-	 * @param string $active Active view.
-	 * @return void
-	 */
+	/** Render admin tabs. */
 	private static function tabs( $active ) {
 		echo '<nav class="nav-tab-wrapper sabri-feed-tabs">';
 		foreach ( self::pages() as $slug => $title ) {
-			$page = 'overview' === $slug ? 'sabri-feed-overview' : 'sabri-feed-' . $slug;
+			$page  = 'overview' === $slug ? 'sabri-feed-overview' : 'sabri-feed-' . $slug;
 			$class = $active === $slug ? ' nav-tab-active' : '';
 			echo '<a class="nav-tab' . esc_attr( $class ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . $page ) ) . '">' . esc_html( $title ) . '</a>';
 		}
 		echo '</nav>';
 	}
 
-	/**
-	 * Require capability and nonce.
-	 *
-	 * @param string $action Nonce action.
-	 * @return void
-	 */
+	/** Require capability and nonce. */
 	private static function require_admin_action( $action ) {
 		if ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'sabri-complete-home-news-feed' ) );
 		}
-
 		check_admin_referer( $action );
 	}
 
-	/**
-	 * Redirect safely.
-	 *
-	 * @param string $page Page slug.
-	 * @param string $query Query string.
-	 * @return void
-	 */
+	/** Redirect safely. */
 	private static function redirect( $page, $query = '' ) {
 		$url = admin_url( 'admin.php?page=' . sanitize_key( $page ) );
 		if ( $query ) {
@@ -256,12 +215,7 @@ final class Admin {
 		exit;
 	}
 
-	/**
-	 * Map settings tab to page slug.
-	 *
-	 * @param string $tab Tab.
-	 * @return string
-	 */
+	/** Map settings tab to page slug. */
 	private static function page_from_tab( $tab ) {
 		$map = array(
 			'feed'         => 'feed-settings',
@@ -271,15 +225,10 @@ final class Admin {
 			'integrations' => 'integrations',
 			'advanced'     => 'overview',
 		);
-
 		return isset( $map[ $tab ] ) ? $map[ $tab ] : 'overview';
 	}
 
-	/**
-	 * Admin capability.
-	 *
-	 * @return string
-	 */
+	/** Admin capability. */
 	private static function capability() {
 		return 'sabri_feed_manage_settings';
 	}

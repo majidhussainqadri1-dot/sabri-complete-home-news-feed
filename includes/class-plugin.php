@@ -15,73 +15,81 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Coordinates the plugin runtime.
  */
 final class Plugin {
-	/**
-	 * Singleton instance.
-	 *
-	 * @var Plugin|null
-	 */
+	/** @var Plugin|null */
 	private static $instance = null;
-
-	/**
-	 * Whether hooks are registered.
-	 *
-	 * @var bool
-	 */
+	/** @var bool */
 	private $registered = false;
 
-	/**
-	 * Return singleton.
-	 *
-	 * @return Plugin
-	 */
+	/** Return singleton. */
 	public static function instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
 		}
-
 		return self::$instance;
 	}
 
-	/**
-	 * Register plugin hooks.
-	 *
-	 * @return void
-	 */
+	/** Register plugin hooks through isolated compatibility boundaries. */
 	public function register() {
 		if ( $this->registered ) {
 			return;
 		}
-
 		$this->registered = true;
 
-		Settings::register();
-		Capabilities::register();
-		PostTypes::register();
-		Taxonomies::register();
-		Integrations::register();
-		SafeMode::register();
-		RestFoundation::register();
-		DataRetention::register();
-		Assets::register();
-		PostMetadata::register();
-		MediaHandler::register();
-		FeedQuery::register();
-		HomeIntegration::register();
-		Shortcodes::register();
-		Composer::register();
-		RestFeed::register();
-		RestComposer::register();
+		$modules = array(
+			Settings::class,
+			Phase3FeatureSettings::class,
+			PollComposerIntegration::class,
+			Capabilities::class,
+			PostTypes::class,
+			Taxonomies::class,
+			RewriteRules::class,
+			Integrations::class,
+			ReleaseReadiness::class,
+			SafeMode::class,
+			RestFoundation::class,
+			DataRetention::class,
+			NotificationBridge::class,
+			Assets::class,
+			PostMetadata::class,
+			PublicQueryGuard::class,
+			FollowersVisibility::class,
+			FollowersQueryGuard::class,
+			MediaHandler::class,
+			FeedQuery::class,
+			HomeIntegration::class,
+			ViewRuntime::class,
+			PollRuntime::class,
+			SocialRuntime::class,
+			CommentRuntime::class,
+			SavedPostsRuntime::class,
+			FollowingRuntime::class,
+			Shortcodes::class,
+			Composer::class,
+			RestFeed::class,
+			RestComposer::class,
+			RestInteractions::class,
+			RestComments::class,
+			RestFollows::class,
+			RestReports::class,
+			RestPolls::class,
+		);
+
+		foreach ( $modules as $module ) {
+			if ( ! SafeBoot::register_module( $module ) ) {
+				return;
+			}
+		}
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
-			Admin::register();
+			foreach ( array( Admin::class, ReportAdmin::class ) as $module ) {
+				if ( ! SafeBoot::register_module( $module ) ) {
+					return;
+				}
+			}
 		}
 	}
 
-	/**
-	 * Return a concise identity payload.
-	 *
-	 * @return array<string,string>
-	 */
+	/** Return a concise identity payload. */
 	public static function identity() {
 		return array(
 			'name'           => 'Sabri Complete Home and News Feed',

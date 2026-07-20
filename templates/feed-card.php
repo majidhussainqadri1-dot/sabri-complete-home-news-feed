@@ -56,5 +56,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php if ( '' !== $disclaimer ) : ?>
 		<aside class="sabri-hnf-card__disclaimer"><?php echo esc_html( $disclaimer ); ?></aside>
 	<?php endif; ?>
+	<?php echo \Sabri\HomeNewsFeed\PollRuntime::render_poll( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	<?php echo \Sabri\HomeNewsFeed\SocialRuntime::render_action_bar( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<a class="sabri-hnf-card__read-more" href="<?php echo esc_url( $permalink ); ?>"><?php esc_html_e( 'Read More', 'sabri-complete-home-news-feed' ); ?></a>
 </article>

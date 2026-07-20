@@ -61,6 +61,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	</div>
 	<?php include SABRI_HNF_PATH . 'templates/composer-clinical-case.php'; ?>
 	<?php include SABRI_HNF_PATH . 'templates/composer-research.php'; ?>
+	<?php if ( ! empty( $polls_enabled ) ) : ?>
+		<?php include SABRI_HNF_PATH . 'templates/composer-poll.php'; ?>
+	<?php endif; ?>
 	<?php if ( ! empty( $settings['composer']['comments_metadata_enabled'] ) ) : ?>
 		<label class="sabri-hnf-check">
 			<input type="checkbox" name="comments_enabled" value="1" checked />
