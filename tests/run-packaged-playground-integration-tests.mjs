@@ -89,19 +89,24 @@ try {
 			echo wp_json_encode( array( 'error' => $result->get_error_message() ) );
 			return;
 		}
-		$activation = activate_plugin( '${pluginPath}', '', false, true );
+		$activation = activate_plugin( '${pluginPath}', '', false, false );
 		if ( is_wp_error( $activation ) ) {
 			echo wp_json_encode( array( 'error' => $activation->get_error_message() ) );
 			return;
 		}
+		$schema = get_option( \\Sabri\\HomeNewsFeed\\Database::INSTALL_RESULT_OPTION, array() );
 		echo wp_json_encode( array(
 			'installed' => file_exists( WP_PLUGIN_DIR . '/${pluginPath}' ),
 			'active' => is_plugin_active( '${pluginPath}' ),
 			'version' => defined( 'SABRI_HNF_VERSION' ) ? SABRI_HNF_VERSION : '',
+			'schema_success' => is_array( $schema ) && ! empty( $schema['success'] ),
+			'schema_status' => is_array( $schema ) && isset( $schema['status'] ) ? $schema['status'] : '',
+			'missing_tables' => is_array( $schema ) && isset( $schema['missing_tables'] ) ? $schema['missing_tables'] : array(),
 		) );
 	`));
 	assert(!install.error && install.installed && install.active, `Packaged ZIP installation failed: ${JSON.stringify(install)}`);
 	assert(install.version === '1.0.0', `Unexpected packaged plugin version: ${install.version}`);
+	assert(install.schema_success && install.schema_status === 'verified' && install.missing_tables.length === 0, `Packaged activation did not install and verify the schema: ${JSON.stringify(install)}`);
 
 	const setup = JSON.parse(await php(`
 		$features = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::defaults();
@@ -143,7 +148,7 @@ try {
 
 	const reactivated = await php(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
-		$result = activate_plugin( '${pluginPath}', '', false, true );
+		$result = activate_plugin( '${pluginPath}', '', false, false );
 		echo is_wp_error( $result ) ? $result->get_error_message() : ( is_plugin_active( '${pluginPath}' ) ? 'active' : 'inactive' );
 	`);
 	assert(reactivated.includes('active'), `Packaged plugin reactivation failed: ${reactivated}`);
