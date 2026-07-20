@@ -62,6 +62,21 @@ async function page(url, sentinel, label) {
 	return response;
 }
 
+function assertCompleteSocialSurface(response, label) {
+	const required = [
+		'sabri-hnf-action--like',
+		'sabri-hnf-action--dislike',
+		'sabri-hnf-action--comment',
+		'sabri-hnf-action--save',
+		'sabri-hnf-action--share',
+		'data-sabri-share',
+		'sabri-hnf-action--views',
+		'class="sabri-hnf-comments"',
+		'assets/js/share.js'
+	];
+	required.forEach((marker) => assert(response.body.includes(marker), `${label} missing social marker: ${marker}`));
+}
+
 async function enableFeaturesAndScheduleRewriteRepair() {
 	const output = await php(`
 		$features = \\Sabri\\HomeNewsFeed\\Phase3FeatureSettings::defaults();
@@ -164,6 +179,7 @@ add_action( 'wp', static function () {
 	assert(shortcode.body.includes('class="sabri-hnf-feed"') && !shortcode.body.includes('[sabri_complete_home_feed]'), 'Shortcode did not render correctly.');
 	const direct = await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post');
 	assert(!direct.body.includes('class="sabri-hnf-feed"'), 'Direct Post rendered Home Feed.');
+	assertCompleteSocialSurface(direct, 'Direct Post');
 	await php(`delete_option('sabri_hnf_test_last_query');`);
 	const missingActive = await get('/sabri-route-that-must-not-exist/');
 	const activeDiagnostic = await lastQueryDiagnostic();
@@ -186,7 +202,8 @@ add_action( 'wp', static function () {
 	await page('/sample-page/', 'SABRI_SAMPLE_PAGE_ROUTE_OK', 'Sample Page after reactivation');
 	const activeAgain = await page('/phase-3-playground-test/', 'Home Feed', 'Shortcode after reactivation');
 	assert(activeAgain.body.includes('class="sabri-hnf-feed"'), 'Reactivated feed missing.');
-	await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post after reactivation');
+	const directAgain = await page('/sabri-direct-post-test/', 'SABRI_DIRECT_POST_ROUTE_OK', 'Direct Post after reactivation');
+	assertCompleteSocialSurface(directAgain, 'Direct Post after reactivation');
 	const missingAgain = await get('/sabri-route-that-must-not-exist/');
 	assert(missingAgain.status === missingInactive.status, `Reactivation changed unknown route: ${JSON.stringify(summary(missingAgain))}`);
 
