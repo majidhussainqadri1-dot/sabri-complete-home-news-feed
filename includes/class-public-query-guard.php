@@ -35,10 +35,12 @@ final class PublicQueryGuard {
 	/**
 	 * Add visibility clauses only to confirmed, exclusive core-post queries.
 	 *
-	 * A Page request may have an empty post_type during pre_get_posts. The old
-	 * callback treated that empty value as a post query, attached post metadata
-	 * clauses, and caused valid pages to resolve as 404. Unknown, mixed, Page,
-	 * attachment, and search query shapes are now preserved without mutation.
+	 * A Page request and an unresolved pretty-permalink request may both have an
+	 * empty post_type during pre_get_posts. Mutating either query with post-only
+	 * metadata clauses can turn valid Pages into 404 responses or convert genuine
+	 * missing routes into HTTP 200 responses. Direct single-post authorization is
+	 * enforced later by PostMetadata::enforce_single_visibility(), so ambiguous
+	 * single-slug requests are deliberately preserved here.
 	 *
 	 * @param mixed $query WP_Query-like object.
 	 * @return void
@@ -66,7 +68,7 @@ final class PublicQueryGuard {
 	}
 
 	/**
-	 * Determine whether the query is exclusively for the core post type.
+	 * Determine whether the query is unambiguously a core-post list/query.
 	 *
 	 * @param mixed $query WP_Query-like object.
 	 * @return bool
@@ -76,13 +78,20 @@ final class PublicQueryGuard {
 			return false;
 		}
 
-		$page_id  = self::positive_id( $query->get( 'page_id' ) );
-		$pagename = $query->get( 'pagename' );
-		if ( $page_id > 0 || ( is_scalar( $pagename ) && '' !== trim( (string) $pagename ) ) ) {
-			return false;
+		foreach ( array( 'page_id', 'p' ) as $id_key ) {
+			if ( 'page_id' === $id_key && self::positive_id( $query->get( $id_key ) ) > 0 ) {
+				return false;
+			}
 		}
 
-		foreach ( array( 'is_page', 'is_attachment', 'is_search' ) as $conditional ) {
+		foreach ( array( 'pagename', 'name', 'attachment', 'error' ) as $route_key ) {
+			$value = $query->get( $route_key );
+			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {
+				return false;
+			}
+		}
+
+		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
 				return false;
 			}
@@ -102,7 +111,7 @@ final class PublicQueryGuard {
 			return true;
 		}
 
-		foreach ( array( 'is_single', 'is_home', 'is_category', 'is_tag', 'is_date', 'is_author', 'is_feed' ) as $conditional ) {
+		foreach ( array( 'is_home', 'is_category', 'is_tag', 'is_date', 'is_author', 'is_feed' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
 				return true;
 			}
