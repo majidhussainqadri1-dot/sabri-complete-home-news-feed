@@ -47,6 +47,7 @@ final class Sabri_Public_Query_Routing_Fixture {
 	public function is_page() { return ! empty( $this->flags['page'] ); }
 	public function is_attachment() { return ! empty( $this->flags['attachment'] ); }
 	public function is_search() { return ! empty( $this->flags['search'] ); }
+	public function is_404() { return ! empty( $this->flags['404'] ); }
 	public function is_single() { return ! empty( $this->flags['single'] ); }
 	public function is_home() { return ! empty( $this->flags['home'] ); }
 	public function is_category() { return ! empty( $this->flags['category'] ); }
@@ -108,18 +109,20 @@ sabri_public_routing_assert( $guard_hook, 'The strict PublicQueryGuard callback 
 sabri_public_routing_assert_preserved( array( 'post_type' => 'page' ), array( 'page' => true ), 'Explicit Page query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'page_id' => 14 ), array(), 'page_id query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'pagename' => 'sample-page' ), array(), 'pagename query must be preserved.' );
+sabri_public_routing_assert_preserved( array( 'name' => 'missing-pretty-route' ), array( 'single' => true ), 'Unresolved single-slug query must be preserved.' );
+sabri_public_routing_assert_preserved( array( 'error' => '404' ), array( '404' => true ), '404 query must be preserved.' );
 sabri_public_routing_assert_preserved( array(), array( 'page' => true ), 'Untyped is_page query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'post_type' => array( 'post', 'page' ) ), array(), 'Mixed post/page query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'post_type' => 'any' ), array(), 'post_type any query must be preserved.' );
 sabri_public_routing_assert_preserved( array(), array( 'search' => true ), 'Search query must be preserved.' );
 sabri_public_routing_assert_preserved( array( 'post_type' => 'attachment' ), array( 'attachment' => true ), 'Attachment query must be preserved.' );
+sabri_public_routing_assert_preserved( array(), array( 'single' => true ), 'Ambiguous untyped single query must be preserved for late authorization.' );
 sabri_public_routing_assert_preserved( array(), array(), 'Unknown untyped query must fail closed without mutation.' );
 sabri_public_routing_assert_preserved( array( 'post_type' => 'post' ), array( 'not_main' => true ), 'Secondary post query must be preserved.' );
 
 sabri_public_routing_assert_filtered( array( 'post_type' => 'post' ), array(), 'Explicit post query must be filtered.' );
 sabri_public_routing_assert_filtered( array( 'post_type' => array( 'post' ) ), array(), 'Exclusive post array query must be filtered.' );
 sabri_public_routing_assert_filtered( array( 'p' => 25 ), array(), 'Direct numeric post query must be filtered.' );
-sabri_public_routing_assert_filtered( array(), array( 'single' => true ), 'Single-post query must be filtered.' );
 sabri_public_routing_assert_filtered( array(), array( 'home' => true ), 'Posts index query must be filtered.' );
 sabri_public_routing_assert_filtered( array(), array( 'category' => true ), 'Category post archive must be filtered.' );
 sabri_public_routing_assert_filtered( array(), array( 'tag' => true ), 'Tag post archive must be filtered.' );
