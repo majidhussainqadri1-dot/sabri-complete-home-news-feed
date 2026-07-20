@@ -9,6 +9,7 @@ START_EPOCH="$(date +%s)"
 ZIP_PATH="release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip"
 SHA_PATH="release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.sha256"
 LOG_DIR="one-hour-soak-qa"
+rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR"
 
 log() {
@@ -84,8 +85,11 @@ run_cycle() {
     php tests/run-duplicate-plugin-compat-tests.php
   } 2>&1 | tee "$LOG_DIR/cycle-${cycle}-php.log"
 
-  find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 \
-    | xargs -0 -n1 php -l > "$LOG_DIR/cycle-${cycle}-php-lint.log"
+  find . -name '*.php' \
+    -not -path './release/*' \
+    -not -path './vendor/*' \
+    -not -path './node_modules/*' \
+    -print0 | xargs -0 -n1 php -l > "$LOG_DIR/cycle-${cycle}-php-lint.log"
   find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
   node --check tests/run-playground-integration-tests.mjs
   node --check tests/run-packaged-playground-integration-tests.mjs
