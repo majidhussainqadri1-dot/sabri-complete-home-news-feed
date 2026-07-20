@@ -23,6 +23,8 @@ final class Sabri_Phase3H_Query {
 	public function __construct( array $vars = array() ) { $this->vars = $vars; }
 	public function get( $key ) { return isset( $this->vars[ $key ] ) ? $this->vars[ $key ] : null; }
 	public function set( $key, $value ) { $this->vars[ $key ] = $value; }
+	public function is_page() { return ! empty( $this->vars['__is_page'] ); }
+	public function is_single() { return ! empty( $this->vars['__is_single'] ); }
 }
 
 final class Sabri_Phase3H_WPDB extends Sabri_Test_WPDB {
@@ -148,6 +150,47 @@ sabri_phase3h_assert( 7 === (int) $query->get( FollowersVisibility::QUERY_VIEWER
 $guarded_where = FollowersVisibility::filter_posts_where( ' WHERE 1=1', $query );
 sabri_phase3h_assert( false !== strpos( $guarded_where, 'sabri_feed_follows' ) && false !== strpos( $guarded_where, 'follower_user_id = 7' ), 'Followers query SQL must require the active current-user relationship.' );
 sabri_phase3h_assert( false !== strpos( $guarded_where, '_sabri_feed_visibility' ) && false !== strpos( $guarded_where, 'followers' ), 'Followers query SQL must isolate only followers-tagged posts.' );
+
+$page_meta = array( array( 'key' => 'page-route-sentinel', 'value' => 'preserve' ) );
+$page_query = new Sabri_Phase3H_Query(
+	array(
+		'post_type'  => 'page',
+		'meta_query' => $page_meta,
+		'__is_page'  => true,
+	)
+);
+FollowersVisibility::extend_post_queries( $page_query );
+sabri_phase3h_assert( null === $page_query->get( FollowersVisibility::QUERY_VIEWER_KEY ), 'Followers visibility must never bind its viewer key to a WordPress page query.' );
+sabri_phase3h_assert( $page_meta === $page_query->get( 'meta_query' ), 'Followers visibility must not mutate a WordPress page meta query.' );
+
+$page_id_query = new Sabri_Phase3H_Query(
+	array(
+		'page_id'    => 14,
+		'meta_query' => $page_meta,
+	)
+);
+FollowersVisibility::extend_post_queries( $page_id_query );
+sabri_phase3h_assert( null === $page_id_query->get( FollowersVisibility::QUERY_VIEWER_KEY ), 'A page_id route must remain outside followers visibility query filtering.' );
+sabri_phase3h_assert( $page_meta === $page_id_query->get( 'meta_query' ), 'A page_id route must preserve its original meta query.' );
+
+$pagename_query = new Sabri_Phase3H_Query(
+	array(
+		'pagename'   => 'sample-page',
+		'meta_query' => $page_meta,
+	)
+);
+FollowersVisibility::extend_post_queries( $pagename_query );
+sabri_phase3h_assert( null === $pagename_query->get( FollowersVisibility::QUERY_VIEWER_KEY ), 'A pagename route must remain outside followers visibility query filtering.' );
+sabri_phase3h_assert( $page_meta === $pagename_query->get( 'meta_query' ), 'A pagename route must preserve its original meta query.' );
+
+$single_post_query = new Sabri_Phase3H_Query(
+	array(
+		'__is_single' => true,
+		'meta_query'  => array( PostMetadata::visibility_meta_clause(), PostMetadata::review_state_meta_clause() ),
+	)
+);
+FollowersVisibility::extend_post_queries( $single_post_query );
+sabri_phase3h_assert( 7 === (int) $single_post_query->get( FollowersVisibility::QUERY_VIEWER_KEY ), 'A confirmed single-post query must retain followers-only authorization.' );
 
 $checklist = ReleaseReadiness::checklist_items();
 sabri_phase3h_assert( count( $checklist ) >= 20 && preg_match( '/^[a-f0-9]{64}$/', ReleaseReadiness::checklist_hash() ), 'Release checklist must be frozen and cryptographically identifiable.' );
