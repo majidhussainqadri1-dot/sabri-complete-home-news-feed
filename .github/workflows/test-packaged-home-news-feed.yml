@@ -1,0 +1,74 @@
+name: Test Packaged Home News Feed
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - build/**
+  workflow_dispatch:
+
+jobs:
+  packaged-playground:
+    name: Packaged ZIP (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build exact staging candidate ZIP
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Test exact packaged ZIP through WordPress installer
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
+        run: |
+          set -o pipefail
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+
+      - name: Verify package checksum
+        shell: bash
+        run: |
+          expected=$(awk '{print $1}' release/*PHASE-3-STAGING-CANDIDATE.sha256)
+          actual=$(sha256sum release/*PHASE-3-STAGING-CANDIDATE.zip | awk '{print $1}')
+          test "$expected" = "$actual"
+
+      - name: Upload exact tested candidate
+        if: matrix.wp == 'latest' && matrix.php == '8.3'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-home-news-feed-phase-3-exact-packaged-tested
+          path: |
+            release/*PHASE-3-STAGING-CANDIDATE.zip
+            release/*PHASE-3-STAGING-CANDIDATE.sha256
+            release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+
+      - name: Upload packaged Playground log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}-log
+          path: packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: warn
