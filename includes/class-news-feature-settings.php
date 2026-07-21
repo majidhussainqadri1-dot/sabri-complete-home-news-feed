@@ -69,10 +69,11 @@ final class NewsFeatureSettings {
 	}
 
 	/**
-	 * Sanitize recognized checkboxes only.
+	 * Sanitize a complete settings-form projection.
 	 *
-	 * Only the exact scalar values 1, "1", and true enable a gate. Arrays,
-	 * objects, floats, whitespace-padded values, and numeric prefixes fail closed.
+	 * Only the exact scalar values 1, "1", and true enable a gate. Missing keys
+	 * are disabled for WordPress checkbox-form compatibility. Arrays, objects,
+	 * floats, whitespace-padded values, and numeric prefixes fail closed.
 	 */
 	public static function sanitize( $value ) {
 		$value = is_array( $value ) ? $value : array();
@@ -97,10 +98,16 @@ final class NewsFeatureSettings {
 		return isset( $current[ $feature ] ) && 1 === $current[ $feature ];
 	}
 
-	/** Update gates through the same strict sanitizer. */
+	/**
+	 * Apply a strict programmatic patch without disabling omitted gates.
+	 *
+	 * Admin settings forms continue to call sanitize() as a complete projection;
+	 * this method is intentionally patch-oriented for internal services.
+	 */
 	public static function update( array $value ) {
-		$old   = self::get();
-		$clean = self::sanitize( $value );
+		$old     = self::get();
+		$allowed = array_intersect_key( $value, self::defaults() );
+		$clean   = self::sanitize( array_merge( $old, $allowed ) );
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::OPTION_NAME, $clean, false );
 		}
