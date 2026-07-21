@@ -15,8 +15,10 @@ use Sabri\HomeNewsFeed\NewsStatuses;
 use Sabri\HomeNewsFeed\NewsTaxonomies;
 use Sabri\HomeNewsFeed\Phase4Contracts;
 use Sabri\HomeNewsFeed\Plugin;
+use Sabri\HomeNewsFeed\Rollback;
 use Sabri\HomeNewsFeed\SafeMode;
 use Sabri\HomeNewsFeed\Settings;
+use Sabri\HomeNewsFeed\Snapshot;
 
 $phase4a_failures = array();
 
@@ -163,6 +165,17 @@ $result = Activator::activate();
 sabri_phase4a_assert( 0 === array_sum( $result['phase4_settings'] ), 'Activation must leave all Phase 4 gates disabled.' );
 sabri_phase4a_assert( count( Phase4Contracts::sections() ) + count( Phase4Contracts::article_types() ) === count( $result['phase4_terms']['created'] ), 'Activation must create the full frozen Phase 4 term set.' );
 sabri_phase4a_assert( '1.2.0-4A' === get_option( 'sabri_feed_phase4_contract_version' ), 'Activation must record the Phase 4A contract identity without promoting plugin version.' );
+$snapshot = Snapshot::latest();
+sabri_phase4a_assert( isset( $snapshot['phase4_settings'], $snapshot['capability_roles']['administrator']['manage_news_settings'] ), 'Activation snapshot must capture Phase 4 settings and capability state before mutation.' );
+sabri_phase4a_assert( false === $snapshot['capability_roles']['administrator']['manage_news_settings'], 'Pre-activation snapshot must record the absence of newly added Phase 4 capability.' );
+
+NewsFeatureSettings::update( array_fill_keys( array_keys( Phase4Contracts::feature_flags() ), 1 ) );
+$sabri_test_roles['administrator']->add_cap( 'publish_editorial_news' );
+$rollback = Rollback::execute();
+sabri_phase4a_assert( isset( $rollback['phase4_capabilities'] ), 'Rollback report must include Phase 4 capability restoration.' );
+sabri_phase4a_assert( 0 === array_sum( NewsFeatureSettings::get() ), 'Rollback must restore the pre-activation Phase 4 gate state.' );
+sabri_phase4a_assert( empty( $sabri_test_roles['administrator']->capabilities['manage_news_settings'] ), 'Rollback must remove Phase 4 capability absent from the activation snapshot.' );
+sabri_phase4a_assert( in_array( 'Editorial News content and metadata', $rollback['preserved'], true ), 'Rollback must explicitly preserve Editorial News content and metadata.' );
 
 sabri_phase4a_assert( 20 === count( Phase4Contracts::acceptance_keys() ), 'Phase 4 must retain all 20 Hostinger staging acceptance keys.' );
 sabri_phase4a_assert( 10 === count( Phase4Contracts::public_routes() ), 'Phase 4 public route contract must remain complete.' );
@@ -176,4 +189,4 @@ if ( $phase4a_failures ) {
 	exit( 1 );
 }
 
-echo "OK - Phase 4A content model, gates, statuses, taxonomies, and capabilities passed.\n";
+echo "OK - Phase 4A content model, gates, statuses, taxonomies, capabilities, and rollback passed.\n";
