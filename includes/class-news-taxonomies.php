@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class NewsTaxonomies {
 	const TERM_VERSION_OPTION = 'sabri_feed_phase4_terms_version';
 
-	/** Register taxonomies and one bounded admin-side upgrade check. */
+	/** Register taxonomies and one bounded authorized admin-side upgrade check. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( __CLASS__, 'register_taxonomies' ), 9 );
@@ -72,16 +72,27 @@ final class NewsTaxonomies {
 		}
 	}
 
-	/** Install frozen terms once after an upgrade when the plugin is already active. */
+	/** Install/repair frozen terms after an upgrade only for an authorized session. */
 	public static function maybe_ensure_default_terms() {
-		$target  = Phase4Contracts::TARGET_VERSION . '-' . Phase4Contracts::CHECKPOINT;
-		$current = function_exists( 'get_option' ) ? get_option( self::TERM_VERSION_OPTION, '' ) : '';
-		if ( $target === $current ) {
+		$target           = Phase4Contracts::TARGET_VERSION . '-' . Phase4Contracts::CHECKPOINT;
+		$current_terms    = function_exists( 'get_option' ) ? get_option( self::TERM_VERSION_OPTION, '' ) : '';
+		$current_contract = function_exists( 'get_option' ) ? get_option( 'sabri_feed_phase4_contract_version', '' ) : '';
+		if ( $target === $current_terms && $target === $current_contract ) {
 			return array( 'created' => array(), 'skipped' => array(), 'failed' => array(), 'success' => true );
 		}
+		if ( ! self::authorized_upgrade_request() ) {
+			return array(
+				'created' => array(),
+				'skipped' => array(),
+				'failed'  => array( 'authorization' => 'An authorized News settings administrator is required.' ),
+				'success' => false,
+			);
+		}
+
 		$report = self::ensure_default_terms();
 		if ( $report['success'] && function_exists( 'update_option' ) ) {
 			update_option( self::TERM_VERSION_OPTION, $target, false );
+			update_option( 'sabri_feed_phase4_contract_version', $target, false );
 		}
 		return $report;
 	}
@@ -118,10 +129,26 @@ final class NewsTaxonomies {
 			}
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
 				$report['failed'][ $key ] = self::error_message( $result );
-			} else {
-				$report['created'][] = $key;
+				continue;
 			}
+			$verified = is_array( $result ) && ! empty( $result['term_id'] );
+			if ( ! $verified ) {
+				$verified = (bool) term_exists( $slug, $taxonomy );
+			}
+			if ( ! $verified ) {
+				$report['failed'][ $key ] = 'WordPress did not return or verify the inserted term.';
+				continue;
+			}
+			$report['created'][] = $key;
 		}
+	}
+
+	/** Require a privileged web session, or an explicit WP-CLI execution. */
+	private static function authorized_upgrade_request() {
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return true;
+		}
+		return function_exists( 'current_user_can' ) && ( current_user_can( 'manage_news_settings' ) || current_user_can( 'manage_options' ) );
 	}
 
 	/** Return a bounded diagnostic message without exposing private data. */
