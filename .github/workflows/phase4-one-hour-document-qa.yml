@@ -1,27 +1,11 @@
 name: Phase 4 One-Hour Planning QA
 
 on:
-  push:
-    branches:
-      - build/phase-4-editorial-news-1.2.0
-    paths:
-      - 'PHASE-4-*.md'
-      - 'tests/run-phase4-contract-tests.php'
-      - 'tests/run-phase4-document-audit.php'
-      - 'tests/run-phase4-one-hour-document-qa.sh'
-      - '.github/workflows/phase4-one-hour-document-qa.yml'
-  pull_request:
-    paths:
-      - 'PHASE-4-*.md'
-      - 'tests/run-phase4-contract-tests.php'
-      - 'tests/run-phase4-document-audit.php'
-      - 'tests/run-phase4-one-hour-document-qa.sh'
-      - '.github/workflows/phase4-one-hour-document-qa.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phase4-one-hour-planning-qa-${{ github.event.pull_request.head.ref || github.ref }}
-  cancel-in-progress: true
+  group: phase4-one-hour-planning-qa-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   repeated-planning-qa:
@@ -30,10 +14,8 @@ jobs:
     timeout-minutes: 100
 
     steps:
-      - name: Fresh checkout of exact branch commit
+      - name: Fresh checkout of explicitly selected exact commit
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Record exact commit
         shell: bash
