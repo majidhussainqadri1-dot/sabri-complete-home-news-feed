@@ -62,11 +62,7 @@ final class EditorialNewsPostType {
 		}
 	}
 
-	/**
-	 * Map singular object checks to distinct meta capabilities and role checks to
-	 * frozen primitive capabilities. Retraction remains non-destructive; direct
-	 * WordPress deletion is denied by every delete primitive.
-	 */
+	/** Map singular object checks and deny every destructive delete primitive. */
 	public static function capability_map() {
 		return array(
 			'edit_post'              => 'edit_editorial_news',
@@ -140,7 +136,7 @@ final class EditorialNewsPostType {
 			'_sabri_news_fact_check_status'     => 'fact_check_editorial_news',
 			'_sabri_news_last_verified_at'      => 'fact_check_editorial_news',
 			'_sabri_news_medical_review_status' => 'medical_review_editorial_news',
-			'_sabri_news_medical_reviewer_id'   => 'medical_review_editorial_news',
+			'_sabri_news_medical_reviewer_id'   => 'review_editorial_news',
 			'_sabri_news_reviewing_editor_id'   => 'review_editorial_news',
 			'_sabri_news_breaking_status'       => 'manage_breaking_news',
 			'_sabri_news_breaking_starts_at'    => 'manage_breaking_news',
@@ -152,7 +148,7 @@ final class EditorialNewsPostType {
 		return is_string( $meta_key ) && isset( $map[ $meta_key ] ) ? $map[ $meta_key ] : 'do_not_allow';
 	}
 
-	/** Authorize metadata edits through an exact per-field capability. */
+	/** Authorize metadata edits through exact field, object, and assignment rules. */
 	public static function meta_auth_callback( $allowed = false, $meta_key = '', $post_id = 0, $user_id = 0 ) {
 		unset( $allowed );
 		$post_id = absint( $post_id );
@@ -160,7 +156,8 @@ final class EditorialNewsPostType {
 		if ( $post_id < 1 || ! function_exists( 'current_user_can' ) ) {
 			return false;
 		}
-		if ( $user_id > 0 && function_exists( 'get_current_user_id' ) && $user_id !== (int) get_current_user_id() ) {
+		$current_user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id > 0 && $user_id !== $current_user_id ) {
 			return false;
 		}
 
@@ -179,7 +176,20 @@ final class EditorialNewsPostType {
 		if ( 'do_not_allow' === $required ) {
 			return false;
 		}
-		return 'edit_editorial_news' === $required ? current_user_can( $required, $post_id ) : current_user_can( $required );
+		$can_edit_object = current_user_can( 'edit_editorial_news', $post_id );
+		if ( 'edit_editorial_news' === $required ) {
+			return $can_edit_object;
+		}
+
+		if ( '_sabri_news_medical_review_status' === $meta_key ) {
+			if ( $can_edit_object && current_user_can( 'review_editorial_news' ) ) {
+				return true;
+			}
+			$assigned_id = function_exists( 'get_post_meta' ) ? absint( get_post_meta( $post_id, '_sabri_news_medical_reviewer_id', true ) ) : 0;
+			return $current_user_id > 0 && $assigned_id === $current_user_id && current_user_can( 'medical_review_editorial_news' );
+		}
+
+		return $can_edit_object && current_user_can( $required );
 	}
 
 	/** Validate a bounded BCP-47-style language tag without repairing unsafe input. */
