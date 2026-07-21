@@ -19,6 +19,8 @@ on:
       - 'includes/class-snapshot.php'
       - 'includes/class-rollback.php'
       - 'tests/run-phase4a-content-model-tests.php'
+      - 'tests/run-phase4a-security-contract-tests.php'
+      - 'tests/run-phase4a-rollback-edge-tests.php'
       - 'tests/run-phase4a-playground-tests.mjs'
       - 'tests/run-phase4a-second-one-hour-qa.sh'
       - '.github/workflows/phase4a-content-model-tests.yml'
