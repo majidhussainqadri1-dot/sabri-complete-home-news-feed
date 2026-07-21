@@ -16,12 +16,10 @@ mkdir -p "$OUT/cycles" "$OUT/final" "$OUT/package"
 
 on_exit() {
   local rc=$?
-  local finish_epoch
+  local finish_epoch elapsed
   finish_epoch="$(date +%s)"
-  local elapsed=0
-  if [[ "$START_EPOCH" -gt 0 ]]; then
-    elapsed=$((finish_epoch - START_EPOCH))
-  fi
+  elapsed=0
+  if [[ "$START_EPOCH" -gt 0 ]]; then elapsed=$((finish_epoch - START_EPOCH)); fi
   {
     echo "status=$STATUS"
     echo "exit_code=$rc"
@@ -47,6 +45,7 @@ critical_files=(
   "PHASE-4-CONTRACTS.md"
   "PHASE-4-CONTRACTS-ADDENDUM-1.md"
   "PHASE-4-CONTRACTS-ADDENDUM-2-WORDPRESS-STATUS-STORAGE.md"
+  "PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md"
   "PHASE-4-ARCHITECTURE.md"
   "PHASE-4-SECURITY-PRIVACY.md"
   "PHASE-4-EDITORIAL-POLICY.md"
@@ -61,16 +60,13 @@ critical_files=(
   "includes/class-snapshot.php"
   "includes/class-rollback.php"
   "tests/run-phase4a-content-model-tests.php"
+  "tests/run-phase4a-playground-tests.mjs"
   "tests/run-phase4a-second-one-hour-qa.sh"
   ".github/workflows/phase4a-content-model-tests.yml"
   ".github/workflows/phase4a-second-one-hour-qa.yml"
 )
-
 for file in "${critical_files[@]}"; do
-  if [[ ! -f "$file" ]]; then
-    echo "Missing required Phase 4A second-QA file: $file" >&2
-    exit 1
-  fi
+  [[ -f "$file" ]] || { echo "Missing required Phase 4A second-QA file: $file" >&2; exit 1; }
 done
 
 write_tracked_manifest() {
@@ -79,13 +75,9 @@ write_tracked_manifest() {
 }
 
 verify_exact_commit_and_manifest() {
-  local label="$1"
-  local current_sha current_manifest
+  local label="$1" current_sha current_manifest
   current_sha="$(git rev-parse HEAD)"
-  if [[ "$current_sha" != "$HEAD_SHA" ]]; then
-    echo "$label: exact commit changed from $HEAD_SHA to $current_sha" >&2
-    exit 1
-  fi
+  [[ "$current_sha" == "$HEAD_SHA" ]] || { echo "$label: exact commit changed from $HEAD_SHA to $current_sha" >&2; exit 1; }
   current_manifest="$OUT/${label}-tracked-files.sha256"
   write_tracked_manifest "$current_manifest"
   if ! cmp -s "$OUT/initial-tracked-files.sha256" "$current_manifest"; then
@@ -93,11 +85,7 @@ verify_exact_commit_and_manifest() {
     diff -u "$OUT/initial-tracked-files.sha256" "$current_manifest" || true
     exit 1
   fi
-  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-    echo "$label: tracked working tree is not clean" >&2
-    git status --short >&2
-    exit 1
-  fi
+  [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "$label: tracked working tree is not clean" >&2; git status --short >&2; exit 1; }
 }
 
 run_phase3_matrix() {
@@ -127,27 +115,17 @@ run_core_suite() {
 
 run_full_php_lint() {
   find . -name '*.php' \
-    -not -path './release/*' \
-    -not -path './vendor/*' \
-    -not -path './node_modules/*' \
-    -not -path './phase4a-second-one-hour-qa/*' \
-    -print0 | xargs -0 -n1 php -l
+    -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' \
+    -not -path './phase4a-second-one-hour-qa/*' -print0 | xargs -0 -n1 php -l
 }
 
 run_critical_php_lint() {
   local file
-  for file in "${critical_files[@]}"; do
-    if [[ "$file" == *.php ]]; then
-      php -l "$file"
-    fi
-  done
+  for file in "${critical_files[@]}"; do [[ "$file" == *.php ]] && php -l "$file" || true; done
 }
 
 run_js_syntax() {
-  find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
-  node --check tests/run-playground-integration-tests.mjs
-  node --check tests/run-packaged-playground-integration-tests.mjs
-  node --check tests/run-date-permalink-playground-tests.mjs
+  find assets/js tests \( -name '*.js' -o -name '*.mjs' \) -type f -print0 | xargs -0 -n1 node --check
 }
 
 write_tracked_manifest "$OUT/initial-tracked-files.sha256"
@@ -159,7 +137,7 @@ cat > "$OUT/defect-correction-record.md" <<EOF
 
 Exact run commit: \`$HEAD_SHA\`
 
-This workflow never edits the repository while testing. A discovered defect rejects the commit. The defect must be corrected in a new commit and this complete second QA must restart from zero. Correction history is preserved in PR #3 and Git history.
+This workflow never edits the repository while testing. A discovered defect rejects the commit. The defect must be corrected in a new commit and this complete second QA restarts from zero. Correction history is retained in PR #3 and Git history.
 EOF
 
 {
@@ -191,18 +169,13 @@ for cycle in $(seq 1 "$CYCLES"); do
 
   target_epoch=$((START_EPOCH + cycle * INTERVAL_SECONDS))
   now_epoch="$(date +%s)"
-  if [[ "$now_epoch" -lt "$target_epoch" ]]; then
-    sleep $((target_epoch - now_epoch))
-  fi
-  printf 'cycle=%s started_epoch=%s completed_epoch=%s target_epoch=%s\n' \
-    "$cycle" "$cycle_started" "$(date +%s)" "$target_epoch" >> "$OUT/cycle-timing.log"
+  [[ "$now_epoch" -ge "$target_epoch" ]] || sleep $((target_epoch - now_epoch))
+  printf 'cycle=%s started_epoch=%s completed_epoch=%s target_epoch=%s\n' "$cycle" "$cycle_started" "$(date +%s)" "$target_epoch" >> "$OUT/cycle-timing.log"
 done
 
 minimum_finish=$((START_EPOCH + MIN_SECONDS))
 now_epoch="$(date +%s)"
-if [[ "$now_epoch" -lt "$minimum_finish" ]]; then
-  sleep $((minimum_finish - now_epoch))
-fi
+[[ "$now_epoch" -ge "$minimum_finish" ]] || sleep $((minimum_finish - now_epoch))
 
 {
   echo "Final post-duration verification"
@@ -213,20 +186,17 @@ fi
   run_core_suite
   pwsh -NoProfile -File tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
+  rm -rf release
   pwsh -NoProfile -File tools/build-release.ps1
-  package_zip="$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | LC_ALL=C sort | head -n 1)"
-  package_sha="$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' | LC_ALL=C sort | head -n 1)"
-  if [[ -z "$package_zip" || -z "$package_sha" ]]; then
-    echo "Staging package or SHA-256 file was not created" >&2
-    exit 1
-  fi
+  mapfile -t package_zips < <(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | LC_ALL=C sort)
+  mapfile -t package_shas < <(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' | LC_ALL=C sort)
+  [[ "${#package_zips[@]}" -eq 1 && "${#package_shas[@]}" -eq 1 ]] || { echo "Expected exactly one staging package and checksum" >&2; exit 1; }
+  package_zip="${package_zips[0]}"
+  package_sha="${package_shas[0]}"
 
-  expected_sha="$(awk '{print $1}' "$package_sha" | tr '[:upper:]' '[:lower:]')"
+  expected_sha="$(awk '{print tolower($1)}' "$package_sha")"
   actual_sha="$(sha256sum "$package_zip" | awk '{print $1}')"
-  if [[ "$expected_sha" != "$actual_sha" ]]; then
-    echo "Package SHA-256 mismatch" >&2
-    exit 1
-  fi
+  [[ "$expected_sha" == "$actual_sha" ]] || { echo "Package SHA-256 mismatch" >&2; exit 1; }
 
   unzip -Z1 "$package_zip" > "$OUT/package/package-entries.txt"
   required_package_entries=(
@@ -237,12 +207,11 @@ fi
     "sabri-complete-home-news-feed/includes/class-news-taxonomies.php"
     "sabri-complete-home-news-feed/includes/class-news-statuses.php"
     "sabri-complete-home-news-feed/includes/class-news-capabilities.php"
+    "sabri-complete-home-news-feed/includes/class-snapshot.php"
+    "sabri-complete-home-news-feed/includes/class-rollback.php"
   )
   for entry in "${required_package_entries[@]}"; do
-    grep -Fxq "$entry" "$OUT/package/package-entries.txt" || {
-      echo "Missing Phase 4A package entry: $entry" >&2
-      exit 1
-    }
+    grep -Fxq "$entry" "$OUT/package/package-entries.txt" || { echo "Missing Phase 4A package entry: $entry" >&2; exit 1; }
   done
 
   cp "$package_zip" "$OUT/package/"
@@ -254,10 +223,7 @@ fi
 
 finish_epoch="$(date +%s)"
 duration=$((finish_epoch - START_EPOCH))
-if [[ "$duration" -lt "$MIN_SECONDS" ]]; then
-  echo "Second QA duration was only $duration seconds; required $MIN_SECONDS" >&2
-  exit 1
-fi
+[[ "$duration" -ge "$MIN_SECONDS" ]] || { echo "Second QA duration was only $duration seconds; required $MIN_SECONDS" >&2; exit 1; }
 
 STATUS="passed"
 printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > "$OUT/workflow-finished-utc.txt"
