@@ -61,6 +61,7 @@ critical_files=(
   "includes/class-rollback.php"
   "tests/run-phase4a-content-model-tests.php"
   "tests/run-phase4a-security-contract-tests.php"
+  "tests/run-phase4a-rollback-edge-tests.php"
   "tests/run-phase4a-playground-tests.mjs"
   "tests/run-phase4a-second-one-hour-qa.sh"
   ".github/workflows/phase4a-content-model-tests.yml"
@@ -123,7 +124,11 @@ run_full_php_lint() {
 
 run_critical_php_lint() {
   local file
-  for file in "${critical_files[@]}"; do [[ "$file" == *.php ]] && php -l "$file" || true; done
+  for file in "${critical_files[@]}"; do
+    if [[ "$file" == *.php ]]; then
+      php -l "$file"
+    fi
+  done
 }
 
 run_js_syntax() {
