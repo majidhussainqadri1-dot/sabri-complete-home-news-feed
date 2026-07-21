@@ -46,9 +46,9 @@ foreach ( $required_files as $file ) {
 
 $addendum = isset( $contents['PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md'] ) ? $contents['PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md'] : '';
 foreach ( array(
-	'exact lowercase values exactly',
+	'frozen lowercase values exactly',
 	'object-policy service',
-	'unknown meta keys fail closed',
+	'Unknown meta keys fail closed',
 	'cannot self-assign',
 	'term-version and Phase 4 contract-version markers advance together',
 	'value and existence',
@@ -94,8 +94,8 @@ foreach ( array(
 	'PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md',
 	'tests/run-phase4a-playground-tests.mjs',
 	'packaged Phase 4A security test',
-	'3900 seconds',
-	'13 completed cycles',
+	'Minimum elapsed duration: `3900` seconds.',
+	'Required repeated cycles: `13`.',
 ) as $phrase ) {
 	sabri_phase4a_security_assert( false !== strpos( $protocol, $phrase ), 'Second-QA protocol missing security requirement: ' . $phrase );
 }
