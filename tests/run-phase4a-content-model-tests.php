@@ -57,6 +57,7 @@ sabri_phase4a_assert( '1.0.0' === $identity['schema_version'], 'Phase 4A must no
 sabri_phase4a_assert( '1.2.0' === Phase4Contracts::TARGET_VERSION, 'Phase 4 target version must remain 1.2.0.' );
 sabri_phase4a_assert( '4A' === Phase4Contracts::CHECKPOINT, 'Executable contract checkpoint must remain 4A.' );
 sabri_phase4a_assert( 'sabri_news' === Phase4Contracts::POST_TYPE, 'Editorial News post type identifier changed.' );
+sabri_phase4a_assert( 'sabri-home-news-feed/v1' === Phase4Contracts::REST_NAMESPACE, 'Phase 4 REST namespace changed.' );
 
 $flags = Phase4Contracts::feature_flags();
 sabri_phase4a_assert( 8 === count( $flags ), 'Phase 4 must expose exactly eight initial feature gates.' );
@@ -68,13 +69,14 @@ sabri_phase4a_assert( ! Phase4Contracts::feature_enabled( 'unknown_phase4_gate',
 
 $clean = NewsFeatureSettings::sanitize(
 	array(
-		'editorial_news_enabled' => 1,
-		'breaking_news_enabled'  => '1',
-		'news_rss_enabled'       => true,
-		'news_schema_enabled'    => '1evil',
-		'news_notifications_enabled' => ' 1',
-		'news_corrections_enabled' => 1.0,
-		'unknown_gate'           => 1,
+		'editorial_news_enabled'      => 1,
+		'breaking_news_enabled'       => '1',
+		'news_rss_enabled'            => true,
+		'news_schema_enabled'         => '1evil',
+		'news_notifications_enabled'  => ' 1',
+		'news_corrections_enabled'    => 1.0,
+		'news_submissions_enabled'    => array( 1 ),
+		'unknown_gate'                => 1,
 	)
 );
 sabri_phase4a_assert( 1 === $clean['editorial_news_enabled'], 'Exact integer one must enable a recognized gate.' );
@@ -83,29 +85,29 @@ sabri_phase4a_assert( 1 === $clean['news_rss_enabled'], 'Exact boolean true must
 sabri_phase4a_assert( 0 === $clean['news_schema_enabled'], 'Numeric-prefix strings must fail closed.' );
 sabri_phase4a_assert( 0 === $clean['news_notifications_enabled'], 'Whitespace-padded values must fail closed.' );
 sabri_phase4a_assert( 0 === $clean['news_corrections_enabled'], 'Floats must fail closed.' );
+sabri_phase4a_assert( 0 === $clean['news_submissions_enabled'], 'Arrays must fail closed.' );
 sabri_phase4a_assert( ! isset( $clean['unknown_gate'] ), 'Unknown Phase 4 feature options must be rejected.' );
 
 NewsFeatureSettings::ensure_defaults();
 sabri_phase4a_assert( $flags === NewsFeatureSettings::get(), 'Fresh Phase 4 option must contain disabled frozen defaults.' );
-
-$disabled_definition = EditorialNewsPostType::definition();
-$caps                = $disabled_definition['capabilities'];
-sabri_phase4a_assert( false === $disabled_definition['publicly_queryable'], 'Editorial News must remain private while disabled.' );
-sabri_phase4a_assert( false === $disabled_definition['rewrite'], 'Editorial News rewrites must remain closed while disabled.' );
-sabri_phase4a_assert( false === $disabled_definition['show_in_rest'], 'Native REST exposure must remain disabled.' );
-sabri_phase4a_assert( true === $disabled_definition['map_meta_cap'], 'Editorial News must use ownership-aware meta capability mapping.' );
-sabri_phase4a_assert( 'edit_editorial_news' === $caps['edit_post'], 'Singular edit checks must use a distinct object meta capability.' );
-sabri_phase4a_assert( 'edit_own_editorial_news' === $caps['edit_posts'], 'Own-article primitive capability changed.' );
-sabri_phase4a_assert( 'edit_others_editorial_news' === $caps['edit_others_posts'], 'Foreign-article primitive capability changed.' );
-sabri_phase4a_assert( 'do_not_allow' === $caps['delete_post'], 'Core single-article deletion must be denied.' );
-foreach ( array( 'delete_posts', 'delete_private_posts', 'delete_published_posts', 'delete_others_posts' ) as $delete_key ) {
-	sabri_phase4a_assert( 'do_not_allow' === $caps[ $delete_key ], 'Core destructive deletion must be denied: ' . $delete_key );
-}
-
+update_option( 'sabri_feed_flush_rewrite_rules', 0, false );
 NewsFeatureSettings::update( array( 'editorial_news_enabled' => 1 ) );
+sabri_phase4a_assert( 1 === get_option( 'sabri_feed_flush_rewrite_rules' ), 'Changing a public Phase 4 gate must schedule rewrite repair.' );
+
 $enabled_definition = EditorialNewsPostType::definition();
+$caps               = $enabled_definition['capabilities'];
 sabri_phase4a_assert( true === $enabled_definition['publicly_queryable'], 'Accepted master News gate must enable canonical queryability.' );
 sabri_phase4a_assert( 'news' === $enabled_definition['rewrite']['slug'], 'Enabled Editorial News rewrite must use /news/.' );
+sabri_phase4a_assert( 'news' === $enabled_definition['has_archive'], 'Enabled Editorial News archive must use /news/.' );
+sabri_phase4a_assert( false === $enabled_definition['show_in_rest'], 'Native REST exposure must remain disabled.' );
+sabri_phase4a_assert( true === $enabled_definition['map_meta_cap'], 'Editorial News must use ownership-aware WordPress meta capability mapping.' );
+sabri_phase4a_assert( 'edit_editorial_news' === $caps['edit_post'], 'Singular edit checks must use the object meta capability.' );
+sabri_phase4a_assert( 'read_editorial_news_item' === $caps['read_post'], 'Singular read checks must use the object meta capability.' );
+sabri_phase4a_assert( 'edit_own_editorial_news' === $caps['edit_posts'], 'Own-article primitive capability changed.' );
+sabri_phase4a_assert( 'edit_others_editorial_news' === $caps['edit_others_posts'], 'Foreign-article primitive capability changed.' );
+foreach ( array( 'delete_post', 'delete_posts', 'delete_private_posts', 'delete_published_posts', 'delete_others_posts' ) as $delete_key ) {
+	sabri_phase4a_assert( 'do_not_allow' === $caps[ $delete_key ], 'Core destructive deletion must be denied: ' . $delete_key );
+}
 
 SafeMode::set_emergency_disabled( true );
 sabri_phase4a_assert( ! NewsFeatureSettings::enabled( 'editorial_news_enabled' ), 'Emergency Disable must override an enabled Phase 4 gate.' );
@@ -116,22 +118,45 @@ sabri_phase4a_assert( Phase4Contracts::taxonomies() === array_keys( $taxonomy_de
 global $sabri_test_actions;
 $sabri_test_actions = array();
 NewsTaxonomies::register();
-$runtime_term_writer = false;
+$init_term_writer = false;
+$admin_upgrade_check = false;
 foreach ( $sabri_test_actions as $action ) {
-	if ( is_array( $action['callback'] ) && 'ensure_default_terms' === $action['callback'][1] ) {
-		$runtime_term_writer = true;
+	if ( is_array( $action['callback'] ) && 'ensure_default_terms' === $action['callback'][1] && 'init' === $action['hook'] ) {
+		$init_term_writer = true;
+	}
+	if ( is_array( $action['callback'] ) && 'maybe_ensure_default_terms' === $action['callback'][1] && 'admin_init' === $action['hook'] ) {
+		$admin_upgrade_check = true;
 	}
 }
-sabri_phase4a_assert( ! $runtime_term_writer, 'Default taxonomy terms must not be checked or written on every runtime init request.' );
+sabri_phase4a_assert( ! $init_term_writer, 'Default taxonomy terms must not be checked or written on every frontend init request.' );
+sabri_phase4a_assert( $admin_upgrade_check, 'Active-plugin upgrades require one bounded admin-side term check.' );
 
 sabri_test_reset_state( true );
-$term_report = NewsTaxonomies::ensure_default_terms();
 $term_count  = count( Phase4Contracts::sections() ) + count( Phase4Contracts::article_types() );
+$term_report = NewsTaxonomies::ensure_default_terms();
+sabri_phase4a_assert( $term_report['success'], 'Normal Phase 4 term installation must report success.' );
 sabri_phase4a_assert( $term_count === count( $term_report['created'] ), 'Activation must create every frozen section and article type once.' );
-sabri_phase4a_assert( '1.2.0-4A' === get_option( NewsTaxonomies::TERM_VERSION_OPTION ), 'Activation term creation must record its contract version.' );
+sabri_phase4a_assert( '' === get_option( NewsTaxonomies::TERM_VERSION_OPTION, '' ), 'Direct term creation must not claim a version before the caller verifies success.' );
+$upgrade_report = NewsTaxonomies::maybe_ensure_default_terms();
+sabri_phase4a_assert( $upgrade_report['success'], 'Bounded upgrade term verification must succeed when all terms exist.' );
+sabri_phase4a_assert( '1.2.0-4A' === get_option( NewsTaxonomies::TERM_VERSION_OPTION ), 'Successful upgrade verification must record its exact contract version.' );
 $second_term_report = NewsTaxonomies::ensure_default_terms();
 sabri_phase4a_assert( 0 === count( $second_term_report['created'] ), 'Default term creation must be idempotent.' );
 sabri_phase4a_assert( $term_count === count( $second_term_report['skipped'] ), 'Idempotent term pass must report all terms as existing.' );
+
+sabri_test_reset_state( true );
+global $sabri_test_filter_overrides;
+$sabri_test_filter_overrides['sabri_feed_phase4_insert_term_result'] = new WP_Error( 'forced_term_failure', 'Forced term failure' );
+$failed_terms = NewsTaxonomies::maybe_ensure_default_terms();
+sabri_phase4a_assert( ! $failed_terms['success'] && ! empty( $failed_terms['failed'] ), 'Term insertion errors must fail closed rather than being reported as skipped.' );
+sabri_phase4a_assert( '' === get_option( NewsTaxonomies::TERM_VERSION_OPTION, '' ), 'Failed term installation must not advance the terms version marker.' );
+$sabri_phase4a_reset_roles();
+$failed_activation = Activator::activate();
+sabri_phase4a_assert( empty( $failed_activation['phase4_ready'] ), 'Activation with failed Phase 4 terms must remain incomplete.' );
+sabri_phase4a_assert( '' === get_option( 'sabri_feed_phase4_contract_version', '' ), 'Failed activation must not advance the Phase 4 contract marker.' );
+
+sabri_test_reset_state( true );
+sabri_phase4a_reset_roles();
 
 $states = NewsStatuses::states();
 sabri_phase4a_assert( Phase4Contracts::editorial_states() === $states, 'News status model must expose every frozen state.' );
@@ -146,8 +171,9 @@ foreach ( Phase4Contracts::wordpress_status_map() as $domain_state => $core_stat
 $meta = EditorialNewsPostType::meta_definitions();
 sabri_phase4a_assert( isset( $meta[ Phase4Contracts::WORKFLOW_META_KEY ] ), 'Workflow source-of-truth metadata is missing.' );
 sabri_phase4a_assert( 'en-US' === EditorialNewsPostType::sanitize_language( 'invalid language!' ), 'Invalid language tags must fail to en-US.' );
+sabri_phase4a_assert( 'ur-PK' === EditorialNewsPostType::sanitize_language( 'ur-PK' ), 'Valid bounded language tags must be preserved.' );
+sabri_phase4a_assert( false === EditorialNewsPostType::meta_auth_callback( false, '_sabri_news_summary', 0, 0 ), 'Metadata writes without a concrete article must fail closed.' );
 
-sabri_phase4a_reset_roles();
 $role_map = NewsCapabilities::default_role_map();
 sabri_phase4a_assert( NewsCapabilities::capabilities() === Phase4Contracts::capabilities(), 'Capability implementation must match the frozen list.' );
 sabri_phase4a_assert( NewsCapabilities::role_can_publish( 'administrator' ), 'Administrator must retain publication authority.' );
@@ -163,7 +189,21 @@ global $sabri_test_roles;
 sabri_phase4a_assert( ! empty( $sabri_test_roles['administrator']->capabilities['manage_news_settings'] ), 'Administrator must receive Phase 4 settings authority.' );
 sabri_phase4a_assert( ! empty( $sabri_test_roles['editor_in_chief']->capabilities['publish_editorial_news'] ), 'Editor-in-Chief must receive publication capability.' );
 sabri_phase4a_assert( empty( $sabri_test_roles['reporter']->capabilities['publish_editorial_news'] ), 'Reporter must remain unable to publish.' );
-sabri_phase4a_assert( isset( $mutations['roles']['administrator'] ), 'Capability mutations must record affected roles.' );
+sabri_phase4a_assert( isset( $mutations['managed_caps']['administrator']['manage_news_settings'] ), 'New plugin-added capabilities must be recorded as managed.' );
+
+$sabri_test_roles['verified_doctor']->add_cap( 'manage_news_sources' );
+$legacy_mutations = get_option( NewsCapabilities::MUTATION_OPTION, array() );
+$legacy_mutations['roles']['verified_doctor']['manage_news_sources'] = 'added';
+unset( $legacy_mutations['managed_caps'] );
+update_option( NewsCapabilities::MUTATION_OPTION, $legacy_mutations, false );
+NewsCapabilities::apply_default_policy();
+sabri_phase4a_assert( empty( $sabri_test_roles['verified_doctor']->capabilities['manage_news_sources'] ), 'A stale capability previously added by the plugin must be removed when policy narrows.' );
+
+sabri_phase4a_reset_roles();
+$sabri_test_roles['administrator']->add_cap( 'manage_news_settings' );
+delete_option( NewsCapabilities::MUTATION_OPTION );
+NewsCapabilities::apply_default_policy();
+sabri_phase4a_assert( ! empty( $sabri_test_roles['administrator']->capabilities['manage_news_settings'] ), 'A capability that predates plugin management must be preserved.' );
 
 $allcaps = array_fill_keys( NewsCapabilities::capabilities(), true );
 Settings::ensure_defaults();
@@ -181,14 +221,18 @@ sabri_test_reset_state( true );
 sabri_phase4a_reset_roles();
 $result   = Activator::activate();
 $snapshot = Snapshot::latest();
+sabri_phase4a_assert( $result['phase4_ready'], 'Successful activation must verify Phase 4A readiness.' );
 sabri_phase4a_assert( 0 === array_sum( $result['phase4_settings'] ), 'Activation must leave all Phase 4 gates disabled.' );
 sabri_phase4a_assert( $term_count === count( $result['phase4_terms']['created'] ), 'Activation must create the complete Phase 4 term set.' );
-sabri_phase4a_assert( '1.2.0-4A' === get_option( 'sabri_feed_phase4_contract_version' ), 'Activation must record the Phase 4A contract identity.' );
+sabri_phase4a_assert( '1.2.0-4A' === get_option( 'sabri_feed_phase4_contract_version' ), 'Successful activation must record the Phase 4A contract identity.' );
+sabri_phase4a_assert( '1.2.0-4A' === get_option( NewsTaxonomies::TERM_VERSION_OPTION ), 'Successful activation must record the Phase 4 term identity.' );
 sabri_phase4a_assert( isset( $snapshot['phase4_settings'], $snapshot['capability_roles']['administrator']['manage_news_settings'] ), 'Activation snapshot must include Phase 4 state.' );
 sabri_phase4a_assert( false === $snapshot['capability_roles']['administrator']['manage_news_settings'], 'Baseline must record absence of newly added capability.' );
 $baseline_created_at = $snapshot['created_at'];
+$baseline_caps       = $snapshot['capability_roles'];
 Activator::activate();
 sabri_phase4a_assert( $baseline_created_at === Snapshot::latest()['created_at'], 'Reactivation must not overwrite the immutable same-version rollback baseline.' );
+sabri_phase4a_assert( $baseline_caps === Snapshot::latest()['capability_roles'], 'Reactivation must preserve the original capability baseline.' );
 
 NewsFeatureSettings::update( array_fill_keys( array_keys( Phase4Contracts::feature_flags() ), 1 ) );
 update_option( 'sabri_feed_phase4_contract_version', 'mutated-contract', false );
@@ -214,4 +258,4 @@ if ( $phase4a_failures ) {
 	exit( 1 );
 }
 
-echo "OK - Phase 4A content model, ownership, non-destructive deletion, gates, taxonomies, capabilities, snapshots, and rollback passed.\n";
+echo "OK - Phase 4A content model, ownership, non-destructive deletion, strict gates, fail-closed taxonomy installation, capabilities, immutable snapshots, and rollback passed.\n";
