@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class NewsCapabilities {
 	const MUTATION_OPTION = 'sabri_feed_phase4_capability_mutations';
 
-	/** Register emergency-disable enforcement. */
+	/** Register central safety enforcement. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'user_has_cap', array( __CLASS__, 'respect_emergency_disable' ), 10, 4 );
@@ -52,12 +52,7 @@ final class NewsCapabilities {
 		);
 	}
 
-	/**
-	 * Default role map using existing role slugs only.
-	 *
-	 * Object- and section-scoped restrictions remain mandatory in later policy
-	 * services; this map never grants broad source powers to submitters.
-	 */
+	/** Default role map using existing role slugs only. */
 	public static function default_role_map() {
 		$all = self::capabilities();
 		$map = array(
@@ -119,11 +114,16 @@ final class NewsCapabilities {
 		return array_keys( self::default_role_map() );
 	}
 
-	/** Apply capabilities to existing roles without creating or deleting roles. */
+	/**
+	 * Apply and reconcile only capabilities that this plugin previously added.
+	 * Administrator capabilities that predated the plugin remain untouched.
+	 */
 	public static function apply_default_policy() {
-		$mutations = array(
-			'created_at' => gmdate( 'Y-m-d H:i:s' ),
-			'roles'      => array(),
+		$previous_managed = self::previously_managed_caps();
+		$mutations        = array(
+			'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+			'roles'        => array(),
+			'managed_caps' => array(),
 		);
 		if ( ! function_exists( 'get_role' ) ) {
 			return $mutations;
@@ -134,11 +134,26 @@ final class NewsCapabilities {
 			if ( ! $role ) {
 				continue;
 			}
-			$mutations['roles'][ $role_slug ] = array();
-			foreach ( $capabilities as $capability ) {
-				if ( empty( $role->capabilities[ $capability ] ) ) {
-					$role->add_cap( $capability );
-					$mutations['roles'][ $role_slug ][ $capability ] = 'added';
+			$desired = array_fill_keys( $capabilities, true );
+			$mutations['roles'][ $role_slug ]        = array();
+			$mutations['managed_caps'][ $role_slug ] = array();
+			foreach ( self::capabilities() as $capability ) {
+				$has_cap     = ! empty( $role->capabilities[ $capability ] );
+				$was_managed = ! empty( $previous_managed[ $role_slug ][ $capability ] );
+				$is_desired  = ! empty( $desired[ $capability ] );
+
+				if ( $is_desired ) {
+					if ( ! $has_cap ) {
+						$role->add_cap( $capability );
+						$mutations['roles'][ $role_slug ][ $capability ] = 'added';
+						$was_managed = true;
+					}
+					if ( $was_managed ) {
+						$mutations['managed_caps'][ $role_slug ][ $capability ] = true;
+					}
+				} elseif ( $has_cap && $was_managed ) {
+					$role->remove_cap( $capability );
+					$mutations['roles'][ $role_slug ][ $capability ] = 'removed_stale';
 				}
 			}
 		}
@@ -183,10 +198,10 @@ final class NewsCapabilities {
 		return isset( $map[ $role_slug ] ) && in_array( 'publish_editorial_news', $map[ $role_slug ], true );
 	}
 
-	/** Remove editorial write powers while Emergency Disable is active. */
+	/** Remove editorial write powers while Safe Mode or Emergency Disable is active. */
 	public static function respect_emergency_disable( $allcaps, $caps, $args, $user ) {
 		unset( $caps, $args, $user );
-		if ( ! is_array( $allcaps ) || ! class_exists( __NAMESPACE__ . '\\SafeMode' ) || ! SafeMode::emergency_disabled() ) {
+		if ( ! is_array( $allcaps ) || ! class_exists( __NAMESPACE__ . '\\SafeMode' ) || ! SafeMode::public_features_disabled() ) {
 			return $allcaps;
 		}
 		foreach ( self::capabilities() as $capability ) {
@@ -195,6 +210,39 @@ final class NewsCapabilities {
 			}
 		}
 		return $allcaps;
+	}
+
+	/** Recover plugin-owned capability history from current and legacy records. */
+	private static function previously_managed_caps() {
+		$managed  = array();
+		$previous = function_exists( 'get_option' ) ? get_option( self::MUTATION_OPTION, array() ) : array();
+		if ( is_array( $previous ) && ! empty( $previous['managed_caps'] ) && is_array( $previous['managed_caps'] ) ) {
+			$managed = $previous['managed_caps'];
+		} elseif ( is_array( $previous ) && ! empty( $previous['roles'] ) && is_array( $previous['roles'] ) ) {
+			foreach ( $previous['roles'] as $role_slug => $actions ) {
+				foreach ( is_array( $actions ) ? $actions : array() as $capability => $action ) {
+					if ( 'added' === $action ) {
+						$managed[ $role_slug ][ $capability ] = true;
+					}
+				}
+			}
+		}
+
+		$snapshot = class_exists( __NAMESPACE__ . '\\Snapshot' ) ? Snapshot::latest() : array();
+		if ( ! empty( $snapshot['capability_roles'] ) && is_array( $snapshot['capability_roles'] ) && function_exists( 'get_role' ) ) {
+			foreach ( $snapshot['capability_roles'] as $role_slug => $caps ) {
+				$role = get_role( $role_slug );
+				if ( ! $role || ! is_array( $caps ) ) {
+					continue;
+				}
+				foreach ( self::capabilities() as $capability ) {
+					if ( array_key_exists( $capability, $caps ) && ! $caps[ $capability ] && ! empty( $role->capabilities[ $capability ] ) ) {
+						$managed[ $role_slug ][ $capability ] = true;
+					}
+				}
+			}
+		}
+		return $managed;
 	}
 
 	/** Strictly retain known capabilities and safe role slugs. */
