@@ -13,6 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Registers the Editorial News taxonomy model without exposing public routes before acceptance. */
 final class NewsTaxonomies {
+	const TERM_VERSION_OPTION = 'sabri_feed_phase4_terms_version';
+
 	/** Register read-only runtime taxonomy hooks. Default terms are activation-only. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
@@ -77,6 +79,9 @@ final class NewsTaxonomies {
 		}
 		self::ensure_terms( 'sabri_news_section', Phase4Contracts::sections(), $report );
 		self::ensure_terms( 'sabri_news_type', Phase4Contracts::article_types(), $report );
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::TERM_VERSION_OPTION, Phase4Contracts::TARGET_VERSION . '-' . Phase4Contracts::CHECKPOINT, false );
+		}
 		return $report;
 	}
 
