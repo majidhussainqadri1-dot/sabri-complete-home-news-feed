@@ -114,6 +114,11 @@ final class NewsCapabilities {
 		return self::sanitize_role_map( $map );
 	}
 
+	/** Candidate role slugs for snapshot and rollback. */
+	public static function candidate_role_slugs() {
+		return array_keys( self::default_role_map() );
+	}
+
 	/** Apply capabilities to existing roles without creating or deleting roles. */
 	public static function apply_default_policy() {
 		$mutations = array(
@@ -142,6 +147,34 @@ final class NewsCapabilities {
 			update_option( self::MUTATION_OPTION, $mutations, false );
 		}
 		return $mutations;
+	}
+
+	/** Restore only Phase 4 capabilities from the activation snapshot. */
+	public static function restore_from_snapshot( array $snapshot ) {
+		$report = array( 'roles' => array() );
+		if ( empty( $snapshot['capability_roles'] ) || ! is_array( $snapshot['capability_roles'] ) || ! function_exists( 'get_role' ) ) {
+			return $report;
+		}
+
+		foreach ( $snapshot['capability_roles'] as $role_slug => $caps ) {
+			$role = get_role( $role_slug );
+			if ( ! $role || ! is_array( $caps ) ) {
+				continue;
+			}
+			$report['roles'][ $role_slug ] = array();
+			foreach ( self::capabilities() as $capability ) {
+				$had_cap = ! empty( $caps[ $capability ] );
+				$has_cap = ! empty( $role->capabilities[ $capability ] );
+				if ( $had_cap && ! $has_cap ) {
+					$role->add_cap( $capability );
+					$report['roles'][ $role_slug ][ $capability ] = 'restored';
+				} elseif ( ! $had_cap && $has_cap ) {
+					$role->remove_cap( $capability );
+					$report['roles'][ $role_slug ][ $capability ] = 'removed';
+				}
+			}
+		}
+		return $report;
 	}
 
 	/** Whether a default role receives publishing authority. */
