@@ -7,29 +7,44 @@ on:
       - build/phase-4-editorial-news-1.2.0
   workflow_dispatch:
 
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 concurrency:
-  group: phase4a-content-model-${{ github.event.pull_request.head.ref || github.ref }}
+  group: phase4a-content-model-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   phase4a:
-    name: Contracts, content model, and full regression
+    name: Contracts, security model, WordPress, package, and full regression
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
-      - name: Checkout exact commit
+      - name: Checkout exact head commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
 
-      - name: Show exact commit and runtime
+      - name: Show and verify exact commit and runtime
+        shell: bash
         run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           git rev-parse HEAD
           php -v
           node -v
           pwsh -v
+          git status --short
 
       - name: PHP syntax lint
         run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+
+      - name: JavaScript syntax validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          find assets/js tests -name '*.js' -o -name '*.mjs' | while IFS= read -r file; do node --check "$file"; done
 
       - name: Phase 4 planning contract tests
         run: php tests/run-phase4-contract-tests.php
@@ -37,7 +52,7 @@ jobs:
       - name: Phase 4 document audit
         run: php tests/run-phase4-document-audit.php
 
-      - name: Phase 4A content model tests
+      - name: Phase 4A content model and security tests
         shell: bash
         run: |
           set -o pipefail
@@ -68,24 +83,49 @@ jobs:
           php tests/run-wordpress-option-filter-compatibility-tests.php
           php tests/run-duplicate-plugin-compat-tests.php
 
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Real WordPress Phase 4A permission and activation integration
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+        run: |
+          set -o pipefail
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee phase4a-playground-security.log
+
       - name: Static security and whitespace checks
         shell: pwsh
         run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-      - name: Build unchanged-version staging package
+      - name: Build unchanged-version staging package from a clean release directory
         shell: pwsh
-        run: ./tools/build-release.ps1
+        run: |
+          if (Test-Path release) { Remove-Item release -Recurse -Force }
+          ./tools/build-release.ps1
 
-      - name: Verify Phase 4A files are packaged
+      - name: Verify Phase 4A package structure and checksum
         shell: bash
         run: |
           set -euo pipefail
           zip_file=$(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          sha_file=$(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
           test -n "$zip_file"
+          test -n "$sha_file"
+          expected=$(awk '{print tolower($1)}' "$sha_file")
+          actual=$(sha256sum "$zip_file" | awk '{print $1}')
+          test "$expected" = "$actual"
           python3 - "$zip_file" <<'PY'
           import sys, zipfile
           zip_path = sys.argv[1]
           required = {
+              'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php',
               'sabri-complete-home-news-feed/includes/class-phase4-contracts.php',
               'sabri-complete-home-news-feed/includes/class-news-feature-settings.php',
               'sabri-complete-home-news-feed/includes/class-news-statuses.php',
@@ -98,8 +138,15 @@ jobs:
           missing = sorted(required - names)
           if missing:
               raise SystemExit('Missing Phase 4A package files: ' + ', '.join(missing))
-          print('Phase 4A package structure passed.')
+          print('Phase 4A package structure and checksum passed.')
           PY
+
+      - name: Verify exact commit remained unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
 
       - name: Upload Phase 4A evidence
         if: always()
@@ -110,6 +157,8 @@ jobs:
           path: |
             phase4a-content-model-test.log
             phase2-safe-boot-regression.log
+            phase4a-playground-security.log
+            release/*-PHASE-3-STAGING-CANDIDATE.zip
             release/*-PHASE-3-STAGING-CANDIDATE.sha256
             release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
           if-no-files-found: warn
