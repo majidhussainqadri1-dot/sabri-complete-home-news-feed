@@ -25,15 +25,15 @@ final class NewsStatuses {
 		return Phase4Contracts::editorial_states();
 	}
 
-	/** Return true only for a frozen domain state. */
+	/** Return true only for an exact frozen domain state. */
 	public static function is_valid( $state ) {
-		return in_array( self::sanitize_identifier( $state ), self::states(), true );
+		return '' !== self::strict_identifier( $state ) && in_array( (string) $state, self::states(), true );
 	}
 
-	/** Normalize a state or return an empty value for fail-closed validation. */
+	/** Return an exact state or an empty value for fail-closed validation. */
 	public static function sanitize_state( $state ) {
-		$state = self::sanitize_identifier( $state );
-		return self::is_valid( $state ) ? $state : '';
+		$state = self::strict_identifier( $state );
+		return '' !== $state && in_array( $state, self::states(), true ) ? $state : '';
 	}
 
 	/** Return the compatible WordPress core status for a domain state. */
@@ -52,11 +52,15 @@ final class NewsStatuses {
 		);
 	}
 
-	/** Sanitize an identifier without requiring WordPress in lean tests. */
-	private static function sanitize_identifier( $value ) {
-		if ( function_exists( 'sanitize_key' ) ) {
-			return sanitize_key( $value );
+	/**
+	 * Validate without repairing input into a different accepted identifier.
+	 *
+	 * Whitespace, uppercase aliases, punctuation, arrays, and objects fail closed.
+	 */
+	private static function strict_identifier( $value ) {
+		if ( ! is_string( $value ) || '' === $value || strlen( $value ) > 64 ) {
+			return '';
 		}
-		return strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		return preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $value ) ? $value : '';
 	}
 }
