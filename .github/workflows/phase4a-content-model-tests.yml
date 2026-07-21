@@ -2,11 +2,15 @@ name: Phase 4A Content Model Tests
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
-      - build/phase-4-editorial-news-1.2.0
+      - main
   workflow_dispatch:
 
+# Feature branches are tested by pull_request only. Push runs are reserved for
+# main after merge, preventing duplicate checks and unnecessary Actions usage.
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
