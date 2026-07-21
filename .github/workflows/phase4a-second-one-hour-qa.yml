@@ -19,6 +19,7 @@ on:
       - 'includes/class-snapshot.php'
       - 'includes/class-rollback.php'
       - 'tests/run-phase4a-content-model-tests.php'
+      - 'tests/run-phase4a-playground-tests.mjs'
       - 'tests/run-phase4a-second-one-hour-qa.sh'
       - '.github/workflows/phase4a-content-model-tests.yml'
       - '.github/workflows/phase4a-second-one-hour-qa.yml'
@@ -32,14 +33,14 @@ env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 concurrency:
-  group: phase4a-mandatory-second-one-hour-qa-${{ github.event.pull_request.head.ref || github.ref }}
+  group: phase4a-mandatory-second-one-hour-qa-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   real-playground-before-soak:
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -50,12 +51,13 @@ jobs:
             php: '8.1'
 
     steps:
-      - name: Checkout exact commit
+      - name: Checkout exact head commit
         uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
 
-      - name: Record exact commit
+      - name: Verify exact commit
+        shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
@@ -69,15 +71,17 @@ jobs:
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
-      - name: Run source activation and runtime integration
+      - name: Run source activation, routing, and Phase 4A security integration
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
         run: |
-          set -o pipefail
-          node tests/run-playground-integration-tests.mjs 2>&1 | tee "phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
-          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
+          set -euo pipefail
+          log="phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
+          node tests/run-playground-integration-tests.mjs 2>&1 | tee "$log"
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "$log"
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a "$log"
 
       - name: Upload independent Playground evidence
         if: always()
@@ -95,7 +99,7 @@ jobs:
     timeout-minutes: 180
 
     steps:
-      - name: Checkout exact branch commit
+      - name: Checkout exact head commit
         uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
@@ -138,27 +142,40 @@ jobs:
       - name: Install official WordPress Playground CLI for packaged tests
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
-      - name: Test the packaged candidate on WordPress latest and PHP 8.3
+      - name: Locate immutable packaged candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          test -n "$package"
+          echo "SABRI_PLUGIN_ZIP=$package" >> "$GITHUB_ENV"
+
+      - name: Test packaged Phase 3 and Phase 4A runtime on WordPress latest / PHP 8.3
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: latest
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
           set -euo pipefail
-          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | head -n 1)"
-          test -n "$SABRI_PLUGIN_ZIP"
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
 
-      - name: Test the packaged candidate on WordPress 6.8 and PHP 8.1
+      - name: Test packaged Phase 3 and Phase 4A runtime on WordPress 6.8 / PHP 8.1
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: '6.8'
           SABRI_PLAYGROUND_PHP: '8.1'
         run: |
           set -euo pipefail
-          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | head -n 1)"
-          test -n "$SABRI_PLUGIN_ZIP"
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+
+      - name: Re-verify exact commit after packaged tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
 
       - name: Upload passed second-QA evidence and package
         if: success()
