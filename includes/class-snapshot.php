@@ -20,8 +20,8 @@ final class Snapshot {
 	 * Capture state before settings, schema, taxonomy, or capability mutations.
 	 *
 	 * The first complete baseline for a plugin version remains immutable. A legacy
-	 * same-version snapshot is augmented only for fields that did not previously
-	 * exist; already captured values and capability decisions are never overwritten.
+	 * same-version snapshot is augmented only for fields absent from the old format;
+	 * current Phase 4-mutated options are never rewritten as historical baseline.
 	 */
 	public static function capture_before_mutation( $reason ) {
 		$existing = self::latest();
@@ -35,24 +35,24 @@ final class Snapshot {
 
 		$settings = self::option_value( Settings::OPTION_NAME, array() );
 		$snapshot = array(
-			'format_version'               => self::FORMAT_VERSION,
-			'version'                      => SABRI_HNF_VERSION,
-			'schema_version'               => self::option_value( Migrations::SCHEMA_OPTION_NAME, '' ),
-			'settings'                     => $settings,
-			'phase4_settings'              => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
-			'phase4_contract_version'      => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
-			'phase4_terms_version'         => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
-			'phase4_capability_mutations'  => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
-			'option_exists'                => self::phase4_option_existence(),
-			'capability_roles'             => self::role_cap_snapshot(),
-			'taxonomy_state'               => self::taxonomy_state(),
-			'rewrite_state'                => array(
+			'format_version'              => self::FORMAT_VERSION,
+			'version'                     => SABRI_HNF_VERSION,
+			'schema_version'              => self::option_value( Migrations::SCHEMA_OPTION_NAME, '' ),
+			'settings'                    => $settings,
+			'phase4_settings'             => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
+			'phase4_contract_version'     => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
+			'phase4_terms_version'        => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
+			'phase4_capability_mutations' => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
+			'option_exists'               => self::phase4_option_existence(),
+			'capability_roles'            => self::role_cap_snapshot(),
+			'taxonomy_state'              => self::taxonomy_state(),
+			'rewrite_state'               => array(
 				'permalink_structure' => self::option_value( 'permalink_structure', '' ),
 				'flush_scheduled'     => self::option_value( 'sabri_feed_flush_rewrite_rules', 0 ),
 			),
-			'integration_settings'         => is_array( $settings ) && isset( $settings['integrations'] ) ? $settings['integrations'] : array(),
-			'reason'                       => function_exists( 'sanitize_key' ) ? sanitize_key( $reason ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $reason ) ),
-			'created_at'                   => gmdate( 'Y-m-d H:i:s' ),
+			'integration_settings'        => is_array( $settings ) && isset( $settings['integrations'] ) ? $settings['integrations'] : array(),
+			'reason'                      => function_exists( 'sanitize_key' ) ? sanitize_key( $reason ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $reason ) ),
+			'created_at'                  => gmdate( 'Y-m-d H:i:s' ),
 		);
 
 		if ( function_exists( 'update_option' ) ) {
@@ -101,27 +101,29 @@ final class Snapshot {
 	/** Complete only missing Phase 4 fields in a legacy same-version snapshot. */
 	private static function augment_same_version_snapshot( array $snapshot ) {
 		$changed = false;
-		$values  = array(
-			'phase4_settings'             => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
-			'phase4_contract_version'     => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
-			'phase4_terms_version'        => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
-			'phase4_capability_mutations' => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
+
+		// These option names did not exist in the legacy snapshot format. A missing
+		// field therefore means the baseline was absent, not whatever value exists now.
+		$legacy_defaults = array(
+			'phase4_settings'             => array(),
+			'phase4_contract_version'     => '',
+			'phase4_terms_version'        => '',
+			'phase4_capability_mutations' => array(),
 		);
-		foreach ( $values as $key => $value ) {
+		foreach ( $legacy_defaults as $key => $value ) {
 			if ( ! array_key_exists( $key, $snapshot ) ) {
 				$snapshot[ $key ] = $value;
 				$changed = true;
 			}
 		}
 
-		$exists = self::phase4_option_existence();
 		if ( ! isset( $snapshot['option_exists'] ) || ! is_array( $snapshot['option_exists'] ) ) {
 			$snapshot['option_exists'] = array();
 			$changed = true;
 		}
-		foreach ( $exists as $key => $value ) {
+		foreach ( array_keys( $legacy_defaults ) as $key ) {
 			if ( ! array_key_exists( $key, $snapshot['option_exists'] ) ) {
-				$snapshot['option_exists'][ $key ] = $value;
+				$snapshot['option_exists'][ $key ] = false;
 				$changed = true;
 			}
 		}
@@ -220,9 +222,6 @@ final class Snapshot {
 
 	/** Get an option safely. */
 	private static function option_value( $name, $default ) {
-		if ( function_exists( 'get_option' ) ) {
-			return get_option( $name, $default );
-		}
-		return $default;
+		return function_exists( 'get_option' ) ? get_option( $name, $default ) : $default;
 	}
 }
