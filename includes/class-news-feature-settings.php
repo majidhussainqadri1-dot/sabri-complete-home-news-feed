@@ -70,11 +70,7 @@ final class NewsFeatureSettings {
 		return self::sanitize( is_array( $current ) ? $current : array() );
 	}
 
-	/**
-	 * Sanitize recognized checkboxes only.
-	 *
-	 * Missing checkboxes are stored as disabled and unknown keys are rejected.
-	 */
+	/** Sanitize recognized checkboxes only. */
 	public static function sanitize( $value ) {
 		$value = is_array( $value ) ? $value : array();
 		$clean = array();
@@ -85,9 +81,9 @@ final class NewsFeatureSettings {
 		return $clean;
 	}
 
-	/** Whether a known gate is enabled and not emergency-disabled. */
+	/** Whether a known gate is enabled and all central safety controls are clear. */
 	public static function enabled( $feature ) {
-		if ( class_exists( __NAMESPACE__ . '\\SafeMode' ) && SafeMode::emergency_disabled() ) {
+		if ( class_exists( __NAMESPACE__ . '\\SafeMode' ) && SafeMode::public_features_disabled() ) {
 			return false;
 		}
 		return Phase4Contracts::feature_enabled( $feature, self::get() );
@@ -95,20 +91,28 @@ final class NewsFeatureSettings {
 
 	/** Update gates through the same strict sanitizer. */
 	public static function update( array $value ) {
+		$old   = self::get();
 		$clean = self::sanitize( $value );
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::OPTION_NAME, $clean, false );
 		}
+		self::schedule_rewrite_if_changed( $old, $clean );
 		return $clean;
 	}
 
-	/** Flag rewrite refresh when public routing-related gates change. */
+	/** Flag rewrite refresh when public routing-related gates change externally. */
 	public static function handle_option_update( $option, $old_value, $value ) {
-		if ( self::OPTION_NAME !== $option || self::sanitize( $old_value ) === self::sanitize( $value ) ) {
+		if ( self::OPTION_NAME !== $option ) {
 			return;
 		}
-		if ( function_exists( 'update_option' ) ) {
-			update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
+		self::schedule_rewrite_if_changed( self::sanitize( $old_value ), self::sanitize( $value ) );
+	}
+
+	/** Schedule one non-destructive rewrite refresh when the effective option changes. */
+	private static function schedule_rewrite_if_changed( array $old_value, array $new_value ) {
+		if ( $old_value === $new_value || ! function_exists( 'update_option' ) ) {
+			return;
 		}
+		update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
 	}
 }
