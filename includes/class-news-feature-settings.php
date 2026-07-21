@@ -84,12 +84,17 @@ final class NewsFeatureSettings {
 		return $clean;
 	}
 
-	/** Whether a known gate is enabled and all central safety controls are clear. */
+	/** Whether an exact known gate is enabled and central safety controls are clear. */
 	public static function enabled( $feature ) {
-		if ( class_exists( __NAMESPACE__ . '\SafeMode' ) && SafeMode::public_features_disabled() ) {
+		$flags = self::defaults();
+		if ( ! is_string( $feature ) || ! array_key_exists( $feature, $flags ) ) {
 			return false;
 		}
-		return Phase4Contracts::feature_enabled( $feature, self::get() );
+		if ( class_exists( __NAMESPACE__ . '\\SafeMode' ) && SafeMode::public_features_disabled() ) {
+			return false;
+		}
+		$current = self::get();
+		return isset( $current[ $feature ] ) && 1 === $current[ $feature ];
 	}
 
 	/** Update gates through the same strict sanitizer. */
@@ -111,11 +116,18 @@ final class NewsFeatureSettings {
 		self::schedule_rewrite_if_changed( self::sanitize( $old_value ), self::sanitize( $value ) );
 	}
 
-	/** Schedule one non-destructive rewrite refresh when the effective option changes. */
+	/** Schedule rewrite repair only when a route-producing gate changes. */
 	private static function schedule_rewrite_if_changed( array $old_value, array $new_value ) {
-		if ( $old_value === $new_value || ! function_exists( 'update_option' ) ) {
-			return;
+		$routing_gates = array( 'editorial_news_enabled', 'news_rss_enabled' );
+		foreach ( $routing_gates as $gate ) {
+			$old = isset( $old_value[ $gate ] ) ? (int) $old_value[ $gate ] : 0;
+			$new = isset( $new_value[ $gate ] ) ? (int) $new_value[ $gate ] : 0;
+			if ( $old !== $new ) {
+				if ( function_exists( 'update_option' ) ) {
+					update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
+				}
+				return;
+			}
 		}
-		update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
 	}
 }
