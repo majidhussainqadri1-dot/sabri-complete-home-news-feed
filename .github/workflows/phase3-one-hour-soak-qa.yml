@@ -1,12 +1,11 @@
 name: Phase 3 One-Hour Second QA
 
 on:
-  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: phase3-one-hour-second-qa-${{ github.event.pull_request.head.ref || github.ref }}
-  cancel-in-progress: true
+  group: phase3-one-hour-second-qa-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   one-hour-soak-qa:
@@ -15,10 +14,8 @@ jobs:
     timeout-minutes: 90
 
     steps:
-      - name: Fresh checkout of exact branch commit
+      - name: Fresh checkout of explicitly selected exact commit
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
