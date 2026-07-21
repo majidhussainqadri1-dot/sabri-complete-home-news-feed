@@ -11,9 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Stores Phase 4 gates separately from Phase 2 and Phase 3 options.
- */
+/** Stores Phase 4 gates separately from Phase 2 and Phase 3 options. */
 final class NewsFeatureSettings {
 	const OPTION_NAME = 'sabri_feed_phase4_features';
 
@@ -70,20 +68,25 @@ final class NewsFeatureSettings {
 		return self::sanitize( is_array( $current ) ? $current : array() );
 	}
 
-	/** Sanitize recognized checkboxes only. */
+	/**
+	 * Sanitize recognized checkboxes only.
+	 *
+	 * Only the exact scalar values 1, "1", and true enable a gate. Arrays,
+	 * objects, floats, whitespace-padded values, and numeric prefixes fail closed.
+	 */
 	public static function sanitize( $value ) {
 		$value = is_array( $value ) ? $value : array();
 		$clean = array();
 		foreach ( self::defaults() as $key => $default ) {
 			unset( $default );
-			$clean[ $key ] = isset( $value[ $key ] ) && 1 === (int) $value[ $key ] ? 1 : 0;
+			$clean[ $key ] = array_key_exists( $key, $value ) && in_array( $value[ $key ], array( 1, '1', true ), true ) ? 1 : 0;
 		}
 		return $clean;
 	}
 
 	/** Whether a known gate is enabled and all central safety controls are clear. */
 	public static function enabled( $feature ) {
-		if ( class_exists( __NAMESPACE__ . '\\SafeMode' ) && SafeMode::public_features_disabled() ) {
+		if ( class_exists( __NAMESPACE__ . '\SafeMode' ) && SafeMode::public_features_disabled() ) {
 			return false;
 		}
 		return Phase4Contracts::feature_enabled( $feature, self::get() );
