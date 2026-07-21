@@ -60,6 +60,7 @@ critical_files=(
   "includes/class-snapshot.php"
   "includes/class-rollback.php"
   "tests/run-phase4a-content-model-tests.php"
+  "tests/run-phase4a-security-contract-tests.php"
   "tests/run-phase4a-playground-tests.mjs"
   "tests/run-phase4a-second-one-hour-qa.sh"
   ".github/workflows/phase4a-content-model-tests.yml"
@@ -107,6 +108,7 @@ run_phase3_matrix() {
 
 run_core_suite() {
   php tests/run-phase4-contract-tests.php
+  php tests/run-phase4a-security-contract-tests.php
   php tests/run-phase4-document-audit.php
   php tests/run-phase4a-content-model-tests.php
   php tools/run-tests.php
