@@ -49,6 +49,8 @@ A cycle that fails ends acceptance for that commit. No partial time is retained.
 - `includes/class-snapshot.php`
 - `includes/class-rollback.php`
 - `tests/run-phase4a-content-model-tests.php`
+- `tests/run-phase4a-security-contract-tests.php`
+- `tests/run-phase4a-rollback-edge-tests.php`
 - `tests/run-phase4a-playground-tests.mjs`
 - `tests/run-phase4a-second-one-hour-qa.sh`
 - `.github/workflows/phase4a-content-model-tests.yml`
@@ -65,7 +67,7 @@ Before repeated cycles begin, the workflow must complete:
 3. complete JavaScript syntax validation;
 4. Phase 4 planning contract tests, including Addendum 3;
 5. Phase 4 document audit;
-6. Phase 4A strict-gate, ownership, protected-metadata, assigned-review, taxonomy-upgrade, capability-mutation, snapshot, and rollback tests;
+6. Phase 4A strict-gate, ownership, protected-metadata, assigned-review, taxonomy-upgrade, capability-mutation, post-snapshot-role, snapshot, and exact-option rollback tests;
 7. complete Phase 2 behavior and Safe Boot regression;
 8. all Phase 3 checkpoint and behavioral suites;
 9. public routing, dynamic option-filter, and duplicate-folder regressions;
@@ -78,11 +80,12 @@ Before repeated cycles begin, the workflow must complete:
 Every cycle must run at least:
 
 - Phase 4 planning contracts;
+- Phase 4 security-hardening contracts and rollback edge tests;
 - Phase 4 document audit;
 - Phase 4A content-model and security tests;
 - complete Phase 2 behavior and Safe Boot regression;
 - all Phase 3 PHP regression suites;
-- critical Phase 4A PHP syntax lint;
+- fail-hard critical Phase 4A PHP syntax lint;
 - exact commit check;
 - tracked-file manifest comparison;
 - tracked working-tree check.
