@@ -11,52 +11,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Registers the Editorial News taxonomy model without exposing public routes
- * before the master feature gate is accepted.
- */
+/** Registers the Editorial News taxonomy model without exposing public routes before acceptance. */
 final class NewsTaxonomies {
-	/** Register hooks. */
+	/** Register read-only runtime taxonomy hooks. Default terms are activation-only. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( __CLASS__, 'register_taxonomies' ), 9 );
-			add_action( 'init', array( __CLASS__, 'ensure_default_terms' ), 30 );
 		}
 	}
 
 	/** Return taxonomy definitions. */
 	public static function definitions() {
 		return array(
-			'sabri_news_section' => array(
-				'singular'     => __( 'News Section', 'sabri-complete-home-news-feed' ),
-				'plural'       => __( 'News Sections', 'sabri-complete-home-news-feed' ),
-				'hierarchical' => true,
-				'route'        => 'section',
-			),
-			'sabri_news_topic' => array(
-				'singular'     => __( 'News Topic', 'sabri-complete-home-news-feed' ),
-				'plural'       => __( 'News Topics', 'sabri-complete-home-news-feed' ),
-				'hierarchical' => true,
-				'route'        => 'topic',
-			),
-			'sabri_news_country' => array(
-				'singular'     => __( 'News Country', 'sabri-complete-home-news-feed' ),
-				'plural'       => __( 'News Countries', 'sabri-complete-home-news-feed' ),
-				'hierarchical' => true,
-				'route'        => 'country',
-			),
-			'sabri_news_region' => array(
-				'singular'     => __( 'News Region', 'sabri-complete-home-news-feed' ),
-				'plural'       => __( 'News Regions', 'sabri-complete-home-news-feed' ),
-				'hierarchical' => true,
-				'route'        => 'region',
-			),
-			'sabri_news_type' => array(
-				'singular'     => __( 'News Type', 'sabri-complete-home-news-feed' ),
-				'plural'       => __( 'News Types', 'sabri-complete-home-news-feed' ),
-				'hierarchical' => false,
-				'route'        => 'type',
-			),
+			'sabri_news_section' => array( 'singular' => __( 'News Section', 'sabri-complete-home-news-feed' ), 'plural' => __( 'News Sections', 'sabri-complete-home-news-feed' ), 'hierarchical' => true, 'route' => 'section' ),
+			'sabri_news_topic'   => array( 'singular' => __( 'News Topic', 'sabri-complete-home-news-feed' ), 'plural' => __( 'News Topics', 'sabri-complete-home-news-feed' ), 'hierarchical' => true, 'route' => 'topic' ),
+			'sabri_news_country' => array( 'singular' => __( 'News Country', 'sabri-complete-home-news-feed' ), 'plural' => __( 'News Countries', 'sabri-complete-home-news-feed' ), 'hierarchical' => true, 'route' => 'country' ),
+			'sabri_news_region'  => array( 'singular' => __( 'News Region', 'sabri-complete-home-news-feed' ), 'plural' => __( 'News Regions', 'sabri-complete-home-news-feed' ), 'hierarchical' => true, 'route' => 'region' ),
+			'sabri_news_type'    => array( 'singular' => __( 'News Type', 'sabri-complete-home-news-feed' ), 'plural' => __( 'News Types', 'sabri-complete-home-news-feed' ), 'hierarchical' => false, 'route' => 'type' ),
 		);
 	}
 
@@ -98,7 +69,7 @@ final class NewsTaxonomies {
 		}
 	}
 
-	/** Ensure frozen section and article-type terms exist additively. */
+	/** Ensure frozen section and article-type terms exist additively during activation/migration only. */
 	public static function ensure_default_terms() {
 		$report = array( 'created' => array(), 'skipped' => array() );
 		if ( ! function_exists( 'term_exists' ) || ! function_exists( 'wp_insert_term' ) ) {
