@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - build/phase-4-editorial-news-1.2.0
-    paths:
+    paths: &phase4a_paths
       - 'MANDATORY-SECOND-QA-POLICY.md'
       - 'PHASE-4A-SECOND-QA-PROTOCOL.md'
       - 'PHASE-4-*.md'
@@ -22,10 +22,17 @@ on:
       - 'tests/run-phase4a-second-one-hour-qa.sh'
       - '.github/workflows/phase4a-content-model-tests.yml'
       - '.github/workflows/phase4a-second-one-hour-qa.yml'
+  pull_request:
+    branches:
+      - main
+    paths: *phase4a_paths
   workflow_dispatch:
 
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
 concurrency:
-  group: phase4a-mandatory-second-one-hour-qa-${{ github.ref }}
+  group: phase4a-mandatory-second-one-hour-qa-${{ github.event.pull_request.head.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -46,12 +53,12 @@ jobs:
       - name: Checkout exact commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.TEST_SHA }}
 
       - name: Record exact commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           git status --short
 
       - name: Use Node.js 22
@@ -91,14 +98,14 @@ jobs:
       - name: Checkout exact branch commit
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
 
       - name: Show exact commit and runtimes
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           git rev-parse HEAD
           php -v
           node -v
@@ -117,7 +124,7 @@ jobs:
           test "$status" = "passed"
           test "$duration_seconds" -ge 3900
           test "$cycles_required" -eq 13
-          test "$head_sha" = "${GITHUB_SHA}"
+          test "$head_sha" = "${TEST_SHA}"
           test "$head_sha" = "$(git rev-parse HEAD)"
           test -n "$tracked_manifest_sha256"
           test "$tracked_manifest_sha256" = "$(sha256sum phase4a-second-one-hour-qa/initial-tracked-files.sha256 | awk '{print $1}')"
