@@ -1,9 +1,9 @@
 name: Phase 4A Mandatory Second One-Hour QA
 
 on:
-  push:
+  pull_request:
     branches:
-      - build/phase-4-editorial-news-1.2.0
+      - main
     paths: &phase4a_paths
       - 'MANDATORY-SECOND-QA-POLICY.md'
       - 'PHASE-4A-SECOND-QA-PROTOCOL.md'
@@ -25,12 +25,11 @@ on:
       - 'tests/run-phase4a-second-one-hour-qa.sh'
       - '.github/workflows/phase4a-content-model-tests.yml'
       - '.github/workflows/phase4a-second-one-hour-qa.yml'
-  pull_request:
-    branches:
-      - main
-    paths: *phase4a_paths
   workflow_dispatch:
 
+# The mandatory long QA is intentionally not triggered by branch push. An open
+# pull request already receives a synchronize event, and workflow_dispatch is
+# retained for an explicit exact-commit rerun.
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
