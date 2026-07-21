@@ -11,24 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Restores plugin-owned settings and capabilities only.
- */
+/** Restores plugin-owned settings, option identities, and capabilities only. */
 final class Rollback {
 	/** Data boundaries that rollback must preserve. */
 	public static function preserved_boundaries() {
 		return array(
-			'posts',
-			'pages',
-			'users',
-			'comments',
-			'media',
-			'messages',
-			'appointments',
-			'doctors',
-			'clinics',
-			'marketplace data',
-			'companion-plugin data',
+			'posts', 'pages', 'users', 'comments', 'media', 'messages', 'appointments',
+			'doctors', 'clinics', 'marketplace data', 'companion-plugin data',
 			'Editorial News content and metadata',
 		);
 	}
@@ -39,13 +28,17 @@ final class Rollback {
 		return array(
 			'available'           => ! empty( $snapshot ),
 			'snapshot_created_at' => isset( $snapshot['created_at'] ) ? $snapshot['created_at'] : '',
-			'will_restore'        => array( 'plugin settings', 'Phase 4 feature settings', 'schema version option', 'plugin capability assignments', 'rewrite refresh flag' ),
+			'will_restore'        => array(
+				'plugin settings', 'Phase 4 feature settings', 'schema version option',
+				'Phase 4 contract and term version options', 'Phase 4 capability mutation record',
+				'plugin capability assignments', 'rewrite refresh flag',
+			),
 			'will_not_delete'     => self::preserved_boundaries(),
 			'destructive'         => false,
 		);
 	}
 
-	/** Execute rollback from the activation snapshot. */
+	/** Execute rollback from the immutable activation snapshot. */
 	public static function execute() {
 		$snapshot = Snapshot::latest();
 		$report   = array(
@@ -72,9 +65,24 @@ final class Rollback {
 			$report['steps'][] = 'Restored Phase 4 feature settings.';
 		}
 
-		if ( function_exists( 'update_option' ) && isset( $snapshot['schema_version'] ) ) {
+		if ( function_exists( 'update_option' ) && array_key_exists( 'schema_version', $snapshot ) ) {
 			update_option( Migrations::SCHEMA_OPTION_NAME, $snapshot['schema_version'], false );
 			$report['steps'][] = 'Restored schema version option.';
+		}
+
+		if ( function_exists( 'update_option' ) && array_key_exists( 'phase4_contract_version', $snapshot ) ) {
+			update_option( 'sabri_feed_phase4_contract_version', (string) $snapshot['phase4_contract_version'], false );
+			$report['steps'][] = 'Restored Phase 4 contract version option.';
+		}
+
+		if ( function_exists( 'update_option' ) && array_key_exists( 'phase4_terms_version', $snapshot ) ) {
+			update_option( NewsTaxonomies::TERM_VERSION_OPTION, (string) $snapshot['phase4_terms_version'], false );
+			$report['steps'][] = 'Restored Phase 4 terms version option.';
+		}
+
+		if ( function_exists( 'update_option' ) && array_key_exists( 'phase4_capability_mutations', $snapshot ) ) {
+			update_option( NewsCapabilities::MUTATION_OPTION, is_array( $snapshot['phase4_capability_mutations'] ) ? $snapshot['phase4_capability_mutations'] : array(), false );
+			$report['steps'][] = 'Restored Phase 4 capability mutation record.';
 		}
 
 		$report['capabilities']        = Capabilities::restore_from_snapshot( $snapshot );
