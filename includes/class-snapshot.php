@@ -11,42 +11,48 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Captures non-destructive state before plugin mutations.
- */
+/** Captures non-destructive state before plugin mutations. */
 final class Snapshot {
 	const OPTION_NAME = 'sabri_feed_activation_snapshot';
+	const FORMAT_VERSION = 2;
 
 	/**
-	 * Capture a snapshot before settings, schema, taxonomy, or capability mutations.
+	 * Capture state before settings, schema, taxonomy, or capability mutations.
 	 *
-	 * The first baseline for a plugin version is immutable across deactivation and
-	 * reactivation. A later promoted plugin version receives a new baseline.
+	 * The first complete baseline for a plugin version remains immutable. A legacy
+	 * same-version snapshot is augmented only for fields that did not previously
+	 * exist; already captured values and capability decisions are never overwritten.
 	 */
 	public static function capture_before_mutation( $reason ) {
 		$existing = self::latest();
 		if ( ! empty( $existing ) && isset( $existing['version'] ) && SABRI_HNF_VERSION === $existing['version'] ) {
-			return $existing;
+			$augmented = self::augment_same_version_snapshot( $existing );
+			if ( $augmented !== $existing && function_exists( 'update_option' ) ) {
+				update_option( self::OPTION_NAME, $augmented, false );
+			}
+			return $augmented;
 		}
 
 		$settings = self::option_value( Settings::OPTION_NAME, array() );
 		$snapshot = array(
-			'version'                       => SABRI_HNF_VERSION,
-			'schema_version'                => self::option_value( Migrations::SCHEMA_OPTION_NAME, '' ),
-			'settings'                      => $settings,
-			'phase4_settings'               => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
-			'phase4_contract_version'       => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
-			'phase4_terms_version'          => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
-			'phase4_capability_mutations'   => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
-			'capability_roles'              => self::role_cap_snapshot(),
-			'taxonomy_state'                => self::taxonomy_state(),
-			'rewrite_state'                 => array(
+			'format_version'               => self::FORMAT_VERSION,
+			'version'                      => SABRI_HNF_VERSION,
+			'schema_version'               => self::option_value( Migrations::SCHEMA_OPTION_NAME, '' ),
+			'settings'                     => $settings,
+			'phase4_settings'              => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
+			'phase4_contract_version'      => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
+			'phase4_terms_version'         => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
+			'phase4_capability_mutations'  => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
+			'option_exists'                => self::phase4_option_existence(),
+			'capability_roles'             => self::role_cap_snapshot(),
+			'taxonomy_state'               => self::taxonomy_state(),
+			'rewrite_state'                => array(
 				'permalink_structure' => self::option_value( 'permalink_structure', '' ),
 				'flush_scheduled'     => self::option_value( 'sabri_feed_flush_rewrite_rules', 0 ),
 			),
-			'integration_settings'          => is_array( $settings ) && isset( $settings['integrations'] ) ? $settings['integrations'] : array(),
-			'reason'                        => function_exists( 'sanitize_key' ) ? sanitize_key( $reason ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $reason ) ),
-			'created_at'                    => gmdate( 'Y-m-d H:i:s' ),
+			'integration_settings'         => is_array( $settings ) && isset( $settings['integrations'] ) ? $settings['integrations'] : array(),
+			'reason'                       => function_exists( 'sanitize_key' ) ? sanitize_key( $reason ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $reason ) ),
+			'created_at'                   => gmdate( 'Y-m-d H:i:s' ),
 		);
 
 		if ( function_exists( 'update_option' ) ) {
@@ -92,6 +98,108 @@ final class Snapshot {
 		return $out;
 	}
 
+	/** Complete only missing Phase 4 fields in a legacy same-version snapshot. */
+	private static function augment_same_version_snapshot( array $snapshot ) {
+		$changed = false;
+		$values  = array(
+			'phase4_settings'             => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
+			'phase4_contract_version'     => self::option_value( 'sabri_feed_phase4_contract_version', '' ),
+			'phase4_terms_version'        => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
+			'phase4_capability_mutations' => self::option_value( NewsCapabilities::MUTATION_OPTION, array() ),
+		);
+		foreach ( $values as $key => $value ) {
+			if ( ! array_key_exists( $key, $snapshot ) ) {
+				$snapshot[ $key ] = $value;
+				$changed = true;
+			}
+		}
+
+		$exists = self::phase4_option_existence();
+		if ( ! isset( $snapshot['option_exists'] ) || ! is_array( $snapshot['option_exists'] ) ) {
+			$snapshot['option_exists'] = array();
+			$changed = true;
+		}
+		foreach ( $exists as $key => $value ) {
+			if ( ! array_key_exists( $key, $snapshot['option_exists'] ) ) {
+				$snapshot['option_exists'][ $key ] = $value;
+				$changed = true;
+			}
+		}
+
+		if ( ! isset( $snapshot['capability_roles'] ) || ! is_array( $snapshot['capability_roles'] ) ) {
+			$snapshot['capability_roles'] = array();
+			$changed = true;
+		}
+		$current_caps = self::role_cap_snapshot();
+		$managed_caps = self::recorded_phase4_managed_caps();
+		foreach ( $current_caps as $role_slug => $caps ) {
+			if ( ! isset( $snapshot['capability_roles'][ $role_slug ] ) || ! is_array( $snapshot['capability_roles'][ $role_slug ] ) ) {
+				$snapshot['capability_roles'][ $role_slug ] = array();
+				$changed = true;
+			}
+			foreach ( NewsCapabilities::capabilities() as $capability ) {
+				if ( array_key_exists( $capability, $snapshot['capability_roles'][ $role_slug ] ) ) {
+					continue;
+				}
+				$baseline = ! empty( $caps[ $capability ] );
+				if ( ! empty( $managed_caps[ $role_slug ][ $capability ] ) ) {
+					$baseline = false;
+				}
+				$snapshot['capability_roles'][ $role_slug ][ $capability ] = $baseline;
+				$changed = true;
+			}
+		}
+
+		if ( ! isset( $snapshot['taxonomy_state'] ) || ! is_array( $snapshot['taxonomy_state'] ) ) {
+			$snapshot['taxonomy_state'] = array();
+			$changed = true;
+		}
+		foreach ( self::taxonomy_state() as $key => $value ) {
+			if ( ! array_key_exists( $key, $snapshot['taxonomy_state'] ) ) {
+				$snapshot['taxonomy_state'][ $key ] = $value;
+				$changed = true;
+			}
+		}
+
+		if ( ! isset( $snapshot['format_version'] ) || self::FORMAT_VERSION !== (int) $snapshot['format_version'] ) {
+			$snapshot['format_version'] = self::FORMAT_VERSION;
+			$changed = true;
+		}
+		if ( $changed ) {
+			$snapshot['augmented_at'] = gmdate( 'Y-m-d H:i:s' );
+		}
+		return $snapshot;
+	}
+
+	/** Read the explicit plugin-managed capability record without inference. */
+	private static function recorded_phase4_managed_caps() {
+		$record  = self::option_value( NewsCapabilities::MUTATION_OPTION, array() );
+		$managed = array();
+		if ( is_array( $record ) && ! empty( $record['managed_caps'] ) && is_array( $record['managed_caps'] ) ) {
+			return $record['managed_caps'];
+		}
+		if ( is_array( $record ) && ! empty( $record['roles'] ) && is_array( $record['roles'] ) ) {
+			foreach ( $record['roles'] as $role_slug => $actions ) {
+				foreach ( is_array( $actions ) ? $actions : array() as $capability => $action ) {
+					if ( 'added' === $action ) {
+						$managed[ $role_slug ][ $capability ] = true;
+					}
+				}
+			}
+		}
+		return $managed;
+	}
+
+	/** Record whether Phase 4-owned options existed before mutation. */
+	private static function phase4_option_existence() {
+		return array(
+			'phase4_settings'             => self::option_exists( NewsFeatureSettings::OPTION_NAME ),
+			'phase4_contract_version'     => self::option_exists( 'sabri_feed_phase4_contract_version' ),
+			'phase4_terms_version'        => self::option_exists( NewsTaxonomies::TERM_VERSION_OPTION ),
+			'phase4_capability_mutations' => self::option_exists( NewsCapabilities::MUTATION_OPTION ),
+		);
+	}
+
 	/** Snapshot taxonomy version and expected default term identities. */
 	private static function taxonomy_state() {
 		return array(
@@ -103,6 +211,11 @@ final class Snapshot {
 			'version'                      => self::option_value( 'sabri_feed_taxonomy_version', '' ),
 			'phase4_terms_version'         => self::option_value( NewsTaxonomies::TERM_VERSION_OPTION, '' ),
 		);
+	}
+
+	/** Determine option existence without confusing a stored false value with absence. */
+	private static function option_exists( $name ) {
+		return function_exists( 'get_option' ) && null !== get_option( $name, null );
 	}
 
 	/** Get an option safely. */
