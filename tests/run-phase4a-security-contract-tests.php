@@ -28,6 +28,7 @@ $required_files = array(
 	'PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md',
 	'MANDATORY-SECOND-QA-POLICY.md',
 	'PHASE-4A-SECOND-QA-PROTOCOL.md',
+	'tests/run-phase4a-rollback-edge-tests.php',
 	'tests/run-phase4a-playground-tests.mjs',
 	'tests/run-phase4a-second-one-hour-qa.sh',
 	'.github/workflows/phase4a-content-model-tests.yml',
@@ -46,13 +47,9 @@ foreach ( $required_files as $file ) {
 
 $addendum = isset( $contents['PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md'] ) ? $contents['PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md'] : '';
 foreach ( array(
-	'frozen lowercase values exactly',
-	'object-policy service',
-	'Unknown meta keys fail closed',
-	'cannot self-assign',
-	'term-version and Phase 4 contract-version markers advance together',
-	'value and existence',
-	'3,900-second second QA',
+	'frozen lowercase values exactly', 'object-policy service', 'Unknown meta keys fail closed',
+	'cannot self-assign', 'term-version and Phase 4 contract-version markers advance together',
+	'value and existence', '3,900-second second QA',
 ) as $phrase ) {
 	sabri_phase4a_security_assert( false !== strpos( $addendum, $phrase ), 'Missing security addendum invariant: ' . $phrase );
 }
@@ -92,10 +89,8 @@ sabri_phase4a_security_assert( 0 === NewsFeatureSettings::sanitize( array( 'edit
 $protocol = isset( $contents['PHASE-4A-SECOND-QA-PROTOCOL.md'] ) ? $contents['PHASE-4A-SECOND-QA-PROTOCOL.md'] : '';
 foreach ( array(
 	'PHASE-4-CONTRACTS-ADDENDUM-3-SECURITY-HARDENING.md',
-	'tests/run-phase4a-playground-tests.mjs',
-	'packaged Phase 4A security test',
-	'Minimum elapsed duration: `3900` seconds.',
-	'Required repeated cycles: `13`.',
+	'tests/run-phase4a-playground-tests.mjs', 'packaged Phase 4A security test',
+	'Minimum elapsed duration: `3900` seconds.', 'Required repeated cycles: `13`.',
 ) as $phrase ) {
 	sabri_phase4a_security_assert( false !== strpos( $protocol, $phrase ), 'Second-QA protocol missing security requirement: ' . $phrase );
 }
@@ -105,6 +100,12 @@ sabri_phase4a_security_assert( false !== strpos( $workflow, 'node tests/run-phas
 sabri_phase4a_security_assert( false !== strpos( $workflow, 'SABRI_PLUGIN_ZIP' ), 'Second-QA workflow does not bind the packaged security test.' );
 sabri_phase4a_security_assert( false !== strpos( $workflow, 'github.ref_name' ), 'Second-QA concurrency is not normalized to the branch name.' );
 
+$edge_output = array();
+$edge_status = 1;
+$edge_command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/run-phase4a-rollback-edge-tests.php' );
+exec( $edge_command . ' 2>&1', $edge_output, $edge_status );
+sabri_phase4a_security_assert( 0 === $edge_status, 'Post-snapshot role rollback edge test failed: ' . implode( ' | ', $edge_output ) );
+
 if ( $failures ) {
 	echo "FAILED\n";
 	foreach ( $failures as $failure ) {
@@ -113,4 +114,4 @@ if ( $failures ) {
 	exit( 1 );
 }
 
-echo "OK - Phase 4A security-hardening contracts, exact identifiers, scoped roles, protected metadata, rollback format, and second-QA bindings passed.\n";
+echo "OK - Phase 4A security-hardening contracts, exact identifiers, scoped roles, protected metadata, rollback edges, and second-QA bindings passed.\n";
