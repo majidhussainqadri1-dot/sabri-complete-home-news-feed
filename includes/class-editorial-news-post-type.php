@@ -51,7 +51,7 @@ final class EditorialNewsPostType {
 			'hierarchical'        => false,
 			'menu_icon'           => 'dashicons-media-document',
 			'supports'            => array( 'title', 'editor', 'author', 'thumbnail', 'excerpt', 'revisions' ),
-			'map_meta_cap'        => false,
+			'map_meta_cap'        => true,
 			'capabilities'        => self::capability_map(),
 			'delete_with_user'    => false,
 		);
@@ -89,9 +89,7 @@ final class EditorialNewsPostType {
 		if ( ! function_exists( 'register_post_meta' ) ) {
 			return;
 		}
-
-		$definitions = self::meta_definitions();
-		foreach ( $definitions as $key => $definition ) {
+		foreach ( self::meta_definitions() as $key => $definition ) {
 			register_post_meta(
 				Phase4Contracts::POST_TYPE,
 				$key,
@@ -129,17 +127,42 @@ final class EditorialNewsPostType {
 		);
 	}
 
-	/** Authorize metadata edits through the current session only. */
+	/** Authorize metadata edits against the actual article and current session. */
 	public static function meta_auth_callback( $allowed = false, $meta_key = '', $post_id = 0, $user_id = 0 ) {
-		unset( $allowed, $meta_key, $post_id, $user_id );
-		return function_exists( 'current_user_can' ) && ( current_user_can( 'edit_own_editorial_news' ) || current_user_can( 'edit_others_editorial_news' ) );
+		unset( $allowed, $meta_key );
+		if ( ! function_exists( 'get_post' ) || ! function_exists( 'get_current_user_id' ) || ! function_exists( 'current_user_can' ) ) {
+			return false;
+		}
+		$post = get_post( (int) $post_id );
+		if ( ! $post || Phase4Contracts::POST_TYPE !== $post->post_type ) {
+			return false;
+		}
+		$current_user_id = (int) get_current_user_id();
+		if ( $current_user_id <= 0 || ( (int) $user_id > 0 && (int) $user_id !== $current_user_id ) ) {
+			return false;
+		}
+		$is_owner = (int) $post->post_author === $current_user_id;
+		if ( $is_owner ) {
+			if ( ! current_user_can( 'edit_own_editorial_news' ) ) {
+				return false;
+			}
+		} elseif ( ! current_user_can( 'edit_others_editorial_news' ) ) {
+			return false;
+		}
+		$status = function_exists( 'get_post_status' ) ? get_post_status( $post_id ) : ( isset( $post->post_status ) ? $post->post_status : '' );
+		if ( 'publish' === $status && ! current_user_can( 'manage_news_corrections' ) ) {
+			return false;
+		}
+		if ( 'future' === $status && ! current_user_can( 'schedule_editorial_news' ) ) {
+			return false;
+		}
+		if ( 'private' === $status && ! current_user_can( 'review_editorial_news' ) ) {
+			return false;
+		}
+		return true;
 	}
 
-	/**
-	 * Validate a bounded BCP-47-style language tag without repairing unsafe input.
-	 *
-	 * Invalid input fails closed to the initial American English language.
-	 */
+	/** Validate a bounded BCP-47-style language tag without repairing unsafe input. */
 	public static function sanitize_language( $value ) {
 		$value = (string) $value;
 		if ( '' === $value || strlen( $value ) > 20 || ! preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $value ) ) {
