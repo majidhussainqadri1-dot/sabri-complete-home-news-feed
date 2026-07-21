@@ -11,9 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Applies narrow editorial capabilities to existing roles only.
- */
+/** Applies narrow editorial capabilities to existing roles only. */
 final class NewsCapabilities {
 	const MUTATION_OPTION = 'sabri_feed_phase4_capability_mutations';
 
@@ -52,7 +50,13 @@ final class NewsCapabilities {
 		);
 	}
 
-	/** Default role map using existing role slugs only. */
+	/**
+	 * Default role map using existing role slugs only.
+	 *
+	 * Contract entries marked own-object or assigned-section are deliberately not
+	 * represented by a global primitive capability at Phase 4A. They remain closed
+	 * until the corresponding object/section policy service is implemented and tested.
+	 */
 	public static function default_role_map() {
 		$all = self::capabilities();
 		$map = array(
@@ -78,17 +82,14 @@ final class NewsCapabilities {
 				'manage_news_corrections', 'translate_editorial_news', 'manage_news_taxonomies',
 			),
 			'section_editor'      => array(
-				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
-				'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
-				'manage_news_sources', 'manage_news_corrections', 'translate_editorial_news',
+				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news',
 			),
 			'medical_reviewer'    => array(
 				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news',
-				'submit_editorial_news', 'medical_review_editorial_news', 'manage_news_sources',
+				'submit_editorial_news', 'medical_review_editorial_news',
 			),
 			'reporter'            => array(
-				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news',
-				'submit_editorial_news', 'manage_news_sources',
+				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news',
 			),
 			'verified_doctor'     => array( 'read_editorial_news', 'submit_editorial_news' ),
 			'translator'          => array(
@@ -178,6 +179,9 @@ final class NewsCapabilities {
 			}
 			$report['roles'][ $role_slug ] = array();
 			foreach ( self::capabilities() as $capability ) {
+				if ( ! array_key_exists( $capability, $caps ) ) {
+					continue;
+				}
 				$had_cap = ! empty( $caps[ $capability ] );
 				$has_cap = ! empty( $role->capabilities[ $capability ] );
 				if ( $had_cap && ! $has_cap ) {
@@ -212,7 +216,7 @@ final class NewsCapabilities {
 		return $allcaps;
 	}
 
-	/** Recover plugin-owned capability history from current and legacy records. */
+	/** Recover only capability history explicitly recorded as plugin-managed. */
 	private static function previously_managed_caps() {
 		$managed  = array();
 		$previous = function_exists( 'get_option' ) ? get_option( self::MUTATION_OPTION, array() ) : array();
@@ -222,21 +226,6 @@ final class NewsCapabilities {
 			foreach ( $previous['roles'] as $role_slug => $actions ) {
 				foreach ( is_array( $actions ) ? $actions : array() as $capability => $action ) {
 					if ( 'added' === $action ) {
-						$managed[ $role_slug ][ $capability ] = true;
-					}
-				}
-			}
-		}
-
-		$snapshot = class_exists( __NAMESPACE__ . '\\Snapshot' ) ? Snapshot::latest() : array();
-		if ( ! empty( $snapshot['capability_roles'] ) && is_array( $snapshot['capability_roles'] ) && function_exists( 'get_role' ) ) {
-			foreach ( $snapshot['capability_roles'] as $role_slug => $caps ) {
-				$role = get_role( $role_slug );
-				if ( ! $role || ! is_array( $caps ) ) {
-					continue;
-				}
-				foreach ( self::capabilities() as $capability ) {
-					if ( array_key_exists( $capability, $caps ) && ! $caps[ $capability ] && ! empty( $role->capabilities[ $capability ] ) ) {
 						$managed[ $role_slug ][ $capability ] = true;
 					}
 				}
