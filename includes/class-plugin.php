@@ -38,6 +38,11 @@ final class Plugin {
 		$modules = array(
 			Settings::class,
 			Phase3FeatureSettings::class,
+			NewsFeatureSettings::class,
+			NewsCapabilities::class,
+			NewsStatuses::class,
+			EditorialNewsPostType::class,
+			NewsTaxonomies::class,
 			PollComposerIntegration::class,
 			Capabilities::class,
 			PostTypes::class,
