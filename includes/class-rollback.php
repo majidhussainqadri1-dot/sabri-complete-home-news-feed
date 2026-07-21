@@ -48,11 +48,14 @@ final class Rollback {
 			'preserved'       => self::preserved_boundaries(),
 			'steps'           => array(),
 		);
-
 		if ( empty( $snapshot ) ) {
 			$report['steps'][] = 'No snapshot available.';
 			return $report;
 		}
+
+		// Preserve current mutation evidence before any option restoration. This is
+		// required to remove plugin-added capabilities from roles absent at baseline.
+		$current_phase4_managed = NewsCapabilities::previously_managed_caps();
 
 		if ( function_exists( 'update_option' ) && array_key_exists( 'settings', $snapshot ) ) {
 			update_option( Settings::OPTION_NAME, is_array( $snapshot['settings'] ) ? $snapshot['settings'] : array(), false );
@@ -81,7 +84,6 @@ final class Rollback {
 			$report,
 			'Phase 4 contract version option'
 		);
-
 		self::restore_option(
 			NewsTaxonomies::TERM_VERSION_OPTION,
 			'phase4_terms_version',
@@ -91,6 +93,12 @@ final class Rollback {
 			'Phase 4 terms version option'
 		);
 
+		$report['capabilities']        = Capabilities::restore_from_snapshot( $snapshot );
+		$report['phase4_capabilities'] = NewsCapabilities::restore_from_snapshot( $snapshot, $current_phase4_managed );
+		$report['steps'][]             = 'Restored Phase 2, Phase 3, and Phase 4 capability assignments from snapshot.';
+
+		// Restore the mutation record only after it has been used to remove all
+		// capabilities owned by the current plugin state.
 		self::restore_option(
 			NewsCapabilities::MUTATION_OPTION,
 			'phase4_capability_mutations',
@@ -99,10 +107,6 @@ final class Rollback {
 			$report,
 			'Phase 4 capability mutation record'
 		);
-
-		$report['capabilities']        = Capabilities::restore_from_snapshot( $snapshot );
-		$report['phase4_capabilities'] = NewsCapabilities::restore_from_snapshot( $snapshot );
-		$report['steps'][]             = 'Restored Phase 2, Phase 3, and Phase 4 capability assignments from snapshot.';
 
 		if ( function_exists( 'update_option' ) ) {
 			update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
@@ -118,7 +122,6 @@ final class Rollback {
 		$exists_map = isset( $snapshot['option_exists'] ) && is_array( $snapshot['option_exists'] ) ? $snapshot['option_exists'] : array();
 		$has_exact_existence = array_key_exists( $snapshot_key, $exists_map );
 		$should_exist = $has_exact_existence ? ! empty( $exists_map[ $snapshot_key ] ) : array_key_exists( $snapshot_key, $snapshot );
-
 		if ( ! $should_exist && function_exists( 'delete_option' ) ) {
 			delete_option( $option_name );
 			$report['steps'][] = 'Removed ' . $label . ' because it did not exist at baseline.';
