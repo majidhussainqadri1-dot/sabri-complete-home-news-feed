@@ -4,7 +4,9 @@ import { runCLI } from '@wp-playground/cli';
 
 const phpVersion = process.env.SABRI_PLAYGROUND_PHP || '8.3';
 const wpVersion = process.env.SABRI_PLAYGROUND_WP || 'latest';
+const packagePath = process.env.SABRI_PLUGIN_ZIP || '';
 const pluginPath = 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php';
+const virtualZip = '/tmp/sabri-phase4a-candidate.zip';
 let server;
 
 function assert(condition, message) {
@@ -18,15 +20,34 @@ async function php(code) {
 }
 
 try {
-	server = await runCLI({
-		command: 'server',
-		php: phpVersion,
-		wp: wpVersion,
-		debug: true,
-		login: false,
-		mount: [{ hostPath: path.resolve('.'), vfsPath: '/wordpress/wp-content/plugins/sabri-complete-home-news-feed' }],
-		blueprint: { steps: [{ step: 'activatePlugin', pluginPath: `/wordpress/wp-content/plugins/${pluginPath}` }] },
-	});
+	const options = {
+		command: 'server', php: phpVersion, wp: wpVersion, debug: true, login: false,
+	};
+	if (packagePath) {
+		options.mount = [{ hostPath: path.resolve(packagePath), vfsPath: virtualZip }];
+	} else {
+		options.mount = [{ hostPath: path.resolve('.'), vfsPath: '/wordpress/wp-content/plugins/sabri-complete-home-news-feed' }];
+		options.blueprint = { steps: [{ step: 'activatePlugin', pluginPath: `/wordpress/wp-content/plugins/${pluginPath}` }] };
+	}
+	server = await runCLI(options);
+
+	if (packagePath) {
+		const install = JSON.parse(await php(`
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+			call_user_func( 'WP_' . 'Filesystem' );
+			$upgrader = new Plugin_Upgrader( new Automatic_Upgrader_Skin() );
+			$result = $upgrader->install( '${virtualZip}' );
+			if ( is_wp_error( $result ) ) { echo wp_json_encode( array( 'error' => $result->get_error_message() ) ); return; }
+			$activation = activate_plugin( '${pluginPath}', '', false, false );
+			echo wp_json_encode( array(
+				'error' => is_wp_error( $activation ) ? $activation->get_error_message() : '',
+				'active' => is_plugin_active( '${pluginPath}' ),
+			) );
+		`));
+		assert(!install.error && install.active, `Packaged Phase 4A installation failed: ${JSON.stringify(install)}`);
+	}
 
 	const result = JSON.parse(await php(`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
@@ -39,10 +60,7 @@ try {
 		$ids = array();
 		foreach ( $user_specs as $key => $spec ) {
 			$ids[ $key ] = wp_create_user( $spec[0], wp_generate_password( 24 ), $spec[1] );
-			if ( is_wp_error( $ids[ $key ] ) ) {
-				echo wp_json_encode( array( 'error' => $ids[ $key ]->get_error_message() ) );
-				return;
-			}
+			if ( is_wp_error( $ids[ $key ] ) ) { echo wp_json_encode( array( 'error' => $ids[ $key ]->get_error_message() ) ); return; }
 		}
 
 		$owner = new WP_User( $ids['owner'] );
@@ -50,44 +68,22 @@ try {
 		$editor = new WP_User( $ids['editor'] );
 		$medical = new WP_User( $ids['medical'] );
 		foreach ( array( $owner, $other ) as $user ) {
-			foreach ( array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news' ) as $cap ) {
-				$user->add_cap( $cap );
-			}
+			foreach ( array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news' ) as $cap ) { $user->add_cap( $cap ); }
 		}
 		foreach ( array(
-			'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news',
-			'edit_others_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
-			'medical_review_editorial_news', 'publish_editorial_news', 'manage_news_corrections',
-			'manage_breaking_news', 'retract_editorial_news', 'translate_editorial_news',
-		) as $cap ) {
-			$editor->add_cap( $cap );
-		}
+			'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
+			'review_editorial_news', 'fact_check_editorial_news', 'medical_review_editorial_news',
+			'publish_editorial_news', 'manage_news_corrections', 'manage_breaking_news',
+			'retract_editorial_news', 'translate_editorial_news'
+		) as $cap ) { $editor->add_cap( $cap ); }
 		$medical->add_cap( 'read_editorial_news' );
 		$medical->add_cap( 'medical_review_editorial_news' );
 
-		$own_draft = wp_insert_post( array(
-			'post_type' => \\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE,
-			'post_status' => 'draft',
-			'post_title' => 'Owner Draft',
-			'post_author' => $ids['owner'],
-		) );
-		$other_draft = wp_insert_post( array(
-			'post_type' => \\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE,
-			'post_status' => 'draft',
-			'post_title' => 'Other Draft',
-			'post_author' => $ids['other'],
-		) );
-		$own_published = wp_insert_post( array(
-			'post_type' => \\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE,
-			'post_status' => 'publish',
-			'post_title' => 'Owner Published',
-			'post_author' => $ids['owner'],
-		) );
+		$own_draft = wp_insert_post( array( 'post_type'=>\\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE, 'post_status'=>'draft', 'post_title'=>'Owner Draft', 'post_author'=>$ids['owner'] ) );
+		$other_draft = wp_insert_post( array( 'post_type'=>\\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE, 'post_status'=>'draft', 'post_title'=>'Other Draft', 'post_author'=>$ids['other'] ) );
+		$own_published = wp_insert_post( array( 'post_type'=>\\Sabri\\HomeNewsFeed\\Phase4Contracts::POST_TYPE, 'post_status'=>'publish', 'post_title'=>'Owner Published', 'post_author'=>$ids['owner'] ) );
 		foreach ( array( $own_draft, $other_draft, $own_published ) as $post_id ) {
-			if ( is_wp_error( $post_id ) ) {
-				echo wp_json_encode( array( 'error' => $post_id->get_error_message() ) );
-				return;
-			}
+			if ( is_wp_error( $post_id ) ) { echo wp_json_encode( array( 'error' => $post_id->get_error_message() ) ); return; }
 		}
 		update_post_meta( $other_draft, '_sabri_news_medical_reviewer_id', $ids['medical'] );
 
@@ -121,10 +117,8 @@ try {
 		$emergency_read = current_user_can( 'read_editorial_news' );
 		\\Sabri\\HomeNewsFeed\\SafeMode::set_emergency_disabled( false );
 
-		$phase4_features = \\Sabri\\HomeNewsFeed\\NewsFeatureSettings::defaults();
 		$definition_disabled = \\Sabri\\HomeNewsFeed\\EditorialNewsPostType::definition();
-		$phase4_features['editorial_news_enabled'] = 1;
-		\\Sabri\\HomeNewsFeed\\NewsFeatureSettings::update( $phase4_features );
+		\\Sabri\\HomeNewsFeed\\NewsFeatureSettings::update( array( 'editorial_news_enabled' => 1 ) );
 		$definition_enabled = \\Sabri\\HomeNewsFeed\\EditorialNewsPostType::definition();
 
 		$snapshot_before = \\Sabri\\HomeNewsFeed\\Snapshot::latest();
@@ -133,36 +127,20 @@ try {
 		$snapshot_after = \\Sabri\\HomeNewsFeed\\Snapshot::latest();
 
 		echo wp_json_encode( array(
-			'active' => is_plugin_active( '${pluginPath}' ),
-			'reactivation_error' => is_wp_error( $reactivation ) ? $reactivation->get_error_message() : '',
-			'owner_own_edit' => $owner_own_edit,
-			'owner_other_edit' => $owner_other_edit,
-			'owner_published_edit' => $owner_published_edit,
-			'owner_delete' => $owner_delete,
-			'owner_basic_meta' => $owner_basic_meta,
-			'owner_other_meta' => $owner_other_meta,
-			'owner_workflow_meta' => $owner_workflow_meta,
-			'owner_retraction_meta' => $owner_retraction_meta,
-			'owner_unknown_meta' => $owner_unknown_meta,
-			'editor_other_edit' => $editor_other_edit,
-			'editor_published_edit' => $editor_published_edit,
-			'editor_delete' => $editor_delete,
-			'editor_basic_meta' => $editor_basic_meta,
-			'editor_workflow_meta' => $editor_workflow_meta,
-			'editor_reviewer_assignment' => $editor_reviewer_assignment,
-			'medical_assigned' => $medical_assigned,
-			'medical_unassigned' => $medical_unassigned,
-			'medical_self_assign' => $medical_self_assign,
-			'emergency_write' => $emergency_write,
-			'emergency_read' => $emergency_read,
-			'disabled_public' => (bool) $definition_disabled['publicly_queryable'],
-			'enabled_public' => (bool) $definition_enabled['publicly_queryable'],
-			'map_meta_cap' => (bool) $definition_enabled['map_meta_cap'],
-			'delete_cap' => $definition_enabled['capabilities']['delete_post'],
-			'contract_version' => get_option( 'sabri_feed_phase4_contract_version', '' ),
-			'terms_version' => get_option( \\Sabri\\HomeNewsFeed\\NewsTaxonomies::TERM_VERSION_OPTION, '' ),
-			'snapshot_created_same' => isset( $snapshot_before['created_at'], $snapshot_after['created_at'] ) && $snapshot_before['created_at'] === $snapshot_after['created_at'],
-			'snapshot_caps_same' => isset( $snapshot_before['capability_roles'], $snapshot_after['capability_roles'] ) && $snapshot_before['capability_roles'] === $snapshot_after['capability_roles'],
+			'active'=>is_plugin_active('${pluginPath}'), 'reactivation_error'=>is_wp_error($reactivation)?$reactivation->get_error_message():'',
+			'owner_own_edit'=>$owner_own_edit, 'owner_other_edit'=>$owner_other_edit, 'owner_published_edit'=>$owner_published_edit,
+			'owner_delete'=>$owner_delete, 'owner_basic_meta'=>$owner_basic_meta, 'owner_other_meta'=>$owner_other_meta,
+			'owner_workflow_meta'=>$owner_workflow_meta, 'owner_retraction_meta'=>$owner_retraction_meta, 'owner_unknown_meta'=>$owner_unknown_meta,
+			'editor_other_edit'=>$editor_other_edit, 'editor_published_edit'=>$editor_published_edit, 'editor_delete'=>$editor_delete,
+			'editor_basic_meta'=>$editor_basic_meta, 'editor_workflow_meta'=>$editor_workflow_meta, 'editor_reviewer_assignment'=>$editor_reviewer_assignment,
+			'medical_assigned'=>$medical_assigned, 'medical_unassigned'=>$medical_unassigned, 'medical_self_assign'=>$medical_self_assign,
+			'emergency_write'=>$emergency_write, 'emergency_read'=>$emergency_read,
+			'disabled_public'=>(bool)$definition_disabled['publicly_queryable'], 'enabled_public'=>(bool)$definition_enabled['publicly_queryable'],
+			'map_meta_cap'=>(bool)$definition_enabled['map_meta_cap'], 'delete_cap'=>$definition_enabled['capabilities']['delete_post'],
+			'contract_version'=>get_option('sabri_feed_phase4_contract_version',''),
+			'terms_version'=>get_option(\\Sabri\\HomeNewsFeed\\NewsTaxonomies::TERM_VERSION_OPTION,''),
+			'snapshot_created_same'=>isset($snapshot_before['created_at'],$snapshot_after['created_at'])&&$snapshot_before['created_at']===$snapshot_after['created_at'],
+			'snapshot_caps_same'=>isset($snapshot_before['capability_roles'],$snapshot_after['capability_roles'])&&$snapshot_before['capability_roles']===$snapshot_after['capability_roles'],
 		) );
 	`));
 
@@ -182,7 +160,7 @@ try {
 	assert(result.contract_version === '1.2.0-4A' && result.terms_version === '1.2.0-4A', 'Verified activation markers are incomplete.');
 	assert(result.snapshot_created_same && result.snapshot_caps_same, 'Reactivation overwrote the immutable rollback baseline.');
 
-	console.log(`Phase 4A WordPress security tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
+	console.log(`Phase 4A ${packagePath ? 'packaged' : 'source'} WordPress security tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
 } finally {
 	if (server && typeof server[Symbol.asyncDispose] === 'function') await server[Symbol.asyncDispose]();
 }
