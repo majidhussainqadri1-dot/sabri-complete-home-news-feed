@@ -123,14 +123,28 @@ final class NewsTaxonomies {
 				$report['skipped'][] = $key;
 				continue;
 			}
-			$result = wp_insert_term( __( $label, 'sabri-complete-home-news-feed' ), $taxonomy, array( 'slug' => $slug ) );
+
+			$preflight = null;
 			if ( function_exists( 'apply_filters' ) ) {
-				$result = apply_filters( 'sabri_feed_phase4_insert_term_result', $result, $taxonomy, $slug );
+				$preflight = apply_filters( 'sabri_feed_phase4_insert_term_result', null, $taxonomy, $slug );
 			}
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $preflight ) ) {
+				$report['failed'][ $key ] = self::error_message( $preflight );
+				continue;
+			}
+
+			$result = wp_insert_term( __( $label, 'sabri-complete-home-news-feed' ), $taxonomy, array( 'slug' => $slug ) );
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
+				$code = method_exists( $result, 'get_error_code' ) ? $result->get_error_code() : '';
+				$race_exists = 'term_exists' === $code ? term_exists( $slug, $taxonomy ) : false;
+				if ( $race_exists && ! ( function_exists( 'is_wp_error' ) && is_wp_error( $race_exists ) ) ) {
+					$report['skipped'][] = $key;
+					continue;
+				}
 				$report['failed'][ $key ] = self::error_message( $result );
 				continue;
 			}
+
 			$verified = is_array( $result ) && ! empty( $result['term_id'] );
 			if ( ! $verified ) {
 				$verified = (bool) term_exists( $slug, $taxonomy );
