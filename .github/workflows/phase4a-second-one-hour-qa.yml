@@ -1,0 +1,172 @@
+name: Phase 4A Mandatory Second One-Hour QA
+
+on:
+  push:
+    branches:
+      - build/phase-4-editorial-news-1.2.0
+    paths:
+      - 'MANDATORY-SECOND-QA-POLICY.md'
+      - 'PHASE-4A-SECOND-QA-PROTOCOL.md'
+      - 'PHASE-4-*.md'
+      - 'includes/class-phase4-contracts.php'
+      - 'includes/class-news-feature-settings.php'
+      - 'includes/class-editorial-news-post-type.php'
+      - 'includes/class-news-taxonomies.php'
+      - 'includes/class-news-statuses.php'
+      - 'includes/class-news-capabilities.php'
+      - 'includes/class-plugin.php'
+      - 'includes/class-activator.php'
+      - 'includes/class-snapshot.php'
+      - 'includes/class-rollback.php'
+      - 'tests/run-phase4a-content-model-tests.php'
+      - 'tests/run-phase4a-second-one-hour-qa.sh'
+      - '.github/workflows/phase4a-content-model-tests.yml'
+      - '.github/workflows/phase4a-second-one-hour-qa.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phase4a-mandatory-second-one-hour-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-playground-before-soak:
+    name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Record exact commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git status --short
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run source activation and runtime integration
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+        run: |
+          set -o pipefail
+          node tests/run-playground-integration-tests.mjs 2>&1 | tee "phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
+
+      - name: Upload independent Playground evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}
+          retention-days: 30
+          path: phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: warn
+
+  second-one-hour-qa:
+    name: 65-minute repeated QA with correction restart boundary
+    needs: real-playground-before-soak
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+
+      - name: Show exact commit and runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          git rev-parse HEAD
+          php -v
+          node -v
+          pwsh -v
+          git status --short
+
+      - name: Execute mandatory second one-hour repeated QA
+        shell: bash
+        run: bash tests/run-phase4a-second-one-hour-qa.sh
+
+      - name: Verify duration, cycles, exact commit, and manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          source phase4a-second-one-hour-qa/result.env
+          test "$status" = "passed"
+          test "$duration_seconds" -ge 3900
+          test "$cycles_required" -eq 13
+          test "$head_sha" = "${GITHUB_SHA}"
+          test "$head_sha" = "$(git rev-parse HEAD)"
+          test -n "$tracked_manifest_sha256"
+          test "$tracked_manifest_sha256" = "$(sha256sum phase4a-second-one-hour-qa/initial-tracked-files.sha256 | awk '{print $1}')"
+          cmp -s phase4a-second-one-hour-qa/initial-tracked-files.sha256 phase4a-second-one-hour-qa/final-tracked-files.sha256
+
+      - name: Use Node.js 22 for packaged runtime tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI for packaged tests
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Test the packaged candidate on WordPress latest and PHP 8.3
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+        run: |
+          set -euo pipefail
+          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | head -n 1)"
+          test -n "$SABRI_PLUGIN_ZIP"
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+
+      - name: Test the packaged candidate on WordPress 6.8 and PHP 8.1
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: '6.8'
+          SABRI_PLAYGROUND_PHP: '8.1'
+        run: |
+          set -euo pipefail
+          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' | head -n 1)"
+          test -n "$SABRI_PLUGIN_ZIP"
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+
+      - name: Upload passed second-QA evidence and package
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-phase4a-SECOND-ONE-HOUR-QA-PASSED
+          retention-days: 60
+          path: phase4a-second-one-hour-qa/
+          if-no-files-found: error
+
+      - name: Upload second-QA failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4a-SECOND-ONE-HOUR-QA-FAILURE-EVIDENCE
+          retention-days: 30
+          path: phase4a-second-one-hour-qa/
+          if-no-files-found: warn
