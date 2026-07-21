@@ -24,17 +24,19 @@ final class Snapshot {
 	 * @return array<string,mixed>
 	 */
 	public static function capture_before_mutation( $reason ) {
+		$settings = self::option_value( Settings::OPTION_NAME, array() );
 		$snapshot = array(
 			'version'              => SABRI_HNF_VERSION,
 			'schema_version'       => self::option_value( Migrations::SCHEMA_OPTION_NAME, '' ),
-			'settings'             => self::option_value( Settings::OPTION_NAME, array() ),
+			'settings'             => $settings,
+			'phase4_settings'      => self::option_value( NewsFeatureSettings::OPTION_NAME, array() ),
 			'capability_roles'     => self::role_cap_snapshot(),
 			'taxonomy_state'       => self::taxonomy_state(),
 			'rewrite_state'        => array(
 				'permalink_structure' => self::option_value( 'permalink_structure', '' ),
 				'flush_scheduled'     => self::option_value( 'sabri_feed_flush_rewrite_rules', 0 ),
 			),
-			'integration_settings' => isset( self::option_value( Settings::OPTION_NAME, array() )['integrations'] ) ? self::option_value( Settings::OPTION_NAME, array() )['integrations'] : array(),
+			'integration_settings' => is_array( $settings ) && isset( $settings['integrations'] ) ? $settings['integrations'] : array(),
 			'reason'               => function_exists( 'sanitize_key' ) ? sanitize_key( $reason ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $reason ) ),
 			'created_at'           => gmdate( 'Y-m-d H:i:s' ),
 		);
@@ -46,24 +48,20 @@ final class Snapshot {
 		return $snapshot;
 	}
 
-	/**
-	 * Return the latest snapshot.
-	 *
-	 * @return array<string,mixed>
-	 */
+	/** Return the latest snapshot. */
 	public static function latest() {
 		$snapshot = self::option_value( self::OPTION_NAME, array() );
 		return is_array( $snapshot ) ? $snapshot : array();
 	}
 
 	/**
-	 * Snapshot plugin capability assignments for candidate roles.
+	 * Snapshot all plugin-owned capability assignments for candidate roles.
 	 *
 	 * @return array<string,array<string,bool>>
 	 */
 	public static function role_cap_snapshot() {
 		$out  = array();
-		$caps = Capabilities::capabilities();
+		$caps = array_values( array_unique( array_merge( Capabilities::capabilities(), NewsCapabilities::capabilities() ) ) );
 
 		if ( ! function_exists( 'wp_roles' ) ) {
 			return $out;
@@ -74,7 +72,14 @@ final class Snapshot {
 			return $out;
 		}
 
-		$candidate_roles = Capabilities::candidate_role_slugs( Settings::get() );
+		$candidate_roles = array_values(
+			array_unique(
+				array_merge(
+					Capabilities::candidate_role_slugs( Settings::get() ),
+					NewsCapabilities::candidate_role_slugs()
+				)
+			)
+		);
 		foreach ( $roles->roles as $role_slug => $role_data ) {
 			if ( ! in_array( $role_slug, $candidate_roles, true ) ) {
 				continue;
@@ -89,31 +94,23 @@ final class Snapshot {
 		return $out;
 	}
 
-	/**
-	 * Snapshot taxonomy version and expected default term counts.
-	 *
-	 * @return array<string,mixed>
-	 */
+	/** Snapshot taxonomy version and expected default term identities. */
 	private static function taxonomy_state() {
 		return array(
-			'registered_taxonomies' => array_keys( Taxonomies::taxonomies() ),
-			'default_feed_types'    => array_keys( Taxonomies::feed_type_terms() ),
-			'version'               => self::option_value( 'sabri_feed_taxonomy_version', '' ),
+			'registered_taxonomies'       => array_keys( Taxonomies::taxonomies() ),
+			'default_feed_types'          => array_keys( Taxonomies::feed_type_terms() ),
+			'phase4_registered_taxonomies' => Phase4Contracts::taxonomies(),
+			'phase4_sections'              => array_keys( Phase4Contracts::sections() ),
+			'phase4_article_types'         => array_keys( Phase4Contracts::article_types() ),
+			'version'                      => self::option_value( 'sabri_feed_taxonomy_version', '' ),
 		);
 	}
 
-	/**
-	 * Get an option safely.
-	 *
-	 * @param string $name Option name.
-	 * @param mixed  $default Default.
-	 * @return mixed
-	 */
+	/** Get an option safely. */
 	private static function option_value( $name, $default ) {
 		if ( function_exists( 'get_option' ) ) {
 			return get_option( $name, $default );
 		}
-
 		return $default;
 	}
 }
