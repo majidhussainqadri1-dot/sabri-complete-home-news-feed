@@ -1,0 +1,115 @@
+name: Phase 4A Content Model Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - build/phase-4-editorial-news-1.2.0
+  workflow_dispatch:
+
+concurrency:
+  group: phase4a-content-model-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase4a:
+    name: Contracts, content model, and full regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v4
+
+      - name: Show exact commit and runtime
+        run: |
+          git rev-parse HEAD
+          php -v
+          node -v
+          pwsh -v
+
+      - name: PHP syntax lint
+        run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Phase 4 planning contract tests
+        run: php tests/run-phase4-contract-tests.php
+
+      - name: Phase 4 document audit
+        run: php tests/run-phase4-document-audit.php
+
+      - name: Phase 4A content model tests
+        shell: bash
+        run: |
+          set -o pipefail
+          php tests/run-phase4a-content-model-tests.php 2>&1 | tee phase4a-content-model-test.log
+
+      - name: Complete Phase 2 behavior and Safe Boot regression
+        shell: bash
+        run: |
+          set -o pipefail
+          php tools/run-tests.php 2>&1 | tee phase2-safe-boot-regression.log
+
+      - name: Complete Phase 3 regression matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase3-contract-tests.php
+          php tests/run-phase3-infrastructure-tests.php
+          php tests/run-phase3b-reactions-saves-tests.php
+          php tests/run-phase3b-race-shortcode-tests.php
+          php tests/run-phase3c-comments-tests.php
+          php tests/run-phase3d-follows-tests.php
+          php tests/run-phase3e-reports-tests.php
+          php tests/run-phase3f-polls-tests.php
+          php tests/run-phase3g-notifications-views-tests.php
+          php tests/run-phase3h-hardening-tests.php
+          php tests/run-phase3-social-features-share-tests.php
+          php tests/run-public-query-routing-tests.php
+          php tests/run-wordpress-option-filter-compatibility-tests.php
+          php tests/run-duplicate-plugin-compat-tests.php
+
+      - name: Static security and whitespace checks
+        shell: pwsh
+        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+
+      - name: Build unchanged-version staging package
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Verify Phase 4A files are packaged
+        shell: bash
+        run: |
+          set -euo pipefail
+          zip_file=$(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          test -n "$zip_file"
+          python3 - "$zip_file" <<'PY'
+          import sys, zipfile
+          zip_path = sys.argv[1]
+          required = {
+              'sabri-complete-home-news-feed/includes/class-phase4-contracts.php',
+              'sabri-complete-home-news-feed/includes/class-news-feature-settings.php',
+              'sabri-complete-home-news-feed/includes/class-news-statuses.php',
+              'sabri-complete-home-news-feed/includes/class-news-capabilities.php',
+              'sabri-complete-home-news-feed/includes/class-editorial-news-post-type.php',
+              'sabri-complete-home-news-feed/includes/class-news-taxonomies.php',
+          }
+          with zipfile.ZipFile(zip_path) as archive:
+              names = {name.replace('\\', '/') for name in archive.namelist()}
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit('Missing Phase 4A package files: ' + ', '.join(missing))
+          print('Phase 4A package structure passed.')
+          PY
+
+      - name: Upload Phase 4A evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4a-content-model-evidence
+          retention-days: 30
+          path: |
+            phase4a-content-model-test.log
+            phase2-safe-boot-regression.log
+            release/*-PHASE-3-STAGING-CANDIDATE.sha256
+            release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+          if-no-files-found: warn
