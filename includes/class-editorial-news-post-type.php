@@ -135,9 +135,16 @@ final class EditorialNewsPostType {
 		return function_exists( 'current_user_can' ) && ( current_user_can( 'edit_own_editorial_news' ) || current_user_can( 'edit_others_editorial_news' ) );
 	}
 
-	/** Sanitize a bounded language tag. */
+	/**
+	 * Validate a bounded BCP-47-style language tag without repairing unsafe input.
+	 *
+	 * Invalid input fails closed to the initial American English language.
+	 */
 	public static function sanitize_language( $value ) {
-		$value = preg_replace( '/[^A-Za-z0-9-]/', '', (string) $value );
-		return '' !== $value && strlen( $value ) <= 20 ? $value : 'en-US';
+		$value = (string) $value;
+		if ( '' === $value || strlen( $value ) > 20 || ! preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $value ) ) {
+			return 'en-US';
+		}
+		return $value;
 	}
 }
