@@ -64,14 +64,14 @@ final class EditorialNewsPostType {
 
 	/**
 	 * Map singular object checks to distinct meta capabilities and role checks to
-	 * the frozen primitive capabilities. Destructive core deletion is denied;
-	 * retraction is a separate non-destructive workflow operation.
+	 * frozen primitive capabilities. Retraction remains non-destructive; direct
+	 * WordPress deletion is denied by every delete primitive.
 	 */
 	public static function capability_map() {
 		return array(
 			'edit_post'              => 'edit_editorial_news',
 			'read_post'              => 'read_editorial_news_item',
-			'delete_post'            => 'do_not_allow',
+			'delete_post'            => 'delete_editorial_news',
 			'edit_posts'             => 'edit_own_editorial_news',
 			'edit_others_posts'      => 'edit_others_editorial_news',
 			'publish_posts'          => 'publish_editorial_news',
@@ -114,40 +114,112 @@ final class EditorialNewsPostType {
 			'_sabri_news_subtitle'                 => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ),
 			'_sabri_news_summary'                  => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_textarea_field' ),
 			'_sabri_news_language'                 => array( 'type' => 'string', 'default' => 'en-US', 'sanitize_callback' => array( __CLASS__, 'sanitize_language' ) ),
-			'_sabri_news_priority'                 => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
-			'_sabri_news_fact_check_status'        => array( 'type' => 'string', 'default' => 'not-started', 'sanitize_callback' => 'sanitize_key' ),
-			'_sabri_news_medical_review_status'    => array( 'type' => 'string', 'default' => 'not-required', 'sanitize_callback' => 'sanitize_key' ),
-			'_sabri_news_breaking_status'          => array( 'type' => 'string', 'default' => 'inactive', 'sanitize_callback' => 'sanitize_key' ),
-			'_sabri_news_breaking_starts_at'       => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ),
-			'_sabri_news_breaking_expires_at'      => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ),
-			'_sabri_news_last_verified_at'         => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => 'sanitize_text_field' ),
-			'_sabri_news_correction_status'        => array( 'type' => 'string', 'default' => 'none', 'sanitize_callback' => 'sanitize_key' ),
-			'_sabri_news_retraction_status'        => array( 'type' => 'string', 'default' => 'none', 'sanitize_callback' => 'sanitize_key' ),
+			'_sabri_news_priority'                 => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => array( __CLASS__, 'sanitize_priority' ) ),
+			'_sabri_news_fact_check_status'        => array( 'type' => 'string', 'default' => 'not-started', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_medical_review_status'    => array( 'type' => 'string', 'default' => 'not-required', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_breaking_status'          => array( 'type' => 'string', 'default' => 'inactive', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_breaking_starts_at'       => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
+			'_sabri_news_breaking_expires_at'      => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
+			'_sabri_news_last_verified_at'         => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
+			'_sabri_news_correction_status'        => array( 'type' => 'string', 'default' => 'none', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_retraction_status'        => array( 'type' => 'string', 'default' => 'none', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
 			'_sabri_news_reviewing_editor_id'      => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
 			'_sabri_news_medical_reviewer_id'      => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
 			'_sabri_news_source_article_id'        => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
 		);
 	}
 
-	/** Authorize metadata edits through WordPress's ownership-aware object cap. */
+	/** Return the exact capability required to change a registered metadata key. */
+	public static function meta_capability( $meta_key ) {
+		$map = array(
+			'_sabri_news_subtitle'              => 'edit_editorial_news',
+			'_sabri_news_summary'               => 'edit_editorial_news',
+			'_sabri_news_language'              => 'edit_editorial_news',
+			Phase4Contracts::WORKFLOW_META_KEY  => 'publish_editorial_news',
+			'_sabri_news_priority'              => 'manage_breaking_news',
+			'_sabri_news_fact_check_status'     => 'fact_check_editorial_news',
+			'_sabri_news_last_verified_at'      => 'fact_check_editorial_news',
+			'_sabri_news_medical_review_status' => 'medical_review_editorial_news',
+			'_sabri_news_medical_reviewer_id'   => 'medical_review_editorial_news',
+			'_sabri_news_reviewing_editor_id'   => 'review_editorial_news',
+			'_sabri_news_breaking_status'       => 'manage_breaking_news',
+			'_sabri_news_breaking_starts_at'    => 'manage_breaking_news',
+			'_sabri_news_breaking_expires_at'   => 'manage_breaking_news',
+			'_sabri_news_correction_status'     => 'manage_news_corrections',
+			'_sabri_news_retraction_status'     => 'retract_editorial_news',
+			'_sabri_news_source_article_id'     => 'translate_editorial_news',
+		);
+		return is_string( $meta_key ) && isset( $map[ $meta_key ] ) ? $map[ $meta_key ] : 'do_not_allow';
+	}
+
+	/** Authorize metadata edits through an exact per-field capability. */
 	public static function meta_auth_callback( $allowed = false, $meta_key = '', $post_id = 0, $user_id = 0 ) {
-		unset( $allowed, $meta_key, $user_id );
+		unset( $allowed );
 		$post_id = absint( $post_id );
+		$user_id = absint( $user_id );
 		if ( $post_id < 1 || ! function_exists( 'current_user_can' ) ) {
 			return false;
 		}
-		if ( function_exists( 'get_post_type' ) && Phase4Contracts::POST_TYPE !== get_post_type( $post_id ) ) {
+		if ( $user_id > 0 && function_exists( 'get_current_user_id' ) && $user_id !== (int) get_current_user_id() ) {
 			return false;
 		}
-		return current_user_can( 'edit_editorial_news', $post_id );
+
+		$post_type = '';
+		if ( function_exists( 'get_post_type' ) ) {
+			$post_type = (string) get_post_type( $post_id );
+		} elseif ( function_exists( 'get_post' ) ) {
+			$post = get_post( $post_id );
+			$post_type = $post && isset( $post->post_type ) ? (string) $post->post_type : '';
+		}
+		if ( Phase4Contracts::POST_TYPE !== $post_type ) {
+			return false;
+		}
+
+		$required = self::meta_capability( $meta_key );
+		if ( 'do_not_allow' === $required ) {
+			return false;
+		}
+		return 'edit_editorial_news' === $required ? current_user_can( $required, $post_id ) : current_user_can( $required );
 	}
 
 	/** Validate a bounded BCP-47-style language tag without repairing unsafe input. */
 	public static function sanitize_language( $value ) {
-		$value = (string) $value;
-		if ( '' === $value || strlen( $value ) > 20 || ! preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $value ) ) {
+		$value = is_string( $value ) ? $value : '';
+		if ( '' === $value || strlen( $value ) > 20 || ! preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/D', $value ) ) {
 			return 'en-US';
 		}
 		return $value;
+	}
+
+	/** Retain only an exact lowercase status token; never repair malformed input. */
+	public static function sanitize_token( $value ) {
+		if ( ! is_string( $value ) || '' === $value || strlen( $value ) > 64 ) {
+			return '';
+		}
+		return preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $value ) ? $value : '';
+	}
+
+	/** Store a bounded editorial priority from zero through one hundred. */
+	public static function sanitize_priority( $value ) {
+		if ( is_int( $value ) ) {
+			$priority = $value;
+		} elseif ( is_string( $value ) && preg_match( '/^(?:0|[1-9][0-9]{0,2})$/D', $value ) ) {
+			$priority = (int) $value;
+		} else {
+			return 0;
+		}
+		return $priority >= 0 && $priority <= 100 ? $priority : 0;
+	}
+
+	/** Accept only an empty value or a bounded ISO/WordPress datetime string. */
+	public static function sanitize_datetime( $value ) {
+		if ( '' === $value ) {
+			return '';
+		}
+		if ( ! is_string( $value ) || strlen( $value ) > 35 ) {
+			return '';
+		}
+		$pattern = '/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})(?:Z|[+-]\d{2}:\d{2})?$/D';
+		return preg_match( $pattern, $value ) && false !== strtotime( $value ) ? $value : '';
 	}
 }
