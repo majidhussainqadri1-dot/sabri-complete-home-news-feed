@@ -18,7 +18,7 @@ jobs:
   phase4a:
     name: Contracts, security model, WordPress, package, and full regression
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
 
     steps:
       - name: Checkout exact head commit
@@ -44,15 +44,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find assets/js tests -name '*.js' -o -name '*.mjs' | while IFS= read -r file; do node --check "$file"; done
+          find assets/js tests \( -name '*.js' -o -name '*.mjs' \) -type f -print0 | xargs -0 -n1 node --check
 
-      - name: Phase 4 planning contract tests
-        run: php tests/run-phase4-contract-tests.php
+      - name: Phase 4 planning and security contract tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4-contract-tests.php
+          php tests/run-phase4a-security-contract-tests.php
 
       - name: Phase 4 document audit
         run: php tests/run-phase4-document-audit.php
 
-      - name: Phase 4A content model and security tests
+      - name: Phase 4A content model and security behavior tests
         shell: bash
         run: |
           set -o pipefail
@@ -91,7 +95,7 @@ jobs:
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
-      - name: Real WordPress Phase 4A permission and activation integration
+      - name: Real source WordPress Phase 4A security integration
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: latest
@@ -114,10 +118,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          zip_file=$(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
-          sha_file=$(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
-          test -n "$zip_file"
-          test -n "$sha_file"
+          mapfile -t zips < <(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.zip' | sort)
+          mapfile -t shas < <(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.sha256' | sort)
+          test "${#zips[@]}" -eq 1
+          test "${#shas[@]}" -eq 1
+          zip_file="${zips[0]}"
+          sha_file="${shas[0]}"
           expected=$(awk '{print tolower($1)}' "$sha_file")
           actual=$(sha256sum "$zip_file" | awk '{print $1}')
           test "$expected" = "$actual"
@@ -132,6 +138,8 @@ jobs:
               'sabri-complete-home-news-feed/includes/class-news-capabilities.php',
               'sabri-complete-home-news-feed/includes/class-editorial-news-post-type.php',
               'sabri-complete-home-news-feed/includes/class-news-taxonomies.php',
+              'sabri-complete-home-news-feed/includes/class-snapshot.php',
+              'sabri-complete-home-news-feed/includes/class-rollback.php',
           }
           with zipfile.ZipFile(zip_path) as archive:
               names = {name.replace('\\', '/') for name in archive.namelist()}
@@ -140,6 +148,16 @@ jobs:
               raise SystemExit('Missing Phase 4A package files: ' + ', '.join(missing))
           print('Phase 4A package structure and checksum passed.')
           PY
+          echo "SABRI_PLUGIN_ZIP=$zip_file" >> "$GITHUB_ENV"
+
+      - name: Real packaged WordPress Phase 4A security integration
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+        run: |
+          set -o pipefail
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee phase4a-packaged-playground-security.log
 
       - name: Verify exact commit remained unchanged
         shell: bash
@@ -158,6 +176,7 @@ jobs:
             phase4a-content-model-test.log
             phase2-safe-boot-regression.log
             phase4a-playground-security.log
+            phase4a-packaged-playground-security.log
             release/*-PHASE-3-STAGING-CANDIDATE.zip
             release/*-PHASE-3-STAGING-CANDIDATE.sha256
             release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
