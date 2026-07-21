@@ -11,9 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Registers the distinct, fail-closed Editorial News content model.
- */
+/** Registers the distinct, fail-closed Editorial News content model. */
 final class EditorialNewsPostType {
 	/** Register hooks. */
 	public static function register() {
@@ -64,20 +62,24 @@ final class EditorialNewsPostType {
 		}
 	}
 
-	/** WordPress operation-to-contract capability map. */
+	/**
+	 * Map singular object checks to distinct meta capabilities and role checks to
+	 * the frozen primitive capabilities. Destructive core deletion is denied;
+	 * retraction is a separate non-destructive workflow operation.
+	 */
 	public static function capability_map() {
 		return array(
-			'edit_post'              => 'edit_own_editorial_news',
-			'read_post'              => 'read_editorial_news',
-			'delete_post'            => 'retract_editorial_news',
-			'edit_posts'             => 'create_editorial_news',
+			'edit_post'              => 'edit_editorial_news',
+			'read_post'              => 'read_editorial_news_item',
+			'delete_post'            => 'do_not_allow',
+			'edit_posts'             => 'edit_own_editorial_news',
 			'edit_others_posts'      => 'edit_others_editorial_news',
 			'publish_posts'          => 'publish_editorial_news',
 			'read_private_posts'     => 'review_editorial_news',
-			'delete_posts'           => 'retract_editorial_news',
-			'delete_private_posts'   => 'retract_editorial_news',
-			'delete_published_posts' => 'retract_editorial_news',
-			'delete_others_posts'    => 'retract_editorial_news',
+			'delete_posts'           => 'do_not_allow',
+			'delete_private_posts'   => 'do_not_allow',
+			'delete_published_posts' => 'do_not_allow',
+			'delete_others_posts'    => 'do_not_allow',
 			'edit_private_posts'     => 'review_editorial_news',
 			'edit_published_posts'   => 'manage_news_corrections',
 			'create_posts'           => 'create_editorial_news',
@@ -127,39 +129,17 @@ final class EditorialNewsPostType {
 		);
 	}
 
-	/** Authorize metadata edits against the actual article and current session. */
+	/** Authorize metadata edits through WordPress's ownership-aware object cap. */
 	public static function meta_auth_callback( $allowed = false, $meta_key = '', $post_id = 0, $user_id = 0 ) {
-		unset( $allowed, $meta_key );
-		if ( ! function_exists( 'get_post' ) || ! function_exists( 'get_current_user_id' ) || ! function_exists( 'current_user_can' ) ) {
+		unset( $allowed, $meta_key, $user_id );
+		$post_id = absint( $post_id );
+		if ( $post_id < 1 || ! function_exists( 'current_user_can' ) ) {
 			return false;
 		}
-		$post = get_post( (int) $post_id );
-		if ( ! $post || Phase4Contracts::POST_TYPE !== $post->post_type ) {
+		if ( function_exists( 'get_post_type' ) && Phase4Contracts::POST_TYPE !== get_post_type( $post_id ) ) {
 			return false;
 		}
-		$current_user_id = (int) get_current_user_id();
-		if ( $current_user_id <= 0 || ( (int) $user_id > 0 && (int) $user_id !== $current_user_id ) ) {
-			return false;
-		}
-		$is_owner = (int) $post->post_author === $current_user_id;
-		if ( $is_owner ) {
-			if ( ! current_user_can( 'edit_own_editorial_news' ) ) {
-				return false;
-			}
-		} elseif ( ! current_user_can( 'edit_others_editorial_news' ) ) {
-			return false;
-		}
-		$status = function_exists( 'get_post_status' ) ? get_post_status( $post_id ) : ( isset( $post->post_status ) ? $post->post_status : '' );
-		if ( 'publish' === $status && ! current_user_can( 'manage_news_corrections' ) ) {
-			return false;
-		}
-		if ( 'future' === $status && ! current_user_can( 'schedule_editorial_news' ) ) {
-			return false;
-		}
-		if ( 'private' === $status && ! current_user_can( 'review_editorial_news' ) ) {
-			return false;
-		}
-		return true;
+		return current_user_can( 'edit_editorial_news', $post_id );
 	}
 
 	/** Validate a bounded BCP-47-style language tag without repairing unsafe input. */
