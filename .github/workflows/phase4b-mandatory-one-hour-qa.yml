@@ -381,7 +381,7 @@ jobs:
           git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4b-one-hour-soak/final-tracked-files.sha256
           cmp phase4b-one-hour-soak/initial-tracked-files.sha256 phase4b-one-hour-soak/final-tracked-files.sha256
           sha256sum phase4b-one-hour-soak/initial-tracked-files.sha256 > phase4b-one-hour-soak/manifest-digest.sha256
-          printf '%s  final-candidate.zip\n' "$LAST_PACKAGE_SHA" > phase4b-one-hour-soak/final-package.sha256
+          printf '%s  downloaded-soak/final-candidate.zip\n' "$LAST_PACKAGE_SHA" > phase4b-one-hour-soak/final-package.sha256
           cp "$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)" phase4b-one-hour-soak/final-candidate.zip
           test -z "$(git status --porcelain --untracked-files=no)"
 
