@@ -61,20 +61,29 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('tests/run-phase4c-public-news-tests.php')
-          text = path.read_text()
-          replacements = {
+          public_path = Path('tests/run-phase4c-public-news-tests.php')
+          public_text = public_path.read_text()
+          public_replacements = {
               "$unknown_payload = isset($unknown_rest['payload'])?$unknown_rest['payload']:array();": "$unknown_payload = is_object( $unknown_rest ) && method_exists( $unknown_rest, 'get_data' ) ? $unknown_rest->get_data() : ( isset( $unknown_rest['payload'] ) ? $unknown_rest['payload'] : array() );",
               "sabri_phase4c_assert( empty($sabri_test_enqueued_styles['sabri-hnf-news']), 'News CSS loaded on a feed with no News card.' );": "sabri_phase4c_assert( !in_array('sabri-hnf-news',$sabri_test_enqueued_styles,true), 'News CSS loaded on a feed with no News card.' );",
               "sabri_phase4c_assert( !empty($sabri_test_enqueued_styles['sabri-hnf-news']) && !empty($sabri_test_enqueued_scripts['sabri-hnf-news']), 'News assets did not load when a News card rendered.' );": "sabri_phase4c_assert( in_array('sabri-hnf-news',$sabri_test_enqueued_styles,true) && in_array('sabri-hnf-news',$sabri_test_enqueued_scripts,true), 'News assets did not load when a News card rendered.' );",
           }
-          for old, new in replacements.items():
-              if old not in text:
-                  raise SystemExit('Expected Phase 4C test assertion anchor was not found: ' + old[:60])
-              text = text.replace(old, new, 1)
-          path.write_text(text)
+          for old, new in public_replacements.items():
+              if old not in public_text:
+                  raise SystemExit('Expected public test assertion anchor was not found: ' + old[:60])
+              public_text = public_text.replace(old, new, 1)
+          public_path.write_text(public_text)
+
+          security_path = Path('tests/run-phase4c-security-tests.php')
+          security_text = security_path.read_text()
+          old = "$payload = isset( $unknown['payload'] ) ? $unknown['payload'] : array();\n$assert( 400 === ( isset( $unknown['status'] ) ? $unknown['status'] : 0 ) && 'public_news_filter_invalid' === ( isset( $payload['code'] ) ? $payload['code'] : '' ), 'REST unknown parameters were not rejected.' );"
+          new = "$payload = is_object( $unknown ) && method_exists( $unknown, 'get_data' ) ? $unknown->get_data() : ( isset( $unknown['payload'] ) ? $unknown['payload'] : array() );\n$unknown_status = is_object( $unknown ) && method_exists( $unknown, 'get_status' ) ? $unknown->get_status() : ( isset( $unknown['status'] ) ? $unknown['status'] : 0 );\n$assert( 400 === $unknown_status && 'public_news_filter_invalid' === ( isset( $payload['code'] ) ? $payload['code'] : '' ), 'REST unknown parameters were not rejected.' );"
+          if old not in security_text:
+              raise SystemExit('Expected security REST response assertion anchor was not found.')
+          security_path.write_text(security_text.replace(old, new, 1))
           PY
           php -l tests/run-phase4c-public-news-tests.php
+          php -l tests/run-phase4c-security-tests.php
 
       - name: Lint complete Phase 4C surface
         shell: bash
