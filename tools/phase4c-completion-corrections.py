@@ -36,6 +36,18 @@ replace_once(
     "security REST response",
 )
 replace_once(
+    "tests/run-phase4c-ui-completeness-tests.php",
+    "$assert( false !== strpos( $interaction, 'NewsPolicy::is_public_post' ) && false !== strpos( $social, 'render_news_action_bar' ), 'Phase 3 interaction boundary for approved News is incomplete.' );",
+    "$assert( false !== strpos( $interaction, 'NewsPolicy::can_public_read' ) && false !== strpos( $social, 'render_news_action_bar' ), 'Phase 3 interaction boundary for approved News is incomplete.' );",
+    "interaction architecture assertion",
+)
+replace_once(
+    "tests/run-phase4c-ui-completeness-tests.php",
+    "$assert( false !== strpos( $home, $text ), 'News home template is missing planned section text: ' . $text );",
+    "$assert( false !== strpos( $query . $home, $text ), 'News home implementation is missing planned section text: ' . $text );",
+    "News home component text assertion",
+)
+replace_once(
     "includes/class-news-public-projector.php",
     "\tprivate static function safe_url( $value ) {\n\t\t$value = is_string( $value ) ? trim( $value ) : '';\n\t\tif ( '' === $value ) { return ''; }\n\t\t$value = function_exists( 'esc_url_raw' ) ? esc_url_raw( $value, array( 'http', 'https' ) ) : filter_var( $value, FILTER_VALIDATE_URL );\n\t\treturn is_string( $value ) ? $value : '';\n\t}",
     "\tprivate static function safe_url( $value ) {\n\t\t$value = is_string( $value ) ? trim( $value ) : '';\n\t\tif ( '' === $value || preg_match( '/[\\x00-\\x1F\\x7F]/', $value ) ) { return ''; }\n\t\t$parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $value ) : parse_url( $value );\n\t\tif ( ! is_array( $parts ) || empty( $parts['scheme'] ) || empty( $parts['host'] ) || isset( $parts['user'] ) || isset( $parts['pass'] ) ) { return ''; }\n\t\t$scheme = strtolower( (string) $parts['scheme'] );\n\t\tif ( ! in_array( $scheme, array( 'http', 'https' ), true ) ) { return ''; }\n\t\t$clean = function_exists( 'esc_url_raw' ) ? esc_url_raw( $value, array( 'http', 'https' ) ) : filter_var( $value, FILTER_VALIDATE_URL );\n\t\tif ( ! is_string( $clean ) || '' === $clean ) { return ''; }\n\t\t$clean_parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $clean ) : parse_url( $clean );\n\t\treturn is_array( $clean_parts ) && isset( $clean_parts['scheme'], $clean_parts['host'] ) && in_array( strtolower( (string) $clean_parts['scheme'] ), array( 'http', 'https' ), true ) ? $clean : '';\n\t}",
