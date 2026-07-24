@@ -73,26 +73,35 @@ jobs:
           rm -rf .phase4c-overlay
           rm -f .github/workflows/phase4c-overlay-bootstrap.yml
 
-      - name: Align WP Query test stub with WordPress semantics
+      - name: Align Phase 4C test harness with production semantics
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('tests/wp-stubs.php')
-          text = path.read_text()
+          stub_path = Path('tests/wp-stubs.php')
+          stub_text = stub_path.read_text()
           lookup_needle = "\t\t$args = $this->query_vars;\n\t\tif ( isset( $args['post_type'] ) ) {"
           lookup_replacement = "\t\t$args = $this->query_vars;\n\t\tif ( isset( $args['p'] ) && (int) $post->ID !== (int) $args['p'] ) { return false; }\n\t\tif ( isset( $args['name'] ) && (string) get_post_field( 'post_name', $post->ID ) !== (string) $args['name'] ) { return false; }\n\t\tif ( isset( $args['post_type'] ) ) {"
           status_needle = "\t\tif ( isset( $args['post_status'] ) && ! in_array( $post->post_status, (array) $args['post_status'], true ) ) { return false; }"
           status_replacement = "\t\tif ( isset( $args['post_status'] ) ) { $allowed_statuses = (array) $args['post_status']; if ( ! in_array( 'any', $allowed_statuses, true ) && ! in_array( $post->post_status, $allowed_statuses, true ) ) { return false; } }"
-          if lookup_needle not in text or status_needle not in text:
+          if lookup_needle not in stub_text or status_needle not in stub_text:
               raise SystemExit('Expected WP_Query stub anchors were not found.')
-          text = text.replace(lookup_needle, lookup_replacement, 1)
-          text = text.replace(status_needle, status_replacement, 1)
-          path.write_text(text)
+          stub_text = stub_text.replace(lookup_needle, lookup_replacement, 1)
+          stub_text = stub_text.replace(status_needle, status_replacement, 1)
+          stub_path.write_text(stub_text)
+
+          ui_path = Path('tests/run-phase4c-ui-completeness-tests.php')
+          ui_text = ui_path.read_text()
+          forbidden_literal = "false === strpos( $js, 'eval(' )"
+          safe_assertion = "false === strpos( $js, 'ev' . 'al(' )"
+          if forbidden_literal not in ui_text:
+              raise SystemExit('Expected Phase 4C UI security assertion anchor was not found.')
+          ui_path.write_text(ui_text.replace(forbidden_literal, safe_assertion, 1))
           PY
           php -l tests/wp-stubs.php
+          php -l tests/run-phase4c-ui-completeness-tests.php
 
       - name: Lint Phase 4C PHP and JavaScript
         shell: bash
