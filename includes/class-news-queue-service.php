@@ -43,17 +43,19 @@ final class NewsQueueService {
 				'read_only' => false,
 			),
 			'fact-check' => array(
-				'label' => __( 'Fact Check', 'sabri-complete-home-news-feed' ),
+				'label' => __( 'My Fact Check Assignments', 'sabri-complete-home-news-feed' ),
 				'states' => array( 'fact-check' ),
 				'capability' => 'fact_check_editorial_news',
 				'own_only' => false,
+				'assignment_meta' => '_sabri_news_reviewing_editor_id',
 				'read_only' => false,
 			),
 			'medical-review' => array(
-				'label' => __( 'Medical Review', 'sabri-complete-home-news-feed' ),
+				'label' => __( 'My Medical Review Assignments', 'sabri-complete-home-news-feed' ),
 				'states' => array( 'medical-review' ),
 				'capability' => 'medical_review_editorial_news',
 				'own_only' => false,
+				'assignment_meta' => '_sabri_news_medical_reviewer_id',
 				'read_only' => false,
 			),
 			'changes-requested' => array(
@@ -140,6 +142,22 @@ final class NewsQueueService {
 				$core_statuses[] = $status;
 			}
 		}
+		$meta_query = array(
+			array(
+				'key' => Phase4Contracts::WORKFLOW_META_KEY,
+				'value' => $definition['states'],
+				'compare' => 'IN',
+			),
+		);
+		if ( ! empty( $definition['assignment_meta'] ) ) {
+			$meta_query['relation'] = 'AND';
+			$meta_query[] = array(
+				'key' => $definition['assignment_meta'],
+				'value' => function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0,
+				'compare' => '=',
+				'type' => 'NUMERIC',
+			);
+		}
 		$args = array(
 			'post_type' => Phase4Contracts::POST_TYPE,
 			'post_status' => array_values( array_unique( $core_statuses ) ),
@@ -148,13 +166,7 @@ final class NewsQueueService {
 			'orderby' => 'modified',
 			'order' => 'DESC',
 			'no_found_rows' => false,
-			'meta_query' => array(
-				array(
-					'key' => Phase4Contracts::WORKFLOW_META_KEY,
-					'value' => $definition['states'],
-					'compare' => 'IN',
-				),
-			),
+			'meta_query' => $meta_query,
 		);
 		if ( ! empty( $definition['own_only'] ) ) {
 			$args['author'] = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
@@ -169,6 +181,14 @@ final class NewsQueueService {
 			return self::result( false, 'queue_access_denied' );
 		}
 		$query = new \WP_Query( $args );
+		$posts = is_array( $query->posts ) ? $query->posts : array();
+		$post_ids = array_values( array_filter( array_map( static function ( $post ) { return isset( $post->ID ) ? (int) $post->ID : 0; }, $posts ) ) );
+		if ( $post_ids && function_exists( 'update_meta_cache' ) ) {
+			update_meta_cache( 'post', $post_ids );
+		}
+		if ( $post_ids && function_exists( 'update_object_term_cache' ) ) {
+			update_object_term_cache( $post_ids, Phase4Contracts::POST_TYPE );
+		}
 		$definition = self::definition( $queue );
 		return self::result(
 			true,
@@ -177,7 +197,7 @@ final class NewsQueueService {
 				'queue' => (string) $queue,
 				'label' => $definition['label'],
 				'read_only' => ! empty( $definition['read_only'] ),
-				'posts' => is_array( $query->posts ) ? $query->posts : array(),
+				'posts' => $posts,
 				'total' => (int) $query->found_posts,
 				'pages' => (int) $query->max_num_pages,
 				'page' => max( 1, (int) $page ),
