@@ -40,7 +40,7 @@ concurrency:
 jobs:
   real-playground-before-soak:
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -96,7 +96,7 @@ jobs:
   second-one-hour-qa:
     name: 65-minute repeated QA with correction restart boundary
     needs: real-playground-before-soak
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 180
 
     steps:
