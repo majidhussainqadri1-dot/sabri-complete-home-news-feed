@@ -98,6 +98,10 @@ final class FeedRenderer {
 	 * @return string
 	 */
 	public static function render_card( $post, array $settings ) {
+		if ( is_array( $post ) && 'editorial_news' === ( isset( $post['item_type'] ) ? $post['item_type'] : '' ) ) {
+			return class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) ? NewsPublicRuntime::render_card( $post ) : '';
+		}
+
 		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
 		if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id ) ) {
 			return '';
