@@ -108,12 +108,24 @@ jobs:
           node --check assets/js/news.js
           node --check tests/run-phase4c-playground-tests.mjs
 
-      - name: Run Phase 4C behavior and UI tests
+      - name: Run Phase 4C public behavior tests
         shell: bash
         run: |
           set -euo pipefail
-          php tests/run-phase4c-public-news-tests.php
-          php tests/run-phase4c-ui-completeness-tests.php
+          php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-bootstrap-public.log
+
+      - name: Upload Phase 4C public test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4c-bootstrap-public-${{ github.event.pull_request.head.sha }}
+          retention-days: 7
+          path: phase4c-bootstrap-public.log
+          if-no-files-found: ignore
+
+      - name: Run Phase 4C UI tests
+        shell: bash
+        run: php tests/run-phase4c-ui-completeness-tests.php
 
       - name: Run Phase 4B regressions
         shell: bash
