@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
-          test "$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = "8"
+          test "$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = "15"
           cat .phase4c-overlay/chunk-* | base64 --decode > /tmp/phase4c-overlay.tar.gz
           echo 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0  /tmp/phase4c-overlay.tar.gz' | sha256sum -c -
           test "$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')" = "31"
