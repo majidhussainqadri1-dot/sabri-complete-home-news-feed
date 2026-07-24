@@ -45,6 +45,7 @@ final class Assets {
 			wp_register_style( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/css/comments.css', array( 'sabri-hnf-feed', 'sabri-hnf-interactions' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-polls', SABRI_HNF_URL . 'assets/css/polls.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/css/composer.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
+			wp_register_style( 'sabri-hnf-news', SABRI_HNF_URL . 'assets/css/news.css', array(), SABRI_HNF_VERSION );
 		}
 		if ( function_exists( 'wp_register_script' ) ) {
 			wp_register_script( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/js/feed.js', array(), SABRI_HNF_VERSION, true );
@@ -52,6 +53,7 @@ final class Assets {
 			wp_register_script( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/js/comments.js', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION, true );
 			wp_register_script( 'sabri-hnf-polls', SABRI_HNF_URL . 'assets/js/polls.js', array(), SABRI_HNF_VERSION, true );
 			wp_register_script( 'sabri-hnf-composer', SABRI_HNF_URL . 'assets/js/composer.js', array(), SABRI_HNF_VERSION, true );
+			wp_register_script( 'sabri-hnf-news', SABRI_HNF_URL . 'assets/js/news.js', array(), SABRI_HNF_VERSION, true );
 		}
 	}
 
@@ -71,12 +73,32 @@ final class Assets {
 			if ( $interaction_assets ) {
 				wp_enqueue_style( 'sabri-hnf-interactions' );
 			}
+			if ( NewsPolicy::public_reads_allowed() ) {
+				wp_enqueue_style( 'sabri-hnf-news' );
+			}
 		}
 		if ( function_exists( 'wp_enqueue_script' ) ) {
 			wp_enqueue_script( 'sabri-hnf-feed' );
 			if ( Phase3FeatureSettings::enabled( 'share_enabled' ) ) {
 				wp_enqueue_script( 'sabri-hnf-share' );
 			}
+			if ( NewsPolicy::public_reads_allowed() ) {
+				wp_enqueue_script( 'sabri-hnf-news' );
+			}
+		}
+	}
+
+	/** Enqueue assets only on resolved public News pages. */
+	public static function enqueue_news() {
+		if ( ! NewsPolicy::public_reads_allowed() ) {
+			return;
+		}
+		self::register_public();
+		if ( function_exists( 'wp_enqueue_style' ) ) {
+			wp_enqueue_style( 'sabri-hnf-news' );
+		}
+		if ( function_exists( 'wp_enqueue_script' ) ) {
+			wp_enqueue_script( 'sabri-hnf-news' );
 		}
 	}
 

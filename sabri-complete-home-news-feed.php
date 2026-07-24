@@ -184,6 +184,7 @@ spl_autoload_register(
 		$paths = array(
 			SABRI_HNF_PATH . 'includes' . DIRECTORY_SEPARATOR . $file,
 			SABRI_HNF_PATH . 'admin' . DIRECTORY_SEPARATOR . $file,
+			SABRI_HNF_PATH . 'public' . DIRECTORY_SEPARATOR . $file,
 		);
 
 		foreach ( $paths as $path ) {

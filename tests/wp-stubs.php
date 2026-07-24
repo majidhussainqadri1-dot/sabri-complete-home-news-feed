@@ -348,12 +348,14 @@ class WP_Query {
 	public function set( $key, $value ) { $this->query_vars[ $key ] = $value; }
 	private function matches( $post ) {
 		$args = $this->query_vars;
+		if ( isset( $args['p'] ) && (int) $post->ID !== (int) $args['p'] ) { return false; }
+		if ( isset( $args['name'] ) && (string) get_post_field( 'post_name', $post->ID ) !== (string) $args['name'] ) { return false; }
 		if ( isset( $args['post_type'] ) ) {
 			$allowed_types = (array) $args['post_type'];
 			if ( ! in_array( $post->post_type, $allowed_types, true ) ) { return false; }
 		}
 		if ( isset( $args['post__not_in'] ) && in_array( (int) $post->ID, array_map( 'intval', (array) $args['post__not_in'] ), true ) ) { return false; }
-		if ( isset( $args['post_status'] ) && ! in_array( $post->post_status, (array) $args['post_status'], true ) ) { return false; }
+		if ( isset( $args['post_status'] ) ) { $allowed_statuses = (array) $args['post_status']; if ( ! in_array( 'any', $allowed_statuses, true ) && ! in_array( $post->post_status, $allowed_statuses, true ) ) { return false; } }
 		if ( isset( $args['meta_query'] ) && ! $this->matches_meta_query( $post->ID, $args['meta_query'] ) ) { return false; }
 		if ( isset( $args['tax_query'] ) && ! $this->matches_tax_query( $post->ID, $args['tax_query'] ) ) { return false; }
 		return true;

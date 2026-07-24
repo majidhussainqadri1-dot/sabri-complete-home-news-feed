@@ -22,7 +22,20 @@ $requiredRuntimeFiles = @(
 	'includes/class-phase3-feature-settings.php',
 	'admin/views/social-features.php',
 	'assets/js/share.js',
-	'templates/action-bar.php'
+	'templates/action-bar.php',
+	'includes/class-news-cache.php',
+	'includes/class-news-public-projector.php',
+	'includes/class-news-query-service.php',
+	'includes/class-news-feed-integration.php',
+	'includes/class-rest-news.php',
+	'public/class-news-routing.php',
+	'public/class-news-public-runtime.php',
+	'templates/news-archive.php',
+	'templates/news-single.php',
+	'templates/news-card.php',
+	'templates/news-retraction-notice.php',
+	'assets/css/news.css',
+	'assets/js/news.js'
 )
 foreach ($relativePath in $requiredRuntimeFiles) {
 	$requiredPath = Join-Path $Root $relativePath
@@ -103,18 +116,17 @@ $report = @(
 	'# Sabri Complete Home and News Feed Phase 3 Staging Candidate Test Report',
 	'',
 	'- Accepted plugin version shown in WordPress: 1.0.0',
-	'- Target release after staging acceptance: 1.1.0',
+	'- Target development line after all staging acceptance: 1.2.0',
 	"- Artifact: $(Split-Path $zipPath -Leaf)",
 	"- SHA-256: $hash",
 	"- Top-level ZIP folder: $slug/",
 	"- Runtime files included: $copied",
 	"- Required runtime files: $($requiredRuntimeFiles -join ', ')",
 	"- Excluded development paths: $($excludedDirs + $excludedFiles -join ', '), *.log",
-	'- Package status: WordPress Playground-tested Hostinger staging candidate only; not approved for main merge or live deployment.',
+	'- Package status: WordPress Playground-tested staging candidate only; not approved for version promotion or live deployment.',
 	'- Required real integration matrix: WordPress latest/PHP 8.3 and WordPress 6.8/PHP 8.1.',
-	'- Lifecycle coverage: installation, activation, late-init rewrite repair, Sample Page, plain page_id, shortcode Feed, direct Post, Like, Dislike, Comment, Save, Share, Views, unknown route, deactivation, and reactivation.',
-	'- Administrator controls: isolated Social Features panel with fail-closed dependencies and individual staging toggles.',
-	'- Final delivery requires a separate independent second QA pass after the initial build and packaged matrix pass.'
+	'- Phase 4C coverage: public News projections, archive/single/taxonomy routes, bounded search, dedicated News cards, Home Feed integration, read-only REST, cache/privacy boundaries.',
+	'- All Phase 4 public feature gates remain disabled by default.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
 
