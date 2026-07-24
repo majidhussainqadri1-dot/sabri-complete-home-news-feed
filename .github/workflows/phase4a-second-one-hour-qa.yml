@@ -1,48 +1,22 @@
 name: Phase 4A Mandatory Second One-Hour QA
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths: &phase4a_paths
-      - 'MANDATORY-SECOND-QA-POLICY.md'
-      - 'PHASE-4A-SECOND-QA-PROTOCOL.md'
-      - 'PHASE-4-*.md'
-      - 'includes/class-phase4-contracts.php'
-      - 'includes/class-news-feature-settings.php'
-      - 'includes/class-editorial-news-post-type.php'
-      - 'includes/class-news-taxonomies.php'
-      - 'includes/class-news-statuses.php'
-      - 'includes/class-news-capabilities.php'
-      - 'includes/class-plugin.php'
-      - 'includes/class-activator.php'
-      - 'includes/class-snapshot.php'
-      - 'includes/class-rollback.php'
-      - 'tests/run-phase4a-content-model-tests.php'
-      - 'tests/run-phase4a-security-contract-tests.php'
-      - 'tests/run-phase4a-rollback-edge-tests.php'
-      - 'tests/run-phase4a-playground-tests.mjs'
-      - 'tests/run-phase4a-second-one-hour-qa.sh'
-      - '.github/workflows/phase4a-content-model-tests.yml'
-      - '.github/workflows/phase4a-second-one-hour-qa.yml'
   push:
     branches:
       - build/phase-4-editorial-news-1.2.0
   workflow_dispatch:
 
-# Pull-request synchronization validates the definition without running the
-# expensive jobs. The feature-branch push starts the exact-commit mandatory QA
-# because workflow_dispatch is unavailable until the workflow reaches main.
+# This expensive exact-commit QA runs only on the dedicated Phase 4A feature
+# branch push (or by explicit manual dispatch after the workflow reaches main).
 env:
-  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  TEST_SHA: ${{ github.sha }}
 
 concurrency:
-  group: phase4a-mandatory-second-one-hour-qa-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: phase4a-mandatory-second-one-hour-qa-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   real-playground-before-soak:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
