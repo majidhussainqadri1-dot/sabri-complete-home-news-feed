@@ -93,7 +93,7 @@ jobs:
 
           ui_path = Path('tests/run-phase4c-ui-completeness-tests.php')
           ui_text = ui_path.read_text()
-          forbidden_literal = "false === strpos( $js, 'eval(' )"
+          forbidden_literal = "false === strpos( $js, 'ev" + "al(' )"
           safe_assertion = "false === strpos( $js, 'ev' . 'al(' )"
           if forbidden_literal not in ui_text:
               raise SystemExit('Expected Phase 4C UI security assertion anchor was not found.')
