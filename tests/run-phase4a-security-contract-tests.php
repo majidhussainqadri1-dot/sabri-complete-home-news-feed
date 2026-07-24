@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/run-phase4a-rollback-edge-tests.php';
 
 use Sabri\HomeNewsFeed\EditorialNewsPostType;
 use Sabri\HomeNewsFeed\NewsCapabilities;
@@ -100,11 +101,10 @@ sabri_phase4a_security_assert( false !== strpos( $workflow, 'node tests/run-phas
 sabri_phase4a_security_assert( false !== strpos( $workflow, 'SABRI_PLUGIN_ZIP' ), 'Second-QA workflow does not bind the packaged security test.' );
 sabri_phase4a_security_assert( false !== strpos( $workflow, 'github.ref_name' ), 'Second-QA concurrency is not normalized to the branch name.' );
 
-$edge_output = array();
-$edge_status = 1;
-$edge_command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/run-phase4a-rollback-edge-tests.php' );
-exec( $edge_command . ' 2>&1', $edge_output, $edge_status );
-sabri_phase4a_security_assert( 0 === $edge_status, 'Post-snapshot role rollback edge test failed: ' . implode( ' | ', $edge_output ) );
+$edge_failures = sabri_phase4a_collect_rollback_edge_failures();
+foreach ( $edge_failures as $edge_failure ) {
+	sabri_phase4a_security_assert( false, 'Post-snapshot role rollback edge test failed: ' . $edge_failure );
+}
 
 if ( $failures ) {
 	echo "FAILED\n";
