@@ -25,11 +25,14 @@ on:
       - 'tests/run-phase4a-second-one-hour-qa.sh'
       - '.github/workflows/phase4a-content-model-tests.yml'
       - '.github/workflows/phase4a-second-one-hour-qa.yml'
+  push:
+    branches:
+      - build/phase-4-editorial-news-1.2.0
   workflow_dispatch:
 
-# Pull-request synchronization validates that the mandatory QA definition remains
-# bound to the exact commit, but the expensive jobs run only after an explicit
-# workflow_dispatch once all shorter exact-commit checks have passed.
+# Pull-request synchronization validates the definition without running the
+# expensive jobs. The feature-branch push starts the exact-commit mandatory QA
+# because workflow_dispatch is unavailable until the workflow reaches main.
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -39,7 +42,7 @@ concurrency:
 
 jobs:
   real-playground-before-soak:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     timeout-minutes: 40
