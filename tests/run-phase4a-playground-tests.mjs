@@ -74,7 +74,8 @@ try {
 		assert(!install.error && install.active, `Packaged Phase 4A installation failed: ${JSON.stringify(install)}`);
 	}
 
-	const result = JSON.parse(await php(`
+	// String.raw preserves PHP namespace separators inside the JavaScript template.
+	const result = JSON.parse(await php(String.raw`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		$user_specs = array(
 			'owner' => array( 'phase4_owner', 'phase4-owner@example.test' ),
