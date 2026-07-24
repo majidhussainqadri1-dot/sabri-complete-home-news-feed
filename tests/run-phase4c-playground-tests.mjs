@@ -21,8 +21,9 @@ function delay(milliseconds) {
 async function startPlayground(options, attempts = 3) {
 	let lastError;
 	for (let attempt = 1; attempt <= attempts; attempt += 1) {
-		try { return await runCLI(structuredClone(options)); }
-		catch (error) {
+		try {
+			return await runCLI(structuredClone(options));
+		} catch (error) {
 			lastError = error;
 			if (attempt === attempts) break;
 			await delay(attempt * 5000);
@@ -62,11 +63,9 @@ try {
 	}
 
 	const result = JSON.parse(await php(String.raw`
-		global $wp_rewrite, $wp_filter;
-		$defaults = \Sabri\HomeNewsFeed\NewsFeatureSettings::defaults();
-		$gate_off = ! \Sabri\HomeNewsFeed\NewsPolicy::public_reads_allowed();
+		$phase4 = \Sabri\HomeNewsFeed\NewsFeatureSettings::defaults();
+		$gate_off = 0 === (int) $phase4['editorial_news_enabled'];
 		$off_query = \Sabri\HomeNewsFeed\NewsQueryService::query();
-		$phase4 = $defaults;
 		$phase4['editorial_news_enabled'] = 1;
 		update_option( \Sabri\HomeNewsFeed\NewsFeatureSettings::OPTION_NAME, $phase4, false );
 
@@ -162,8 +161,8 @@ try {
 			'single'=>$single, 'private_single'=>$private_single, 'retracted'=>$retracted,
 			'taxonomy'=>$taxonomy, 'unknown_taxonomy'=>$unknown_taxonomy, 'invalid'=>$invalid,
 			'integrated'=>$integrated,
-			'has_archive_rule'=>isset($rules['news/?$']),
-			'has_single_rule'=>isset($rules['news/([a-z0-9]+(?:-[a-z0-9]+)*)/?$']),
+			'has_archive_rule'=>isset($rules['^news/?$']),
+			'has_single_rule'=>isset($rules['^news/([a-z0-9]+(?:-[a-z0-9]+)*)/?$']),
 			'archive_vars'=>$archive_vars, 'single_vars'=>$single_vars, 'taxonomy_vars'=>$taxonomy_vars,
 			'rest_collection_status'=>$rest_collection->get_status(),
 			'rest_single_status'=>$rest_single->get_status(),
