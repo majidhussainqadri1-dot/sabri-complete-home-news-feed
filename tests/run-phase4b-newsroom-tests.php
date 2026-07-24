@@ -30,7 +30,7 @@ function sabri_phase4b_assert( $condition, $message ) {
 }
 
 sabri_test_reset_state( true );
-global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_scheduled_events;
+global $sabri_test_current_user_id, $sabri_test_current_caps, $sabri_test_scheduled_events, $sabri_test_roles, $sabri_test_user_roles;
 $sabri_test_scheduled_events = array();
 $sabri_test_current_user_id = 1;
 sabri_phase4b_grant_test_caps();
@@ -70,9 +70,11 @@ $valid_input = array(
 );
 $valid = NewsComposerValidator::validate( $valid_input );
 sabri_phase4b_assert( $valid['success'], 'A complete explicitly zoned composer payload must validate.' );
-sabri_phase4b_assert( gmdate( 'Y-m-d H:i:s', time() + ( 2 * DAY_IN_SECONDS ) ) === $valid['data']['schedule_at_utc'], 'Schedule values must normalize to UTC.' );
+sabri_phase4b_assert( NewsSchedulingService::normalize_utc( $schedule_input ) === $valid['data']['schedule_at_utc'], 'Schedule values must normalize to UTC.' );
 sabri_phase4b_assert( array( 'research', 'platform' ) === $valid['data']['topics'], 'Comma-separated taxonomy slugs must normalize safely.' );
 sabri_phase4b_assert( ! array_key_exists( 'unknown_field', $valid['data'] ), 'Unknown composer fields must not propagate.' );
+sabri_phase4b_assert( '' === NewsSchedulingService::normalize_utc( '2027-02-31T03:04:05Z' ), 'Invalid calendar dates must fail rather than normalize.' );
+sabri_phase4b_assert( '' === NewsSchedulingService::normalize_utc( '2027-01-02 03:04:05' ), 'Timezone-ambiguous schedule values must fail.' );
 
 $invalid = NewsComposerValidator::validate(
 	array(
@@ -80,7 +82,7 @@ $invalid = NewsComposerValidator::validate(
 		'section' => 'Platform-News', 'article_type' => 'standard-news!',
 		'topics' => array( 'valid', 'Bad Slug' ), 'featured_image_id' => array( 1 ),
 		'fact_check_required' => 'yes', 'target_state' => 'scheduled',
-		'schedule_at' => '2027-01-02 03:04:05',
+		'schedule_at' => '2027-02-31T03:04:05Z',
 	)
 );
 foreach ( array( 'title', 'language', 'priority', 'section', 'article_type', 'topics', 'featured_image_id', 'fact_check_required', 'summary', 'schedule_at' ) as $field ) {
@@ -106,6 +108,10 @@ $own_args = NewsQueueService::query_args( 'own-drafts', 1, 500 );
 sabri_phase4b_assert( 50 === $own_args['posts_per_page'] && 1 === $own_args['author'], 'Own queues must be bounded and author-isolated.' );
 $submitted_args = NewsQueueService::query_args( 'submitted', 1, 20 );
 sabri_phase4b_assert( 1 === $submitted_args['author'] && in_array( 'editorial-review', $submitted_args['meta_query'][0]['value'], true ), 'Submitted items must remain submitter-isolated.' );
+$fact_check_args = NewsQueueService::query_args( 'fact-check', 1, 20 );
+$medical_args = NewsQueueService::query_args( 'medical-review', 1, 20 );
+sabri_phase4b_assert( '_sabri_news_reviewing_editor_id' === $fact_check_args['meta_query'][1]['key'] && 1 === $fact_check_args['meta_query'][1]['value'], 'Fact-check queues must be isolated to assigned reviewers.' );
+sabri_phase4b_assert( '_sabri_news_medical_reviewer_id' === $medical_args['meta_query'][1]['key'] && 1 === $medical_args['meta_query'][1]['value'], 'Medical-review queues must be isolated to assigned reviewers.' );
 
 $original_caps = $sabri_test_current_caps;
 $sabri_test_current_user_id = 3;
@@ -113,6 +119,10 @@ $sabri_test_current_caps = array( 'review_editorial_news' => true, 'edit_editori
 sabri_phase4b_assert( ! NewsPolicy::can_assign_reviewer( 0, 3, 'medical' ), 'Restricted reviewers must not self-assign.' );
 $sabri_test_current_user_id = 1;
 $sabri_test_current_caps = $original_caps;
+$sabri_test_roles['editor_only'] = new Sabri_Test_Role( array( 'review_editorial_news' => true ) );
+$sabri_test_user_roles[8] = array( 'editor_only' );
+sabri_phase4b_assert( NewsPolicy::can_assign_reviewer( 0, 8, 'editorial' ), 'Editorial reviewers must remain assignable to editorial review.' );
+sabri_phase4b_assert( ! NewsPolicy::can_assign_reviewer( 0, 8, 'fact-check' ), 'Editorial-only reviewers must not be assigned as fact-checkers.' );
 
 $invalid_image_input = $valid_input;
 $invalid_image_input['target_state'] = 'draft';
@@ -130,6 +140,15 @@ $post_id = ! empty( $created['data']['post_id'] ) ? (int) $created['data']['post
 sabri_phase4b_assert( 'draft' === get_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, true ), 'New articles must retain canonical draft state.' );
 sabri_phase4b_assert( has_term( 'platform-news', 'sabri_news_section', $post_id ), 'Composer service must store the controlled section.' );
 sabri_phase4b_assert( 77 === (int) get_post_meta( $post_id, '_thumbnail_id', true ), 'Validated featured images must use core thumbnail storage.' );
+
+$remove_image_input = $draft_input;
+$remove_image_input['featured_image_id'] = 0;
+$removed_image = NewsService::save( $post_id, $remove_image_input, array( 'method' => 'POST', 'nonce_verified' => true ) );
+sabri_phase4b_assert( $removed_image['success'] && 0 === (int) get_post_meta( $post_id, '_thumbnail_id', true ), 'An explicit zero must remove an existing featured image.' );
+$omit_image_input = $draft_input;
+unset( $omit_image_input['featured_image_id'] );
+$omitted_image = NewsService::save( $post_id, $omit_image_input, array( 'method' => 'POST', 'nonce_verified' => true ) );
+sabri_phase4b_assert( $omitted_image['success'], 'Programmatic updates may omit the featured-image field without failure.' );
 
 $submitted = NewsService::transition( $post_id, 'editorial-review', array( 'method' => 'POST', 'nonce_verified' => true ) );
 $submitted_again = NewsService::transition( $post_id, 'editorial-review', array( 'method' => 'POST', 'nonce_verified' => true ) );
@@ -160,7 +179,7 @@ sabri_phase4b_assert( false === $newsroom_health['checks']['auto_publish_enabled
 $cancelled = NewsSchedulingService::cancel( $post_id );
 sabri_phase4b_assert( $cancelled['success'] && 'ready-for-publication' === get_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, true ), 'Schedule cancellation must restore publication-ready state.' );
 $audit_option = get_option( 'sabri_feed_news_audit_' . $post_id, array() );
-sabri_phase4b_assert( is_array( $audit_option ) && count( $audit_option ) >= 6, 'Consequential editorial actions must append private audit events.' );
+sabri_phase4b_assert( is_array( $audit_option ) && count( $audit_option ) >= 8, 'Consequential editorial actions must append private audit events.' );
 
 SafeMode::set_emergency_disabled( true );
 sabri_phase4b_assert( ! NewsPolicy::writes_allowed(), 'Emergency Disable must close Phase 4B writes.' );
