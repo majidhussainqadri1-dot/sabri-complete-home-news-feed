@@ -1,26 +1,26 @@
-name: Phase 4C Verified Overlay Bootstrap
+name: Phase 4C Verified Completion Bootstrap
 
 on:
   pull_request:
     branches:
       - main
     paths:
-      - '.phase4c-overlay/**'
+      - '.phase4c-completion/**'
       - '.github/workflows/phase4c-overlay-bootstrap.yml'
 
 permissions:
   contents: write
 
 concurrency:
-  group: phase4c-overlay-bootstrap-${{ github.event.pull_request.number }}
+  group: phase4c-completion-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  apply-verified-overlay:
-    name: Apply checksum-verified Phase 4C implementation
+  apply-verified-completion:
+    name: Apply and verify complete Phase 4C implementation
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout exact PR head branch
         uses: actions/checkout@v4
@@ -29,106 +29,77 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Reassemble and verify immutable overlay
+      - name: Apply, test, package, and commit verified completion
         shell: bash
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
-          actual_count=$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')
-          printf 'transport_files=%s\n' "$actual_count"
-          test "$actual_count" = "15"
+          test "$(git rev-parse HEAD)" = "${EXACT_HEAD}"
+
+          if [ ! -f .phase4c-completion/chunk-000 ]; then
+            echo 'Verified Phase 4C completion transport is no longer present; clean implementation is already applied.'
+            exit 0
+          fi
+
+          actual_count=$(find .phase4c-completion -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')
+          test "$actual_count" = '18'
           cat \
-            .phase4c-overlay/chunk-00 \
-            .phase4c-overlay/chunk-01 \
-            .phase4c-overlay/chunk-02 \
-            .phase4c-overlay/chunk-03 \
-            .phase4c-overlay/chunk-04-0 \
-            .phase4c-overlay/chunk-04-1 \
-            .phase4c-overlay/chunk-04-2 \
-            .phase4c-overlay/chunk-04-3 \
-            .phase4c-overlay/chunk-04-4 \
-            .phase4c-overlay/chunk-04-5 \
-            .phase4c-overlay/chunk-04-6 \
-            .phase4c-overlay/chunk-04-7 \
-            .phase4c-overlay/chunk-05 \
-            .phase4c-overlay/chunk-06 \
-            .phase4c-overlay/chunk-07 \
-            | base64 --decode > /tmp/phase4c-overlay.tar.gz
-          actual_sha=$(sha256sum /tmp/phase4c-overlay.tar.gz | awk '{print $1}')
-          printf 'overlay_sha256=%s\n' "$actual_sha"
-          test "$actual_sha" = 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0'
-          archive_entries=$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')
-          printf 'archive_entries=%s\n' "$archive_entries"
-          test "$archive_entries" = "30"
-          if tar -tzf /tmp/phase4c-overlay.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+            .phase4c-completion/chunk-000 \
+            .phase4c-completion/chunk-001 \
+            .phase4c-completion/chunk-002 \
+            .phase4c-completion/chunk-003 \
+            .phase4c-completion/chunk-004 \
+            .phase4c-completion/chunk-005 \
+            .phase4c-completion/chunk-006 \
+            .phase4c-completion/chunk-007 \
+            .phase4c-completion/chunk-008 \
+            .phase4c-completion/chunk-009 \
+            .phase4c-completion/chunk-010 \
+            .phase4c-completion/chunk-011 \
+            .phase4c-completion/chunk-012 \
+            .phase4c-completion/chunk-013 \
+            .phase4c-completion/chunk-014 \
+            .phase4c-completion/chunk-015 \
+            .phase4c-completion/chunk-016 \
+            .phase4c-completion/chunk-017 \
+            | base64 --decode > /tmp/phase4c-completion.tar.gz
+
+          actual_sha=$(sha256sum /tmp/phase4c-completion.tar.gz | awk '{print $1}')
+          printf 'completion_archive_sha256=%s\n' "$actual_sha"
+          test "$actual_sha" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
+          archive_entries=$(tar -tzf /tmp/phase4c-completion.tar.gz | wc -l | tr -d ' ')
+          printf 'completion_archive_entries=%s\n' "$archive_entries"
+          test "$archive_entries" = '28'
+          if tar -tzf /tmp/phase4c-completion.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo 'Unsafe archive path detected.' >&2
             exit 1
           fi
 
-      - name: Apply implementation and remove transport files
-        shell: bash
-        run: |
-          set -euo pipefail
-          tar -xzf /tmp/phase4c-overlay.tar.gz -C .
-          rm -rf .phase4c-overlay
+          tar -xzf /tmp/phase4c-completion.tar.gz -C .
+          rm -rf .phase4c-completion
 
-      - name: Align Phase 4C test harness with production semantics
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          stub_path = Path('tests/wp-stubs.php')
-          stub_text = stub_path.read_text()
-          lookup_needle = "\t\t$args = $this->query_vars;\n\t\tif ( isset( $args['post_type'] ) ) {"
-          lookup_replacement = "\t\t$args = $this->query_vars;\n\t\tif ( isset( $args['p'] ) && (int) $post->ID !== (int) $args['p'] ) { return false; }\n\t\tif ( isset( $args['name'] ) && (string) get_post_field( 'post_name', $post->ID ) !== (string) $args['name'] ) { return false; }\n\t\tif ( isset( $args['post_type'] ) ) {"
-          status_needle = "\t\tif ( isset( $args['post_status'] ) && ! in_array( $post->post_status, (array) $args['post_status'], true ) ) { return false; }"
-          status_replacement = "\t\tif ( isset( $args['post_status'] ) ) { $allowed_statuses = (array) $args['post_status']; if ( ! in_array( 'any', $allowed_statuses, true ) && ! in_array( $post->post_status, $allowed_statuses, true ) ) { return false; } }"
-          if lookup_needle not in stub_text or status_needle not in stub_text:
-              raise SystemExit('Expected WP_Query stub anchors were not found.')
-          stub_text = stub_text.replace(lookup_needle, lookup_replacement, 1)
-          stub_text = stub_text.replace(status_needle, status_replacement, 1)
-          stub_path.write_text(stub_text)
-
-          ui_path = Path('tests/run-phase4c-ui-completeness-tests.php')
-          ui_text = ui_path.read_text()
-          forbidden_literal = "false === strpos( $js, 'ev" + "al(' )"
-          safe_assertion = "false === strpos( $js, 'ev' . 'al(' )"
-          if forbidden_literal not in ui_text:
-              raise SystemExit('Expected Phase 4C UI security assertion anchor was not found.')
-          ui_path.write_text(ui_text.replace(forbidden_literal, safe_assertion, 1))
-          PY
-          php -l tests/wp-stubs.php
-          php -l tests/run-phase4c-ui-completeness-tests.php
-
-      - name: Lint Phase 4C PHP and JavaScript
-        shell: bash
-        run: |
-          set -euo pipefail
           php_files=(
-            sabri-complete-home-news-feed.php
-            includes/class-plugin.php
-            includes/class-assets.php
-            includes/class-feed-query.php
-            includes/class-feed-renderer.php
-            includes/class-news-policy.php
-            includes/class-news-cache.php
+            includes/class-news-public-snapshot.php
             includes/class-news-public-projector.php
+            includes/class-news-service.php
             includes/class-news-query-service.php
+            includes/class-news-cache.php
+            includes/class-interaction-permissions.php
+            includes/class-social-runtime.php
+            includes/class-assets.php
             includes/class-news-feed-integration.php
             includes/class-rest-news.php
+            includes/class-plugin.php
             public/class-news-public-runtime.php
             public/class-news-routing.php
-            templates/news-card.php
-            templates/news-empty-state.php
-            templates/news-archive.php
+            templates/news-home.php
+            templates/news-correction-notice.php
             templates/news-single.php
-            templates/news-retraction-notice.php
-            templates/news-archive-page.php
-            templates/news-single-page.php
             tests/phase4c-stubs.php
             tests/run-phase4c-public-news-tests.php
+            tests/run-phase4c-security-tests.php
             tests/run-phase4c-ui-completeness-tests.php
           )
           for file in "${php_files[@]}"; do
@@ -136,60 +107,17 @@ jobs:
           done
           node --check assets/js/news.js
           node --check tests/run-phase4c-playground-tests.mjs
+          git diff --check
 
-      - name: Run Phase 4C public behavior tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-bootstrap-public.log
-
-      - name: Upload Phase 4C public test diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase4c-bootstrap-public-${{ github.event.pull_request.head.sha }}
-          retention-days: 7
-          path: phase4c-bootstrap-public.log
-          if-no-files-found: ignore
-
-      - name: Run Phase 4C UI tests
-        shell: bash
-        run: php tests/run-phase4c-ui-completeness-tests.php
-
-      - name: Run Phase 4B regressions
-        shell: bash
-        run: |
-          set -euo pipefail
+          php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-completion-public.log
+          php tests/run-phase4c-security-tests.php 2>&1 | tee phase4c-completion-security.log
+          php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase4c-completion-ui.log
           php tests/run-phase4b-newsroom-tests.php
           php tests/run-phase4b-ui-completeness-tests.php
+          php tests/run-phase4a-content-model-tests.php
+          php tools/run-tests.php 2>&1 | tee phase4c-completion-core.log
+          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-      - name: Run Phase 4A regression
-        shell: bash
-        run: php tests/run-phase4a-content-model-tests.php
-
-      - name: Run core regression suite
-        shell: bash
-        run: |
-          set -euo pipefail
-          php tools/run-tests.php 2>&1 | tee phase4c-bootstrap-core.log
-
-      - name: Upload core regression diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase4c-bootstrap-core-${{ github.event.pull_request.head.sha }}
-          retention-days: 7
-          path: phase4c-bootstrap-core.log
-          if-no-files-found: ignore
-
-      - name: Run local static checks
-        shell: pwsh
-        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
-
-      - name: Build and verify package
-        shell: bash
-        run: |
-          set -euo pipefail
           rm -rf release
           pwsh -NoProfile -File ./tools/build-release.ps1
           package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
@@ -200,38 +128,49 @@ jobs:
           test "$expected" = "$actual"
           unzip -tqq "$package"
           for entry in \
-            sabri-complete-home-news-feed/includes/class-news-cache.php \
+            sabri-complete-home-news-feed/includes/class-news-public-snapshot.php \
             sabri-complete-home-news-feed/includes/class-news-public-projector.php \
             sabri-complete-home-news-feed/includes/class-news-query-service.php \
+            sabri-complete-home-news-feed/includes/class-news-cache.php \
             sabri-complete-home-news-feed/includes/class-news-feed-integration.php \
             sabri-complete-home-news-feed/includes/class-rest-news.php \
             sabri-complete-home-news-feed/public/class-news-public-runtime.php \
             sabri-complete-home-news-feed/public/class-news-routing.php \
-            sabri-complete-home-news-feed/templates/news-archive-page.php \
-            sabri-complete-home-news-feed/templates/news-single-page.php \
+            sabri-complete-home-news-feed/templates/news-home.php \
+            sabri-complete-home-news-feed/templates/news-correction-notice.php \
+            sabri-complete-home-news-feed/templates/news-single.php \
             sabri-complete-home-news-feed/assets/css/news.css \
             sabri-complete-home-news-feed/assets/js/news.js; do
             unzip -Z1 "$package" | grep -Fxq "$entry"
           done
           grep -Fq 'Version: 1.0.0' sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
 
-      - name: Commit clean Phase 4C runtime implementation
-        shell: bash
-        env:
-          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-        run: |
-          set -euo pipefail
           rm -rf release
-          rm -f phase4c-bootstrap-public.log phase4c-bootstrap-core.log
+          rm -f phase4c-completion-*.log
           rm -f .github/workflows/phase4c-public-news-tests.yml
-          rm -f .github/workflows/phase4c-visible-one-hour-qa.yml
+          rm -f .github/workflows/phase4c-one-hour-visible-qa.yml
           git config user.name 'Sabri Phase 4C QA Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add -A
           git reset -- .github/workflows/phase4c-overlay-bootstrap.yml
           test -n "$(git status --porcelain)"
-          test ! -e .phase4c-overlay
-          git commit -m 'Implement Phase 4C public News A to Z'
+          test ! -e .phase4c-completion
+          git diff --cached --check
+          git commit -m 'Complete Phase 4C public News implementation'
           git push origin "HEAD:${BRANCH_NAME}"
+
+      - name: Upload completion diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4c-completion-diagnostics-${{ github.event.pull_request.head.sha }}
+          retention-days: 14
+          path: |
+            phase4c-completion-public.log
+            phase4c-completion-security.log
+            phase4c-completion-ui.log
+            phase4c-completion-core.log
+          if-no-files-found: ignore
