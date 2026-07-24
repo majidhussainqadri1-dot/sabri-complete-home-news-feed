@@ -72,6 +72,12 @@ if ( ! function_exists( 'set_post_thumbnail' ) ) {
 	}
 }
 
+if ( ! function_exists( 'delete_post_thumbnail' ) ) {
+	function delete_post_thumbnail( $post_id ) {
+		return delete_post_meta( $post_id, '_thumbnail_id' );
+	}
+}
+
 if ( ! function_exists( 'get_post_thumbnail_id' ) ) {
 	function get_post_thumbnail_id( $post_id ) {
 		return (int) get_post_meta( $post_id, '_thumbnail_id', true );
