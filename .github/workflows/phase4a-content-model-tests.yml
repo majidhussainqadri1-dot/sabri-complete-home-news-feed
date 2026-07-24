@@ -21,7 +21,7 @@ concurrency:
 jobs:
   phase4a:
     name: Contracts, security model, WordPress, package, and full regression
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 55
 
     steps:
