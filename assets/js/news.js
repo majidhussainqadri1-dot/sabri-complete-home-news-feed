@@ -1,34 +1,33 @@
 (function () {
 	'use strict';
-
 	function ready(callback) {
-		if (document.readyState === 'loading') {
-			document.addEventListener('DOMContentLoaded', callback, { once: true });
-		} else {
-			callback();
-		}
+		if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', callback, { once: true });
+		else callback();
 	}
-
 	ready(function () {
-		var forms = document.querySelectorAll('.sabri-news-filter');
-		forms.forEach(function (form) {
+		document.querySelectorAll('.sabri-news-filter').forEach(function (form) {
 			form.addEventListener('submit', function () {
 				var button = form.querySelector('button[type="submit"]');
-				if (button) {
-					button.setAttribute('aria-busy', 'true');
-				}
+				if (button) button.setAttribute('aria-busy', 'true');
 			});
 		});
-
-		var cards = document.querySelectorAll('[data-sabri-global-key]');
 		var seen = new Set();
-		cards.forEach(function (card) {
+		document.querySelectorAll('[data-sabri-global-key]').forEach(function (card) {
 			var key = card.getAttribute('data-sabri-global-key');
-			if (!key || seen.has(key)) {
-				card.remove();
-				return;
-			}
+			if (!key || seen.has(key)) { card.remove(); return; }
 			seen.add(key);
+		});
+		document.querySelectorAll('[data-sabri-news-copy-link]').forEach(function (button) {
+			button.addEventListener('click', function () {
+				var url = button.getAttribute('data-url') || window.location.href;
+				var status = button.parentNode ? button.parentNode.querySelector('[data-sabri-news-copy-status]') : null;
+				var done = function (message) { if (status) status.textContent = message; };
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					navigator.clipboard.writeText(url).then(function () { done('Link copied.'); }, function () { done('Copy failed.'); });
+				} else {
+					done('Copy is not supported. Use the permanent link.');
+				}
+			});
 		});
 	});
 }());

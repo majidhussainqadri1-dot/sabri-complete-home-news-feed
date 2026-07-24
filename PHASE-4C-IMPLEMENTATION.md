@@ -1,90 +1,79 @@
-# Phase 4C Implementation — Public News and Home Feed Integration
+# Phase 4C Implementation — Public News, Discovery, and Home Feed Integration
 
 Target development line: `1.2.0`
 
 Branch: `build/phase-4c-public-news-1.2.0`
 
-Status: **implemented on an isolated Draft PR; all public gates remain disabled by default; automated and staging acceptance remain required**
+Status: **implemented on an isolated Draft PR; exact-head source/package matrices and mandatory one-hour acceptance govern completion; all public gates remain disabled by default**
 
-## Delivered runtime
+## Delivered public runtime
 
-- Fail-closed public visibility policy for Editorial News.
-- Inclusion-only public article, card, and retraction projections.
-- Bounded public collection and single query service.
-- Exact `/news/` archive, canonical single, and taxonomy routes.
-- Public archive, single, card, empty-state, and retraction templates.
-- Keyword, section, topic, country, region, type, date, author, research, corrected, and retracted filters.
-- Dedicated normalized Home Feed News items with `global_key = news:{id}`.
-- Cross-type deduplication and deterministic bounded feed insertion.
-- GET-only public REST collection and single routes.
-- Versioned public News caching and feed-cache invalidation.
-- Public News CSS and progressive JavaScript with keyboard, focus, responsive, zoom, and reduced-motion foundations.
-- Autoloader and coordinator registration for the new public runtime.
-- Release-package required-file enforcement for Phase 4C.
+- Fail-closed public Editorial News policy with Emergency Disable precedence.
+- Exact canonical routes for News archive, single article, and section/topic/country/region/type archives.
+- Inclusion-only article, card, approved-correction, and retraction projections.
+- Last-approved public snapshot that prevents private `correction-pending` title, body, summary, media, taxonomy, author, or reviewer changes from leaking.
+- Private pending-correction payload with explicit approved promotion to the canonical public record.
+- Complete bounded News landing: Featured Story, Latest News, Editor’s Picks, Research News, Classical Homeopathy, Public Health, Homeopathy Education, Platform News, Founder Updates, Worldwide Health Developments, and Recently Updated/Corrected.
+- Bounded archive/search filters for keyword, section, topic, country, region, article type, strict date range, approved author, approved institution, research, corrected, and retracted notices.
+- Controlled-term validation for every public taxonomy filter.
+- Complete single article presentation with approved author/institution, optionally approved reviewing editor, published/updated times, reading time, image attribution, correction notice, disclaimer, conflict disclosure, all taxonomy links, canonical sharing, related News, and allowed Phase 3 interactions.
+- Dedicated normalized Home Feed News items with `global_key = news:{id}`, canonical links, deterministic insertion, cross-type deduplication, and actual-card-only News asset loading.
+- Strict GET-only public REST collection and single routes with typed schemas, bounded values, unknown-parameter rejection, shared public projections, safe headers, and no writes.
+- Versioned, site/language/gate/emergency-aware public cache with plugin-owned invalidation and purge boundaries.
+- Responsive, keyboard-accessible, high-zoom, reduced-motion, forced-colors, and progressive-enhancement public News assets.
 
-## Public projection rules
+## Frozen public states
 
-Normal archive promotion permits only the authoritative workflow states:
+Normal public promotion permits only:
 
 ```text
 published
 updated
-correction-pending
+correction-pending (last approved public snapshot only)
 corrected
 ```
 
-`correction-pending` exposes only the last approved public article version and does not expose the private pending decision. `retracted` is excluded from normal promotion and may expose only the approved public retraction notice. Draft, review, fact-check, medical-review, ready, scheduled, archived, malformed, foreign, or missing states fail closed.
+`retracted` exposes only an approved public accountability notice. Draft, needs-sources, editorial-review, fact-check, medical-review, ready-for-publication, scheduled, archived, malformed, foreign, or missing objects fail closed.
 
-Public projections are built by inclusion. They do not serialize private editorial notes, reviewer deliberations, source-confidence notes, account emails, non-public user identifiers, preview data, nonces, or hidden retracted content.
-
-## Routes
+## Frozen public error codes
 
 ```text
-/news/
-/news/{article-slug}/
-/news/section/{slug}/
-/news/topic/{slug}/
-/news/country/{slug}/
-/news/region/{slug}/
-/news/type/{slug}/
+editorial_news_disabled
+public_news_not_found
+public_news_filter_invalid
+public_news_page_invalid
+public_news_taxonomy_invalid
+public_news_retracted
+public_news_query_failed
 ```
 
-Routes are registered only when `editorial_news_enabled = 1`. The default remains `0`. Disabling the gate closes the public route, REST, query, rendering, and feed-integration surfaces without deleting data.
-
-## Home Feed boundary
-
-Editorial News remains a separate content class. It is converted to a normalized feed item and never converted into an ordinary WordPress community post. Ordinary identities use `post:{id}`; Editorial News uses `news:{id}`. Each supported feed page receives at most one News item, preserving the configured total page size.
-
-## REST boundary
-
-Phase 4C exposes only:
+## Public REST boundary
 
 ```text
 GET /sabri-home-news-feed/v1/news
 GET /sabri-home-news-feed/v1/news/{id}
 ```
 
-No Phase 4C public write, publish, schedule, correction, retraction, source, submission, or reviewer endpoint is opened.
+No public create, update, delete, publish, schedule, correction, retraction, source, submission, or reviewer endpoint is opened by Phase 4C.
 
-## Automated acceptance
+## Acceptance coverage
 
-The Phase 4C test matrix includes:
+- Phase 4C behavior and contract tests.
+- Dedicated security-negative and privacy tests.
+- UI/accessibility/completeness tests.
+- Phase 4A and Phase 4B regressions.
+- Phase 2 and Phase 3 core regressions and static checks.
+- Source WordPress matrices: WordPress latest/PHP 8.3 and WordPress 6.8/PHP 8.1.
+- Immutable ZIP SHA-256 and required-file verification.
+- Packaged WordPress matrices on both environments.
+- Observable exact-head one-hour QA: at least 3,900 seconds, exactly 13 complete cycles, final packaged matrices, initial/final tracked-manifest comparison, and retained evidence artifact.
 
-- public behavior, privacy, strict validation, routing, cache, REST, and feed-integration tests;
-- source-level UI and security completeness checks;
-- Phase 4A and Phase 4B regressions;
-- core Phase 2 and Phase 3 regressions;
-- source WordPress Playground on WordPress latest/PHP 8.3 and WordPress 6.8/PHP 8.1;
-- immutable ZIP checksum and required-structure verification;
-- packaged WordPress Playground on both matrices;
-- exact-head acceptance artifact;
-- a separate observable 3,900-second, 13-cycle QA with final packaged matrices.
-
-## Frozen boundaries
+## Frozen safety boundaries
 
 - Plugin version remains `1.0.0`.
 - Schema version remains `1.0.0`.
 - `Phase4Contracts::CHECKPOINT` remains `4A`.
-- All Phase 4 gates remain disabled by default.
-- No automatic publication is enabled.
-- Sources/review ledgers, submissions, Breaking News administration, correction administration, complete SEO/RSS/sitemap/translation, version promotion, Hostinger staging, and live deployment remain later checkpoints.
+- Every Phase 4 public feature gate remains disabled by default.
+- Automatic publication remains disabled.
+- No write to `main`, merge, version promotion, Hostinger staging activation, or live deployment is authorized by this implementation.
+- Phase 4D–4I remain separate later checkpoints.

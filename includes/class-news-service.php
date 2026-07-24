@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 4B Editorial News application service.
+ * Phase 4B/4C Editorial News application service.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -11,12 +11,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Coordinates secure composer saves, transitions, assignments, and scheduling. */
+/** Coordinates secure composer saves, transitions, assignments, scheduling, and private corrections. */
 final class NewsService {
 	/** Register service foundations without exposing REST routes. */
-	public static function register() {
-		// NewsroomAdmin is the only Phase 4B request controller.
-	}
+	public static function register() {}
 
 	/** Enforce exact request method and verified nonce context. */
 	public static function request_guard( array $request, $required_method = 'POST' ) {
@@ -36,7 +34,7 @@ final class NewsService {
 		if ( empty( $guard['success'] ) ) {
 			return $guard;
 		}
-		$post_id = function_exists( 'absint' ) ? absint( $post_id ) : max( 0, (int) $post_id );
+		$post_id = self::absint( $post_id );
 		$is_new = $post_id < 1;
 		$featured_image_supplied = array_key_exists( 'featured_image_id', $input );
 		if ( ! NewsPolicy::writes_allowed() ) {
@@ -86,14 +84,21 @@ final class NewsService {
 			}
 		}
 
+		if ( ! $is_new ) {
+			$correction_result = self::save_correction_boundary( $post_id, $current_state, $target_state, $data, $featured_image_supplied );
+			if ( null !== $correction_result ) {
+				return $correction_result;
+			}
+		}
+
 		$core_status = NewsStatuses::wordpress_status( 'scheduled' === $target_state ? 'ready-for-publication' : $target_state );
 		$core_status = $core_status ? $core_status : 'draft';
 		$postarr = array(
-			'post_type' => Phase4Contracts::POST_TYPE,
-			'post_title' => $data['title'],
+			'post_type'    => Phase4Contracts::POST_TYPE,
+			'post_title'   => $data['title'],
 			'post_content' => $data['content'],
 			'post_excerpt' => $data['summary'],
-			'post_status' => $core_status,
+			'post_status'  => $core_status,
 		);
 		if ( $is_new ) {
 			$postarr['post_author'] = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
@@ -105,7 +110,7 @@ final class NewsService {
 		if ( function_exists( 'is_wp_error' ) && is_wp_error( $stored_id ) ) {
 			return self::result( false, 'composer_persistence_failed', array( 'message' => $stored_id->get_error_message() ) );
 		}
-		$stored_id = function_exists( 'absint' ) ? absint( $stored_id ) : max( 0, (int) $stored_id );
+		$stored_id = self::absint( $stored_id );
 		if ( $stored_id < 1 ) {
 			return self::result( false, 'composer_persistence_failed' );
 		}
@@ -128,6 +133,9 @@ final class NewsService {
 				return self::result( false, 'composer_schedule_failed', array( 'schedule' => $schedule, 'post_id' => $stored_id ) );
 			}
 		}
+		if ( in_array( $target_state, NewsPublicSnapshot::approved_states(), true ) ) {
+			NewsPublicSnapshot::capture( $stored_id, true );
+		}
 
 		NewsAudit::record(
 			$stored_id,
@@ -145,10 +153,8 @@ final class NewsService {
 	/** Apply one authorized workflow transition without arbitrary metadata writes. */
 	public static function transition( $post_id, $target_state, array $request ) {
 		$guard = self::request_guard( $request );
-		if ( empty( $guard['success'] ) ) {
-			return $guard;
-		}
-		$post_id = function_exists( 'absint' ) ? absint( $post_id ) : max( 0, (int) $post_id );
+		if ( empty( $guard['success'] ) ) { return $guard; }
+		$post_id = self::absint( $post_id );
 		$target_state = NewsStatuses::sanitize_state( $target_state );
 		if ( $post_id < 1 || ! $target_state || ! NewsPolicy::can_edit( $post_id ) ) {
 			return self::result( false, 'transition_authorization_or_state_invalid' );
@@ -169,6 +175,22 @@ final class NewsService {
 		if ( ! empty( $errors ) ) {
 			return self::result( false, 'workflow_prerequisites_missing', array( 'errors' => $errors ) );
 		}
+
+		if ( 'correction-pending' === $target_state ) {
+			if ( ! NewsPublicSnapshot::capture( $post_id, true ) ) {
+				return self::result( false, 'approved_public_snapshot_failed' );
+			}
+		}
+		if ( 'correction-pending' === $current_state && 'corrected' === $target_state && NewsPublicSnapshot::pending( $post_id ) ) {
+			$promoted = NewsPublicSnapshot::promote_pending( $post_id );
+			if ( empty( $promoted['success'] ) ) {
+				return self::result( false, 'pending_correction_promotion_failed', array( 'detail' => $promoted ) );
+			}
+		}
+		if ( 'correction-pending' === $current_state && 'retracted' === $target_state ) {
+			NewsPublicSnapshot::clear_pending( $post_id );
+		}
+
 		$updated = true;
 		if ( function_exists( 'wp_update_post' ) ) {
 			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => NewsStatuses::wordpress_status( $target_state ) ), true );
@@ -181,8 +203,54 @@ final class NewsService {
 		if ( function_exists( 'update_post_meta' ) ) {
 			update_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, $target_state );
 		}
+		if ( in_array( $target_state, NewsPublicSnapshot::approved_states(), true ) ) {
+			NewsPublicSnapshot::capture( $post_id, true );
+		}
 		NewsAudit::record( $post_id, 'workflow_transition', array( 'from_state' => $current_state, 'to_state' => $target_state ) );
 		return self::result( true, 'workflow_transition_completed', array( 'post_id' => $post_id, 'state' => $target_state ) );
+	}
+
+	/** Store correction input privately or promote it atomically. */
+	private static function save_correction_boundary( $post_id, $current_state, $target_state, array $data, $featured_image_supplied ) {
+		$entering = 'correction-pending' === $target_state && 'correction-pending' !== $current_state;
+		$editing = 'correction-pending' === $current_state && 'correction-pending' === $target_state;
+		$approving = 'correction-pending' === $current_state && 'corrected' === $target_state;
+		$retracting = 'correction-pending' === $current_state && 'retracted' === $target_state;
+		if ( ! $entering && ! $editing && ! $approving && ! $retracting ) {
+			return null;
+		}
+		if ( $entering && ! NewsPublicSnapshot::capture( $post_id, true ) ) {
+			return self::result( false, 'approved_public_snapshot_failed' );
+		}
+		if ( $entering || $editing || $approving ) {
+			$stored = NewsPublicSnapshot::store_pending( $post_id, $data, $featured_image_supplied );
+			if ( empty( $stored['success'] ) ) {
+				return self::result( false, 'pending_correction_storage_failed', array( 'detail' => $stored ) );
+			}
+		}
+		if ( $approving ) {
+			$promoted = NewsPublicSnapshot::promote_pending( $post_id );
+			if ( empty( $promoted['success'] ) ) {
+				return self::result( false, 'pending_correction_promotion_failed', array( 'detail' => $promoted ) );
+			}
+		}
+		if ( $retracting ) {
+			NewsPublicSnapshot::clear_pending( $post_id );
+		}
+		if ( function_exists( 'wp_update_post' ) && ( $approving || $retracting ) ) {
+			$result = wp_update_post( array( 'ID' => $post_id, 'post_status' => NewsStatuses::wordpress_status( $target_state ) ), true );
+			if ( false === $result || ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) ) {
+				return self::result( false, 'workflow_post_update_failed' );
+			}
+		}
+		if ( function_exists( 'update_post_meta' ) ) {
+			update_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, $target_state );
+		}
+		if ( $approving ) {
+			NewsPublicSnapshot::capture( $post_id, true );
+		}
+		NewsAudit::record( $post_id, $approving ? 'correction_approved' : ( $retracting ? 'correction_retracted' : 'correction_pending_saved' ), array( 'from_state' => $current_state, 'to_state' => $target_state, 'public_record_unchanged' => $approving || $retracting ? 0 : 1 ) );
+		return self::result( true, $approving ? 'correction_approved' : ( $retracting ? 'correction_retracted' : 'pending_correction_stored' ), array( 'post_id' => $post_id, 'state' => $target_state ) );
 	}
 
 	/** Validate state-specific completeness. */
@@ -190,135 +258,72 @@ final class NewsService {
 		$errors = array();
 		$review_states = array( 'editorial-review', 'fact-check', 'medical-review', 'ready-for-publication', 'scheduled' );
 		if ( in_array( $target_state, $review_states, true ) ) {
-			if ( '' === $data['content'] ) {
-				$errors['content'] = 'required_for_review';
-			}
-			if ( '' === $data['section'] ) {
-				$errors['section'] = 'required_for_review';
-			}
-			if ( '' === $data['article_type'] ) {
-				$errors['article_type'] = 'required_for_review';
-			}
+			if ( '' === $data['content'] ) { $errors['content'] = 'required_for_review'; }
+			if ( '' === $data['section'] ) { $errors['section'] = 'required_for_review'; }
+			if ( '' === $data['article_type'] ) { $errors['article_type'] = 'required_for_review'; }
 		}
-		if ( in_array( $target_state, array( 'ready-for-publication', 'scheduled' ), true ) && '' === $data['summary'] ) {
-			$errors['summary'] = 'required_for_approval';
-		}
-		if ( 'fact-check' === $target_state && $data['fact_check_required'] && $data['reviewing_editor_id'] < 1 ) {
-			$errors['reviewing_editor_id'] = 'fact_checker_required';
-		}
-		if ( 'medical-review' === $target_state && $data['medical_review_required'] && $data['medical_reviewer_id'] < 1 ) {
-			$errors['medical_reviewer_id'] = 'medical_reviewer_required';
-		}
-		if ( 'scheduled' === $target_state && '' === $data['schedule_at_utc'] ) {
-			$errors['schedule_at'] = 'required_for_scheduling';
-		}
+		if ( in_array( $target_state, array( 'ready-for-publication', 'scheduled' ), true ) && '' === $data['summary'] ) { $errors['summary'] = 'required_for_approval'; }
+		if ( 'fact-check' === $target_state && $data['fact_check_required'] && $data['reviewing_editor_id'] < 1 ) { $errors['reviewing_editor_id'] = 'fact_checker_required'; }
+		if ( 'medical-review' === $target_state && $data['medical_review_required'] && $data['medical_reviewer_id'] < 1 ) { $errors['medical_reviewer_id'] = 'medical_reviewer_required'; }
+		if ( 'scheduled' === $target_state && '' === $data['schedule_at_utc'] ) { $errors['schedule_at'] = 'required_for_scheduling'; }
 		return $errors;
 	}
 
-	/** Validate reviewer assignments before persistence. */
 	private static function validate_assignments( $post_id, array $data ) {
 		$review_type = ! empty( $data['fact_check_required'] ) || 'fact-check' === $data['target_state'] ? 'fact-check' : 'editorial';
-		if ( $data['reviewing_editor_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['reviewing_editor_id'], $review_type ) ) {
-			return 'fact-check' === $review_type ? 'fact_checker_assignment_denied' : 'reviewing_editor_assignment_denied';
-		}
-		if ( $data['medical_reviewer_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['medical_reviewer_id'], 'medical' ) ) {
-			return 'medical_reviewer_assignment_denied';
-		}
+		if ( $data['reviewing_editor_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['reviewing_editor_id'], $review_type ) ) { return 'fact-check' === $review_type ? 'fact_checker_assignment_denied' : 'reviewing_editor_assignment_denied'; }
+		if ( $data['medical_reviewer_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['medical_reviewer_id'], 'medical' ) ) { return 'medical_reviewer_assignment_denied'; }
 		return '';
 	}
 
-	/** Enforce taxonomy-management authority for broad classification fields. */
 	private static function validate_taxonomy_authority( array $data ) {
 		$has_broad_taxonomy = ! empty( $data['topics'] ) || ! empty( $data['countries'] ) || ! empty( $data['regions'] );
-		if ( $has_broad_taxonomy && ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_news_taxonomies' ) ) ) {
-			return 'news_taxonomy_assignment_denied';
-		}
-		return '';
+		return $has_broad_taxonomy && ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_news_taxonomies' ) ) ? 'news_taxonomy_assignment_denied' : '';
 	}
 
-	/** Validate featured-image identity and upload authority before persistence. */
 	private static function validate_featured_image( $attachment_id ) {
-		$attachment_id = function_exists( 'absint' ) ? absint( $attachment_id ) : max( 0, (int) $attachment_id );
-		if ( 0 === $attachment_id ) {
-			return '';
-		}
-		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'upload_files' ) ) {
-			return 'featured_image_authorization_denied';
-		}
-		if ( ! function_exists( 'wp_attachment_is_image' ) || ! wp_attachment_is_image( $attachment_id ) ) {
-			return 'featured_image_invalid';
-		}
+		$attachment_id = self::absint( $attachment_id );
+		if ( 0 === $attachment_id ) { return ''; }
+		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'upload_files' ) ) { return 'featured_image_authorization_denied'; }
+		if ( ! function_exists( 'wp_attachment_is_image' ) || ! wp_attachment_is_image( $attachment_id ) ) { return 'featured_image_invalid'; }
 		return '';
 	}
 
-	/** Persist registered private metadata through the service boundary. */
 	private static function store_metadata( $post_id, array $data, $state ) {
-		if ( ! function_exists( 'update_post_meta' ) ) {
-			return;
-		}
+		if ( ! function_exists( 'update_post_meta' ) ) { return; }
 		$map = array(
 			Phase4Contracts::WORKFLOW_META_KEY => $state,
-			'_sabri_news_subtitle' => $data['subtitle'],
-			'_sabri_news_summary' => $data['summary'],
-			'_sabri_news_language' => $data['language'],
-			'_sabri_news_priority' => $data['priority'],
-			'_sabri_news_reviewing_editor_id' => $data['reviewing_editor_id'],
-			'_sabri_news_medical_reviewer_id' => $data['medical_reviewer_id'],
-			'_sabri_news_fact_check_required' => $data['fact_check_required'] ? 1 : 0,
-			'_sabri_news_medical_review_required' => $data['medical_review_required'] ? 1 : 0,
+			'_sabri_news_subtitle' => $data['subtitle'], '_sabri_news_summary' => $data['summary'], '_sabri_news_language' => $data['language'],
+			'_sabri_news_priority' => $data['priority'], '_sabri_news_reviewing_editor_id' => $data['reviewing_editor_id'], '_sabri_news_medical_reviewer_id' => $data['medical_reviewer_id'],
+			'_sabri_news_fact_check_required' => $data['fact_check_required'] ? 1 : 0, '_sabri_news_medical_review_required' => $data['medical_review_required'] ? 1 : 0,
 		);
-		foreach ( $map as $key => $value ) {
-			update_post_meta( $post_id, $key, $value );
-		}
+		foreach ( $map as $key => $value ) { update_post_meta( $post_id, $key, $value ); }
 	}
 
-	/** Persist controlled taxonomies and surface any core errors. */
 	private static function store_taxonomies( $post_id, array $data ) {
-		if ( ! function_exists( 'wp_set_object_terms' ) ) {
-			return self::result( false, 'taxonomy_api_unavailable' );
-		}
+		if ( ! function_exists( 'wp_set_object_terms' ) ) { return self::result( false, 'taxonomy_api_unavailable' ); }
 		$assignments = array(
-			'sabri_news_section' => $data['section'] ? array( $data['section'] ) : array(),
-			'sabri_news_type' => $data['article_type'] ? array( $data['article_type'] ) : array(),
-			'sabri_news_topic' => $data['topics'],
-			'sabri_news_country' => $data['countries'],
-			'sabri_news_region' => $data['regions'],
+			'sabri_news_section' => $data['section'] ? array( $data['section'] ) : array(), 'sabri_news_type' => $data['article_type'] ? array( $data['article_type'] ) : array(),
+			'sabri_news_topic' => $data['topics'], 'sabri_news_country' => $data['countries'], 'sabri_news_region' => $data['regions'],
 		);
 		foreach ( $assignments as $taxonomy => $terms ) {
 			$result = wp_set_object_terms( $post_id, $terms, $taxonomy, false );
-			if ( false === $result || ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) ) {
-				$message = function_exists( 'is_wp_error' ) && is_wp_error( $result ) ? $result->get_error_message() : '';
-				return self::result( false, 'taxonomy_assignment_failed', array( 'taxonomy' => $taxonomy, 'message' => $message ) );
-			}
+			if ( false === $result || ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) ) { return self::result( false, 'taxonomy_assignment_failed', array( 'taxonomy' => $taxonomy ) ); }
 		}
 		return self::result( true, 'taxonomies_stored' );
 	}
 
-	/** Store, remove, or leave a featured image through WordPress core. */
 	private static function store_featured_image( $post_id, $attachment_id, $supplied ) {
-		if ( ! $supplied ) {
-			return self::result( true, 'featured_image_unchanged' );
-		}
-		$attachment_id = function_exists( 'absint' ) ? absint( $attachment_id ) : max( 0, (int) $attachment_id );
+		if ( ! $supplied ) { return self::result( true, 'featured_image_unchanged' ); }
+		$attachment_id = self::absint( $attachment_id );
 		if ( 0 === $attachment_id ) {
 			$current = function_exists( 'get_post_thumbnail_id' ) ? (int) get_post_thumbnail_id( $post_id ) : 0;
-			if ( 0 === $current ) {
-				return self::result( true, 'featured_image_unchanged' );
-			}
-			if ( ! function_exists( 'delete_post_thumbnail' ) ) {
-				return self::result( false, 'featured_image_remove_api_unavailable' );
-			}
-			$result = delete_post_thumbnail( $post_id );
-			return false !== $result ? self::result( true, 'featured_image_removed' ) : self::result( false, 'featured_image_remove_failed' );
+			if ( 0 === $current ) { return self::result( true, 'featured_image_unchanged' ); }
+			return function_exists( 'delete_post_thumbnail' ) && false !== delete_post_thumbnail( $post_id ) ? self::result( true, 'featured_image_removed' ) : self::result( false, 'featured_image_remove_failed' );
 		}
-		if ( ! function_exists( 'set_post_thumbnail' ) ) {
-			return self::result( false, 'featured_image_api_unavailable' );
-		}
-		$result = set_post_thumbnail( $post_id, $attachment_id );
-		return false !== $result ? self::result( true, 'featured_image_stored' ) : self::result( false, 'featured_image_store_failed' );
+		return function_exists( 'set_post_thumbnail' ) && false !== set_post_thumbnail( $post_id, $attachment_id ) ? self::result( true, 'featured_image_stored' ) : self::result( false, 'featured_image_store_failed' );
 	}
 
-	/** Build the minimum current article projection used by transition checks. */
 	private static function article_projection( $post_id, $target_state ) {
 		$term_slug = static function ( $taxonomy ) use ( $post_id ) {
 			$terms = function_exists( 'get_the_terms' ) ? get_the_terms( $post_id, $taxonomy ) : array();
@@ -328,8 +333,7 @@ final class NewsService {
 			'title' => function_exists( 'get_post_field' ) ? (string) get_post_field( 'post_title', $post_id ) : '',
 			'content' => function_exists( 'get_post_field' ) ? (string) get_post_field( 'post_content', $post_id ) : '',
 			'summary' => function_exists( 'get_post_meta' ) ? (string) get_post_meta( $post_id, '_sabri_news_summary', true ) : '',
-			'section' => $term_slug( 'sabri_news_section' ),
-			'article_type' => $term_slug( 'sabri_news_type' ),
+			'section' => $term_slug( 'sabri_news_section' ), 'article_type' => $term_slug( 'sabri_news_type' ),
 			'reviewing_editor_id' => function_exists( 'get_post_meta' ) ? (int) get_post_meta( $post_id, '_sabri_news_reviewing_editor_id', true ) : 0,
 			'medical_reviewer_id' => function_exists( 'get_post_meta' ) ? (int) get_post_meta( $post_id, '_sabri_news_medical_reviewer_id', true ) : 0,
 			'fact_check_required' => function_exists( 'get_post_meta' ) ? (bool) get_post_meta( $post_id, '_sabri_news_fact_check_required', true ) : false,
@@ -339,8 +343,6 @@ final class NewsService {
 		);
 	}
 
-	/** Stable application result. */
-	private static function result( $success, $code, array $data = array() ) {
-		return array( 'success' => (bool) $success, 'code' => (string) $code, 'data' => $data );
-	}
+	private static function absint( $value ) { return function_exists( 'absint' ) ? absint( $value ) : max( 0, (int) $value ); }
+	private static function result( $success, $code, array $data = array() ) { return array( 'success' => (bool) $success, 'code' => (string) $code, 'data' => $data ); }
 }
