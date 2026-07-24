@@ -18,7 +18,8 @@
 		var utcOutput = document.getElementById( 'sabri-news-schedule-utc' );
 		var workflowTarget = document.getElementById( 'sabri-news-target_state' );
 		var composerForm = workflowTarget ? workflowTarget.closest( 'form' ) : null;
-		var initialWorkflowState = workflowTarget ? workflowTarget.value : '';
+		var initialStateInput = composerForm ? composerForm.querySelector( 'input[name="initial_state"]' ) : null;
+		var initialWorkflowState = initialStateInput ? initialStateInput.value : ( workflowTarget ? workflowTarget.value : '' );
 		var frame;
 
 		if ( selectButton && imageInput && preview && window.wp && window.wp.media ) {
@@ -69,12 +70,23 @@
 
 		if ( composerForm && workflowTarget ) {
 			composerForm.addEventListener( 'submit', function ( event ) {
+				var oldConfirmation = composerForm.querySelector( 'input[name="transition_confirmed"]' );
+				if ( oldConfirmation ) {
+					oldConfirmation.remove();
+				}
 				if ( workflowTarget.value && workflowTarget.value !== initialWorkflowState ) {
-					var confirmed = window.confirm( 'Confirm this Editorial News workflow change from “' + initialWorkflowState + '” to “' + workflowTarget.value + '”.' );
+					var baseMessage = window.SabriNewsroomComposer && window.SabriNewsroomComposer.transitionConfirmation ? window.SabriNewsroomComposer.transitionConfirmation : 'Confirm this Editorial News workflow change.';
+					var confirmed = window.confirm( baseMessage + '\n\n' + initialWorkflowState + ' → ' + workflowTarget.value );
 					if ( ! confirmed ) {
 						event.preventDefault();
 						workflowTarget.focus();
+						return;
 					}
+					var confirmation = document.createElement( 'input' );
+					confirmation.type = 'hidden';
+					confirmation.name = 'transition_confirmed';
+					confirmation.value = '1';
+					composerForm.appendChild( confirmation );
 				}
 			} );
 		}
