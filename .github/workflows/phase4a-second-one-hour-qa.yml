@@ -27,9 +27,9 @@ on:
       - '.github/workflows/phase4a-second-one-hour-qa.yml'
   workflow_dispatch:
 
-# The mandatory long QA is intentionally not triggered by branch push. An open
-# pull request already receives a synchronize event, and workflow_dispatch is
-# retained for an explicit exact-commit rerun.
+# Pull-request synchronization validates that the mandatory QA definition remains
+# bound to the exact commit, but the expensive jobs run only after an explicit
+# workflow_dispatch once all shorter exact-commit checks have passed.
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -39,6 +39,7 @@ concurrency:
 
 jobs:
   real-playground-before-soak:
+    if: github.event_name == 'workflow_dispatch'
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 40
