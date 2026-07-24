@@ -24,7 +24,9 @@ async function startPlayground(options, attempts = 3) {
 	let lastError;
 	for (let attempt = 1; attempt <= attempts; attempt += 1) {
 		try {
-			return await runCLI(options);
+			// runCLI mutates its options while preparing internal mounts. A fresh
+			// clone prevents failed attempts from leaking stale temp paths into retries.
+			return await runCLI(structuredClone(options));
 		} catch (error) {
 			lastError = error;
 			if (attempt === attempts) break;
