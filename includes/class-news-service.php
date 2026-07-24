@@ -65,18 +65,22 @@ final class NewsService {
 				return self::result( false, 'workflow_transition_denied', array( 'from' => $current_state, 'to' => $target_state ) );
 			}
 		}
+
 		$prerequisites = self::validate_prerequisites( $data, $target_state );
 		if ( ! empty( $prerequisites ) ) {
 			return self::result( false, 'workflow_prerequisites_missing', array( 'errors' => $prerequisites, 'data' => $data ) );
 		}
-
 		$assignment_error = self::validate_assignments( $post_id, $data );
 		if ( $assignment_error ) {
 			return self::result( false, $assignment_error );
 		}
-		$taxonomy_error = self::validate_taxonomy_authority( $post_id, $data );
+		$taxonomy_error = self::validate_taxonomy_authority( $data );
 		if ( $taxonomy_error ) {
 			return self::result( false, $taxonomy_error );
+		}
+		$image_error = self::validate_featured_image( $data['featured_image_id'] );
+		if ( $image_error ) {
+			return self::result( false, $image_error );
 		}
 
 		$core_status = NewsStatuses::wordpress_status( 'scheduled' === $target_state ? 'ready-for-publication' : $target_state );
@@ -104,11 +108,19 @@ final class NewsService {
 		}
 
 		self::store_metadata( $stored_id, $data, 'scheduled' === $target_state ? 'ready-for-publication' : $target_state );
-		self::store_taxonomies( $stored_id, $data );
-		self::store_featured_image( $stored_id, $data['featured_image_id'] );
+		$taxonomy_result = self::store_taxonomies( $stored_id, $data );
+		if ( empty( $taxonomy_result['success'] ) ) {
+			NewsAudit::record( $stored_id, 'article_save_failed', array( 'reason' => $taxonomy_result['code'] ) );
+			return self::result( false, 'taxonomy_persistence_failed', array( 'post_id' => $stored_id, 'detail' => $taxonomy_result ) );
+		}
+		$image_result = self::store_featured_image( $stored_id, $data['featured_image_id'] );
+		if ( empty( $image_result['success'] ) ) {
+			NewsAudit::record( $stored_id, 'article_save_failed', array( 'reason' => $image_result['code'] ) );
+			return self::result( false, 'featured_image_persistence_failed', array( 'post_id' => $stored_id, 'detail' => $image_result ) );
+		}
 
 		if ( 'scheduled' === $target_state ) {
-			$schedule = NewsSchedulingService::schedule( $stored_id, $input['schedule_at'] );
+			$schedule = NewsSchedulingService::schedule( $stored_id, isset( $input['schedule_at'] ) ? $input['schedule_at'] : '' );
 			if ( empty( $schedule['success'] ) ) {
 				return self::result( false, 'composer_schedule_failed', array( 'schedule' => $schedule, 'post_id' => $stored_id ) );
 			}
@@ -126,7 +138,7 @@ final class NewsService {
 		return self::result( true, $is_new ? 'article_created' : 'article_updated', array( 'post_id' => $stored_id, 'state' => $target_state ) );
 	}
 
-	/** Apply one authorized workflow transition without accepting arbitrary metadata. */
+	/** Apply one authorized workflow transition without arbitrary metadata writes. */
 	public static function transition( $post_id, $target_state, array $request ) {
 		$guard = self::request_guard( $request );
 		if ( empty( $guard['success'] ) ) {
@@ -139,6 +151,9 @@ final class NewsService {
 		}
 		$current_state = function_exists( 'get_post_meta' ) ? NewsStatuses::sanitize_state( get_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, true ) ) : '';
 		$current_state = $current_state ? $current_state : 'draft';
+		if ( $current_state === $target_state ) {
+			return self::result( true, 'workflow_unchanged', array( 'post_id' => $post_id, 'state' => $current_state ) );
+		}
 		if ( 'published' === $target_state ) {
 			return self::result( false, 'phase4b_publication_closed' );
 		}
@@ -150,11 +165,17 @@ final class NewsService {
 		if ( ! empty( $errors ) ) {
 			return self::result( false, 'workflow_prerequisites_missing', array( 'errors' => $errors ) );
 		}
+		$updated = true;
+		if ( function_exists( 'wp_update_post' ) ) {
+			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => NewsStatuses::wordpress_status( $target_state ) ), true );
+		}
+		if ( false === $updated || ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) ) {
+			$message = function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ? $updated->get_error_message() : '';
+			NewsAudit::record( $post_id, 'workflow_transition_failed', array( 'from_state' => $current_state, 'to_state' => $target_state, 'message' => $message ) );
+			return self::result( false, 'workflow_post_update_failed', array( 'message' => $message ) );
+		}
 		if ( function_exists( 'update_post_meta' ) ) {
 			update_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, $target_state );
-		}
-		if ( function_exists( 'wp_update_post' ) ) {
-			wp_update_post( array( 'ID' => $post_id, 'post_status' => NewsStatuses::wordpress_status( $target_state ) ), true );
 		}
 		NewsAudit::record( $post_id, 'workflow_transition', array( 'from_state' => $current_state, 'to_state' => $target_state ) );
 		return self::result( true, 'workflow_transition_completed', array( 'post_id' => $post_id, 'state' => $target_state ) );
@@ -190,7 +211,7 @@ final class NewsService {
 		return $errors;
 	}
 
-	/** Validate reviewer assignments before any persistence occurs. */
+	/** Validate reviewer assignments before persistence. */
 	private static function validate_assignments( $post_id, array $data ) {
 		if ( $data['reviewing_editor_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['reviewing_editor_id'], 'editorial' ) ) {
 			return 'reviewing_editor_assignment_denied';
@@ -202,12 +223,26 @@ final class NewsService {
 	}
 
 	/** Enforce taxonomy-management authority for broad classification fields. */
-	private static function validate_taxonomy_authority( $post_id, array $data ) {
+	private static function validate_taxonomy_authority( array $data ) {
 		$has_broad_taxonomy = ! empty( $data['topics'] ) || ! empty( $data['countries'] ) || ! empty( $data['regions'] );
 		if ( $has_broad_taxonomy && ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_news_taxonomies' ) ) ) {
 			return 'news_taxonomy_assignment_denied';
 		}
-		unset( $post_id );
+		return '';
+	}
+
+	/** Validate featured-image identity and upload authority before persistence. */
+	private static function validate_featured_image( $attachment_id ) {
+		$attachment_id = function_exists( 'absint' ) ? absint( $attachment_id ) : max( 0, (int) $attachment_id );
+		if ( 0 === $attachment_id ) {
+			return '';
+		}
+		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'upload_files' ) ) {
+			return 'featured_image_authorization_denied';
+		}
+		if ( ! function_exists( 'wp_attachment_is_image' ) || ! wp_attachment_is_image( $attachment_id ) ) {
+			return 'featured_image_invalid';
+		}
 		return '';
 	}
 
@@ -232,30 +267,39 @@ final class NewsService {
 		}
 	}
 
-	/** Persist controlled taxonomies. */
+	/** Persist controlled taxonomies and surface any core errors. */
 	private static function store_taxonomies( $post_id, array $data ) {
 		if ( ! function_exists( 'wp_set_object_terms' ) ) {
-			return;
+			return self::result( false, 'taxonomy_api_unavailable' );
 		}
-		if ( $data['section'] ) {
-			wp_set_object_terms( $post_id, array( $data['section'] ), 'sabri_news_section', false );
-		}
-		if ( $data['article_type'] ) {
-			wp_set_object_terms( $post_id, array( $data['article_type'] ), 'sabri_news_type', false );
-		}
-		foreach ( array( 'topics' => 'sabri_news_topic', 'countries' => 'sabri_news_country', 'regions' => 'sabri_news_region' ) as $field => $taxonomy ) {
-			if ( ! empty( $data[ $field ] ) ) {
-				wp_set_object_terms( $post_id, $data[ $field ], $taxonomy, false );
+		$assignments = array(
+			'sabri_news_section' => $data['section'] ? array( $data['section'] ) : array(),
+			'sabri_news_type' => $data['article_type'] ? array( $data['article_type'] ) : array(),
+			'sabri_news_topic' => $data['topics'],
+			'sabri_news_country' => $data['countries'],
+			'sabri_news_region' => $data['regions'],
+		);
+		foreach ( $assignments as $taxonomy => $terms ) {
+			$result = wp_set_object_terms( $post_id, $terms, $taxonomy, false );
+			if ( false === $result || ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) ) {
+				$message = function_exists( 'is_wp_error' ) && is_wp_error( $result ) ? $result->get_error_message() : '';
+				return self::result( false, 'taxonomy_assignment_failed', array( 'taxonomy' => $taxonomy, 'message' => $message ) );
 			}
 		}
+		return self::result( true, 'taxonomies_stored' );
 	}
 
-	/** Store a featured image only through WordPress core. */
+	/** Store a validated featured image only through WordPress core. */
 	private static function store_featured_image( $post_id, $attachment_id ) {
 		$attachment_id = function_exists( 'absint' ) ? absint( $attachment_id ) : max( 0, (int) $attachment_id );
-		if ( $attachment_id > 0 && function_exists( 'set_post_thumbnail' ) && function_exists( 'current_user_can' ) && current_user_can( 'upload_files' ) ) {
-			set_post_thumbnail( $post_id, $attachment_id );
+		if ( 0 === $attachment_id ) {
+			return self::result( true, 'featured_image_unchanged' );
 		}
+		if ( ! function_exists( 'set_post_thumbnail' ) ) {
+			return self::result( false, 'featured_image_api_unavailable' );
+		}
+		$result = set_post_thumbnail( $post_id, $attachment_id );
+		return false !== $result ? self::result( true, 'featured_image_stored' ) : self::result( false, 'featured_image_store_failed' );
 	}
 
 	/** Build the minimum current article projection used by transition checks. */
