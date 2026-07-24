@@ -34,10 +34,32 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
-          test "$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = "15"
-          cat .phase4c-overlay/chunk-* | base64 --decode > /tmp/phase4c-overlay.tar.gz
-          echo 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0  /tmp/phase4c-overlay.tar.gz' | sha256sum -c -
-          test "$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')" = "31"
+          actual_count=$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')
+          printf 'transport_files=%s\n' "$actual_count"
+          test "$actual_count" = "15"
+          cat \
+            .phase4c-overlay/chunk-00 \
+            .phase4c-overlay/chunk-01 \
+            .phase4c-overlay/chunk-02 \
+            .phase4c-overlay/chunk-03 \
+            .phase4c-overlay/chunk-04-0 \
+            .phase4c-overlay/chunk-04-1 \
+            .phase4c-overlay/chunk-04-2 \
+            .phase4c-overlay/chunk-04-3 \
+            .phase4c-overlay/chunk-04-4 \
+            .phase4c-overlay/chunk-04-5 \
+            .phase4c-overlay/chunk-04-6 \
+            .phase4c-overlay/chunk-04-7 \
+            .phase4c-overlay/chunk-05 \
+            .phase4c-overlay/chunk-06 \
+            .phase4c-overlay/chunk-07 \
+            | base64 --decode > /tmp/phase4c-overlay.tar.gz
+          actual_sha=$(sha256sum /tmp/phase4c-overlay.tar.gz | awk '{print $1}')
+          printf 'overlay_sha256=%s\n' "$actual_sha"
+          test "$actual_sha" = 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0'
+          archive_entries=$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')
+          printf 'archive_entries=%s\n' "$archive_entries"
+          test "$archive_entries" = "31"
           if tar -tzf /tmp/phase4c-overlay.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo 'Unsafe archive path detected.' >&2
             exit 1
