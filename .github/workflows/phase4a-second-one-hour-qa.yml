@@ -59,7 +59,6 @@ jobs:
           set -euo pipefail
           log="phase4a-second-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log"
           node tests/run-playground-integration-tests.mjs 2>&1 | tee "$log"
-          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "$log"
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a "$log"
 
       - name: Upload independent Playground evidence
@@ -137,6 +136,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
 
       - name: Test packaged Phase 3 and Phase 4A runtime on WordPress 6.8 / PHP 8.1
@@ -147,6 +147,7 @@ jobs:
         run: |
           set -euo pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
 
       - name: Re-verify exact commit after packaged tests
