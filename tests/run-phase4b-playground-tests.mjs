@@ -96,27 +96,42 @@ try {
 		if ( empty( $created['success'] ) ) { echo wp_json_encode( array( 'error'=>'create_failed', 'detail'=>$created ) ); return; }
 		$post_id = (int) $created['data']['post_id'];
 		$submitted = \Sabri\HomeNewsFeed\NewsService::transition( $post_id, 'editorial-review', array( 'method'=>'POST', 'nonce_verified'=>true ) );
+		$submitted_again = \Sabri\HomeNewsFeed\NewsService::transition( $post_id, 'editorial-review', array( 'method'=>'POST', 'nonce_verified'=>true ) );
 		$approved = \Sabri\HomeNewsFeed\NewsService::transition( $post_id, 'ready-for-publication', array( 'method'=>'POST', 'nonce_verified'=>true ) );
 		$schedule_input = gmdate( 'Y-m-d\TH:i:s\Z', time() + ( 2 * DAY_IN_SECONDS ) );
 		$scheduled = \Sabri\HomeNewsFeed\NewsSchedulingService::schedule( $post_id, $schedule_input );
+		$scheduled_again = \Sabri\HomeNewsFeed\NewsSchedulingService::schedule( $post_id, $schedule_input );
 		$queue = \Sabri\HomeNewsFeed\NewsQueueService::query( 'scheduled', 1, 20 );
+		$submitted_queue = \Sabri\HomeNewsFeed\NewsQueueService::query( 'submitted', 1, 20 );
 		$definition = \Sabri\HomeNewsFeed\EditorialNewsPostType::definition();
-		$next = wp_next_scheduled( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ) );
+		$next_before_repair = wp_next_scheduled( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ) );
+		wp_clear_scheduled_hook( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ), true );
+		$missing = \Sabri\HomeNewsFeed\NewsSchedulingService::diagnostics( $post_id );
+		$repaired = \Sabri\HomeNewsFeed\NewsSchedulingService::repair_missing_event( $post_id );
+		$next_after_repair = wp_next_scheduled( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ) );
 		\Sabri\HomeNewsFeed\NewsSchedulingService::mark_due( $post_id );
-		$diagnostics = \Sabri\HomeNewsFeed\NewsSchedulingService::diagnostics( $post_id );
+		$schedule_diagnostics = \Sabri\HomeNewsFeed\NewsSchedulingService::diagnostics( $post_id );
+		$newsroom_diagnostics = \Sabri\HomeNewsFeed\NewsroomDiagnostics::report();
 		$cancelled = \Sabri\HomeNewsFeed\NewsSchedulingService::cancel( $post_id );
 		echo wp_json_encode( array(
 			'post_id'=>$post_id,
 			'created'=>$created,
 			'submitted'=>$submitted,
+			'submitted_again'=>$submitted_again,
 			'approved'=>$approved,
 			'scheduled'=>$scheduled,
+			'scheduled_again'=>$scheduled_again,
+			'repaired'=>$repaired,
 			'queue_success'=>!empty($queue['success']),
 			'queue_total'=>!empty($queue['data']['total'])?(int)$queue['data']['total']:0,
+			'submitted_queue_success'=>!empty($submitted_queue['success']),
 			'publicly_queryable'=>(bool)$definition['publicly_queryable'],
 			'rest_exposed'=>(bool)$definition['show_in_rest'],
-			'event_timestamp'=>$next?(int)$next:0,
-			'diagnostics'=>$diagnostics,
+			'next_before_repair'=>$next_before_repair?(int)$next_before_repair:0,
+			'next_after_repair'=>$next_after_repair?(int)$next_after_repair:0,
+			'missing'=>$missing,
+			'schedule_diagnostics'=>$schedule_diagnostics,
+			'newsroom_diagnostics'=>$newsroom_diagnostics,
 			'cancelled'=>$cancelled,
 			'final_state'=>get_post_meta($post_id, \Sabri\HomeNewsFeed\Phase4Contracts::WORKFLOW_META_KEY, true),
 			'audit_count'=>count(get_post_meta($post_id, \Sabri\HomeNewsFeed\NewsAudit::META_KEY, false)),
@@ -125,12 +140,19 @@ try {
 
 	assert(!result.error, `Phase 4B setup failed: ${JSON.stringify(result)}`);
 	assert(result.created.success && result.submitted.success && result.approved.success, 'Composer or workflow service failed.');
-	assert(result.scheduled.success && result.event_timestamp > 0, 'Scheduling foundation failed.');
+	assert(result.submitted_again.success && result.submitted_again.code === 'workflow_unchanged', 'Same-state transition was not idempotent.');
+	assert(result.scheduled.success && result.next_before_repair > 0, 'Scheduling foundation failed.');
+	assert(result.scheduled_again.success && result.scheduled_again.code === 'schedule_unchanged', 'Duplicate schedule was not idempotent.');
+	assert(result.missing.event_missing === true, 'Missing schedule event was not detected.');
+	assert(result.repaired.success && result.repaired.code === 'schedule_repaired' && result.next_after_repair > 0, 'Missing schedule event was not repaired.');
 	assert(result.queue_success && result.queue_total >= 1, 'Scheduled private queue did not contain the article.');
+	assert(result.submitted_queue_success, 'Submitter-isolated queue could not be loaded.');
 	assert(result.publicly_queryable === false && result.rest_exposed === false, 'Phase 4B exposed public News runtime.');
-	assert(result.diagnostics.due === true && result.diagnostics.auto_publish_enabled === false, 'Due scheduling did not remain preparation-only.');
+	assert(result.schedule_diagnostics.due === true && result.schedule_diagnostics.auto_publish_enabled === false, 'Due scheduling did not remain preparation-only.');
+	assert(result.newsroom_diagnostics.success && result.newsroom_diagnostics.checks.mutated === false, 'Read-only newsroom diagnostics failed.');
+	assert(result.newsroom_diagnostics.checks.publicly_queryable === false && result.newsroom_diagnostics.checks.rest_exposed === false, 'Diagnostics did not confirm public surfaces remained closed.');
 	assert(result.cancelled.success && result.final_state === 'ready-for-publication', 'Schedule cancellation failed.');
-	assert(result.audit_count >= 5, 'Append-only editorial audit evidence is incomplete.');
+	assert(result.audit_count >= 7, 'Append-only editorial audit evidence is incomplete.');
 
 	console.log(`Phase 4B ${packagePath ? 'packaged' : 'source'} WordPress tests passed on WordPress ${wpVersion} / PHP ${phpVersion}.`);
 } finally {
