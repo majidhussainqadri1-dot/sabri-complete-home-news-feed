@@ -41,7 +41,7 @@ jobs:
   real-playground-before-soak:
     if: github.event_name == 'workflow_dispatch'
     name: Independent real WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
@@ -97,7 +97,7 @@ jobs:
   second-one-hour-qa:
     name: 65-minute repeated QA with correction restart boundary
     needs: real-playground-before-soak
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     timeout-minutes: 180
 
     steps:
