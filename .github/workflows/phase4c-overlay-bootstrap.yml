@@ -55,7 +55,7 @@ jobs:
           tar -xzf /tmp/phase4c-completion.tar.gz -C .
           rm -rf .phase4c-completion
 
-      - name: Normalize REST test response shape
+      - name: Normalize Phase 4C test harness shapes
         shell: bash
         run: |
           set -euo pipefail
@@ -63,11 +63,16 @@ jobs:
           from pathlib import Path
           path = Path('tests/run-phase4c-public-news-tests.php')
           text = path.read_text()
-          old = "$unknown_payload = isset($unknown_rest['payload'])?$unknown_rest['payload']:array();"
-          new = "$unknown_payload = is_object( $unknown_rest ) && method_exists( $unknown_rest, 'get_data' ) ? $unknown_rest->get_data() : ( isset( $unknown_rest['payload'] ) ? $unknown_rest['payload'] : array() );"
-          if old not in text:
-              raise SystemExit('Expected REST response assertion anchor was not found.')
-          path.write_text(text.replace(old, new, 1))
+          replacements = {
+              "$unknown_payload = isset($unknown_rest['payload'])?$unknown_rest['payload']:array();": "$unknown_payload = is_object( $unknown_rest ) && method_exists( $unknown_rest, 'get_data' ) ? $unknown_rest->get_data() : ( isset( $unknown_rest['payload'] ) ? $unknown_rest['payload'] : array() );",
+              "sabri_phase4c_assert( empty($sabri_test_enqueued_styles['sabri-hnf-news']), 'News CSS loaded on a feed with no News card.' );": "sabri_phase4c_assert( !in_array('sabri-hnf-news',$sabri_test_enqueued_styles,true), 'News CSS loaded on a feed with no News card.' );",
+              "sabri_phase4c_assert( !empty($sabri_test_enqueued_styles['sabri-hnf-news']) && !empty($sabri_test_enqueued_scripts['sabri-hnf-news']), 'News assets did not load when a News card rendered.' );": "sabri_phase4c_assert( in_array('sabri-hnf-news',$sabri_test_enqueued_styles,true) && in_array('sabri-hnf-news',$sabri_test_enqueued_scripts,true), 'News assets did not load when a News card rendered.' );",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit('Expected Phase 4C test assertion anchor was not found: ' + old[:60])
+              text = text.replace(old, new, 1)
+          path.write_text(text)
           PY
           php -l tests/run-phase4c-public-news-tests.php
 
