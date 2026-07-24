@@ -17,6 +17,7 @@ final class NewsroomAdmin {
 	const COMPOSER_PAGE = 'sabri-feed-news-composer';
 	const SAVE_ACTION = 'sabri_feed_news_save';
 	const TRANSITION_ACTION = 'sabri_feed_news_transition';
+	const BULK_ACTION = 'sabri_feed_news_bulk_transition';
 	const NOTICE_PREFIX = 'sabri_newsroom_notice_';
 	const INPUT_PREFIX = 'sabri_newsroom_input_';
 
@@ -27,6 +28,7 @@ final class NewsroomAdmin {
 			add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 			add_action( 'admin_post_' . self::SAVE_ACTION, array( __CLASS__, 'handle_save' ) );
 			add_action( 'admin_post_' . self::TRANSITION_ACTION, array( __CLASS__, 'handle_transition' ) );
+			add_action( 'admin_post_' . self::BULK_ACTION, array( __CLASS__, 'handle_bulk_transition' ) );
 		}
 	}
 
@@ -38,7 +40,7 @@ final class NewsroomAdmin {
 		);
 	}
 
-	/** Load Media Library and private newsroom assets only on the two Phase 4B screens. */
+	/** Load Media Library and private newsroom assets only on Phase 4B screens. */
 	public static function enqueue_assets() {
 		$page = isset( $_GET['page'] ) ? self::strict_slug( wp_unslash( $_GET['page'] ) ) : '';
 		if ( ! in_array( $page, array( self::PAGE, self::COMPOSER_PAGE ), true ) ) {
@@ -62,6 +64,7 @@ final class NewsroomAdmin {
 						'mediaTitle' => __( 'Select Editorial News featured image', 'sabri-complete-home-news-feed' ),
 						'mediaButton' => __( 'Use this image', 'sabri-complete-home-news-feed' ),
 						'siteTimezone' => self::site_timezone_label(),
+						'transitionConfirmation' => __( 'Confirm this Editorial News workflow change.', 'sabri-complete-home-news-feed' ),
 					)
 				);
 			}
@@ -108,20 +111,44 @@ final class NewsroomAdmin {
 			return;
 		}
 		$data = $result['data'];
+		$bulk_enabled = empty( $data['read_only'] ) && ! empty( $data['posts'] );
+		if ( $bulk_enabled ) {
+			echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
+			echo '<input type="hidden" name="action" value="' . esc_attr( self::BULK_ACTION ) . '" /><input type="hidden" name="queue" value="' . esc_attr( $queue ) . '" />';
+			wp_nonce_field( self::BULK_ACTION );
+			self::render_bulk_controls();
+		}
 		echo '<table class="widefat striped sabri-newsroom-table"><caption class="screen-reader-text">' . esc_html( $data['label'] ) . '</caption><thead><tr>';
-		foreach ( array( 'Title', 'Author', 'Workflow state', 'Modified', 'Action' ) as $heading ) {
-			echo '<th scope="col">' . esc_html__( $heading, 'sabri-complete-home-news-feed' ) . '</th>';
+		if ( $bulk_enabled ) {
+			echo '<th scope="col"><span class="screen-reader-text">' . esc_html__( 'Select', 'sabri-complete-home-news-feed' ) . '</span></th>';
+		}
+		$headings = array(
+			__( 'Title', 'sabri-complete-home-news-feed' ),
+			__( 'Author', 'sabri-complete-home-news-feed' ),
+			__( 'Workflow state', 'sabri-complete-home-news-feed' ),
+			__( 'Modified', 'sabri-complete-home-news-feed' ),
+			__( 'Action', 'sabri-complete-home-news-feed' ),
+		);
+		foreach ( $headings as $heading ) {
+			echo '<th scope="col">' . esc_html( $heading ) . '</th>';
 		}
 		echo '</tr></thead><tbody>';
 		if ( empty( $data['posts'] ) ) {
-			echo '<tr><td colspan="5">' . esc_html__( 'No records are available in this queue.', 'sabri-complete-home-news-feed' ) . '</td></tr>';
+			echo '<tr><td colspan="' . esc_attr( $bulk_enabled ? 6 : 5 ) . '">' . esc_html__( 'No records are available in this queue.', 'sabri-complete-home-news-feed' ) . '</td></tr>';
 		} else {
 			foreach ( $data['posts'] as $post ) {
 				$state = NewsStatuses::sanitize_state( get_post_meta( $post->ID, Phase4Contracts::WORKFLOW_META_KEY, true ) );
 				$edit_url = add_query_arg( array( 'page' => self::COMPOSER_PAGE, 'post_id' => (int) $post->ID ), admin_url( 'admin.php' ) );
-				echo '<tr><th scope="row">' . esc_html( $post->post_title ) . '</th><td>' . esc_html( (string) $post->post_author ) . '</td><td>' . esc_html( $state ) . '</td><td>' . esc_html( (string) $post->post_modified ) . '</td><td>';
+				$preview_url = add_query_arg( array( 'page' => self::COMPOSER_PAGE, 'post_id' => (int) $post->ID, 'preview' => 1 ), admin_url( 'admin.php' ) );
+				echo '<tr>';
+				if ( $bulk_enabled ) {
+					echo '<td><label><span class="screen-reader-text">' . esc_html( sprintf( __( 'Select %s', 'sabri-complete-home-news-feed' ), $post->post_title ) ) . '</span><input type="checkbox" name="post_ids[]" value="' . esc_attr( (int) $post->ID ) . '"' . ( NewsPolicy::can_edit( $post->ID ) ? '' : ' disabled' ) . ' /></label></td>';
+				}
+				echo '<th scope="row">' . esc_html( $post->post_title ) . '</th><td>' . esc_html( (string) $post->post_author ) . '</td><td>' . esc_html( $state ) . '</td><td>' . esc_html( (string) $post->post_modified ) . '</td><td>';
 				if ( empty( $data['read_only'] ) && NewsPolicy::can_edit( $post->ID ) ) {
 					echo '<a href="' . esc_url( $edit_url ) . '">' . esc_html__( 'Open', 'sabri-complete-home-news-feed' ) . '</a>';
+				} elseif ( NewsPolicy::can_preview( $post->ID ) ) {
+					echo '<a href="' . esc_url( $preview_url ) . '">' . esc_html__( 'Private preview', 'sabri-complete-home-news-feed' ) . '</a>';
 				} else {
 					echo esc_html__( 'Read only', 'sabri-complete-home-news-feed' );
 				}
@@ -129,20 +156,39 @@ final class NewsroomAdmin {
 			}
 		}
 		echo '</tbody></table>';
+		if ( $bulk_enabled ) {
+			self::render_bulk_controls();
+			echo '</form>';
+		}
 		if ( $data['pages'] > 1 && function_exists( 'paginate_links' ) ) {
 			echo '<div class="tablenav"><div class="tablenav-pages">' . wp_kses_post( paginate_links( array( 'total' => $data['pages'], 'current' => $data['page'] ) ) ) . '</div></div>';
 		}
 		echo '</div>';
 	}
 
-	/** Render the secure server-validated composer. */
+	/** Render the secure server-validated composer or a private preview. */
 	public static function render_composer() {
 		$post_id = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
-		self::require_capability( $post_id ? 'edit_editorial_news' : 'create_editorial_news', $post_id );
+		$is_preview = $post_id && ! empty( $_GET['preview'] );
+		if ( $is_preview ) {
+			if ( ! NewsPolicy::can_preview( $post_id ) ) {
+				wp_die( esc_html__( 'You do not have permission to preview this Editorial News record.', 'sabri-complete-home-news-feed' ) );
+			}
+		} else {
+			self::require_capability( $post_id ? 'edit_editorial_news' : 'create_editorial_news', $post_id );
+		}
 		$post = $post_id ? get_post( $post_id ) : null;
 		if ( $post_id && ( ! $post || Phase4Contracts::POST_TYPE !== $post->post_type ) ) {
 			wp_die( esc_html__( 'The requested Editorial News record does not exist.', 'sabri-complete-home-news-feed' ) );
 		}
+		echo '<div class="wrap sabri-news-composer"><h1>' . esc_html__( 'Editorial News Composer', 'sabri-complete-home-news-feed' ) . '</h1>';
+		self::render_notice();
+		if ( $is_preview ) {
+			self::render_private_preview( $post );
+			echo '</div>';
+			return;
+		}
+
 		$meta = $post_id ? get_post_meta( $post_id ) : array();
 		$preserved = self::consume_input();
 		$value = static function ( $key, $default = '' ) use ( $meta ) {
@@ -151,13 +197,9 @@ final class NewsroomAdmin {
 		$input = static function ( $key, $fallback = '' ) use ( $preserved ) {
 			return array_key_exists( $key, $preserved ) ? $preserved[ $key ] : $fallback;
 		};
-		echo '<div class="wrap sabri-news-composer"><h1>' . esc_html__( 'Editorial News Composer', 'sabri-complete-home-news-feed' ) . '</h1>';
-		self::render_notice();
-		if ( $post_id && ! empty( $_GET['preview'] ) ) {
-			self::render_private_preview( $post );
-		}
+		$current_state = $post_id ? NewsStatuses::sanitize_state( $value( Phase4Contracts::WORKFLOW_META_KEY, 'draft' ) ) : 'draft';
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" novalidate>';
-		echo '<input type="hidden" name="action" value="' . esc_attr( self::SAVE_ACTION ) . '" /><input type="hidden" name="post_id" value="' . esc_attr( $post_id ) . '" />';
+		echo '<input type="hidden" name="action" value="' . esc_attr( self::SAVE_ACTION ) . '" /><input type="hidden" name="post_id" value="' . esc_attr( $post_id ) . '" /><input type="hidden" name="initial_state" value="' . esc_attr( $current_state ) . '" />';
 		wp_nonce_field( self::SAVE_ACTION );
 		self::field( 'title', __( 'Title', 'sabri-complete-home-news-feed' ), $input( 'title', $post ? $post->post_title : '' ), true );
 		self::textarea( 'content', __( 'Article body', 'sabri-complete-home-news-feed' ), $input( 'content', $post ? $post->post_content : '' ), 16 );
@@ -171,13 +213,11 @@ final class NewsroomAdmin {
 		self::field( 'countries', __( 'Countries (comma-separated slugs)', 'sabri-complete-home-news-feed' ), $input( 'countries', implode( ',', self::term_slugs( $post_id, 'sabri_news_country' ) ) ) );
 		self::field( 'regions', __( 'Regions (comma-separated slugs)', 'sabri-complete-home-news-feed' ), $input( 'regions', implode( ',', self::term_slugs( $post_id, 'sabri_news_region' ) ) ) );
 		self::media_field( $input( 'featured_image_id', function_exists( 'get_post_thumbnail_id' ) ? get_post_thumbnail_id( $post_id ) : 0 ) );
-		self::field( 'reviewing_editor_id', __( 'Reviewing editor user ID', 'sabri-complete-home-news-feed' ), $input( 'reviewing_editor_id', $value( '_sabri_news_reviewing_editor_id', 0 ) ), false, 'number' );
+		self::field( 'reviewing_editor_id', __( 'Reviewing editor and fact-checker user ID', 'sabri-complete-home-news-feed' ), $input( 'reviewing_editor_id', $value( '_sabri_news_reviewing_editor_id', 0 ) ), false, 'number' );
 		self::field( 'medical_reviewer_id', __( 'Medical reviewer user ID', 'sabri-complete-home-news-feed' ), $input( 'medical_reviewer_id', $value( '_sabri_news_medical_reviewer_id', 0 ) ), false, 'number' );
 		self::checkbox( 'fact_check_required', __( 'Fact check required', 'sabri-complete-home-news-feed' ), (bool) $input( 'fact_check_required', $value( '_sabri_news_fact_check_required', 0 ) ) );
 		self::checkbox( 'medical_review_required', __( 'Medical review required', 'sabri-complete-home-news-feed' ), (bool) $input( 'medical_review_required', $value( '_sabri_news_medical_review_required', 0 ) ) );
-		$current_state = $post_id ? NewsStatuses::sanitize_state( $value( Phase4Contracts::WORKFLOW_META_KEY, 'draft' ) ) : 'draft';
-		$states = array_combine( NewsStatuses::states(), array_map( static function ( $state ) { return ucwords( str_replace( '-', ' ', $state ) ); }, NewsStatuses::states() ) );
-		self::select( 'target_state', __( 'Workflow target', 'sabri-complete-home-news-feed' ), $states, $input( 'target_state', $current_state ) );
+		self::select( 'target_state', __( 'Workflow target', 'sabri-complete-home-news-feed' ), self::workflow_options( $current_state ), $input( 'target_state', $current_state ) );
 		self::field( 'schedule_at', __( 'Schedule with timezone', 'sabri-complete-home-news-feed' ), $input( 'schedule_at', $value( NewsSchedulingService::META_KEY ) ), false, 'text', sprintf( __( 'Site timezone: %s. Include an explicit UTC offset. The normalized UTC value appears below.', 'sabri-complete-home-news-feed' ), self::site_timezone_label() ) );
 		echo '<p id="sabri-news-schedule-utc" class="description" aria-live="polite"></p>';
 		submit_button( __( 'Save Editorial News', 'sabri-complete-home-news-feed' ) );
@@ -200,7 +240,13 @@ final class NewsroomAdmin {
 				$input[ $field ] = wp_unslash( $_POST[ $field ] );
 			}
 		}
-		$result = NewsService::save( $post_id, $input, array( 'method' => 'POST', 'nonce_verified' => true ) );
+		$initial_state = isset( $_POST['initial_state'] ) ? NewsStatuses::sanitize_state( wp_unslash( $_POST['initial_state'] ) ) : 'draft';
+		$target_state = isset( $input['target_state'] ) ? NewsStatuses::sanitize_state( $input['target_state'] ) : $initial_state;
+		if ( $target_state && $target_state !== $initial_state && empty( $_POST['transition_confirmed'] ) ) {
+			$result = array( 'success' => false, 'code' => 'workflow_confirmation_required', 'data' => array( 'errors' => array( 'target_state' => 'confirmation_required' ) ) );
+		} else {
+			$result = NewsService::save( $post_id, $input, array( 'method' => 'POST', 'nonce_verified' => true ) );
+		}
 		self::store_notice( $result );
 		if ( empty( $result['success'] ) ) {
 			self::store_input( $input );
@@ -209,16 +255,82 @@ final class NewsroomAdmin {
 		self::redirect( self::COMPOSER_PAGE, array( 'post_id' => $target_id, 'saved' => ! empty( $result['success'] ) ? 1 : 0 ) );
 	}
 
-	/** Handle explicit state transitions through the workflow service. */
+	/** Handle one explicitly confirmed state transition. */
 	public static function handle_transition() {
 		self::require_post_request();
 		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
 		self::require_capability( 'edit_editorial_news', $post_id );
 		check_admin_referer( self::TRANSITION_ACTION );
-		$target = isset( $_POST['target_state'] ) ? wp_unslash( $_POST['target_state'] ) : '';
-		$result = NewsService::transition( $post_id, $target, array( 'method' => 'POST', 'nonce_verified' => true ) );
+		if ( empty( $_POST['confirm_transition'] ) ) {
+			$result = array( 'success' => false, 'code' => 'workflow_confirmation_required', 'data' => array() );
+		} else {
+			$target = isset( $_POST['target_state'] ) ? wp_unslash( $_POST['target_state'] ) : '';
+			$result = NewsService::transition( $post_id, $target, array( 'method' => 'POST', 'nonce_verified' => true ) );
+		}
 		self::store_notice( $result );
 		self::redirect( self::COMPOSER_PAGE, array( 'post_id' => $post_id, 'transitioned' => ! empty( $result['success'] ) ? 1 : 0 ) );
+	}
+
+	/** Handle bounded, confirmed bulk workflow transitions. */
+	public static function handle_bulk_transition() {
+		self::require_post_request();
+		self::require_capability( 'read_editorial_news' );
+		check_admin_referer( self::BULK_ACTION );
+		$queue = isset( $_POST['queue'] ) ? self::strict_slug( wp_unslash( $_POST['queue'] ) ) : 'own-drafts';
+		$target = isset( $_POST['target_state'] ) ? NewsStatuses::sanitize_state( wp_unslash( $_POST['target_state'] ) ) : '';
+		$ids = isset( $_POST['post_ids'] ) && is_array( $_POST['post_ids'] ) ? array_slice( array_values( array_unique( array_map( 'absint', wp_unslash( $_POST['post_ids'] ) ) ) ), 0, 50 ) : array();
+		$successes = 0;
+		$failures = array();
+		if ( empty( $_POST['confirm_bulk'] ) || ! $target || empty( $ids ) ) {
+			$result = array( 'success' => false, 'code' => 'bulk_transition_input_invalid', 'data' => array( 'errors' => array( 'bulk' => 'selection_target_and_confirmation_required' ) ) );
+		} else {
+			foreach ( $ids as $post_id ) {
+				$transition = NewsService::transition( $post_id, $target, array( 'method' => 'POST', 'nonce_verified' => true ) );
+				if ( ! empty( $transition['success'] ) ) {
+					++$successes;
+				} else {
+					$failures[ $post_id ] = isset( $transition['code'] ) ? $transition['code'] : 'transition_failed';
+				}
+			}
+			$result = array(
+				'success' => $successes > 0 && empty( $failures ),
+				'code' => empty( $failures ) ? 'bulk_transition_completed' : ( $successes > 0 ? 'bulk_transition_partially_completed' : 'bulk_transition_failed' ),
+				'data' => array( 'completed' => $successes, 'failed' => $failures, 'target_state' => $target ),
+			);
+		}
+		self::store_notice( $result );
+		self::redirect( self::PAGE, array( 'queue' => $queue ) );
+	}
+
+	private static function render_bulk_controls() {
+		$options = array(
+			'needs-sources' => __( 'Request source changes', 'sabri-complete-home-news-feed' ),
+			'editorial-review' => __( 'Send to editorial review', 'sabri-complete-home-news-feed' ),
+			'fact-check' => __( 'Send to fact check', 'sabri-complete-home-news-feed' ),
+			'medical-review' => __( 'Send to medical review', 'sabri-complete-home-news-feed' ),
+			'ready-for-publication' => __( 'Mark publication ready', 'sabri-complete-home-news-feed' ),
+		);
+		echo '<fieldset class="sabri-news-bulk-controls"><legend class="screen-reader-text">' . esc_html__( 'Bulk workflow controls', 'sabri-complete-home-news-feed' ) . '</legend>';
+		echo '<label for="sabri-news-bulk-target"><strong>' . esc_html__( 'Bulk workflow target', 'sabri-complete-home-news-feed' ) . '</strong></label> <select id="sabri-news-bulk-target" name="target_state"><option value="">' . esc_html__( 'Select', 'sabri-complete-home-news-feed' ) . '</option>';
+		foreach ( $options as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '">' . esc_html( $label ) . '</option>';
+		}
+		echo '</select> <label><input type="checkbox" name="confirm_bulk" value="1" /> ' . esc_html__( 'I confirm this bulk workflow change.', 'sabri-complete-home-news-feed' ) . '</label> ';
+		echo '<button type="submit" class="button">' . esc_html__( 'Apply', 'sabri-complete-home-news-feed' ) . '</button></fieldset>';
+	}
+
+	private static function workflow_options( $current_state ) {
+		$options = array( $current_state => ucwords( str_replace( '-', ' ', $current_state ) ) );
+		foreach ( NewsWorkflow::allowed_targets( $current_state ) as $target ) {
+			if ( 'published' === $target ) {
+				continue;
+			}
+			$capability = NewsWorkflow::required_capability( $current_state, $target );
+			if ( 'do_not_allow' !== $capability && current_user_can( $capability ) ) {
+				$options[ $target ] = ucwords( str_replace( '-', ' ', $target ) );
+			}
+		}
+		return $options;
 	}
 
 	private static function require_post_request() {
@@ -264,7 +376,7 @@ final class NewsroomAdmin {
 		if ( ! empty( $result['data']['errors'] ) && is_array( $result['data']['errors'] ) ) {
 			echo '<ul class="sabri-news-errors">';
 			foreach ( $result['data']['errors'] as $field => $error ) {
-				echo '<li><a href="#sabri-news-' . esc_attr( $field ) . '">' . esc_html( $field . ': ' . $error ) . '</a></li>';
+				echo '<li><a href="#sabri-news-' . esc_attr( $field ) . '">' . esc_html( $field . ': ' . ( is_scalar( $error ) ? $error : 'invalid' ) ) . '</a></li>';
 			}
 			echo '</ul>';
 		}
@@ -272,9 +384,20 @@ final class NewsroomAdmin {
 	}
 
 	private static function store_input( array $input ) {
-		if ( function_exists( 'set_transient' ) ) {
-			set_transient( self::transient_key( self::INPUT_PREFIX ), array_intersect_key( $input, array_fill_keys( NewsComposerValidator::fields(), true ) ), 5 * MINUTE_IN_SECONDS );
+		if ( ! function_exists( 'set_transient' ) ) {
+			return;
 		}
+		$allowed = array_intersect_key( $input, array_fill_keys( NewsComposerValidator::fields(), true ) );
+		foreach ( $allowed as $key => $value ) {
+			if ( is_string( $value ) ) {
+				$allowed[ $key ] = substr( $value, 0, 'content' === $key ? 1000000 : 5000 );
+			} elseif ( is_array( $value ) ) {
+				$allowed[ $key ] = array_slice( $value, 0, 20 );
+			} elseif ( ! is_scalar( $value ) ) {
+				unset( $allowed[ $key ] );
+			}
+		}
+		set_transient( self::transient_key( self::INPUT_PREFIX ), $allowed, 5 * MINUTE_IN_SECONDS );
 	}
 
 	private static function consume_input() {
@@ -290,13 +413,14 @@ final class NewsroomAdmin {
 	}
 
 	private static function render_private_preview( $post ) {
-		if ( ! $post || ! NewsPolicy::can_edit( $post->ID ) ) {
+		if ( ! $post || ! NewsPolicy::can_preview( $post->ID ) ) {
 			return;
 		}
 		echo '<section class="sabri-news-private-preview" aria-labelledby="sabri-news-preview-heading">';
 		echo '<h2 id="sabri-news-preview-heading">' . esc_html__( 'Private editorial preview', 'sabri-complete-home-news-feed' ) . '</h2>';
 		echo '<h3>' . esc_html( $post->post_title ) . '</h3>';
-		echo '<div class="sabri-news-preview-content">' . wp_kses_post( apply_filters( 'the_content', $post->post_content ) ) . '</div>';
+		$content = function_exists( 'wpautop' ) ? wpautop( $post->post_content ) : nl2br( esc_html( $post->post_content ) );
+		echo '<div class="sabri-news-preview-content">' . wp_kses_post( $content ) . '</div>';
 		echo '</section>';
 	}
 
@@ -309,7 +433,9 @@ final class NewsroomAdmin {
 	private static function field( $name, $label, $value, $required = false, $type = 'text', $description = '' ) {
 		echo '<p><label for="sabri-news-' . esc_attr( $name ) . '"><strong>' . esc_html( $label ) . '</strong></label><br />';
 		echo '<input class="regular-text" id="sabri-news-' . esc_attr( $name ) . '" name="' . esc_attr( $name ) . '" type="' . esc_attr( $type ) . '" value="' . esc_attr( $value ) . '"' . ( $required ? ' required aria-required="true"' : '' ) . ' />';
-		if ( $description ) { echo '<br /><span class="description">' . esc_html( $description ) . '</span>'; }
+		if ( $description ) {
+			echo '<br /><span class="description">' . esc_html( $description ) . '</span>';
+		}
 		echo '</p>';
 	}
 
@@ -343,7 +469,9 @@ final class NewsroomAdmin {
 
 	private static function term_slugs( $post_id, $taxonomy ) {
 		$terms = $post_id && function_exists( 'get_the_terms' ) ? get_the_terms( $post_id, $taxonomy ) : array();
-		if ( ! is_array( $terms ) ) { return array(); }
+		if ( ! is_array( $terms ) ) {
+			return array();
+		}
 		return array_values( array_filter( array_map( static function ( $term ) { return isset( $term->slug ) ? (string) $term->slug : ''; }, $terms ) ) );
 	}
 
