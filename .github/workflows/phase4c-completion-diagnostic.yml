@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - '.phase4c-completion/**'
+      - 'tools/phase4c-completion-corrections.py'
       - '.github/workflows/phase4c-completion-diagnostic.yml'
 
 permissions:
@@ -27,7 +28,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
 
-      - name: Verify and extract immutable completion archive
+      - name: Verify, extract, and correct immutable completion archive
         shell: bash
         run: |
           set -euo pipefail
@@ -39,6 +40,10 @@ jobs:
           test "$actual" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
           test "$(tar -tzf /tmp/phase4c-completion.tar.gz | wc -l | tr -d ' ')" = '28'
           tar -xzf /tmp/phase4c-completion.tar.gz -C .
+          python3 tools/phase4c-completion-corrections.py
+          cp includes/class-news-public-projector.php phase4c-corrected-projector.php.txt
+          cp tests/run-phase4c-security-tests.php phase4c-corrected-security-test.php.txt
+          cp tests/phase4c-stubs.php phase4c-corrected-stubs.php.txt
 
       - name: Lint completed PHP surface
         shell: bash
@@ -83,23 +88,15 @@ jobs:
         shell: bash
         run: php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase4c-ui.log
 
-      - name: Run Phase 4B regressions
+      - name: Run regressions and static checks
         shell: bash
         run: |
           set -euo pipefail
           php tests/run-phase4b-newsroom-tests.php
           php tests/run-phase4b-ui-completeness-tests.php
-
-      - name: Run Phase 4A regression
-        run: php tests/run-phase4a-content-model-tests.php
-
-      - name: Run core regressions
-        shell: bash
-        run: php tools/run-tests.php 2>&1 | tee phase4c-core.log
-
-      - name: Run static checks
-        shell: pwsh
-        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+          php tests/run-phase4a-content-model-tests.php
+          php tools/run-tests.php 2>&1 | tee phase4c-core.log
+          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
       - name: Build and verify completion package
         shell: bash
@@ -125,4 +122,7 @@ jobs:
             phase4c-security.log
             phase4c-ui.log
             phase4c-core.log
+            phase4c-corrected-projector.php.txt
+            phase4c-corrected-security-test.php.txt
+            phase4c-corrected-stubs.php.txt
           if-no-files-found: ignore
