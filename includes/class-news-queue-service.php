@@ -135,13 +135,6 @@ final class NewsQueueService {
 		}
 		$page = max( 1, (int) $page );
 		$per_page = max( 1, min( 50, (int) $per_page ) );
-		$core_statuses = array();
-		foreach ( $definition['states'] as $state ) {
-			$status = NewsStatuses::wordpress_status( $state );
-			if ( $status ) {
-				$core_statuses[] = $status;
-			}
-		}
 		$meta_query = array(
 			array(
 				'key' => Phase4Contracts::WORKFLOW_META_KEY,
@@ -160,7 +153,10 @@ final class NewsQueueService {
 		}
 		$args = array(
 			'post_type' => Phase4Contracts::POST_TYPE,
-			'post_status' => array_values( array_unique( $core_statuses ) ),
+			// The full workflow metadata is the frozen source of truth. Core post
+			// statuses are an implementation projection and must not hide an otherwise
+			// valid private queue record after a WordPress status transition.
+			'post_status' => 'any',
 			'posts_per_page' => $per_page,
 			'paged' => $page,
 			'orderby' => 'modified',
