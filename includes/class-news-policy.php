@@ -53,8 +53,7 @@ final class NewsPolicy {
 	/** Exact capabilities required for one reviewer assignment. */
 	public static function reviewer_capabilities( $review_type ) {
 		$map = array(
-			// The Phase 4B reviewing-editor field also owns fact-check assignment.
-			'editorial' => array( 'review_editorial_news', 'fact_check_editorial_news' ),
+			'editorial' => array( 'review_editorial_news' ),
 			'fact-check' => array( 'fact_check_editorial_news' ),
 			'medical' => array( 'medical_review_editorial_news' ),
 		);
