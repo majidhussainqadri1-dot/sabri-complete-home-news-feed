@@ -1,0 +1,67 @@
+name: Phase 4B UI Completeness Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'admin/class-newsroom-admin.php'
+      - 'assets/css/newsroom-admin.css'
+      - 'assets/js/newsroom-editor.js'
+      - 'includes/class-news-queue-service.php'
+      - 'tests/run-phase4b-ui-completeness-tests.php'
+      - '.github/workflows/phase4b-ui-completeness-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phase4b-ui-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  phase4b-ui-completeness:
+    name: Phase 4B composer UX and accessibility contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact head commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact commit
+        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+
+      - name: Lint updated PHP
+        run: |
+          set -euo pipefail
+          php -l admin/class-newsroom-admin.php
+          php -l includes/class-news-queue-service.php
+          php -l tests/run-phase4b-ui-completeness-tests.php
+
+      - name: Check composer JavaScript syntax
+        run: node --check assets/js/newsroom-editor.js
+
+      - name: Run UI completeness contracts
+        run: php tests/run-phase4b-ui-completeness-tests.php
+
+      - name: Verify assets enter the package
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Check package structure
+        run: |
+          set -euo pipefail
+          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          test -n "$package"
+          for entry in \
+            sabri-complete-home-news-feed/assets/css/newsroom-admin.css \
+            sabri-complete-home-news-feed/assets/js/newsroom-editor.js \
+            sabri-complete-home-news-feed/admin/class-newsroom-admin.php \
+            sabri-complete-home-news-feed/includes/class-news-queue-service.php; do
+            unzip -Z1 "$package" | grep -Fxq "$entry"
+          done
+          test -z "$(git status --porcelain --untracked-files=no)"
