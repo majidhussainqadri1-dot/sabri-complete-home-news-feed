@@ -103,7 +103,7 @@ final class EditorialNewsPostType {
 		}
 	}
 
-	/** Frozen Phase 4A metadata definitions. */
+	/** Frozen private metadata definitions through Phase 4B. */
 	public static function meta_definitions() {
 		return array(
 			Phase4Contracts::WORKFLOW_META_KEY     => array( 'type' => 'string', 'default' => 'draft', 'sanitize_callback' => array( NewsStatuses::class, 'sanitize_state' ) ),
@@ -112,7 +112,9 @@ final class EditorialNewsPostType {
 			'_sabri_news_language'                 => array( 'type' => 'string', 'default' => 'en-US', 'sanitize_callback' => array( __CLASS__, 'sanitize_language' ) ),
 			'_sabri_news_priority'                 => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => array( __CLASS__, 'sanitize_priority' ) ),
 			'_sabri_news_fact_check_status'        => array( 'type' => 'string', 'default' => 'not-started', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_fact_check_required'      => array( 'type' => 'boolean', 'default' => false, 'sanitize_callback' => array( __CLASS__, 'sanitize_boolean' ) ),
 			'_sabri_news_medical_review_status'    => array( 'type' => 'string', 'default' => 'not-required', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
+			'_sabri_news_medical_review_required'  => array( 'type' => 'boolean', 'default' => false, 'sanitize_callback' => array( __CLASS__, 'sanitize_boolean' ) ),
 			'_sabri_news_breaking_status'          => array( 'type' => 'string', 'default' => 'inactive', 'sanitize_callback' => array( __CLASS__, 'sanitize_token' ) ),
 			'_sabri_news_breaking_starts_at'       => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
 			'_sabri_news_breaking_expires_at'      => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
@@ -122,28 +124,34 @@ final class EditorialNewsPostType {
 			'_sabri_news_reviewing_editor_id'      => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
 			'_sabri_news_medical_reviewer_id'      => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
 			'_sabri_news_source_article_id'        => array( 'type' => 'integer', 'default' => 0, 'sanitize_callback' => 'absint' ),
+			NewsSchedulingService::META_KEY        => array( 'type' => 'string', 'default' => '', 'sanitize_callback' => array( __CLASS__, 'sanitize_datetime' ) ),
+			NewsSchedulingService::DUE_META_KEY    => array( 'type' => 'boolean', 'default' => false, 'sanitize_callback' => array( __CLASS__, 'sanitize_boolean' ) ),
 		);
 	}
 
 	/** Return the exact capability required to change a registered metadata key. */
 	public static function meta_capability( $meta_key ) {
 		$map = array(
-			'_sabri_news_subtitle'              => 'edit_editorial_news',
-			'_sabri_news_summary'               => 'edit_editorial_news',
-			'_sabri_news_language'              => 'edit_editorial_news',
-			Phase4Contracts::WORKFLOW_META_KEY  => 'publish_editorial_news',
-			'_sabri_news_priority'              => 'manage_breaking_news',
-			'_sabri_news_fact_check_status'     => 'fact_check_editorial_news',
-			'_sabri_news_last_verified_at'      => 'fact_check_editorial_news',
-			'_sabri_news_medical_review_status' => 'medical_review_editorial_news',
-			'_sabri_news_medical_reviewer_id'   => 'review_editorial_news',
-			'_sabri_news_reviewing_editor_id'   => 'review_editorial_news',
-			'_sabri_news_breaking_status'       => 'manage_breaking_news',
-			'_sabri_news_breaking_starts_at'    => 'manage_breaking_news',
-			'_sabri_news_breaking_expires_at'   => 'manage_breaking_news',
-			'_sabri_news_correction_status'     => 'manage_news_corrections',
-			'_sabri_news_retraction_status'     => 'retract_editorial_news',
-			'_sabri_news_source_article_id'     => 'translate_editorial_news',
+			'_sabri_news_subtitle'                  => 'edit_editorial_news',
+			'_sabri_news_summary'                   => 'edit_editorial_news',
+			'_sabri_news_language'                  => 'edit_editorial_news',
+			Phase4Contracts::WORKFLOW_META_KEY      => 'publish_editorial_news',
+			'_sabri_news_priority'                  => 'manage_breaking_news',
+			'_sabri_news_fact_check_status'         => 'fact_check_editorial_news',
+			'_sabri_news_fact_check_required'       => 'review_editorial_news',
+			'_sabri_news_last_verified_at'          => 'fact_check_editorial_news',
+			'_sabri_news_medical_review_status'     => 'medical_review_editorial_news',
+			'_sabri_news_medical_review_required'   => 'review_editorial_news',
+			'_sabri_news_medical_reviewer_id'       => 'review_editorial_news',
+			'_sabri_news_reviewing_editor_id'       => 'review_editorial_news',
+			'_sabri_news_breaking_status'           => 'manage_breaking_news',
+			'_sabri_news_breaking_starts_at'        => 'manage_breaking_news',
+			'_sabri_news_breaking_expires_at'       => 'manage_breaking_news',
+			'_sabri_news_correction_status'         => 'manage_news_corrections',
+			'_sabri_news_retraction_status'         => 'retract_editorial_news',
+			'_sabri_news_source_article_id'         => 'translate_editorial_news',
+			NewsSchedulingService::META_KEY         => 'schedule_editorial_news',
+			NewsSchedulingService::DUE_META_KEY     => 'do_not_allow',
 		);
 		return is_string( $meta_key ) && isset( $map[ $meta_key ] ) ? $map[ $meta_key ] : 'do_not_allow';
 	}
@@ -160,7 +168,6 @@ final class EditorialNewsPostType {
 		if ( $user_id > 0 && $user_id !== $current_user_id ) {
 			return false;
 		}
-
 		$post_type = '';
 		if ( function_exists( 'get_post_type' ) ) {
 			$post_type = (string) get_post_type( $post_id );
@@ -171,7 +178,6 @@ final class EditorialNewsPostType {
 		if ( Phase4Contracts::POST_TYPE !== $post_type ) {
 			return false;
 		}
-
 		$required = self::meta_capability( $meta_key );
 		if ( 'do_not_allow' === $required ) {
 			return false;
@@ -180,7 +186,6 @@ final class EditorialNewsPostType {
 		if ( 'edit_editorial_news' === $required ) {
 			return $can_edit_object;
 		}
-
 		if ( '_sabri_news_medical_review_status' === $meta_key ) {
 			if ( $can_edit_object && current_user_can( 'review_editorial_news' ) ) {
 				return true;
@@ -188,7 +193,6 @@ final class EditorialNewsPostType {
 			$assigned_id = function_exists( 'get_post_meta' ) ? absint( get_post_meta( $post_id, '_sabri_news_medical_reviewer_id', true ) ) : 0;
 			return $current_user_id > 0 && $assigned_id === $current_user_id && current_user_can( 'medical_review_editorial_news' );
 		}
-
 		return $can_edit_object && current_user_can( $required );
 	}
 
@@ -201,7 +205,7 @@ final class EditorialNewsPostType {
 		return $value;
 	}
 
-	/** Retain only an exact lowercase status token; never repair malformed input. */
+	/** Retain only an exact lowercase status token. */
 	public static function sanitize_token( $value ) {
 		if ( ! is_string( $value ) || '' === $value || strlen( $value ) > 64 ) {
 			return '';
@@ -219,6 +223,11 @@ final class EditorialNewsPostType {
 			return 0;
 		}
 		return $priority >= 0 && $priority <= 100 ? $priority : 0;
+	}
+
+	/** Accept only exact boolean-compatible values. */
+	public static function sanitize_boolean( $value ) {
+		return in_array( $value, array( 1, '1', true ), true );
 	}
 
 	/** Accept only an empty value or a bounded ISO/WordPress datetime string. */
