@@ -43,6 +43,8 @@ final class Plugin {
 			NewsStatuses::class,
 			EditorialNewsPostType::class,
 			NewsTaxonomies::class,
+			NewsWorkflow::class,
+			NewsComposerValidator::class,
 			PollComposerIntegration::class,
 			Capabilities::class,
 			PostTypes::class,
