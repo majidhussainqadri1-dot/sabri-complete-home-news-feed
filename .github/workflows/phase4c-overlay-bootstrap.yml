@@ -35,7 +35,9 @@ jobs:
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
           EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          : > phase4c-completion-transport.log
+          trap 'status=$?; printf "failed_line=%s\nfailed_command=%s\nexit_status=%s\n" "${LINENO}" "${BASH_COMMAND}" "${status}" >> phase4c-completion-transport.log; exit ${status}' ERR
           test "$(git rev-parse HEAD)" = "${EXACT_HEAD}"
 
           if [ ! -f .phase4c-completion/chunk-000 ]; then
@@ -44,6 +46,7 @@ jobs:
           fi
 
           actual_count=$(find .phase4c-completion -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')
+          printf 'completion_chunk_count=%s\n' "$actual_count" | tee -a phase4c-completion-transport.log
           test "$actual_count" = '18'
           cat \
             .phase4c-completion/chunk-000 \
@@ -67,19 +70,22 @@ jobs:
             | base64 --decode > /tmp/phase4c-completion.tar.gz
 
           actual_sha=$(sha256sum /tmp/phase4c-completion.tar.gz | awk '{print $1}')
-          printf 'completion_archive_sha256=%s\n' "$actual_sha"
+          printf 'completion_archive_sha256=%s\n' "$actual_sha" | tee -a phase4c-completion-transport.log
           test "$actual_sha" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
           archive_entries=$(tar -tzf /tmp/phase4c-completion.tar.gz | wc -l | tr -d ' ')
-          printf 'completion_archive_entries=%s\n' "$archive_entries"
+          printf 'completion_archive_entries=%s\n' "$archive_entries" | tee -a phase4c-completion-transport.log
           test "$archive_entries" = '28'
-          if tar -tzf /tmp/phase4c-completion.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+          tar -tzf /tmp/phase4c-completion.tar.gz > phase4c-completion-entries.log
+          if grep -Eq '(^/|(^|/)\.\.(/|$))' phase4c-completion-entries.log; then
             echo 'Unsafe archive path detected.' >&2
             exit 1
           fi
 
+          printf 'stage=extract\n' >> phase4c-completion-transport.log
           tar -xzf /tmp/phase4c-completion.tar.gz -C .
           rm -rf .phase4c-completion
 
+          printf 'stage=syntax\n' >> phase4c-completion-transport.log
           php_files=(
             includes/class-news-public-snapshot.php
             includes/class-news-public-projector.php
@@ -102,13 +108,12 @@ jobs:
             tests/run-phase4c-security-tests.php
             tests/run-phase4c-ui-completeness-tests.php
           )
-          for file in "${php_files[@]}"; do
-            php -l "$file"
-          done
+          for file in "${php_files[@]}"; do php -l "$file"; done
           node --check assets/js/news.js
           node --check tests/run-phase4c-playground-tests.mjs
           git diff --check
 
+          printf 'stage=tests\n' >> phase4c-completion-transport.log
           php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-completion-public.log
           php tests/run-phase4c-security-tests.php 2>&1 | tee phase4c-completion-security.log
           php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase4c-completion-ui.log
@@ -118,6 +123,7 @@ jobs:
           php tools/run-tests.php 2>&1 | tee phase4c-completion-core.log
           pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
+          printf 'stage=package\n' >> phase4c-completion-transport.log
           rm -rf release
           pwsh -NoProfile -File ./tools/build-release.ps1
           package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
@@ -148,6 +154,7 @@ jobs:
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
 
+          printf 'stage=commit\n' >> phase4c-completion-transport.log
           rm -rf release
           rm -f phase4c-completion-*.log
           rm -f .github/workflows/phase4c-public-news-tests.yml
@@ -169,6 +176,8 @@ jobs:
           name: phase4c-completion-diagnostics-${{ github.event.pull_request.head.sha }}
           retention-days: 14
           path: |
+            phase4c-completion-transport.log
+            phase4c-completion-entries.log
             phase4c-completion-public.log
             phase4c-completion-security.log
             phase4c-completion-ui.log
