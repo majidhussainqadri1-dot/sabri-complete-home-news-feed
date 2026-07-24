@@ -161,7 +161,18 @@ jobs:
 
       - name: Run core regression suite
         shell: bash
-        run: php tools/run-tests.php
+        run: |
+          set -euo pipefail
+          php tools/run-tests.php 2>&1 | tee phase4c-bootstrap-core.log
+
+      - name: Upload core regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4c-bootstrap-core-${{ github.event.pull_request.head.sha }}
+          retention-days: 7
+          path: phase4c-bootstrap-core.log
+          if-no-files-found: ignore
 
       - name: Run local static checks
         shell: pwsh
@@ -205,7 +216,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf release
-          rm -f phase4c-bootstrap-public.log
+          rm -f phase4c-bootstrap-public.log phase4c-bootstrap-core.log
           git config user.name 'Sabri Phase 4C QA Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add -A
