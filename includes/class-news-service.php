@@ -38,6 +38,7 @@ final class NewsService {
 		}
 		$post_id = function_exists( 'absint' ) ? absint( $post_id ) : max( 0, (int) $post_id );
 		$is_new = $post_id < 1;
+		$featured_image_supplied = array_key_exists( 'featured_image_id', $input );
 		if ( ! NewsPolicy::writes_allowed() ) {
 			return self::result( false, 'newsroom_writes_disabled' );
 		}
@@ -78,9 +79,11 @@ final class NewsService {
 		if ( $taxonomy_error ) {
 			return self::result( false, $taxonomy_error );
 		}
-		$image_error = self::validate_featured_image( $data['featured_image_id'] );
-		if ( $image_error ) {
-			return self::result( false, $image_error );
+		if ( $featured_image_supplied ) {
+			$image_error = self::validate_featured_image( $data['featured_image_id'] );
+			if ( $image_error ) {
+				return self::result( false, $image_error );
+			}
 		}
 
 		$core_status = NewsStatuses::wordpress_status( 'scheduled' === $target_state ? 'ready-for-publication' : $target_state );
@@ -113,7 +116,7 @@ final class NewsService {
 			NewsAudit::record( $stored_id, 'article_save_failed', array( 'reason' => $taxonomy_result['code'] ) );
 			return self::result( false, 'taxonomy_persistence_failed', array( 'post_id' => $stored_id, 'detail' => $taxonomy_result ) );
 		}
-		$image_result = self::store_featured_image( $stored_id, $data['featured_image_id'] );
+		$image_result = self::store_featured_image( $stored_id, $data['featured_image_id'], $featured_image_supplied );
 		if ( empty( $image_result['success'] ) ) {
 			NewsAudit::record( $stored_id, 'article_save_failed', array( 'reason' => $image_result['code'] ) );
 			return self::result( false, 'featured_image_persistence_failed', array( 'post_id' => $stored_id, 'detail' => $image_result ) );
@@ -133,6 +136,7 @@ final class NewsService {
 				'from_state' => $current_state,
 				'target_state' => $target_state,
 				'revision_safe' => true,
+				'featured_image_operation' => $image_result['code'],
 			)
 		);
 		return self::result( true, $is_new ? 'article_created' : 'article_updated', array( 'post_id' => $stored_id, 'state' => $target_state ) );
@@ -213,8 +217,9 @@ final class NewsService {
 
 	/** Validate reviewer assignments before persistence. */
 	private static function validate_assignments( $post_id, array $data ) {
-		if ( $data['reviewing_editor_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['reviewing_editor_id'], 'editorial' ) ) {
-			return 'reviewing_editor_assignment_denied';
+		$review_type = ! empty( $data['fact_check_required'] ) || 'fact-check' === $data['target_state'] ? 'fact-check' : 'editorial';
+		if ( $data['reviewing_editor_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['reviewing_editor_id'], $review_type ) ) {
+			return 'fact-check' === $review_type ? 'fact_checker_assignment_denied' : 'reviewing_editor_assignment_denied';
 		}
 		if ( $data['medical_reviewer_id'] > 0 && ! NewsPolicy::can_assign_reviewer( $post_id, $data['medical_reviewer_id'], 'medical' ) ) {
 			return 'medical_reviewer_assignment_denied';
@@ -289,11 +294,22 @@ final class NewsService {
 		return self::result( true, 'taxonomies_stored' );
 	}
 
-	/** Store a validated featured image only through WordPress core. */
-	private static function store_featured_image( $post_id, $attachment_id ) {
+	/** Store, remove, or leave a featured image through WordPress core. */
+	private static function store_featured_image( $post_id, $attachment_id, $supplied ) {
+		if ( ! $supplied ) {
+			return self::result( true, 'featured_image_unchanged' );
+		}
 		$attachment_id = function_exists( 'absint' ) ? absint( $attachment_id ) : max( 0, (int) $attachment_id );
 		if ( 0 === $attachment_id ) {
-			return self::result( true, 'featured_image_unchanged' );
+			$current = function_exists( 'get_post_thumbnail_id' ) ? (int) get_post_thumbnail_id( $post_id ) : 0;
+			if ( 0 === $current ) {
+				return self::result( true, 'featured_image_unchanged' );
+			}
+			if ( ! function_exists( 'delete_post_thumbnail' ) ) {
+				return self::result( false, 'featured_image_remove_api_unavailable' );
+			}
+			$result = delete_post_thumbnail( $post_id );
+			return false !== $result ? self::result( true, 'featured_image_removed' ) : self::result( false, 'featured_image_remove_failed' );
 		}
 		if ( ! function_exists( 'set_post_thumbnail' ) ) {
 			return self::result( false, 'featured_image_api_unavailable' );
