@@ -1,0 +1,146 @@
+name: Phase 4C Verified Overlay Bootstrap
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.phase4c-overlay/**'
+      - '.github/workflows/phase4c-overlay-bootstrap.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: phase4c-overlay-bootstrap-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  apply-verified-overlay:
+    name: Apply checksum-verified Phase 4C implementation
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact PR head branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Reassemble and verify immutable overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(find .phase4c-overlay -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = "8"
+          cat .phase4c-overlay/chunk-* | base64 --decode > /tmp/phase4c-overlay.tar.gz
+          echo 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0  /tmp/phase4c-overlay.tar.gz' | sha256sum -c -
+          test "$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')" = "31"
+          if tar -tzf /tmp/phase4c-overlay.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
+            echo 'Unsafe archive path detected.' >&2
+            exit 1
+          fi
+
+      - name: Apply implementation and remove transport files
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xzf /tmp/phase4c-overlay.tar.gz -C .
+          rm -rf .phase4c-overlay
+          rm -f .github/workflows/phase4c-overlay-bootstrap.yml
+
+      - name: Lint Phase 4C PHP and JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          php_files=(
+            sabri-complete-home-news-feed.php
+            includes/class-plugin.php
+            includes/class-assets.php
+            includes/class-feed-query.php
+            includes/class-feed-renderer.php
+            includes/class-news-policy.php
+            includes/class-news-cache.php
+            includes/class-news-public-projector.php
+            includes/class-news-query-service.php
+            includes/class-news-feed-integration.php
+            includes/class-rest-news.php
+            public/class-news-public-runtime.php
+            public/class-news-routing.php
+            templates/news-card.php
+            templates/news-empty-state.php
+            templates/news-archive.php
+            templates/news-single.php
+            templates/news-retraction-notice.php
+            templates/news-archive-page.php
+            templates/news-single-page.php
+            tests/phase4c-stubs.php
+            tests/run-phase4c-public-news-tests.php
+            tests/run-phase4c-ui-completeness-tests.php
+          )
+          for file in "${php_files[@]}"; do
+            php -l "$file"
+          done
+          node --check assets/js/news.js
+          node --check tests/run-phase4c-playground-tests.mjs
+
+      - name: Run Phase 4C and regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4c-public-news-tests.php
+          php tests/run-phase4c-ui-completeness-tests.php
+          php tests/run-phase4b-newsroom-tests.php
+          php tests/run-phase4b-ui-completeness-tests.php
+          php tests/run-phase4a-content-model-tests.php
+          php tools/run-tests.php
+          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+
+      - name: Build and verify package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          for entry in \
+            sabri-complete-home-news-feed/includes/class-news-cache.php \
+            sabri-complete-home-news-feed/includes/class-news-public-projector.php \
+            sabri-complete-home-news-feed/includes/class-news-query-service.php \
+            sabri-complete-home-news-feed/includes/class-news-feed-integration.php \
+            sabri-complete-home-news-feed/includes/class-rest-news.php \
+            sabri-complete-home-news-feed/public/class-news-public-runtime.php \
+            sabri-complete-home-news-feed/public/class-news-routing.php \
+            sabri-complete-home-news-feed/templates/news-archive-page.php \
+            sabri-complete-home-news-feed/templates/news-single-page.php \
+            sabri-complete-home-news-feed/assets/css/news.css \
+            sabri-complete-home-news-feed/assets/js/news.js; do
+            unzip -Z1 "$package" | grep -Fxq "$entry"
+          done
+          grep -Fq 'Version: 1.0.0' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
+          grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
+
+      - name: Commit clean Phase 4C implementation
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          rm -rf release
+          git config user.name 'Sabri Phase 4C QA Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          test -n "$(git status --porcelain)"
+          test ! -e .phase4c-overlay
+          test ! -e .github/workflows/phase4c-overlay-bootstrap.yml
+          git commit -m 'Implement Phase 4C public News A to Z'
+          git push origin "HEAD:${BRANCH_NAME}"
