@@ -1,15 +1,19 @@
 <?php
 /** Phase 4B-only WordPress behavior shims for lean contract tests. */
 
-global $sabri_test_current_caps;
-foreach ( array(
-	'create_editorial_news', 'edit_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
-	'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news', 'medical_review_editorial_news',
-	'publish_editorial_news', 'schedule_editorial_news', 'manage_breaking_news', 'manage_news_sources',
-	'manage_news_corrections', 'retract_editorial_news', 'translate_editorial_news', 'manage_news_taxonomies',
-	'manage_news_settings', 'read_editorial_news', 'read_editorial_news_item', 'upload_files',
-) as $sabri_phase4b_capability ) {
-	$sabri_test_current_caps[ $sabri_phase4b_capability ] = true;
+if ( ! function_exists( 'sabri_phase4b_grant_test_caps' ) ) {
+	function sabri_phase4b_grant_test_caps() {
+		global $sabri_test_current_caps;
+		foreach ( array(
+			'create_editorial_news', 'edit_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
+			'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news', 'medical_review_editorial_news',
+			'publish_editorial_news', 'schedule_editorial_news', 'manage_breaking_news', 'manage_news_sources',
+			'manage_news_corrections', 'retract_editorial_news', 'translate_editorial_news', 'manage_news_taxonomies',
+			'manage_news_settings', 'read_editorial_news', 'read_editorial_news_item', 'upload_files',
+		) as $capability ) {
+			$sabri_test_current_caps[ $capability ] = true;
+		}
+	}
 }
 
 if ( ! function_exists( 'user_can' ) ) {
@@ -53,6 +57,12 @@ if ( ! function_exists( 'wp_unschedule_event' ) ) {
 		$key = $hook . '|' . md5( serialize( $args ) );
 		unset( $sabri_test_scheduled_events[ $key ] );
 		return true;
+	}
+}
+
+if ( ! function_exists( 'wp_attachment_is_image' ) ) {
+	function wp_attachment_is_image( $attachment_id ) {
+		return (int) $attachment_id > 0 && 999 !== (int) $attachment_id;
 	}
 }
 
