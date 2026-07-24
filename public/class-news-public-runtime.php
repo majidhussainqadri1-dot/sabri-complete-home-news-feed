@@ -71,11 +71,12 @@ final class NewsPublicRuntime {
 		);
 	}
 
-	/** Render one normalized News card. */
+	/** Render one normalized News card and load News assets only when needed. */
 	public static function render_card( array $item ) {
 		if ( 'editorial_news' !== ( isset( $item['item_type'] ) ? $item['item_type'] : '' ) || empty( $item['global_key'] ) ) {
 			return '';
 		}
+		Assets::enqueue_news();
 		return self::template( 'news-card', array( 'item' => $item ) );
 	}
 
