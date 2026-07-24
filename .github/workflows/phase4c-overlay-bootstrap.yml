@@ -71,7 +71,6 @@ jobs:
           set -euo pipefail
           tar -xzf /tmp/phase4c-overlay.tar.gz -C .
           rm -rf .phase4c-overlay
-          rm -f .github/workflows/phase4c-overlay-bootstrap.yml
 
       - name: Align Phase 4C test harness with production semantics
         shell: bash
@@ -218,7 +217,7 @@ jobs:
           grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
 
-      - name: Commit clean Phase 4C implementation
+      - name: Commit clean Phase 4C runtime implementation
         shell: bash
         env:
           BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
@@ -226,11 +225,13 @@ jobs:
           set -euo pipefail
           rm -rf release
           rm -f phase4c-bootstrap-public.log phase4c-bootstrap-core.log
+          rm -f .github/workflows/phase4c-public-news-tests.yml
+          rm -f .github/workflows/phase4c-visible-one-hour-qa.yml
           git config user.name 'Sabri Phase 4C QA Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add -A
+          git reset -- .github/workflows/phase4c-overlay-bootstrap.yml
           test -n "$(git status --porcelain)"
           test ! -e .phase4c-overlay
-          test ! -e .github/workflows/phase4c-overlay-bootstrap.yml
           git commit -m 'Implement Phase 4C public News A to Z'
           git push origin "HEAD:${BRANCH_NAME}"
