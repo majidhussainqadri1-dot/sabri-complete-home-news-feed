@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Temporary self-cleaning transport correction. Removed by the successful bootstrap commit.
+
 
 def replace_once(path: str, old: str, new: str, label: str) -> None:
     file_path = Path(path)
