@@ -23,10 +23,17 @@ final class NewsQueueService {
 		return array(
 			'own-drafts' => array(
 				'label' => __( 'My Drafts', 'sabri-complete-home-news-feed' ),
-				'states' => array( 'draft', 'needs-sources' ),
+				'states' => array( 'draft' ),
 				'capability' => 'edit_own_editorial_news',
 				'own_only' => true,
 				'read_only' => false,
+			),
+			'submitted' => array(
+				'label' => __( 'My Submitted Articles', 'sabri-complete-home-news-feed' ),
+				'states' => array( 'editorial-review', 'fact-check', 'medical-review', 'ready-for-publication', 'scheduled' ),
+				'capability' => 'submit_editorial_news',
+				'own_only' => true,
+				'read_only' => true,
 			),
 			'editorial-review' => array(
 				'label' => __( 'Editorial Review', 'sabri-complete-home-news-feed' ),
@@ -51,7 +58,7 @@ final class NewsQueueService {
 			),
 			'changes-requested' => array(
 				'label' => __( 'Changes Requested', 'sabri-complete-home-news-feed' ),
-				'states' => array( 'needs-sources', 'draft' ),
+				'states' => array( 'needs-sources' ),
 				'capability' => 'edit_own_editorial_news',
 				'own_only' => true,
 				'read_only' => false,
@@ -124,7 +131,7 @@ final class NewsQueueService {
 		if ( empty( $definition ) || ! self::can_access( $queue ) ) {
 			return array();
 		}
-		$page     = max( 1, (int) $page );
+		$page = max( 1, (int) $page );
 		$per_page = max( 1, min( 50, (int) $per_page ) );
 		$core_statuses = array();
 		foreach ( $definition['states'] as $state ) {
@@ -134,17 +141,17 @@ final class NewsQueueService {
 			}
 		}
 		$args = array(
-			'post_type'      => Phase4Contracts::POST_TYPE,
-			'post_status'    => array_values( array_unique( $core_statuses ) ),
+			'post_type' => Phase4Contracts::POST_TYPE,
+			'post_status' => array_values( array_unique( $core_statuses ) ),
 			'posts_per_page' => $per_page,
-			'paged'          => $page,
-			'orderby'        => 'modified',
-			'order'          => 'DESC',
-			'no_found_rows'  => false,
-			'meta_query'     => array(
+			'paged' => $page,
+			'orderby' => 'modified',
+			'order' => 'DESC',
+			'no_found_rows' => false,
+			'meta_query' => array(
 				array(
-					'key'     => Phase4Contracts::WORKFLOW_META_KEY,
-					'value'   => $definition['states'],
+					'key' => Phase4Contracts::WORKFLOW_META_KEY,
+					'value' => $definition['states'],
 					'compare' => 'IN',
 				),
 			),
@@ -178,12 +185,10 @@ final class NewsQueueService {
 		);
 	}
 
-	/** Strict lowercase queue slug validation. */
 	private static function strict_slug( $value ) {
 		return is_string( $value ) && strlen( $value ) <= 80 && 1 === preg_match( '/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $value ) ? $value : '';
 	}
 
-	/** Stable private result shape. */
 	private static function result( $success, $code, array $data = array() ) {
 		return array( 'success' => (bool) $success, 'code' => (string) $code, 'data' => $data );
 	}
