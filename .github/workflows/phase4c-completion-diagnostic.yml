@@ -1,0 +1,128 @@
+name: Phase 4C Completion Diagnostics
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.phase4c-completion/**'
+      - '.github/workflows/phase4c-completion-diagnostic.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase4c-completion-diagnostic-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    name: Diagnose exact Phase 4C completion boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Verify and extract immutable completion archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(find .phase4c-completion -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = '18'
+          cat .phase4c-completion/chunk-{000..017} | base64 --decode > /tmp/phase4c-completion.tar.gz
+          actual=$(sha256sum /tmp/phase4c-completion.tar.gz | awk '{print $1}')
+          printf 'actual_sha256=%s\n' "$actual" | tee phase4c-transport.log
+          test "$actual" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
+          test "$(tar -tzf /tmp/phase4c-completion.tar.gz | wc -l | tr -d ' ')" = '28'
+          tar -xzf /tmp/phase4c-completion.tar.gz -C .
+
+      - name: Lint completed PHP surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            includes/class-news-public-snapshot.php \
+            includes/class-news-public-projector.php \
+            includes/class-news-service.php \
+            includes/class-news-query-service.php \
+            includes/class-news-cache.php \
+            includes/class-interaction-permissions.php \
+            includes/class-social-runtime.php \
+            includes/class-assets.php \
+            includes/class-news-feed-integration.php \
+            includes/class-rest-news.php \
+            includes/class-plugin.php \
+            public/class-news-public-runtime.php \
+            public/class-news-routing.php \
+            templates/news-home.php \
+            templates/news-correction-notice.php \
+            templates/news-single.php \
+            tests/phase4c-stubs.php \
+            tests/run-phase4c-public-news-tests.php \
+            tests/run-phase4c-security-tests.php \
+            tests/run-phase4c-ui-completeness-tests.php; do
+            php -l "$file"
+          done
+          node --check assets/js/news.js
+          node --check tests/run-phase4c-playground-tests.mjs
+          git diff --check
+
+      - name: Run Phase 4C public behavior
+        shell: bash
+        run: php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-public.log
+
+      - name: Run Phase 4C security negatives
+        shell: bash
+        run: php tests/run-phase4c-security-tests.php 2>&1 | tee phase4c-security.log
+
+      - name: Run Phase 4C UI completeness
+        shell: bash
+        run: php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase4c-ui.log
+
+      - name: Run Phase 4B regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4b-newsroom-tests.php
+          php tests/run-phase4b-ui-completeness-tests.php
+
+      - name: Run Phase 4A regression
+        run: php tests/run-phase4a-content-model-tests.php
+
+      - name: Run core regressions
+        shell: bash
+        run: php tools/run-tests.php 2>&1 | tee phase4c-core.log
+
+      - name: Run static checks
+        shell: pwsh
+        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+
+      - name: Build and verify completion package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          test "$(awk '{print tolower($1)}' "$checksum")" = "$(sha256sum "$package" | awk '{print $1}')"
+          unzip -tqq "$package"
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4c-completion-diagnostics-${{ github.event.pull_request.head.sha }}
+          retention-days: 14
+          path: |
+            phase4c-transport.log
+            phase4c-public.log
+            phase4c-security.log
+            phase4c-ui.log
+            phase4c-core.log
+          if-no-files-found: ignore
