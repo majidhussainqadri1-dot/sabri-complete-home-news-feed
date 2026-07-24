@@ -1,0 +1,211 @@
+name: Phase 4A Post-Merge Mandatory Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/phase4a-post-merge-mandatory-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase4a-post-merge-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHASE4A_SHA: 808a7a85a3f5aae4ed6566725b097d28dbcfd562
+  MERGE_SHA: 0bf78d651b908e4d0441ffb19c1da1a5b3a8bbb2
+
+jobs:
+  exact-head-source-playground:
+    name: Exact Phase 4A source WordPress (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+    steps:
+      - name: Checkout exact Phase 4A head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PHASE4A_SHA }}
+          fetch-depth: 1
+      - name: Verify exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PHASE4A_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Run exact-head source integration
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          node tests/run-playground-integration-tests.mjs 2>&1 | tee phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+      - name: Upload source evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4a-post-merge-source-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.PHASE4A_SHA }}
+          retention-days: 60
+          path: phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: error
+
+  merge-commit-validation:
+    name: Validate merged Phase 4A commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.MERGE_SHA }}
+          fetch-depth: 2
+      - name: Verify merge identity and parents
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${MERGE_SHA}"
+          parent_count=$(git show -s --format=%P HEAD | wc -w | tr -d ' ')
+          test "$parent_count" -eq 2
+          git show -s --format=%P HEAD | grep -Fq "${PHASE4A_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Lint and run Phase 4A merged regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-phase4-contracts.php
+          php -l includes/class-news-feature-settings.php
+          php -l includes/class-editorial-news-post-type.php
+          php -l includes/class-news-taxonomies.php
+          php -l includes/class-news-statuses.php
+          php -l includes/class-news-capabilities.php
+          php -l includes/class-activator.php
+          php -l includes/class-snapshot.php
+          php -l includes/class-rollback.php
+          php tests/run-phase4a-content-model-tests.php
+          php tests/run-phase4a-security-contract-tests.php
+          php tests/run-phase4a-rollback-edge-tests.php
+          php tools/run-tests.php
+          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+      - name: Record merge evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p phase4a-merge-evidence
+          git rev-parse HEAD > phase4a-merge-evidence/merge-commit.txt
+          git show -s --format=%P HEAD > phase4a-merge-evidence/merge-parents.txt
+          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4a-merge-evidence/tracked-files.sha256
+          sha256sum phase4a-merge-evidence/tracked-files.sha256 > phase4a-merge-evidence/tracked-manifest-digest.sha256
+      - name: Upload merge evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4a-merge-validation-${{ env.MERGE_SHA }}
+          retention-days: 60
+          path: phase4a-merge-evidence/
+          if-no-files-found: error
+
+  mandatory-soak:
+    name: Exact-head 3,900-second, 13-cycle mandatory QA
+    needs:
+      - exact-head-source-playground
+      - merge-commit-validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 190
+    steps:
+      - name: Checkout exact Phase 4A head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.PHASE4A_SHA }}
+          fetch-depth: 1
+      - name: Verify exact head before soak
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PHASE4A_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Execute mandatory second one-hour QA from zero
+        shell: bash
+        run: bash tests/run-phase4a-second-one-hour-qa.sh
+      - name: Verify duration, cycles, exact commit, manifests, and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          source phase4a-second-one-hour-qa/result.env
+          test "$status" = "passed"
+          test "$duration_seconds" -ge 3900
+          test "$cycles_required" -eq 13
+          test "$head_sha" = "${PHASE4A_SHA}"
+          test "$head_sha" = "$(git rev-parse HEAD)"
+          test -n "$tracked_manifest_sha256"
+          test "$tracked_manifest_sha256" = "$(sha256sum phase4a-second-one-hour-qa/initial-tracked-files.sha256 | awk '{print $1}')"
+          cmp phase4a-second-one-hour-qa/initial-tracked-files.sha256 phase4a-second-one-hour-qa/final-tracked-files.sha256
+          package=$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          checksum=$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          printf '%s\n' "$actual" > phase4a-second-one-hour-qa/final-package-sha256.txt
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Test packaged candidate on WordPress latest / PHP 8.3
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+        run: |
+          set -euo pipefail
+          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)"
+          test -n "$SABRI_PLUGIN_ZIP"
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-latest-php-8.3.log
+      - name: Test packaged candidate on WordPress 6.8 / PHP 8.1
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: '6.8'
+          SABRI_PLAYGROUND_PHP: '8.1'
+        run: |
+          set -euo pipefail
+          export SABRI_PLUGIN_ZIP="$(find phase4a-second-one-hour-qa/package -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)"
+          test -n "$SABRI_PLUGIN_ZIP"
+          node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+          node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a phase4a-second-one-hour-qa/final/packaged-playground-wp-6.8-php-8.1.log
+      - name: Re-verify exact head after packaged tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${PHASE4A_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Upload complete passed evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-phase4a-POST-MERGE-SECOND-ONE-HOUR-QA-PASSED-${{ env.PHASE4A_SHA }}
+          retention-days: 60
+          path: phase4a-second-one-hour-qa/
+          if-no-files-found: error
