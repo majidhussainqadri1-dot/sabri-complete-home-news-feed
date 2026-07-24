@@ -1,0 +1,57 @@
+name: Phase 4B Newsroom Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'PHASE-4B-IMPLEMENTATION.md'
+      - 'includes/class-news-workflow.php'
+      - 'includes/class-news-composer-validator.php'
+      - 'includes/class-plugin.php'
+      - 'includes/class-phase4-contracts.php'
+      - 'includes/class-news-statuses.php'
+      - 'includes/class-news-capabilities.php'
+      - 'includes/class-editorial-news-post-type.php'
+      - 'tests/run-phase4b-newsroom-tests.php'
+      - '.github/workflows/phase4b-newsroom-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  phase4b-newsroom-contracts:
+    name: Phase 4B workflow and composer contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout pull request head
+        uses: actions/checkout@v4
+
+      - name: Show runtime and exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -v
+          git rev-parse HEAD
+          git status --short
+
+      - name: Lint Phase 4B PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-news-workflow.php
+          php -l includes/class-news-composer-validator.php
+          php -l includes/class-plugin.php
+          php -l tests/run-phase4b-newsroom-tests.php
+
+      - name: Run Phase 4B newsroom tests
+        shell: bash
+        run: php tests/run-phase4b-newsroom-tests.php
+
+      - name: Run Phase 4A regression tests
+        shell: bash
+        run: php tests/run-phase4a-content-model-tests.php
+
+      - name: Run core regression suite
+        shell: bash
+        run: php tools/run-tests.php
