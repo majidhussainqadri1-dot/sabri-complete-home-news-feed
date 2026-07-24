@@ -29,91 +29,83 @@ jobs:
           fetch-depth: 0
           persist-credentials: true
 
-      - name: Apply, test, package, and commit verified completion
+      - name: Reassemble and extract immutable completion archive
         shell: bash
-        env:
-          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-          EXACT_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -Eeuo pipefail
-          : > phase4c-completion-transport.log
-          trap 'status=$?; printf "failed_line=%s\nfailed_command=%s\nexit_status=%s\n" "${LINENO}" "${BASH_COMMAND}" "${status}" >> phase4c-completion-transport.log; exit ${status}' ERR
-          test "$(git rev-parse HEAD)" = "${EXACT_HEAD}"
-
-          if [ ! -f .phase4c-completion/chunk-000 ]; then
-            echo 'Verified Phase 4C completion transport is no longer present; clean implementation is already applied.'
-            exit 0
-          fi
-
-          actual_count=$(find .phase4c-completion -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')
-          printf 'completion_chunk_count=%s\n' "$actual_count" | tee -a phase4c-completion-transport.log
-          test "$actual_count" = '18'
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha }}"
+          test "$(find .phase4c-completion -maxdepth 1 -type f -name 'chunk-*' | wc -l | tr -d ' ')" = '18'
           cat \
-            .phase4c-completion/chunk-000 \
-            .phase4c-completion/chunk-001 \
-            .phase4c-completion/chunk-002 \
-            .phase4c-completion/chunk-003 \
-            .phase4c-completion/chunk-004 \
-            .phase4c-completion/chunk-005 \
-            .phase4c-completion/chunk-006 \
-            .phase4c-completion/chunk-007 \
-            .phase4c-completion/chunk-008 \
-            .phase4c-completion/chunk-009 \
-            .phase4c-completion/chunk-010 \
-            .phase4c-completion/chunk-011 \
-            .phase4c-completion/chunk-012 \
-            .phase4c-completion/chunk-013 \
-            .phase4c-completion/chunk-014 \
-            .phase4c-completion/chunk-015 \
-            .phase4c-completion/chunk-016 \
-            .phase4c-completion/chunk-017 \
+            .phase4c-completion/chunk-000 .phase4c-completion/chunk-001 \
+            .phase4c-completion/chunk-002 .phase4c-completion/chunk-003 \
+            .phase4c-completion/chunk-004 .phase4c-completion/chunk-005 \
+            .phase4c-completion/chunk-006 .phase4c-completion/chunk-007 \
+            .phase4c-completion/chunk-008 .phase4c-completion/chunk-009 \
+            .phase4c-completion/chunk-010 .phase4c-completion/chunk-011 \
+            .phase4c-completion/chunk-012 .phase4c-completion/chunk-013 \
+            .phase4c-completion/chunk-014 .phase4c-completion/chunk-015 \
+            .phase4c-completion/chunk-016 .phase4c-completion/chunk-017 \
             | base64 --decode > /tmp/phase4c-completion.tar.gz
-
-          actual_sha=$(sha256sum /tmp/phase4c-completion.tar.gz | awk '{print $1}')
-          printf 'completion_archive_sha256=%s\n' "$actual_sha" | tee -a phase4c-completion-transport.log
-          test "$actual_sha" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
-          archive_entries=$(tar -tzf /tmp/phase4c-completion.tar.gz | wc -l | tr -d ' ')
-          printf 'completion_archive_entries=%s\n' "$archive_entries" | tee -a phase4c-completion-transport.log
-          test "$archive_entries" = '28'
+          actual=$(sha256sum /tmp/phase4c-completion.tar.gz | awk '{print $1}')
+          printf 'completion_archive_sha256=%s\n' "$actual" | tee phase4c-completion-transport.log
+          test "$actual" = '62b1bab7f4eb72cfcc2f1fa07b058f49b4c1bd575918210074c4bbd1f91dc236'
           tar -tzf /tmp/phase4c-completion.tar.gz > phase4c-completion-entries.log
-          if grep -Eq '(^/|(^|/)\.\.(/|$))' phase4c-completion-entries.log; then
-            echo 'Unsafe archive path detected.' >&2
-            exit 1
-          fi
-
-          printf 'stage=extract\n' >> phase4c-completion-transport.log
+          test "$(wc -l < phase4c-completion-entries.log | tr -d ' ')" = '28'
+          ! grep -Eq '(^/|(^|/)\.\.(/|$))' phase4c-completion-entries.log
           tar -xzf /tmp/phase4c-completion.tar.gz -C .
           rm -rf .phase4c-completion
 
-          printf 'stage=syntax\n' >> phase4c-completion-transport.log
-          php_files=(
-            includes/class-news-public-snapshot.php
-            includes/class-news-public-projector.php
-            includes/class-news-service.php
-            includes/class-news-query-service.php
-            includes/class-news-cache.php
-            includes/class-interaction-permissions.php
-            includes/class-social-runtime.php
-            includes/class-assets.php
-            includes/class-news-feed-integration.php
-            includes/class-rest-news.php
-            includes/class-plugin.php
-            public/class-news-public-runtime.php
-            public/class-news-routing.php
-            templates/news-home.php
-            templates/news-correction-notice.php
-            templates/news-single.php
-            tests/phase4c-stubs.php
-            tests/run-phase4c-public-news-tests.php
-            tests/run-phase4c-security-tests.php
-            tests/run-phase4c-ui-completeness-tests.php
-          )
-          for file in "${php_files[@]}"; do php -l "$file"; done
+      - name: Normalize REST test response shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/run-phase4c-public-news-tests.php')
+          text = path.read_text()
+          old = "$unknown_payload = isset($unknown_rest['payload'])?$unknown_rest['payload']:array();"
+          new = "$unknown_payload = is_object( $unknown_rest ) && method_exists( $unknown_rest, 'get_data' ) ? $unknown_rest->get_data() : ( isset( $unknown_rest['payload'] ) ? $unknown_rest['payload'] : array() );"
+          if old not in text:
+              raise SystemExit('Expected REST response assertion anchor was not found.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          php -l tests/run-phase4c-public-news-tests.php
+
+      - name: Lint complete Phase 4C surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            includes/class-news-public-snapshot.php \
+            includes/class-news-public-projector.php \
+            includes/class-news-service.php \
+            includes/class-news-query-service.php \
+            includes/class-news-cache.php \
+            includes/class-interaction-permissions.php \
+            includes/class-social-runtime.php \
+            includes/class-assets.php \
+            includes/class-news-feed-integration.php \
+            includes/class-rest-news.php \
+            includes/class-plugin.php \
+            public/class-news-public-runtime.php \
+            public/class-news-routing.php \
+            templates/news-home.php \
+            templates/news-correction-notice.php \
+            templates/news-single.php \
+            tests/phase4c-stubs.php \
+            tests/run-phase4c-public-news-tests.php \
+            tests/run-phase4c-security-tests.php \
+            tests/run-phase4c-ui-completeness-tests.php; do
+            php -l "$file"
+          done
           node --check assets/js/news.js
           node --check tests/run-phase4c-playground-tests.mjs
           git diff --check
 
-          printf 'stage=tests\n' >> phase4c-completion-transport.log
+      - name: Run complete Phase 4C and regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
           php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase4c-completion-public.log
           php tests/run-phase4c-security-tests.php 2>&1 | tee phase4c-completion-security.log
           php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase4c-completion-ui.log
@@ -123,15 +115,16 @@ jobs:
           php tools/run-tests.php 2>&1 | tee phase4c-completion-core.log
           pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-          printf 'stage=package\n' >> phase4c-completion-transport.log
+      - name: Build and verify immutable package
+        shell: bash
+        run: |
+          set -euo pipefail
           rm -rf release
           pwsh -NoProfile -File ./tools/build-release.ps1
           package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
           checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
           test -n "$package" && test -n "$checksum"
-          expected=$(awk '{print tolower($1)}' "$checksum")
-          actual=$(sha256sum "$package" | awk '{print $1}')
-          test "$expected" = "$actual"
+          test "$(awk '{print tolower($1)}' "$checksum")" = "$(sha256sum "$package" | awk '{print $1}')"
           unzip -tqq "$package"
           for entry in \
             sabri-complete-home-news-feed/includes/class-news-public-snapshot.php \
@@ -154,7 +147,12 @@ jobs:
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
 
-          printf 'stage=commit\n' >> phase4c-completion-transport.log
+      - name: Commit clean Phase 4C runtime implementation
+        shell: bash
+        env:
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
           rm -rf release
           rm -f phase4c-completion-*.log
           rm -f .github/workflows/phase4c-public-news-tests.yml
@@ -163,6 +161,7 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add -A
           git reset -- .github/workflows/phase4c-overlay-bootstrap.yml
+          git reset -- .github/workflows/phase4c-completion-diagnostic.yml
           test -n "$(git status --porcelain)"
           test ! -e .phase4c-completion
           git diff --cached --check
