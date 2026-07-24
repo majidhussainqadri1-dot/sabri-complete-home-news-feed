@@ -1,0 +1,249 @@
+<?php
+/**
+ * Phase 4 Editorial News capability policy.
+ *
+ * @package SabriCompleteHomeNewsFeed
+ */
+
+namespace Sabri\HomeNewsFeed;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/** Applies narrow editorial capabilities to existing roles only. */
+final class NewsCapabilities {
+	const MUTATION_OPTION = 'sabri_feed_phase4_capability_mutations';
+
+	/** Register central safety enforcement. */
+	public static function register() {
+		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'user_has_cap', array( __CLASS__, 'respect_emergency_disable' ), 10, 4 );
+		}
+	}
+
+	/** Return all frozen Phase 4 capabilities. */
+	public static function capabilities() {
+		return Phase4Contracts::capabilities();
+	}
+
+	/** Human-readable labels. */
+	public static function labels() {
+		return array(
+			'read_editorial_news'           => __( 'Read Editorial News', 'sabri-complete-home-news-feed' ),
+			'create_editorial_news'         => __( 'Create Editorial News', 'sabri-complete-home-news-feed' ),
+			'edit_own_editorial_news'       => __( 'Edit own Editorial News', 'sabri-complete-home-news-feed' ),
+			'edit_others_editorial_news'    => __( 'Edit others Editorial News', 'sabri-complete-home-news-feed' ),
+			'submit_editorial_news'         => __( 'Submit Editorial News', 'sabri-complete-home-news-feed' ),
+			'review_editorial_news'         => __( 'Review Editorial News', 'sabri-complete-home-news-feed' ),
+			'fact_check_editorial_news'     => __( 'Fact-check Editorial News', 'sabri-complete-home-news-feed' ),
+			'medical_review_editorial_news' => __( 'Medically review Editorial News', 'sabri-complete-home-news-feed' ),
+			'publish_editorial_news'        => __( 'Publish Editorial News', 'sabri-complete-home-news-feed' ),
+			'schedule_editorial_news'       => __( 'Schedule Editorial News', 'sabri-complete-home-news-feed' ),
+			'manage_breaking_news'          => __( 'Manage Breaking News', 'sabri-complete-home-news-feed' ),
+			'manage_news_sources'           => __( 'Manage News sources', 'sabri-complete-home-news-feed' ),
+			'manage_news_corrections'       => __( 'Manage News corrections', 'sabri-complete-home-news-feed' ),
+			'retract_editorial_news'        => __( 'Retract Editorial News', 'sabri-complete-home-news-feed' ),
+			'translate_editorial_news'      => __( 'Translate Editorial News', 'sabri-complete-home-news-feed' ),
+			'manage_news_taxonomies'        => __( 'Manage News taxonomies', 'sabri-complete-home-news-feed' ),
+			'manage_news_settings'          => __( 'Manage News settings', 'sabri-complete-home-news-feed' ),
+		);
+	}
+
+	/** Default role map; object- or section-scoped permissions remain closed. */
+	public static function default_role_map() {
+		$all = self::capabilities();
+		$map = array(
+			'administrator'   => $all,
+			'founder'         => $all,
+			'editor_in_chief' => array(
+				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
+				'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
+				'medical_review_editorial_news', 'publish_editorial_news', 'schedule_editorial_news',
+				'manage_breaking_news', 'manage_news_sources', 'manage_news_corrections',
+				'retract_editorial_news', 'translate_editorial_news', 'manage_news_taxonomies',
+			),
+			'editor'          => array(
+				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
+				'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
+				'medical_review_editorial_news', 'schedule_editorial_news', 'manage_news_sources',
+				'manage_news_corrections', 'translate_editorial_news', 'manage_news_taxonomies',
+			),
+			'managing_editor' => array(
+				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
+				'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
+				'medical_review_editorial_news', 'schedule_editorial_news', 'manage_news_sources',
+				'manage_news_corrections', 'translate_editorial_news', 'manage_news_taxonomies',
+			),
+			'section_editor'   => array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news' ),
+			'medical_reviewer' => array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news', 'medical_review_editorial_news' ),
+			'reporter'         => array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news' ),
+			'verified_doctor'  => array( 'read_editorial_news', 'submit_editorial_news' ),
+			'translator'       => array( 'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'submit_editorial_news', 'translate_editorial_news' ),
+			'subscriber'       => array( 'read_editorial_news' ),
+			'student'          => array( 'read_editorial_news' ),
+			'patient'          => array( 'read_editorial_news' ),
+		);
+		if ( function_exists( 'apply_filters' ) ) {
+			$filtered = apply_filters( 'sabri_feed_phase4_role_map', $map );
+			if ( is_array( $filtered ) ) {
+				$map = $filtered;
+			}
+		}
+		return self::sanitize_role_map( $map );
+	}
+
+	/** Candidate role slugs for snapshot and rollback. */
+	public static function candidate_role_slugs() {
+		return array_keys( self::default_role_map() );
+	}
+
+	/** Apply and reconcile only capabilities explicitly owned by this plugin. */
+	public static function apply_default_policy() {
+		$previous_managed = self::previously_managed_caps();
+		$mutations = array( 'created_at' => gmdate( 'Y-m-d H:i:s' ), 'roles' => array(), 'managed_caps' => array() );
+		if ( ! function_exists( 'get_role' ) ) {
+			return $mutations;
+		}
+		foreach ( self::default_role_map() as $role_slug => $capabilities ) {
+			$role = get_role( $role_slug );
+			if ( ! $role ) {
+				continue;
+			}
+			$desired = array_fill_keys( $capabilities, true );
+			$mutations['roles'][ $role_slug ] = array();
+			$mutations['managed_caps'][ $role_slug ] = array();
+			foreach ( self::capabilities() as $capability ) {
+				$has_cap = ! empty( $role->capabilities[ $capability ] );
+				$was_managed = ! empty( $previous_managed[ $role_slug ][ $capability ] );
+				$is_desired = ! empty( $desired[ $capability ] );
+				if ( $is_desired ) {
+					if ( ! $has_cap ) {
+						$role->add_cap( $capability );
+						$mutations['roles'][ $role_slug ][ $capability ] = 'added';
+						$was_managed = true;
+					}
+					if ( $was_managed ) {
+						$mutations['managed_caps'][ $role_slug ][ $capability ] = true;
+					}
+				} elseif ( $has_cap && $was_managed ) {
+					$role->remove_cap( $capability );
+					$mutations['roles'][ $role_slug ][ $capability ] = 'removed_stale';
+				}
+			}
+		}
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::MUTATION_OPTION, $mutations, false );
+		}
+		return $mutations;
+	}
+
+	/**
+	 * Restore exact snapshot roles and remove plugin-added powers from roles that
+	 * did not exist in the immutable baseline.
+	 */
+	public static function restore_from_snapshot( array $snapshot, $managed_caps = null ) {
+		$report = array( 'roles' => array() );
+		if ( ! function_exists( 'get_role' ) ) {
+			return $report;
+		}
+		if ( null === $managed_caps ) {
+			$managed_caps = self::previously_managed_caps();
+		}
+		$managed_caps = is_array( $managed_caps ) ? $managed_caps : array();
+		$snapshot_roles = isset( $snapshot['capability_roles'] ) && is_array( $snapshot['capability_roles'] ) ? $snapshot['capability_roles'] : array();
+
+		foreach ( $snapshot_roles as $role_slug => $caps ) {
+			$role = get_role( $role_slug );
+			if ( ! $role || ! is_array( $caps ) ) {
+				continue;
+			}
+			$report['roles'][ $role_slug ] = array();
+			foreach ( self::capabilities() as $capability ) {
+				if ( ! array_key_exists( $capability, $caps ) ) {
+					continue;
+				}
+				$had_cap = ! empty( $caps[ $capability ] );
+				$has_cap = ! empty( $role->capabilities[ $capability ] );
+				if ( $had_cap && ! $has_cap ) {
+					$role->add_cap( $capability );
+					$report['roles'][ $role_slug ][ $capability ] = 'restored';
+				} elseif ( ! $had_cap && $has_cap ) {
+					$role->remove_cap( $capability );
+					$report['roles'][ $role_slug ][ $capability ] = 'removed';
+				}
+			}
+		}
+
+		foreach ( $managed_caps as $role_slug => $caps ) {
+			if ( isset( $snapshot_roles[ $role_slug ] ) || ! is_array( $caps ) ) {
+				continue;
+			}
+			$role = get_role( $role_slug );
+			if ( ! $role ) {
+				continue;
+			}
+			$report['roles'][ $role_slug ] = isset( $report['roles'][ $role_slug ] ) ? $report['roles'][ $role_slug ] : array();
+			foreach ( $caps as $capability => $owned ) {
+				if ( $owned && in_array( $capability, self::capabilities(), true ) && ! empty( $role->capabilities[ $capability ] ) ) {
+					$role->remove_cap( $capability );
+					$report['roles'][ $role_slug ][ $capability ] = 'removed_post_snapshot_role';
+				}
+			}
+		}
+		return $report;
+	}
+
+	/** Whether a default role receives publishing authority. */
+	public static function role_can_publish( $role_slug ) {
+		$map = self::default_role_map();
+		return isset( $map[ $role_slug ] ) && in_array( 'publish_editorial_news', $map[ $role_slug ], true );
+	}
+
+	/** Remove editorial write powers while Safe Mode or Emergency Disable is active. */
+	public static function respect_emergency_disable( $allcaps, $caps, $args, $user ) {
+		unset( $caps, $args, $user );
+		if ( ! is_array( $allcaps ) || ! class_exists( __NAMESPACE__ . '\\SafeMode' ) || ! SafeMode::public_features_disabled() ) {
+			return $allcaps;
+		}
+		foreach ( self::capabilities() as $capability ) {
+			if ( 'read_editorial_news' !== $capability ) {
+				$allcaps[ $capability ] = false;
+			}
+		}
+		return $allcaps;
+	}
+
+	/** Recover only capability history explicitly recorded as plugin-managed. */
+	public static function previously_managed_caps() {
+		$managed = array();
+		$previous = function_exists( 'get_option' ) ? get_option( self::MUTATION_OPTION, array() ) : array();
+		if ( is_array( $previous ) && ! empty( $previous['managed_caps'] ) && is_array( $previous['managed_caps'] ) ) {
+			return $previous['managed_caps'];
+		}
+		if ( is_array( $previous ) && ! empty( $previous['roles'] ) && is_array( $previous['roles'] ) ) {
+			foreach ( $previous['roles'] as $role_slug => $actions ) {
+				foreach ( is_array( $actions ) ? $actions : array() as $capability => $action ) {
+					if ( 'added' === $action ) {
+						$managed[ $role_slug ][ $capability ] = true;
+					}
+				}
+			}
+		}
+		return $managed;
+	}
+
+	/** Strictly retain known capabilities and safe role slugs. */
+	private static function sanitize_role_map( array $map ) {
+		$known = self::capabilities();
+		$out = array();
+		foreach ( $map as $role_slug => $capabilities ) {
+			$role_slug = function_exists( 'sanitize_key' ) ? sanitize_key( $role_slug ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $role_slug ) );
+			if ( '' === $role_slug || ! is_array( $capabilities ) ) {
+				continue;
+			}
+			$out[ $role_slug ] = array_values( array_unique( array_intersect( $known, $capabilities ) ) );
+		}
+		return $out;
+	}
+}
