@@ -90,6 +90,10 @@ sabri-phase4c-ONE-HOUR-VISIBLE-QA-PASSED-{exact-head-sha}
 
 Temporary overlay, diagnostic, transport, and correction machinery is not part of the completed implementation.
 
+## Exact-head acceptance rule
+
+The exact commit is determined by the final branch head after this document and both permanent workflows are present and all temporary completion machinery is absent. Any code, test, workflow, or documentation correction creates a new exact head and restarts all acceptance evidence from zero. Evidence from earlier heads is never combined.
+
 ## Acceptance coverage
 
 - Phase 4C behavior and contract tests.
