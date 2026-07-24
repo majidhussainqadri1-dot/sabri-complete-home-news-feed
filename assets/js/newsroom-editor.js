@@ -16,6 +16,9 @@
 		var preview = document.getElementById( 'sabri-news-featured-preview' );
 		var schedule = document.getElementById( 'sabri-news-schedule_at' );
 		var utcOutput = document.getElementById( 'sabri-news-schedule-utc' );
+		var workflowTarget = document.getElementById( 'sabri-news-target_state' );
+		var composerForm = workflowTarget ? workflowTarget.closest( 'form' ) : null;
+		var initialWorkflowState = workflowTarget ? workflowTarget.value : '';
 		var frame;
 
 		if ( selectButton && imageInput && preview && window.wp && window.wp.media ) {
@@ -62,6 +65,18 @@
 		if ( schedule ) {
 			schedule.addEventListener( 'input', updateUtcPreview );
 			updateUtcPreview();
+		}
+
+		if ( composerForm && workflowTarget ) {
+			composerForm.addEventListener( 'submit', function ( event ) {
+				if ( workflowTarget.value && workflowTarget.value !== initialWorkflowState ) {
+					var confirmed = window.confirm( 'Confirm this Editorial News workflow change from “' + initialWorkflowState + '” to “' + workflowTarget.value + '”.' );
+					if ( ! confirmed ) {
+						event.preventDefault();
+						workflowTarget.focus();
+					}
+				}
+			} );
 		}
 	} );
 }() );
