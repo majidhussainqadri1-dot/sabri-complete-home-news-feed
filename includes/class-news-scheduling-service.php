@@ -24,7 +24,7 @@ final class NewsSchedulingService {
 		}
 	}
 
-	/** Normalize an explicitly zoned datetime to canonical UTC storage. */
+	/** Normalize one strictly valid, explicitly zoned datetime to UTC. */
 	public static function normalize_utc( $value ) {
 		if ( ! is_string( $value ) || '' === $value || strlen( $value ) > 35 ) {
 			return '';
@@ -34,6 +34,20 @@ final class NewsSchedulingService {
 		}
 		try {
 			$date = new \DateTimeImmutable( $value );
+			$errors = \DateTimeImmutable::getLastErrors();
+			if ( is_array( $errors ) && ( ! empty( $errors['warning_count'] ) || ! empty( $errors['error_count'] ) ) ) {
+				return '';
+			}
+			// Round-trip through the submitted timezone so silently normalized calendar
+			// dates (for example February 31) cannot become accepted schedules.
+			$submitted = str_replace( ' ', 'T', $value );
+			$canonical = $date->format( 'Y-m-d\TH:i:sP' );
+			if ( 'Z' === substr( $submitted, -1 ) ) {
+				$canonical = $date->format( 'Y-m-d\TH:i:s\Z' );
+			}
+			if ( $canonical !== $submitted ) {
+				return '';
+			}
 			return $date->setTimezone( new \DateTimeZone( 'UTC' ) )->format( 'Y-m-d H:i:s' );
 		} catch ( \Exception $error ) {
 			unset( $error );
