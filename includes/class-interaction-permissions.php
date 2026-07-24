@@ -33,10 +33,9 @@ final class InteractionPermissions {
 	/** Whether a user may see a supported public interaction object. */
 	public static function can_view_post( $post_id, $user_id = 0 ) {
 		$post_id = self::positive_id( $post_id );
-		$post = $post_id > 0 && function_exists( 'get_post' ) ? get_post( $post_id ) : null;
-		if ( $post_id <= 0 || ( function_exists( 'get_post' ) && ! $post ) ) { return false; }
+		if ( $post_id <= 0 || ( function_exists( 'get_post' ) && ! get_post( $post_id ) ) ) { return false; }
 		if ( self::is_news_post( $post_id ) ) {
-			return class_exists( __NAMESPACE__ . '\\NewsPolicy' ) && NewsPolicy::is_public_post( $post ? $post : $post_id, 'single' );
+			return class_exists( __NAMESPACE__ . '\\NewsPolicy' ) && NewsPolicy::can_public_read( $post_id, 'single' );
 		}
 		$user_id = $user_id ? self::positive_id( $user_id ) : ( function_exists( 'get_current_user_id' ) ? self::positive_id( get_current_user_id() ) : 0 );
 		return PostMetadata::user_can_view( $post_id, $user_id );
