@@ -71,7 +71,7 @@ try {
 		if ( is_wp_error( $editor_id ) ) { echo wp_json_encode( array( 'error'=>$editor_id->get_error_message() ) ); return; }
 		$editor = new WP_User( $editor_id );
 		foreach ( \Sabri\HomeNewsFeed\Phase4Contracts::capabilities() as $cap ) { $editor->add_cap( $cap ); }
-		foreach ( array( 'edit_editorial_news', 'read_editorial_news_item', 'upload_files' ) as $cap ) { $editor->add_cap( $cap ); }
+		foreach ( array( 'edit_editorial_news', 'read_editorial_news_item', 'upload_files', 'manage_options' ) as $cap ) { $editor->add_cap( $cap ); }
 		wp_set_current_user( $editor_id );
 
 		$payload = array(
