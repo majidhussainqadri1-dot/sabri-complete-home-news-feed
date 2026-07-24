@@ -47,6 +47,7 @@ final class Plugin {
 			NewsQueueService::class,
 			NewsAudit::class,
 			NewsSchedulingService::class,
+			NewsroomDiagnostics::class,
 			NewsService::class,
 			PollComposerIntegration::class,
 			Capabilities::class,
