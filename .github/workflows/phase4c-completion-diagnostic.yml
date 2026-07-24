@@ -42,7 +42,12 @@ jobs:
           tar -xzf /tmp/phase4c-completion.tar.gz -C .
           python3 tools/phase4c-completion-corrections.py
           cp includes/class-news-public-projector.php phase4c-corrected-projector.php.txt
+          cp public/class-news-public-runtime.php phase4c-corrected-public-runtime.php.txt
+          cp includes/class-social-runtime.php phase4c-corrected-social-runtime.php.txt
+          cp templates/news-home.php phase4c-corrected-news-home.php.txt
+          cp templates/news-single.php phase4c-corrected-news-single.php.txt
           cp tests/run-phase4c-security-tests.php phase4c-corrected-security-test.php.txt
+          cp tests/run-phase4c-ui-completeness-tests.php phase4c-corrected-ui-test.php.txt
           cp tests/phase4c-stubs.php phase4c-corrected-stubs.php.txt
 
       - name: Lint completed PHP surface
@@ -123,6 +128,11 @@ jobs:
             phase4c-ui.log
             phase4c-core.log
             phase4c-corrected-projector.php.txt
+            phase4c-corrected-public-runtime.php.txt
+            phase4c-corrected-social-runtime.php.txt
+            phase4c-corrected-news-home.php.txt
+            phase4c-corrected-news-single.php.txt
             phase4c-corrected-security-test.php.txt
+            phase4c-corrected-ui-test.php.txt
             phase4c-corrected-stubs.php.txt
           if-no-files-found: ignore
