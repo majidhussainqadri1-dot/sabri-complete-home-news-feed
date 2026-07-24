@@ -59,7 +59,7 @@ jobs:
           test "$actual_sha" = 'ac837905e78ae156dd2953a5f95bd7b407b4dfc64e31366c86c55c532cbf87e0'
           archive_entries=$(tar -tzf /tmp/phase4c-overlay.tar.gz | wc -l | tr -d ' ')
           printf 'archive_entries=%s\n' "$archive_entries"
-          test "$archive_entries" = "31"
+          test "$archive_entries" = "30"
           if tar -tzf /tmp/phase4c-overlay.tar.gz | grep -Eq '(^/|(^|/)\.\.(/|$))'; then
             echo 'Unsafe archive path detected.' >&2
             exit 1
