@@ -11,9 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Coordinates the plugin runtime.
- */
+/** Coordinates the plugin runtime. */
 final class Plugin {
 	/** @var Plugin|null */
 	private static $instance = null;
@@ -43,8 +41,13 @@ final class Plugin {
 			NewsStatuses::class,
 			EditorialNewsPostType::class,
 			NewsTaxonomies::class,
+			NewsPolicy::class,
 			NewsWorkflow::class,
 			NewsComposerValidator::class,
+			NewsQueueService::class,
+			NewsAudit::class,
+			NewsSchedulingService::class,
+			NewsService::class,
 			PollComposerIntegration::class,
 			Capabilities::class,
 			PostTypes::class,
@@ -88,7 +91,7 @@ final class Plugin {
 		}
 
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
-			foreach ( array( Admin::class, ReportAdmin::class ) as $module ) {
+			foreach ( array( Admin::class, ReportAdmin::class, NewsroomAdmin::class ) as $module ) {
 				if ( ! SafeBoot::register_module( $module ) ) {
 					return;
 				}
