@@ -4,7 +4,7 @@ Target development line: `1.2.0`
 
 Branch: `build/phase-4c-public-news-1.2.0`
 
-Status: **implemented on an isolated Draft PR; exact-head source/package matrices and mandatory one-hour acceptance govern completion; all public gates remain disabled by default**
+Status: **A-to-Z implementation and code-gap audit completed on an isolated Draft PR; exact-head source/package matrices and mandatory one-hour acceptance govern final QA completion; all public gates remain disabled by default**
 
 ## Delivered public runtime
 
@@ -21,6 +21,24 @@ Status: **implemented on an isolated Draft PR; exact-head source/package matrice
 - Strict GET-only public REST collection and single routes with typed schemas, bounded values, unknown-parameter rejection, shared public projections, safe headers, and no writes.
 - Versioned, site/language/gate/emergency-aware public cache with plugin-owned invalidation and purge boundaries.
 - Responsive, keyboard-accessible, high-zoom, reduced-motion, forced-colors, and progressive-enhancement public News assets.
+- Protocol-level protection against unsafe public author, institution, media, taxonomy, body-link, and body-image URL schemes.
+
+## Closed implementation gaps
+
+The final code-gap audit explicitly closed:
+
+1. private `correction-pending` leakage through canonical post fields;
+2. incomplete multi-section News landing composition;
+3. missing single-article editor/update/taxonomy/interaction/share presentation;
+4. non-frozen public error codes;
+5. partial public filter form and incomplete controlled-term checks;
+6. permissive REST schemas or unknown request parameters;
+7. unapproved public author/institution identity exposure;
+8. incomplete cache dimensions and invalidation;
+9. gate-wide rather than rendered-card-aware News assets;
+10. unsafe URL protocols in public identity, media, taxonomy, or rich article HTML;
+11. incomplete security-negative, UI, and WordPress Playground coverage;
+12. absence of permanent exact-head and mandatory one-hour Phase 4C workflows.
 
 ## Frozen public states
 
@@ -55,6 +73,22 @@ GET /sabri-home-news-feed/v1/news/{id}
 ```
 
 No public create, update, delete, publish, schedule, correction, retraction, source, submission, or reviewer endpoint is opened by Phase 4C.
+
+## Permanent acceptance workflows
+
+```text
+.github/workflows/phase4c-public-news-tests.yml
+.github/workflows/phase4c-one-hour-visible-qa.yml
+```
+
+Required retained artifacts:
+
+```text
+sabri-phase4c-PUBLIC-NEWS-QA-PASSED-{exact-head-sha}
+sabri-phase4c-ONE-HOUR-VISIBLE-QA-PASSED-{exact-head-sha}
+```
+
+Temporary overlay, diagnostic, transport, and correction machinery is not part of the completed implementation.
 
 ## Acceptance coverage
 
