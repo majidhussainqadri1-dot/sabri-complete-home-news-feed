@@ -6,45 +6,63 @@ on:
       - main
     paths:
       - 'PHASE-4B-IMPLEMENTATION.md'
-      - 'includes/class-news-workflow.php'
-      - 'includes/class-news-composer-validator.php'
-      - 'includes/class-plugin.php'
-      - 'includes/class-phase4-contracts.php'
-      - 'includes/class-news-statuses.php'
-      - 'includes/class-news-capabilities.php'
+      - 'includes/class-news-*.php'
       - 'includes/class-editorial-news-post-type.php'
+      - 'includes/class-plugin.php'
+      - 'admin/class-newsroom-admin.php'
       - 'tests/run-phase4b-newsroom-tests.php'
+      - 'tests/run-phase4b-playground-tests.mjs'
+      - 'tests/phase4b-stubs.php'
       - '.github/workflows/phase4b-newsroom-tests.yml'
   workflow_dispatch:
 
+concurrency:
+  group: phase4b-newsroom-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_SHA: ${{ github.sha }}
+
 jobs:
   phase4b-newsroom-contracts:
-    name: Phase 4B workflow and composer contracts
+    name: Phase 4B contracts and regressions
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout pull request head
+      - name: Checkout exact pull request head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
 
-      - name: Show runtime and exact commit
+      - name: Verify exact commit and runtime
         shell: bash
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           php -v
-          git rev-parse HEAD
+          node -v
+          pwsh -v
           git status --short
 
-      - name: Lint Phase 4B PHP files
+      - name: Lint complete Phase 4B PHP surface
         shell: bash
         run: |
           set -euo pipefail
+          php -l includes/class-news-policy.php
           php -l includes/class-news-workflow.php
           php -l includes/class-news-composer-validator.php
+          php -l includes/class-news-queue-service.php
+          php -l includes/class-news-audit.php
+          php -l includes/class-news-scheduling-service.php
+          php -l includes/class-news-service.php
+          php -l admin/class-newsroom-admin.php
           php -l includes/class-plugin.php
+          php -l tests/phase4b-stubs.php
           php -l tests/run-phase4b-newsroom-tests.php
 
-      - name: Run Phase 4B newsroom tests
+      - name: Run Phase 4B newsroom behavior tests
         shell: bash
         run: php tests/run-phase4b-newsroom-tests.php
 
@@ -55,3 +73,227 @@ jobs:
       - name: Run core regression suite
         shell: bash
         run: php tools/run-tests.php
+
+      - name: Run plugin static checks
+        shell: pwsh
+        run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+
+      - name: Create exact-commit contract evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p phase4b-evidence/contracts
+          git rev-parse HEAD > phase4b-evidence/contracts/exact-commit.txt
+          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4b-evidence/contracts/tracked-files.sha256
+          sha256sum phase4b-evidence/contracts/tracked-files.sha256 > phase4b-evidence/contracts/manifest-digest.sha256
+          printf 'status=passed\nhead_sha=%s\n' "${TEST_SHA}" > phase4b-evidence/contracts/result.env
+
+      - name: Upload contract evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4b-contract-evidence-${{ github.sha }}
+          retention-days: 30
+          path: phase4b-evidence/contracts/
+          if-no-files-found: error
+
+  source-playground:
+    name: Source WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    needs: phase4b-newsroom-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+
+    steps:
+      - name: Checkout exact pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact commit
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run source newsroom integration
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee phase4b-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+
+      - name: Upload source Playground evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4b-source-${{ matrix.wp }}-php-${{ matrix.php }}-${{ github.sha }}
+          retention-days: 30
+          path: phase4b-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: error
+
+  package-build:
+    name: Build and verify immutable Phase 4B package
+    needs: phase4b-newsroom-contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout exact pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+
+      - name: Build release package
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Verify package checksum and structure
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          mkdir -p phase4b-package
+          cp "$package" phase4b-package/candidate.zip
+          printf '%s  candidate.zip\n' "$actual" > phase4b-package/candidate.sha256
+          unzip -Z1 "$package" > phase4b-package/package-entries.txt
+          for entry in \
+            sabri-complete-home-news-feed/includes/class-news-policy.php \
+            sabri-complete-home-news-feed/includes/class-news-workflow.php \
+            sabri-complete-home-news-feed/includes/class-news-composer-validator.php \
+            sabri-complete-home-news-feed/includes/class-news-queue-service.php \
+            sabri-complete-home-news-feed/includes/class-news-audit.php \
+            sabri-complete-home-news-feed/includes/class-news-scheduling-service.php \
+            sabri-complete-home-news-feed/includes/class-news-service.php \
+            sabri-complete-home-news-feed/admin/class-newsroom-admin.php; do
+            grep -Fxq "$entry" phase4b-package/package-entries.txt
+          done
+          printf '%s\n' "${TEST_SHA}" > phase4b-package/exact-commit.txt
+
+      - name: Upload immutable Phase 4B package
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4b-immutable-package-${{ github.sha }}
+          retention-days: 30
+          path: phase4b-package/
+          if-no-files-found: error
+
+  packaged-playground:
+    name: Packaged WordPress Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    needs:
+      - package-build
+      - source-playground
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+
+    steps:
+      - name: Checkout exact pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+
+      - name: Download immutable package
+        uses: actions/download-artifact@v4
+        with:
+          name: phase4b-immutable-package-${{ github.sha }}
+          path: phase4b-package
+
+      - name: Verify downloaded package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd phase4b-package
+          sha256sum -c candidate.sha256
+          test "$(cat exact-commit.txt)" = "${TEST_SHA}"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install official WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run packaged newsroom integration
+        shell: bash
+        env:
+          SABRI_PLUGIN_ZIP: phase4b-package/candidate.zip
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+        run: |
+          set -euo pipefail
+          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee phase4b-packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
+
+      - name: Upload packaged Playground evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4b-packaged-${{ matrix.wp }}-php-${{ matrix.php }}-${{ github.sha }}
+          retention-days: 30
+          path: phase4b-packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          if-no-files-found: error
+
+  acceptance-evidence:
+    name: Retain Phase 4B exact-commit acceptance record
+    needs:
+      - phase4b-newsroom-contracts
+      - source-playground
+      - package-build
+      - packaged-playground
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact pull request head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+
+      - name: Create acceptance record
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p phase4b-acceptance
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          printf 'status=passed\nhead_sha=%s\nsource_matrices=2\npackaged_matrices=2\npublic_gates_enabled=0\n' "${TEST_SHA}" > phase4b-acceptance/result.env
+          git diff --exit-code
+
+      - name: Upload passed Phase 4B acceptance record
+        uses: actions/upload-artifact@v4
+        with:
+          name: sabri-phase4b-NEWSROOM-QA-PASSED-${{ github.sha }}
+          retention-days: 60
+          path: phase4b-acceptance/
+          if-no-files-found: error
