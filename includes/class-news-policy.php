@@ -50,22 +50,29 @@ final class NewsPolicy {
 			|| current_user_can( 'read_editorial_news_item', $post_id );
 	}
 
-	/** Capability required for one reviewer-assignment field. */
-	public static function reviewer_capability( $review_type ) {
+	/** Exact capabilities required for one reviewer assignment. */
+	public static function reviewer_capabilities( $review_type ) {
 		$map = array(
-			'editorial' => 'review_editorial_news',
-			'fact-check' => 'fact_check_editorial_news',
-			'medical' => 'medical_review_editorial_news',
+			// The Phase 4B reviewing-editor field also owns fact-check assignment.
+			'editorial' => array( 'review_editorial_news', 'fact_check_editorial_news' ),
+			'fact-check' => array( 'fact_check_editorial_news' ),
+			'medical' => array( 'medical_review_editorial_news' ),
 		);
-		return is_string( $review_type ) && isset( $map[ $review_type ] ) ? $map[ $review_type ] : 'do_not_allow';
+		return is_string( $review_type ) && isset( $map[ $review_type ] ) ? $map[ $review_type ] : array();
+	}
+
+	/** Primary capability retained for stable callers and diagnostics. */
+	public static function reviewer_capability( $review_type ) {
+		$required = self::reviewer_capabilities( $review_type );
+		return $required ? $required[0] : 'do_not_allow';
 	}
 
 	/** Whether the current user may assign a reviewer to an article. */
 	public static function can_assign_reviewer( $post_id, $reviewer_id, $review_type ) {
-		$post_id     = function_exists( 'absint' ) ? absint( $post_id ) : max( 0, (int) $post_id );
+		$post_id = function_exists( 'absint' ) ? absint( $post_id ) : max( 0, (int) $post_id );
 		$reviewer_id = function_exists( 'absint' ) ? absint( $reviewer_id ) : max( 0, (int) $reviewer_id );
-		$required    = self::reviewer_capability( $review_type );
-		if ( ! self::writes_allowed() || $reviewer_id < 1 || 'do_not_allow' === $required || ! function_exists( 'current_user_can' ) ) {
+		$required = self::reviewer_capabilities( $review_type );
+		if ( ! self::writes_allowed() || $reviewer_id < 1 || empty( $required ) || ! function_exists( 'current_user_can' ) ) {
 			return false;
 		}
 		if ( ! current_user_can( 'review_editorial_news' ) ) {
@@ -78,10 +85,15 @@ final class NewsPolicy {
 		if ( $reviewer_id === $current_user_id && ! current_user_can( 'manage_news_settings' ) && ! current_user_can( 'manage_options' ) ) {
 			return false;
 		}
-		if ( function_exists( 'user_can' ) ) {
-			return user_can( $reviewer_id, $required );
+		if ( ! function_exists( 'user_can' ) ) {
+			return false;
 		}
-		return false;
+		foreach ( $required as $capability ) {
+			if ( ! user_can( $reviewer_id, $capability ) ) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/** Whether the current user may access a queue requiring one capability. */
