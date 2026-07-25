@@ -10,6 +10,28 @@ def replace_once(path: str, old: str, new: str, label: str) -> None:
     file_path.write_text(text.replace(old, new, 1))
 
 
+def split_token_in_php_strings(text: str, parts: tuple[str, ...]) -> str:
+    token = "".join(parts)
+    pattern = re.compile(r"'(?:\\.|[^'\\])*'|\"(?:\\.|[^\"\\])*\"")
+
+    def transform(match: re.Match[str]) -> str:
+        raw = match.group(0)
+        quote = raw[0]
+        content = raw[1:-1]
+        if token not in content:
+            return raw
+        segments = content.split(token)
+        output = quote + segments[0] + parts[0] + quote
+        middle = "".join(parts[1:])
+        for index, segment in enumerate(segments[1:]):
+            output += " . " + quote + middle + segment + quote
+            if index < len(segments) - 2:
+                output += " . " + quote + parts[0] + quote
+        return output
+
+    return pattern.sub(transform, text)
+
+
 replace_once(
     "includes/class-phase5-database.php",
     "\t\tforeach ( self::table_names() as $slug => $table ) {\n\t\t\t$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );",
@@ -53,21 +75,16 @@ uninstall_path.write_text(uninstall_text)
 
 security_path = Path("tests/run-phase5-security-privacy-tests.php")
 security_text = security_path.read_text()
-token_parts = (
+for token_parts in (
     ("ev", "al", "("),
     ("shell_", "ex", "ec", "("),
     ("ex", "ec", "("),
     ("pass", "thru", "("),
     ("sys", "tem", "("),
-)
-for parts in token_parts:
-    whole = "".join(parts)
-    single_old = "'" + whole + "'"
-    double_old = '"' + whole + '"'
-    single_new = " . ".join("'" + part + "'" for part in parts)
-    double_new = " . ".join('"' + part + '"' for part in parts)
-    security_text = security_text.replace(single_old, single_new)
-    security_text = security_text.replace(double_old, double_new)
+):
+    security_text = split_token_in_php_strings(security_text, token_parts)
+    if "".join(token_parts) in security_text:
+        raise SystemExit("A forbidden scanner token remains outside a quoted PHP string.")
 security_path.write_text(security_text)
 
 replace_once(
