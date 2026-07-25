@@ -50,7 +50,25 @@ jobs:
           node-version: '22'
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-      - name: Run source activation, routing, and Phase 4A integration
+      - name: Build exact Phase 4A package for packaged permalink regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release phase4a-source-package
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          mkdir -p phase4a-source-package
+          cp "$package" phase4a-source-package/candidate.zip
+          printf '%s  candidate.zip\n' "$actual" > phase4a-source-package/candidate.sha256
+          printf '%s\n' "${PHASE4A_HEAD_SHA}" > phase4a-source-package/exact-commit.txt
+          echo "SABRI_DATE_PERMALINK_PLUGIN_ZIP=phase4a-source-package/candidate.zip" >> "$GITHUB_ENV"
+      - name: Run source activation, packaged permalink routing, and Phase 4A integration
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
@@ -59,15 +77,20 @@ jobs:
           set -euo pipefail
           log="phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log"
           node tests/run-playground-integration-tests.mjs 2>&1 | tee "$log"
-          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "$log"
+          SABRI_PLUGIN_ZIP="${SABRI_DATE_PERMALINK_PLUGIN_ZIP}" node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee -a "$log"
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee -a "$log"
+          test "$(cat phase4a-source-package/exact-commit.txt)" = "${PHASE4A_HEAD_SHA}"
+          (cd phase4a-source-package && sha256sum -c candidate.sha256)
       - name: Upload source evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase4a-post-merge-source-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.PHASE4A_HEAD_SHA }}
           retention-days: 60
-          path: phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          path: |
+            phase4a-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+            phase4a-source-package/candidate.sha256
+            phase4a-source-package/exact-commit.txt
           if-no-files-found: error
 
   mandatory-second-one-hour:
