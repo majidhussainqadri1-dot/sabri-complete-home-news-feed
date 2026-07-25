@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $slug = 'sabri-complete-home-news-feed'
 $base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-5-FINAL-CANDIDATE'
+$legacyBase = '21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -12,6 +13,8 @@ $zipPath = Join-Path $releaseDir "$base.zip"
 $shaPath = Join-Path $releaseDir "$base.sha256"
 $manifestPath = Join-Path $releaseDir "$base-MANIFEST.sha256"
 $reportPath = Join-Path $releaseDir "$base-TEST-REPORT.md"
+$legacyZipPath = Join-Path $releaseDir "$legacyBase.zip"
+$legacyShaPath = Join-Path $releaseDir "$legacyBase.sha256"
 
 $requiredRuntimeFiles = @(
     'sabri-complete-home-news-feed.php',
@@ -115,7 +118,7 @@ Get-ChildItem -LiteralPath $topDir -Recurse -File | ForEach-Object {
     }
 }
 
-foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath)) {
+foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath, $legacyZipPath, $legacyShaPath)) {
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
 }
 
@@ -146,6 +149,12 @@ try {
 
 $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $(Split-Path $zipPath -Leaf)" | Set-Content -LiteralPath $shaPath -Encoding ASCII
+Copy-Item -LiteralPath $zipPath -Destination $legacyZipPath -Force
+"$hash  $(Split-Path $legacyZipPath -Leaf)" | Set-Content -LiteralPath $legacyShaPath -Encoding ASCII
+$legacyHash = (Get-FileHash -LiteralPath $legacyZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($legacyHash -ne $hash) {
+    throw 'Legacy compatibility package digest does not match the canonical Phase 5 package.'
+}
 $manifestDigest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $report = @(
     '# Sabri Complete Home and News Feed Phase 5 Candidate Test Report','',
@@ -155,6 +164,7 @@ $report = @(
     '- Target release after separately gated promotion: 1.2.0',
     "- Artifact: $(Split-Path $zipPath -Leaf)",
     "- SHA-256: $hash",
+    "- Legacy compatibility alias: $(Split-Path $legacyZipPath -Leaf)",
     "- Runtime manifest SHA-256: $manifestDigest",
     "- Top-level ZIP folder: $slug/",
     "- Runtime files included: $copied",
@@ -172,3 +182,4 @@ if (-not $resolvedStage.StartsWith($resolvedRelease, [System.StringComparison]::
 }
 Remove-Item -LiteralPath $stageDir -Recurse -Force
 Write-Output "Built $zipPath"
+Write-Output "Built legacy compatibility alias $legacyZipPath"
