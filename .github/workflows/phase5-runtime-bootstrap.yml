@@ -129,7 +129,7 @@ jobs:
           rm -rf release
           pwsh -NoProfile -File ./tools/build-release.ps1
           package=$(find release -maxdepth 1 -type f -name '*.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*.sha256' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
           test -n "$package" && test -n "$checksum"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
