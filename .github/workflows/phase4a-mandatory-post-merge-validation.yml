@@ -268,14 +268,22 @@ jobs:
           test "$duration_seconds" -ge 3900
           test "$cycles_required" -eq 13
           test "$head_sha" = "${PHASE4A_HEAD_SHA}"
+          test -f mandatory-evidence/cycle-timing.log
+          test -d mandatory-evidence/cycles
+          test "$(find mandatory-evidence/cycles -maxdepth 1 -type f -name 'cycle-*.log' | wc -l)" -eq 13
+          test -f mandatory-evidence/tracked-manifest-digest.sha256
+          test -f mandatory-evidence/package/verified-package.sha256
           grep -Fxq 'status=passed' merge-evidence/result.env
           grep -Fxq "phase4a_head_sha=${PHASE4A_HEAD_SHA}" merge-evidence/result.env
           grep -Fxq "merge_sha=${PHASE4A_MERGE_SHA}" merge-evidence/result.env
           mkdir -p phase4a-final-acceptance
           cp mandatory-evidence/result.env phase4a-final-acceptance/mandatory-result.env
-          cp mandatory-evidence/cycles.log phase4a-final-acceptance/
+          cp mandatory-evidence/cycle-timing.log phase4a-final-acceptance/
+          cp -R mandatory-evidence/cycles phase4a-final-acceptance/
           cp mandatory-evidence/initial-tracked-files.sha256 phase4a-final-acceptance/
           cp mandatory-evidence/final-tracked-files.sha256 phase4a-final-acceptance/
+          cp mandatory-evidence/tracked-manifest-digest.sha256 phase4a-final-acceptance/
+          cp mandatory-evidence/package/verified-package.sha256 phase4a-final-acceptance/
           cp merge-evidence/result.env phase4a-final-acceptance/merge-result.env
           cp merge-evidence/merge-package.sha256 phase4a-final-acceptance/
           cp merge-evidence/merge-manifest-digest.sha256 phase4a-final-acceptance/
