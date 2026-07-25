@@ -7,6 +7,8 @@ on:
     paths:
       - '.phase5-runtime-overlay/**'
       - '.github/workflows/phase5-runtime-bootstrap.yml'
+      - '.github/workflows/phase5-final-completion-tests.yml'
+      - '.github/workflows/phase5-two-hour-visible-qa.yml'
 
 permissions:
   contents: write
