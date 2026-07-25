@@ -394,8 +394,10 @@ class WP_Query {
 class Sabri_Test_WPDB {
 	public $prefix = 'wp_';
 	public $posts = 'wp_posts';
+	public $insert_id = 0;
 	public function get_charset_collate() { return 'DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'; }
 	public function prepare( $query, ...$args ) {
+		if ( 1 === count( $args ) && is_array( $args[0] ) ) { $args = $args[0]; }
 		foreach ( $args as $arg ) {
 			$replacement = is_numeric( $arg ) ? (string) $arg : "'" . addslashes( (string) $arg ) . "'";
 			$query = preg_replace( '/%d|%s/', $replacement, $query, 1 );
@@ -438,7 +440,7 @@ class Sabri_Test_WPDB {
 		}
 		return array();
 	}
-	public function insert( $table, $data, $formats = null ) { unset( $table, $data, $formats ); return true; }
+	public function insert( $table, $data, $formats = null ) { unset( $table, $data, $formats ); $this->insert_id++; return true; }
 	public function update( $table, $data, $where, $formats = null, $where_formats = null ) { unset( $table, $data, $where, $formats, $where_formats ); return true; }
 	public function query( $query ) {
 		global $sabri_test_tables, $sabri_test_indexes;

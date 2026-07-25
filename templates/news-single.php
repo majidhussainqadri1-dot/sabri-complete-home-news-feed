@@ -42,6 +42,7 @@ $taxonomy_groups = array(
 				<nav class="sabri-news-taxonomies" aria-label="<?php echo esc_attr( $label ); ?>"><strong><?php echo esc_html( $label ); ?>:</strong><?php foreach ( $terms as $term ) : ?><a href="<?php echo esc_url( $term['url'] ); ?>"><?php echo esc_html( $term['name'] ); ?></a><?php endforeach; ?></nav>
 			<?php endforeach; ?>
 		</div>
+		<?php do_action( 'sabri_news_after_article', $article ); ?>
 		<?php echo $interactions; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	</article>
 	<?php if ( $related ) : ?><section class="sabri-news-related" aria-labelledby="sabri-news-related-title"><h2 id="sabri-news-related-title"><?php echo esc_html__( 'Related News', 'sabri-complete-home-news-feed' ); ?></h2><div class="sabri-news-grid"><?php foreach ( $related as $item ) { echo \Sabri\HomeNewsFeed\NewsPublicRuntime::render_card( $item ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div></section><?php endif; ?>
