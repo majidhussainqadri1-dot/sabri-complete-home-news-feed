@@ -1,0 +1,14 @@
+name: Phase 5 Mandatory Two-Hour Visible QA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pending-clean-runtime:
+    name: Two-hour acceptance remains closed during runtime bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'This fail-closed reservation is replaced by the complete 7,200-second, 24-cycle exact-head workflow immediately after the verified runtime bootstrap commit.'
