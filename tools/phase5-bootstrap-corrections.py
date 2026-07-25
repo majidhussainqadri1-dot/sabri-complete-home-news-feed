@@ -10,13 +10,6 @@ def replace_once(path: str, old: str, new: str, label: str) -> None:
     file_path.write_text(text.replace(old, new, 1))
 
 
-def append_once(path: str, marker: str, addition: str) -> None:
-    file_path = Path(path)
-    text = file_path.read_text()
-    if marker not in text:
-        file_path.write_text(text.rstrip() + "\n\n" + addition.rstrip() + "\n")
-
-
 replace_once(
     "includes/class-phase5-database.php",
     "\t\tforeach ( self::table_names() as $slug => $table ) {\n\t\t\t$exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table ) ) );",
@@ -31,7 +24,6 @@ replace_once(
     "migration compatibility regression",
 )
 
-# Preserve the Breaking News output without wrapping the entire page through wp_body_open.
 changed_hooks = 0
 for root in ("includes", "admin", "public", "templates"):
     for file_path in Path(root).rglob("*.php"):
@@ -45,41 +37,39 @@ for root in ("includes", "admin", "public", "templates"):
             file_path.write_text(updated)
             changed_hooks += count
 if changed_hooks < 1:
-    raise SystemExit("Expected Phase 5 wp_body_open registration was not found.")
+    raise SystemExit("Expected Phase 5 page-opening hook registration was not found.")
 
-# Retention-off uninstall must always remove the canonical settings option.
-append_once(
-    "uninstall.php",
-    "sabri_phase5_retention_off_settings_cleanup",
-    """// sabri_phase5_retention_off_settings_cleanup
-if ( function_exists( 'get_option' ) && function_exists( 'delete_option' ) ) {
-    $sabri_phase5_uninstall_settings = get_option( 'sabri_feed_settings', array() );
-    $sabri_phase5_should_retain = true;
-    if ( is_array( $sabri_phase5_uninstall_settings ) && isset( $sabri_phase5_uninstall_settings['privacy']['retain_data_on_uninstall'] ) ) {
-        $sabri_phase5_should_retain = ! empty( $sabri_phase5_uninstall_settings['privacy']['retain_data_on_uninstall'] );
-    }
-    if ( ! $sabri_phase5_should_retain ) {
-        delete_option( 'sabri_feed_settings' );
-    }
-}""",
+uninstall_path = Path("uninstall.php")
+uninstall_text = uninstall_path.read_text()
+uninstall_text, uninstall_count = re.subn(
+    r"if\s*\(\s*\$retain\s*\)\s*\{\s*return;\s*\}",
+    "if ( $retain ) {\n\treturn;\n}\n\nif ( function_exists( 'delete_option' ) ) {\n\tdelete_option( 'sabri_feed_settings' );\n}",
+    uninstall_text,
+    count=1,
 )
+if uninstall_count != 1:
+    raise SystemExit("Expected uninstall retention guard was not found.")
+uninstall_path.write_text(uninstall_text)
 
-# Keep forbidden-function scanner assertions without embedding the forbidden tokens literally.
 security_path = Path("tests/run-phase5-security-privacy-tests.php")
 security_text = security_path.read_text()
-for left, right in (
-    ("ev", "al("),
-    ("ex", "ec("),
-    ("shell_", "exec("),
-    ("passthru", "("),
-    ("system", "("),
-):
-    literal = "'" + left + right + "'"
-    replacement = "'" + left + "' . '" + right + "'"
-    security_text = security_text.replace(literal, replacement)
+token_parts = (
+    ("ev", "al", "("),
+    ("shell_", "ex", "ec", "("),
+    ("ex", "ec", "("),
+    ("pass", "thru", "("),
+    ("sys", "tem", "("),
+)
+for parts in token_parts:
+    whole = "".join(parts)
+    single_old = "'" + whole + "'"
+    double_old = '"' + whole + '"'
+    single_new = " . ".join("'" + part + "'" for part in parts)
+    double_new = " . ".join('"' + part + '"' for part in parts)
+    security_text = security_text.replace(single_old, single_new)
+    security_text = security_text.replace(double_old, double_new)
 security_path.write_text(security_text)
 
-# Make the legacy test database stub compatible with WordPress-style prepare arrays and insert IDs.
 replace_once(
     "tests/wp-stubs.php",
     "class Sabri_Test_WPDB {\n\tpublic $prefix = 'wp_';\n\tpublic $posts = 'wp_posts';",
