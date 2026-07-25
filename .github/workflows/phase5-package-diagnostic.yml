@@ -1,0 +1,108 @@
+name: Phase 5 Package Diagnostic
+
+on:
+  pull_request:
+    branches:
+      - build/phase-4c-public-news-1.2.0
+    paths:
+      - '.phase5-runtime-overlay/**'
+      - 'tools/phase5-bootstrap-corrections.py'
+      - '.github/workflows/phase5-package-diagnostic.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package-diagnostic:
+    name: Diagnose immutable Phase 5 package
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact Draft PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Reconstruct verified runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .phase5-runtime-overlay/chunk-* | base64 --decode > /tmp/phase5-runtime-overlay.tar.xz
+          test "$(sha256sum /tmp/phase5-runtime-overlay.tar.xz | awk '{print $1}')" = '119214391a620724a42e82c2720a5fcc8c0a582d5fe6a633e26dad1b1e7d48c2'
+          tar -xJf /tmp/phase5-runtime-overlay.tar.xz -C .
+          python3 tools/phase5-bootstrap-corrections.py
+
+      - name: Build and inspect package
+        shell: bash
+        run: |
+          set +e
+          exec > >(tee phase5-package-diagnostic.log) 2>&1
+          rm -rf release
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          build_status=$?
+          echo "build_status=$build_status"
+          echo '--- release files ---'
+          find release -maxdepth 2 -type f -printf '%p %s bytes\n' | sort
+          package=$(find release -maxdepth 1 -type f -name '*.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*.sha256' -print -quit)
+          echo "package=$package"
+          echo "checksum=$checksum"
+          status=$build_status
+          if [ -n "$package" ]; then
+            unzip -t "$package"
+            unzip_status=$?
+            echo "unzip_status=$unzip_status"
+            unzip -Z1 "$package" > phase5-package-entries.txt
+            echo '--- package entries ---'
+            cat phase5-package-entries.txt
+            [ $unzip_status -eq 0 ] || status=1
+          else
+            echo 'No package ZIP found.'
+            status=1
+          fi
+          if [ -n "$checksum" ] && [ -n "$package" ]; then
+            expected=$(awk '{print tolower($1)}' "$checksum")
+            actual=$(sha256sum "$package" | awk '{print $1}')
+            echo "expected_sha256=$expected"
+            echo "actual_sha256=$actual"
+            [ "$expected" = "$actual" ] || status=1
+          else
+            echo 'Checksum or package missing.'
+            status=1
+          fi
+          for entry in \
+            sabri-complete-home-news-feed/includes/class-phase5-database.php \
+            sabri-complete-home-news-feed/includes/class-source-registry.php \
+            sabri-complete-home-news-feed/includes/class-review-ledger.php \
+            sabri-complete-home-news-feed/includes/class-submission-service.php \
+            sabri-complete-home-news-feed/includes/class-breaking-news-service.php \
+            sabri-complete-home-news-feed/includes/class-correction-ledger.php \
+            sabri-complete-home-news-feed/includes/class-news-distribution.php \
+            sabri-complete-home-news-feed/includes/class-phase5-rest.php \
+            sabri-complete-home-news-feed/admin/class-phase5-newsroom-admin.php \
+            sabri-complete-home-news-feed/public/class-phase5-public-runtime.php; do
+            if grep -Fxq "$entry" phase5-package-entries.txt 2>/dev/null; then
+              echo "present=$entry"
+            else
+              echo "missing=$entry"
+              status=1
+            fi
+          done
+          grep -F 'Version:' sabri-complete-home-news-feed.php || status=1
+          grep -F 'SABRI_HNF_SCHEMA_VERSION' sabri-complete-home-news-feed.php || status=1
+          grep -F 'CHECKPOINT' includes/class-phase4-contracts.php || status=1
+          echo "final_status=$status"
+          exit $status
+
+      - name: Upload package diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase5-package-diagnostic-${{ github.event.pull_request.head.sha }}
+          retention-days: 7
+          path: |
+            phase5-package-diagnostic.log
+            phase5-package-entries.txt
+            release/
+          if-no-files-found: ignore
