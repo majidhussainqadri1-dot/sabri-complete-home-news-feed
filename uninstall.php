@@ -24,6 +24,21 @@ $sabri_hnf_capabilities = array(
 	'sabri_feed_run_repairs',
 	'sabri_feed_run_migrations',
 	'sabri_feed_run_rollbacks',
+	'manage_news_sources',
+	'verify_news_sources',
+	'review_editorial_news',
+	'fact_check_editorial_news',
+	'medical_review_editorial_news',
+	'translate_editorial_news',
+	'submit_editorial_news',
+	'manage_news_submissions',
+	'manage_breaking_news',
+	'manage_news_corrections',
+	'retract_editorial_news',
+	'manage_news_privacy',
+	'manage_news_release',
+	'view_news_audit',
+	'view_news_diagnostics',
 );
 
 if ( function_exists( 'wp_roles' ) && function_exists( 'get_role' ) ) {
@@ -53,6 +68,16 @@ if ( $retain ) {
 	return;
 }
 
+if ( function_exists( 'delete_option' ) ) {
+	delete_option( 'sabri_feed_settings' );
+}
+
+/* Phase 5 accountability data requires a second explicit destructive confirmation. */
+$phase5_destructive = function_exists( 'get_option' ) ? get_option( 'sabri_feed_phase5_destructive_uninstall_confirmation', '' ) : '';
+if ( 'DELETE-PHASE5-EDITORIAL-DATA' !== $phase5_destructive ) {
+	return;
+}
+
 $options = array(
 	'sabri_feed_settings',
 	'sabri_feed_schema_version',
@@ -63,6 +88,13 @@ $options = array(
 	'sabri_feed_last_repair_report',
 	'sabri_feed_last_migration_report',
 	'sabri_feed_last_rollback_report',
+	'sabri_feed_phase5_features',
+	'sabri_feed_phase5_migration_state',
+	'sabri_feed_phase5_migration_lock',
+	'sabri_feed_phase5_migration_report',
+	'sabri_feed_phase5_schema_install_result',
+	'sabri_feed_phase5_capability_mutations',
+	'sabri_feed_phase5_destructive_uninstall_confirmation',
 );
 
 foreach ( $options as $option ) {
@@ -81,6 +113,16 @@ if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
 		$prefix . 'sabri_feed_views',
 		$prefix . 'sabri_feed_poll_votes',
 		$prefix . 'sabri_feed_audit_log',
+		$prefix . 'sabri_news_sources',
+		$prefix . 'sabri_news_reviews',
+		$prefix . 'sabri_news_submissions',
+		$prefix . 'sabri_news_submission_files',
+		$prefix . 'sabri_news_corrections',
+		$prefix . 'sabri_news_breaking',
+		$prefix . 'sabri_news_translations',
+		$prefix . 'sabri_news_preview_tokens',
+		$prefix . 'sabri_news_rate_limits',
+		$prefix . 'sabri_news_audit_integrity',
 	);
 
 	foreach ( $tables as $table ) {

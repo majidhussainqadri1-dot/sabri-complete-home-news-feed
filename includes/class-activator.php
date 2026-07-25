@@ -21,7 +21,10 @@ final class Activator {
 		$phase4_settings = NewsFeatureSettings::ensure_defaults();
 		$capabilities    = Capabilities::apply_default_policy();
 		$phase4_caps     = NewsCapabilities::apply_default_policy();
+		$phase5_settings = Phase5FeatureSettings::ensure_defaults();
+		$phase5_caps     = Phase5Capabilities::apply_default_policy();
 		$schema          = Migrations::migrate( false );
+		$phase5_schema   = Phase5Migrations::migrate( false );
 
 		Taxonomies::register_taxonomies();
 		$terms = Taxonomies::ensure_default_terms();
@@ -39,6 +42,10 @@ final class Activator {
 				update_option( NewsTaxonomies::TERM_VERSION_OPTION, $contract, false );
 				update_option( 'sabri_feed_phase4_contract_version', $contract, false );
 			}
+		}
+
+		if ( function_exists( 'wp_next_scheduled' ) && function_exists( 'wp_schedule_event' ) && ! wp_next_scheduled( 'sabri_hnf_phase5_cleanup' ) ) {
+			wp_schedule_event( time() + HOUR_IN_SECONDS, 'hourly', 'sabri_hnf_phase5_cleanup' );
 		}
 
 		AuditLog::record(
@@ -61,6 +68,9 @@ final class Activator {
 			'phase4_terms'        => $phase4_terms,
 			'phase4_ready'        => $phase4_ready,
 			'phase4_settings'     => $phase4_settings,
+			'phase5_settings'     => $phase5_settings,
+			'phase5_capabilities' => $phase5_caps,
+			'phase5_schema'       => $phase5_schema,
 		);
 	}
 }

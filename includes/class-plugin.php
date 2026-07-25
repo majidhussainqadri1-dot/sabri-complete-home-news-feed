@@ -20,6 +20,7 @@ final class Plugin {
 			EditorialNewsPostType::class,NewsTaxonomies::class,NewsPolicy::class,NewsPublicSnapshot::class,NewsWorkflow::class,
 			NewsComposerValidator::class,NewsQueueService::class,NewsAudit::class,NewsSchedulingService::class,NewsroomDiagnostics::class,NewsService::class,
 			NewsCache::class,NewsPublicProjector::class,NewsQueryService::class,NewsFeedIntegration::class,NewsRouting::class,NewsPublicRuntime::class,RestNews::class,
+			Phase5FeatureSettings::class,Phase5Capabilities::class,Phase5Migrations::class,Phase5AuditIntegrity::class,SourceRegistry::class,ReviewLedger::class,PrivacyScanner::class,Phase5RateLimiter::class,PreviewTokenService::class,SubmissionService::class,BreakingNewsService::class,CorrectionLedger::class,TranslationService::class,SsrfGuard::class,PrivacyOperations::class,NewsDistribution::class,Phase5PublicationPolicy::class,Phase5Rest::class,Phase5Performance::class,Phase5Diagnostics::class,Phase5PublicRuntime::class,
 			PollComposerIntegration::class,Capabilities::class,PostTypes::class,Taxonomies::class,RewriteRules::class,Integrations::class,ReleaseReadiness::class,
 			SafeMode::class,RestFoundation::class,DataRetention::class,NotificationBridge::class,Assets::class,PostMetadata::class,PublicQueryGuard::class,
 			FollowersVisibility::class,FollowersQueryGuard::class,MediaHandler::class,FeedQuery::class,HomeIntegration::class,ViewRuntime::class,PollRuntime::class,
@@ -27,7 +28,7 @@ final class Plugin {
 			RestComposer::class,RestInteractions::class,RestComments::class,RestFollows::class,RestReports::class,RestPolls::class,
 		);
 		foreach($modules as$module){if(!SafeBoot::register_module($module)){return;}}
-		if(function_exists('is_admin')&&is_admin()){foreach(array(Admin::class,ReportAdmin::class,NewsroomAdmin::class)as$module){if(!SafeBoot::register_module($module)){return;}}}
+		if(function_exists('is_admin')&&is_admin()){foreach(array(Admin::class,ReportAdmin::class,NewsroomAdmin::class,Phase5NewsroomAdmin::class)as$module){if(!SafeBoot::register_module($module)){return;}}}
 	}
 	public static function identity(){return array('name'=>'Sabri Complete Home and News Feed','version'=>SABRI_HNF_VERSION,'slug'=>SABRI_HNF_SLUG,'text_domain'=>SABRI_HNF_TEXT_DOMAIN,'schema_version'=>SABRI_HNF_SCHEMA_VERSION);}
 }

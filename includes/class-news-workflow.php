@@ -131,6 +131,12 @@ final class NewsWorkflow {
 		if ( $post_id > 0 && ! current_user_can( 'edit_editorial_news', $post_id ) ) {
 			return false;
 		}
+		if ( $post_id > 0 && in_array( $to, array( 'ready-for-publication', 'scheduled', 'published' ), true ) && class_exists( __NAMESPACE__ . '\\Phase5PublicationPolicy' ) ) {
+			$eligibility = Phase5PublicationPolicy::eligible( $post_id, $to );
+			if ( true !== $eligibility ) {
+				return false;
+			}
+		}
 		return current_user_can( $validation['data']['capability'] );
 	}
 

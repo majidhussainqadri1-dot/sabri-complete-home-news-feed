@@ -1,0 +1,40 @@
+<?php
+/**
+ * Canonical, schema, social, RSS, sitemap, and language distribution.
+ *
+ * @package SabriCompleteHomeNewsFeed
+ */
+
+namespace Sabri\HomeNewsFeed;
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/** Emits only safe public projections and controlled distribution routes. */
+final class NewsDistribution {
+	const Q_FEED='sabri_news_phase5_feed';
+	const Q_FEED_SECTION='sabri_news_phase5_feed_section';
+	const Q_SITEMAP='sabri_news_phase5_sitemap';
+	const Q_SITEMAP_PAGE='sabri_news_phase5_sitemap_page';
+	const SITEMAP_CHUNK=500;
+
+	public static function register() {
+		if(!function_exists('add_action')||!function_exists('add_filter'))return;
+		add_action('init',array(__CLASS__,'rewrite_rules'),13);
+		add_filter('query_vars',array(__CLASS__,'query_vars'));
+		add_action('template_redirect',array(__CLASS__,'serve_special_routes'),-5);
+		add_action('wp_head',array(__CLASS__,'head_metadata'),3);
+		add_filter('wp_robots',array(__CLASS__,'robots'));
+	}
+	public static function rewrite_rules(){if(!function_exists('add_rewrite_rule'))return;if(Phase5FeatureSettings::enabled('news_rss_enabled')){add_rewrite_rule('^news/feed/?$','index.php?'.self::Q_FEED.'=1','top');add_rewrite_rule('^news/section/([a-z0-9]+(?:-[a-z0-9]+)*)/feed/?$','index.php?'.self::Q_FEED.'=1&'.self::Q_FEED_SECTION.'=$matches[1]','top');}if(Phase5FeatureSettings::enabled('news_sitemap_enabled'))add_rewrite_rule('^news-sitemap\.xml$','index.php?'.self::Q_SITEMAP.'=1','top');add_rewrite_rule('^news-sitemap-([1-9][0-9]*)\.xml$','index.php?'.self::Q_SITEMAP.'=1&'.self::Q_SITEMAP_PAGE.'=$matches[1]','top');}
+	public static function query_vars($vars){$vars=is_array($vars)?$vars:array();foreach(array(self::Q_FEED,self::Q_FEED_SECTION,self::Q_SITEMAP,self::Q_SITEMAP_PAGE)as$v)$vars[]=$v;return array_values(array_unique($vars));}
+	public static function serve_special_routes(){if('1'===(string)self::q(self::Q_FEED)){self::serve_feed();exit;}if('1'===(string)self::q(self::Q_SITEMAP)){self::serve_sitemap();exit;}}
+	public static function head_metadata(){if(!Phase5FeatureSettings::enabled('news_seo_enabled'))return;$context=NewsPublicRuntime::context();if(empty($context['route']))return;$canonical=isset($context['canonical_base'])?(string)$context['canonical_base']:'';if($canonical)echo '<link rel="canonical" href="'.esc_url($canonical).'" />' . "\n";if('single'===($context['route']??'')&&!empty($context['article'])){self::single_meta($context['article']);}}
+	public static function robots($robots){$robots=is_array($robots)?$robots:array();$context=NewsPublicRuntime::context();if(empty($context['route']))return$robots;if(!Phase5FeatureSettings::enabled('news_seo_enabled')){$robots['noindex']=true;return$robots;}if(isset($_GET['q'])||isset($_GET['date_from'])||isset($_GET['date_to'])||isset($_GET['page'])&&(int)$_GET['page']>1)$robots['noindex']=true;return$robots;}
+	public static function public_sources($article_id){return Phase5FeatureSettings::enabled('sources_enabled')?SourceRegistry::list_for_article($article_id,false):array();}
+	public static function public_history($article_id){return CorrectionLedger::public_history($article_id);}
+	private static function single_meta(array$article){$title=isset($article['headline'])?(string)$article['headline']:'';$description=isset($article['summary'])?(string)$article['summary']:'';$url=isset($article['canonical_url'])?(string)$article['canonical_url']:'';$image=!empty($article['featured_image']['url'])?(string)$article['featured_image']['url']:'';echo '<meta property="og:type" content="article" />' . "\n";echo '<meta property="og:title" content="'.esc_attr($title).'" />' . "\n";echo '<meta property="og:description" content="'.esc_attr($description).'" />' . "\n";echo '<meta property="og:url" content="'.esc_url($url).'" />' . "\n";if($image)echo '<meta property="og:image" content="'.esc_url($image).'" />' . "\n";echo '<meta name="twitter:card" content="summary_large_image" />' . "\n";foreach(TranslationService::alternates((int)$article['id'])as$alternate)echo '<link rel="alternate" hreflang="'.esc_attr($alternate['language_tag']).'" href="'.esc_url($alternate['url']).'" />' . "\n";$schema=self::schema_graph($article);echo '<script type="application/ld+json">'.wp_json_encode($schema,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE).'</script>' . "\n";}
+	private static function schema_graph(array$article){$graph=array(array('@type'=>'NewsArticle','@id'=>$article['canonical_url'].'#article','headline'=>$article['headline'],'description'=>$article['summary'],'url'=>$article['canonical_url'],'datePublished'=>$article['published_at'],'dateModified'=>$article['updated_at'],'mainEntityOfPage'=>$article['canonical_url'],'publisher'=>array('@type'=>'Organization','name'=>!empty($article['institution']['name'])?$article['institution']['name']:'Sabri Homeopathy')));if(!empty($article['featured_image']['url']))$graph[0]['image']=array('@type'=>'ImageObject','url'=>$article['featured_image']['url']);$graph[]=array('@type'=>'BreadcrumbList','itemListElement'=>array(array('@type'=>'ListItem','position'=>1,'name'=>'News','item'=>home_url('/news/')),array('@type'=>'ListItem','position'=>2,'name'=>$article['headline'],'item'=>$article['canonical_url'])));return array('@context'=>'https://schema.org','@graph'=>$graph);}
+	private static function serve_feed(){if(!Phase5FeatureSettings::enabled('news_rss_enabled')||!NewsPolicy::public_reads_allowed()){status_header(404);return;}$section=Phase5Contracts::slug(self::q(self::Q_FEED_SECTION));$args=array('per_page'=>30);if($section)$args['section']=$section;$result=NewsQueryService::query($args);header('Content-Type: application/rss+xml; charset=UTF-8');header('Cache-Control: public, max-age=300');echo '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>'.esc_html(get_bloginfo('name').' News').'</title><link>'.esc_url(home_url('/news/')).'</link><description>'.esc_html(get_bloginfo('description')).'</description>';if(!empty($result['success']))foreach($result['data']['items']as$item){echo '<item><title>'.esc_html($item['headline']).'</title><link>'.esc_url($item['canonical_url']).'</link><guid isPermaLink="true">'.esc_url($item['canonical_url']).'</guid><pubDate>'.esc_html(gmdate(DATE_RSS,strtotime($item['published_at'].' UTC'))).'</pubDate><description><![CDATA['.self::cdata($item['summary']).']]></description></item>';}echo '</channel></rss>';}
+	private static function serve_sitemap(){if(!Phase5FeatureSettings::enabled('news_sitemap_enabled')||!NewsPolicy::public_reads_allowed()){status_header(404);return;}$page=max(0,(int)self::q(self::Q_SITEMAP_PAGE));header('Content-Type: application/xml; charset=UTF-8');header('Cache-Control: public, max-age=300');if(0===$page){$first=NewsQueryService::query(array('per_page'=>1,'page'=>1));$total=!empty($first['success'])?(int)$first['data']['total']:0;$pages=max(1,(int)ceil($total/self::SITEMAP_CHUNK));if($pages>1){echo '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';for($i=1;$i<=$pages;$i++)echo '<sitemap><loc>'.esc_url(home_url('/news-sitemap-'.$i.'.xml')).'</loc></sitemap>';echo '</sitemapindex>';return;}$page=1;}$result=NewsQueryService::query(array('per_page'=>self::SITEMAP_CHUNK,'page'=>$page));if(empty($result['success'])){status_header(404);return;}echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">';foreach($result['data']['items']as$item){echo '<url><loc>'.esc_url($item['canonical_url']).'</loc><lastmod>'.esc_html(gmdate('c',strtotime($item['updated_at'].' UTC'))).'</lastmod>';foreach(TranslationService::alternates((int)$item['id'])as$alt)echo '<xhtml:link rel="alternate" hreflang="'.esc_attr($alt['language_tag']).'" href="'.esc_url($alt['url']).'" />';echo '</url>';}echo '</urlset>';}
+	private static function cdata($value){return str_replace(']]>',']]]]><![CDATA[>',(string)$value);}
+	private static function q($key){return function_exists('get_query_var')?(string)get_query_var($key,''):'';}
+}

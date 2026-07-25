@@ -1,0 +1,34 @@
+<?php
+/**
+ * Translation relationship and review service.
+ *
+ * @package SabriCompleteHomeNewsFeed
+ */
+
+namespace Sabri\HomeNewsFeed;
+
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/** Maintains canonical multilingual relationships and review state. */
+final class TranslationService {
+	public static function register() {}
+	public static function link( $article_id, $source_article_id, $language_tag, $translator_id, $source_revision_id = 0 ) {
+		$article_id=Phase5Contracts::positive_int($article_id);$source_article_id=Phase5Contracts::positive_int($source_article_id);$translator_id=Phase5Contracts::positive_int($translator_id);$language_tag=Phase5Contracts::language_tag($language_tag);
+		if($article_id<1||$source_article_id<1||$article_id===$source_article_id||$translator_id<1||''===$language_tag||!self::can_manage()){return self::error('phase5_permission_denied',403);}
+		if(function_exists('get_post_type')&&(Phase4Contracts::POST_TYPE!==get_post_type($article_id)||Phase4Contracts::POST_TYPE!==get_post_type($source_article_id)))return self::error('phase5_not_found',404);
+		if(function_exists('user_can')&&!user_can($translator_id,'translate_editorial_news'))return self::error('phase5_permission_denied',403);
+		$existing=Phase5Repository::query('translations',array('article_id'=>$article_id,'language_tag'=>$language_tag),1,0,'id','DESC'); if($existing)return self::error('phase5_conflict',409);
+		$same_language=Phase5Repository::query('translations',array('source_article_id'=>$source_article_id,'language_tag'=>$language_tag),1,0,'id','DESC'); if($same_language)return self::error('phase5_conflict',409);
+		$group=self::group_for_source($source_article_id);$now=gmdate('Y-m-d H:i:s');
+		$id=Phase5Repository::insert('translations',array('article_id'=>$article_id,'source_article_id'=>$source_article_id,'translation_group'=>$group,'language_tag'=>$language_tag,'translator_user_id'=>$translator_id,'reviewer_user_id'=>0,'state'=>'draft','source_revision_id'=>max(0,(int)$source_revision_id),'created_at'=>$now,'updated_at'=>$now));
+		if($id<1)return self::error('phase5_query_failed',500);Phase5AuditIntegrity::record('translation-linked','translation',$id,array('language_tag'=>$language_tag,'state'=>'draft'));return array('success'=>true,'status'=>201,'data'=>Phase5Repository::find('translations',$id));
+	}
+	public static function submit_for_review($id,$reviewer_id,$revision_id=0){$row=Phase5Repository::find('translations',$id);$reviewer_id=Phase5Contracts::positive_int($reviewer_id);if(!$row||$reviewer_id<1||!self::can_manage()||!in_array($row['state'],array('draft','needs-update'),true))return self::error('phase5_permission_denied',403);$review=ReviewLedger::assign((int)$row['article_id'],max(0,(int)$revision_id),'translation',$reviewer_id);if(empty($review['success']))return$review;Phase5Repository::update('translations',$id,array('reviewer_user_id'=>$reviewer_id,'state'=>'in-review','updated_at'=>gmdate('Y-m-d H:i:s')));return array('success'=>true,'status'=>200);}
+	public static function approve($id,$review_id){$row=Phase5Repository::find('translations',$id);$review=Phase5Repository::find('reviews',$review_id);if(!$row||!$review||!self::can_manage()||'in-review'!==$row['state']||(int)$review['article_id']!==(int)$row['article_id']||'translation'!==$review['review_type']||(int)$review['reviewer_user_id']!==(int)$row['reviewer_user_id'])return self::error('phase5_permission_denied',403);$decision=ReviewLedger::decide($review_id,'approved');if(empty($decision['success']))return$decision;if(!Phase5Repository::update('translations',$id,array('state'=>'approved','updated_at'=>gmdate('Y-m-d H:i:s'))))return self::error('phase5_query_failed',500);Phase5AuditIntegrity::record('translation-approved','translation',$id,array('language_tag'=>$row['language_tag'],'state'=>'approved'));return array('success'=>true,'status'=>200);}
+	public static function publish($id){$row=Phase5Repository::find('translations',$id);if(!$row||!self::can_manage()||'approved'!==$row['state']||!NewsPolicy::can_public_read((int)$row['article_id'],'single'))return self::error('phase5_release_blocked',409);if(!Phase5Repository::update('translations',$id,array('state'=>'published','updated_at'=>gmdate('Y-m-d H:i:s'))))return self::error('phase5_query_failed',500);Phase5AuditIntegrity::record('translation-published','translation',$id,array('language_tag'=>$row['language_tag'],'state'=>'published'));return array('success'=>true,'status'=>200);}
+	public static function alternates($article_id){if(!Phase5FeatureSettings::enabled('translations_enabled'))return array();$article_id=Phase5Contracts::positive_int($article_id);$source_id=$article_id;$current=Phase5Repository::query('translations',array('article_id'=>$article_id,'state'=>'published'),1,0,'id','DESC');if($current)$source_id=(int)$current[0]['source_article_id'];$rows=Phase5Repository::query('translations',array('source_article_id'=>$source_id,'state'=>'published'),100,0,'language_tag','ASC');$out=array();if($source_id!==$article_id&&NewsPolicy::can_public_read($source_id,'single')){$source=NewsQueryService::single($source_id);if(!empty($source['success']))$out[]=array('language_tag'=>function_exists('get_locale')?str_replace('_','-',get_locale()):'en-US','url'=>$source['data']['canonical_url'],'article_id'=>$source_id);}foreach($rows as$row){if((int)$row['article_id']===$article_id||!NewsPolicy::can_public_read($row['article_id'],'single'))continue;$article=NewsQueryService::single((int)$row['article_id']);if(!empty($article['success']))$out[]=array('language_tag'=>$row['language_tag'],'url'=>$article['data']['canonical_url'],'article_id'=>(int)$row['article_id']);}return$out;}
+	public static function flag_source_update($source_article_id,$new_revision_id){$rows=Phase5Repository::query('translations',array('source_article_id'=>Phase5Contracts::positive_int($source_article_id)),100,0,'id','ASC');$count=0;foreach($rows as$row){if((int)$row['source_revision_id']!==(int)$new_revision_id&&in_array($row['state'],array('approved','published'),true)){if(Phase5Repository::update('translations',$row['id'],array('state'=>'needs-update','updated_at'=>gmdate('Y-m-d H:i:s'))))$count++;}}return$count;}
+	private static function group_for_source($source_article_id){$rows=Phase5Repository::query('translations',array('source_article_id'=>$source_article_id),1,0,'id','ASC');if($rows)return(string)$rows[0]['translation_group'];return function_exists('wp_generate_uuid4')?wp_generate_uuid4():sprintf('%08x-%04x-%04x-%04x-%012x',mt_rand(),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand(0,0xffff),mt_rand());}
+	private static function can_manage(){return Phase5FeatureSettings::enabled('translations_enabled')&&function_exists('current_user_can')&&current_user_can('translate_editorial_news');}
+	private static function error($code,$status){return array('success'=>false,'status'=>$status,'code'=>$code);}
+}
