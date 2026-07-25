@@ -70,20 +70,44 @@ jobs:
           node --check tests/run-phase5-performance-playground.mjs
           git diff --check
 
-      - name: Run Phase 5 and all prior regressions
+      - name: Run Phase 5 local acceptance
         if: steps.overlay.outputs.apply == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          bash tools/run-phase5-local-tests.sh
-          php tests/run-phase4c-public-news-tests.php
-          php tests/run-phase4c-security-tests.php
-          php tests/run-phase4c-ui-completeness-tests.php
-          php tests/run-phase4b-newsroom-tests.php
-          php tests/run-phase4b-ui-completeness-tests.php
-          php tests/run-phase4a-content-model-tests.php
-          php tools/run-tests.php
-          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
+          bash tools/run-phase5-local-tests.sh 2>&1 | tee phase5-runtime-phase5.log
+
+      - name: Run Phase 4C regressions
+        if: steps.overlay.outputs.apply == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4c-public-news-tests.php 2>&1 | tee phase5-runtime-phase4c-public.log
+          php tests/run-phase4c-security-tests.php 2>&1 | tee phase5-runtime-phase4c-security.log
+          php tests/run-phase4c-ui-completeness-tests.php 2>&1 | tee phase5-runtime-phase4c-ui.log
+
+      - name: Run Phase 4B regressions
+        if: steps.overlay.outputs.apply == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4b-newsroom-tests.php 2>&1 | tee phase5-runtime-phase4b-newsroom.log
+          php tests/run-phase4b-ui-completeness-tests.php 2>&1 | tee phase5-runtime-phase4b-ui.log
+
+      - name: Run Phase 4A and core regressions
+        if: steps.overlay.outputs.apply == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-phase4a-content-model-tests.php 2>&1 | tee phase5-runtime-phase4a.log
+          php tools/run-tests.php 2>&1 | tee phase5-runtime-core.log
+
+      - name: Run static security checks
+        if: steps.overlay.outputs.apply == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests 2>&1 | tee phase5-runtime-static.log
 
       - name: Build and verify immutable Phase 5 package
         if: steps.overlay.outputs.apply == 'true'
@@ -124,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf release
-          rm -f phase5-runtime-bootstrap.log phase5-runtime-overlay-entries.txt
+          rm -f phase5-runtime-*.log phase5-runtime-overlay-entries.txt
           git config user.name 'Sabri Phase 5 QA Bot'
           git config user.email 'actions@users.noreply.github.com'
           git add -A
@@ -144,4 +168,13 @@ jobs:
           path: |
             phase5-runtime-bootstrap.log
             phase5-runtime-overlay-entries.txt
+            phase5-runtime-phase5.log
+            phase5-runtime-phase4c-public.log
+            phase5-runtime-phase4c-security.log
+            phase5-runtime-phase4c-ui.log
+            phase5-runtime-phase4b-newsroom.log
+            phase5-runtime-phase4b-ui.log
+            phase5-runtime-phase4a.log
+            phase5-runtime-core.log
+            phase5-runtime-static.log
           if-no-files-found: ignore
