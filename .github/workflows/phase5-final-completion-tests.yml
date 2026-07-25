@@ -1,0 +1,14 @@
+name: Phase 5 Final Completion Tests
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pending-clean-runtime:
+    name: Final acceptance remains closed during runtime bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'This fail-closed reservation is replaced by the complete exact-head workflow immediately after the verified runtime bootstrap commit.'
