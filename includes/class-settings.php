@@ -211,7 +211,9 @@ final class Settings {
 			$functions = isset( $out['functions'] ) && is_array( $out['functions'] ) ? self::sanitize_function_map( $out['functions'] ) : array();
 			foreach ( $input['functions'] as $key => $function_name ) {
 				$key = self::clean_key( $key );
-				if ( in_array( $key, self::recognized_integration_function_keys(), true ) ) { $functions[ $key ] = self::clean_function_name( $function_name ); }
+				if ( in_array( $key, self::recognized_integration_function_keys(), true ) ) {
+					$functions[ $key ] = self::clean_function_name( $function_name );
+				}
 			}
 			$out['functions'] = $functions;
 		}
@@ -299,8 +301,28 @@ final class Settings {
 	private static function clean_url( $value ) { return function_exists( 'esc_url_raw' ) ? esc_url_raw( $value ) : filter_var( $value, FILTER_SANITIZE_URL ); }
 	private static function select_value( $value, array $allowed, $fallback ) { $value = self::clean_key( $value ); return in_array( $value, $allowed, true ) ? $value : $fallback; }
 	private static function recognized_integration_function_keys() { return array( 'notifications', 'network', 'messages', 'appointments' ); }
-	private static function sanitize_function_map( array $map ) { $out = array(); foreach ( self::recognized_integration_function_keys() as $key ) { $out[ $key ] = isset( $map[ $key ] ) ? self::clean_function_name( $map[ $key ] ) : ''; } return $out; }
-	private static function clean_function_name( $value ) { $value = trim( (string) $value ); return preg_match( '/^[A-Za-z_][A-Za-z0-9_\\]*$/', $value ) ? $value : ''; }
+
+	/** Sanitize every stored callback while preserving future keys. */
+	private static function sanitize_function_map( array $map ) {
+		$out = array();
+		foreach ( $map as $key => $function_name ) {
+			$key = self::clean_key( $key );
+			if ( '' !== $key ) {
+				$out[ $key ] = self::clean_function_name( $function_name );
+			}
+		}
+		return $out;
+	}
+
+	/** Accept plain or namespaced PHP function names; reject arbitrary syntax. */
+	private static function clean_function_name( $value ) {
+		$value = trim( (string) $value );
+		if ( '' === $value ) {
+			return '';
+		}
+		return preg_match( '/^[A-Za-z_][A-Za-z0-9_]*(?:\\\\[A-Za-z_][A-Za-z0-9_]*)*$/', $value ) ? $value : '';
+	}
+
 	private static function sanitize_deep( $value ) {
 		if ( is_array( $value ) ) { $out = array(); foreach ( $value as $key => $item ) { $out[ self::clean_key( $key ) ] = self::sanitize_deep( $item ); } return $out; }
 		if ( is_bool( $value ) || is_int( $value ) ) { return $value; }
