@@ -21,7 +21,7 @@ final class Integrations {
 		}
 	}
 
-	/** Confirmed public Shell hooks. */
+	/** Confirmed public Shell 1.0.0 hooks. */
 	public static function confirmed_shell_hooks() {
 		return array(
 			'sabri_shell_navigation_destinations' => 'filter',
@@ -30,7 +30,12 @@ final class Integrations {
 			'sabri_shell_layout_mode' => 'filter',
 			'sabri_shell_system_check_report' => 'filter',
 			'sabri_shell_complete_repair_ran' => 'action',
-			// File 20 harmonization line adds these official rendering slots.
+		);
+	}
+
+	/** Required File 20 harmonization slots. */
+	public static function required_shell_slots() {
+		return array(
 			'sabri_shell_home_before_main' => 'action',
 			'sabri_shell_home_main' => 'action',
 			'sabri_shell_home_after_main' => 'action',
@@ -51,9 +56,9 @@ final class Integrations {
 		);
 	}
 
-	/** Historical proposed hooks, now superseded by the official File 20 slot contract. */
+	/** Proposed future integrations are superseded by required versioned slots. */
 	public static function proposed_future_integrations() {
-		return array();
+		return self::required_shell_slots();
 	}
 
 	/** Detect Shell and all known companion states. */
@@ -65,6 +70,7 @@ final class Integrations {
 				'status' => isset( $shell['status'] ) ? $shell['status'] : 'Missing',
 				'version' => defined( 'SABRI_SHELL_VERSION' ) ? SABRI_SHELL_VERSION : '',
 				'confirmed_hooks' => self::confirmed_shell_hooks(),
+				'required_slots' => self::required_shell_slots(),
 				'plugin_owned_hooks' => self::plugin_owned_hooks(),
 				'proposed_future' => array(),
 				'evidence' => isset( $shell['evidence'] ) ? $shell['evidence'] : array(),
@@ -96,7 +102,7 @@ final class Integrations {
 		$rows[] = array(
 			'label' => __( 'Home and News Feed foundation', 'sabri-complete-home-news-feed' ),
 			'status' => 'Connected',
-			'detail' => __( 'File 21 is the canonical Home/News content engine. File 20 owns the global Shell and official rendering slots.', 'sabri-complete-home-news-feed' ),
+			'detail' => __( 'File 21 is the canonical Home/News content engine. File 20 owns the global Shell; official rendering slots are required for final acceptance.', 'sabri-complete-home-news-feed' ),
 		);
 		foreach ( CompanionIntegrationRegistry::all() as $service ) {
 			$rows[] = array(
