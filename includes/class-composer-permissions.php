@@ -50,11 +50,12 @@ final class ComposerPermissions {
 		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) ) ) {
 			return true;
 		}
+		// Editorial roles belong to the institutional Newsroom. They do not receive
+		// social-Feed authorship merely because they can edit Editorial News.
 		return CanonicalIdentityAdapter::is_founder( $user_id )
 			|| CanonicalIdentityAdapter::is_administrator( $user_id )
 			|| CanonicalIdentityAdapter::is_verified_doctor( $user_id )
-			|| CanonicalIdentityAdapter::is_unverified_doctor( $user_id )
-			|| self::user_has_role_group( $user_id, 'editorial_roles', $settings );
+			|| CanonicalIdentityAdapter::is_unverified_doctor( $user_id );
 	}
 
 	/** Whether the current user may publish immediately. */
@@ -78,7 +79,7 @@ final class ComposerPermissions {
 		return false;
 	}
 
-	/** Whether the current user may submit posts for editorial review. */
+	/** Whether the current user may submit social posts for review. */
 	public static function user_can_submit_for_review( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
@@ -134,7 +135,6 @@ final class ComposerPermissions {
 				? array( 'allowed' => true, 'status' => 'publish' )
 				: self::denied( 'publish_denied', __( 'This post must be submitted for review.', 'sabri-complete-home-news-feed' ) );
 		}
-		// A stale Submit request from an immediate publisher is normalized server-side.
 		if ( self::user_can_publish( $user_id, $settings ) ) {
 			return array( 'allowed' => true, 'status' => 'publish', 'normalized_action' => 'publish' );
 		}
