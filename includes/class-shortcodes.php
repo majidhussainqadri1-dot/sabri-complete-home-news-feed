@@ -11,9 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Registers shortcode fallback rendering.
- */
+/** Registers shortcode fallback rendering. */
 final class Shortcodes {
 	/** Whether the composer shortcode rendered in this request. */
 	private static $composer_rendered = false;
@@ -52,7 +50,7 @@ final class Shortcodes {
 	public static function profile_timeline( $atts = array() ) {
 		$atts = is_array( $atts ) ? $atts : array();
 		$defaults = array(
-			'user_id'  => function_exists( 'get_queried_object_id' ) ? (int) get_queried_object_id() : 0,
+			'user_id'  => 0,
 			'page'     => 1,
 			'per_page' => 10,
 		);
@@ -61,10 +59,19 @@ final class Shortcodes {
 		} else {
 			$atts = array_merge( $defaults, $atts );
 		}
+
 		$user_id = absint( isset( $atts['user_id'] ) ? $atts['user_id'] : 0 );
+		if ( $user_id <= 0 && function_exists( 'is_author' ) && is_author() && function_exists( 'get_queried_object' ) ) {
+			$queried = get_queried_object();
+			$user_id = is_object( $queried ) && isset( $queried->ID ) ? absint( $queried->ID ) : 0;
+		}
 		if ( $user_id <= 0 && function_exists( 'get_current_user_id' ) ) {
 			$user_id = (int) get_current_user_id();
 		}
+		if ( $user_id <= 0 ) {
+			return '';
+		}
+
 		return ProfileTimeline::render(
 			$user_id,
 			array(
