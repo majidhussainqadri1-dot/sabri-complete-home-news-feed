@@ -55,8 +55,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           test -z "$(git status --porcelain --untracked-files=no)"
-          grep -Fq 'Version: 1.0.0' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.1' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.1' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
 
@@ -124,8 +124,8 @@ jobs:
           set -euo pipefail
           rm -rf release phase4c-package phase4c-preflight
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
+          package=$(find release -maxdepth 1 -type f -name '*-COMPATIBILITY-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-COMPATIBILITY-CANDIDATE.sha256' -print -quit)
           test -n "$package" && test -n "$checksum"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
