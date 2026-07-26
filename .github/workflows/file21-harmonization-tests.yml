@@ -102,9 +102,9 @@ jobs:
           set -euo pipefail
           rm -rf release file21-harmonization-package
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          manifest=$(find release -maxdepth 1 -type f -name '*-MANIFEST.sha256' -print -quit)
+          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          manifest=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE-MANIFEST.sha256' -print -quit)
           test -n "$package" && test -n "$checksum" && test -n "$manifest"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
@@ -112,13 +112,23 @@ jobs:
           unzip -tqq "$package"
           unzip -Z1 "$package" > package-entries.txt
           for entry in \
+            sabri-complete-home-news-feed/sabri-complete-home-news-feed.php \
             sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php \
             sabri-complete-home-news-feed/includes/class-companion-integration-registry.php \
+            sabri-complete-home-news-feed/includes/class-companion-home-row-adapters.php \
+            sabri-complete-home-news-feed/includes/class-search-provider-registry.php \
             sabri-complete-home-news-feed/includes/class-viral-ranking-signals.php \
             sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
+            sabri-complete-home-news-feed/includes/class-legacy-interaction-migration-adapter.php \
             sabri-complete-home-news-feed/includes/class-legacy-publication-migration.php \
+            sabri-complete-home-news-feed/includes/class-legacy-publication-rollback.php \
+            sabri-complete-home-news-feed/includes/class-harmonization-diagnostics.php \
             sabri-complete-home-news-feed/includes/class-harmonized-settings.php \
-            sabri-complete-home-news-feed/includes/class-search-provider-registry.php \
+            sabri-complete-home-news-feed/admin/class-corrective-admin.php \
+            sabri-complete-home-news-feed/admin/views/corrective-wizard.php \
+            sabri-complete-home-news-feed/admin/views/migration.php \
+            sabri-complete-home-news-feed/admin/views/system-check.php \
+            sabri-complete-home-news-feed/assets/css/home-composition.css \
             sabri-complete-home-news-feed/FILE-21-HARMONIZATION-COMPLETION-PLAN.md; do
             grep -Fxq "$entry" package-entries.txt
           done
