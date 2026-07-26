@@ -19,13 +19,13 @@ final class Snapshot {
 	/**
 	 * Capture state before settings, schema, taxonomy, or capability mutations.
 	 *
-	 * The first complete baseline for a plugin version remains immutable. A legacy
-	 * same-version snapshot is augmented only for fields absent from the old format;
-	 * current Phase 4-mutated options are never rewritten as historical baseline.
+	 * The first complete baseline for a schema-compatible patch line remains
+	 * immutable. A legacy snapshot is augmented only for fields absent from the
+	 * old format; current plugin-mutated options are never rewritten as history.
 	 */
 	public static function capture_before_mutation( $reason ) {
 		$existing = self::latest();
-		if ( ! empty( $existing ) && isset( $existing['version'] ) && SABRI_HNF_VERSION === $existing['version'] ) {
+		if ( self::is_augmentable_baseline( $existing ) ) {
 			$augmented = self::augment_same_version_snapshot( $existing );
 			if ( $augmented !== $existing && function_exists( 'update_option' ) ) {
 				update_option( self::OPTION_NAME, $augmented, false );
@@ -98,7 +98,36 @@ final class Snapshot {
 		return $out;
 	}
 
-	/** Complete only missing Phase 4 fields in a legacy same-version snapshot. */
+	/**
+	 * Whether an existing snapshot may be augmented instead of replaced.
+	 *
+	 * Exact versions are always compatible. A previous patch version is also
+	 * compatible only when major and minor versions match and the schema marker
+	 * is absent (legacy format) or matches the current schema line.
+	 */
+	private static function is_augmentable_baseline( array $snapshot ) {
+		if ( empty( $snapshot ) || empty( $snapshot['version'] ) || ! is_string( $snapshot['version'] ) ) {
+			return false;
+		}
+		$existing_version = trim( $snapshot['version'] );
+		if ( SABRI_HNF_VERSION === $existing_version ) {
+			return true;
+		}
+		if ( ! preg_match( '/^(\d+)\.(\d+)\.(\d+)$/', $existing_version, $existing_parts )
+			|| ! preg_match( '/^(\d+)\.(\d+)\.(\d+)$/', SABRI_HNF_VERSION, $current_parts ) ) {
+			return false;
+		}
+		$same_patch_line = $existing_parts[1] === $current_parts[1]
+			&& $existing_parts[2] === $current_parts[2]
+			&& version_compare( $existing_version, SABRI_HNF_VERSION, '<=' );
+		if ( ! $same_patch_line ) {
+			return false;
+		}
+		$snapshot_schema = isset( $snapshot['schema_version'] ) ? trim( (string) $snapshot['schema_version'] ) : '';
+		return '' === $snapshot_schema || SABRI_HNF_SCHEMA_VERSION === $snapshot_schema;
+	}
+
+	/** Complete only missing Phase 4 fields in a compatible legacy snapshot. */
 	private static function augment_same_version_snapshot( array $snapshot ) {
 		$changed = false;
 
