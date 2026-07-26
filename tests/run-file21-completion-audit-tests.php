@@ -29,7 +29,7 @@ sabri_file21_completion_assert( 0 === $defaults['replace_existing_feed_surface']
 sabri_file21_completion_assert( 1 === $defaults['duplicate_navigation_guard'], 'Duplicate navigation diagnostics must default on.' );
 
 $steps = CorrectiveActivationWizard::steps();
-foreach ( array( 'environment', 'existing-content', 'public-components', 'duplicate-protection', 'news-gates', 'preview-activate' ) as $step ) {
+foreach ( array( 'environment', 'identity-authority', 'existing-content', 'public-components', 'duplicate-protection', 'news-gates', 'preview-activate' ) as $step ) {
 	sabri_file21_completion_assert( isset( $steps[ $step ] ), 'Activation Wizard is missing required step: ' . $step );
 }
 $components = CorrectiveActivationWizard::component_definitions();
@@ -75,7 +75,7 @@ sabri_file21_completion_assert( false !== strpos( $mount, 'replace_existing_feed
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectivePublicMount::class' ) && false !== strpos( $plugin, 'RestProfileTimeline::class' ), 'Corrective public and Timeline modules must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectiveAdmin::class' ), 'Activation Wizard administration must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $view, 'Gate-by-Gate Public News Activation' ), 'Wizard must visibly expose gate-by-gate News activation.' );
-sabri_file21_completion_assert( false !== strpos( $checklist, 'exact 40-character commit SHA' ) && false !== strpos( $checklist, 'ZIP SHA-256' ), 'Visual acceptance evidence must bind screenshots to immutable source and package identity.' );
+sabri_file21_completion_assert( false !== strpos( $checklist, 'exact 40-character File 21 commit SHA' ) && false !== strpos( $checklist, 'ZIP SHA-256' ), 'Visual acceptance evidence must bind screenshots to immutable File 21 source and package identity.' );
 
 if ( ! empty( $failures ) ) {
 	fwrite( STDERR, "File 21 completion audit failed:\n- " . implode( "\n- ", $failures ) . "\n" );
