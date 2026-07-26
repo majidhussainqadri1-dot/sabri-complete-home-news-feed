@@ -28,11 +28,12 @@ final class CorrectiveActivationWizard {
 	/** Public component labels. */
 	public static function component_definitions() {
 		return array(
-			'home_surface_enabled'       => __( 'Mount the identifiable File 21 Home surface', 'sabri-complete-home-news-feed' ),
-			'profile_timeline_enabled'   => __( 'Enable Profile Timeline data and public rendering', 'sabri-complete-home-news-feed' ),
-			'distinct_surface_marker'    => __( 'Show the File 21 surface marker', 'sabri-complete-home-news-feed' ),
-			'duplicate_feed_guard'       => __( 'Block auto-mount when an old/new Feed shortcode already exists', 'sabri-complete-home-news-feed' ),
-			'duplicate_navigation_guard' => __( 'Report duplicate Unified Shell navigation destinations', 'sabri-complete-home-news-feed' ),
+			'home_surface_enabled'          => __( 'Mount the identifiable File 21 Home surface', 'sabri-complete-home-news-feed' ),
+			'profile_timeline_enabled'      => __( 'Enable Profile Timeline data and public rendering', 'sabri-complete-home-news-feed' ),
+			'distinct_surface_marker'       => __( 'Show the File 21 surface marker', 'sabri-complete-home-news-feed' ),
+			'duplicate_feed_guard'          => __( 'Prevent more than one Home Feed surface', 'sabri-complete-home-news-feed' ),
+			'replace_existing_feed_surface' => __( 'Replace a detected old/current Feed shortcode at render time (page content is not changed)', 'sabri-complete-home-news-feed' ),
+			'duplicate_navigation_guard'    => __( 'Report duplicate Unified Shell navigation destinations', 'sabri-complete-home-news-feed' ),
 		);
 	}
 
@@ -103,7 +104,7 @@ final class CorrectiveActivationWizard {
 				'rss'     => function_exists( 'home_url' ) ? home_url( '/news/feed/' ) : '/news/feed/',
 				'sitemap' => function_exists( 'home_url' ) ? home_url( '/news-sitemap.xml' ) : '/news-sitemap.xml',
 			),
-			'can_activate_home_surface' => empty( $duplicates['feed_conflict'] ),
+			'can_activate_home_surface' => ! empty( $duplicates['can_mount_without_duplicate'] ),
 			'destructive'               => false,
 			'automatic_bulk_publish'    => false,
 		);
@@ -117,15 +118,19 @@ final class CorrectiveActivationWizard {
 			$patch[ $key ] = isset( $input[ $key ] ) && in_array( $input[ $key ], array( 1, '1', true ), true ) ? 1 : 0;
 		}
 		$diagnostics = CorrectivePublicMount::diagnostics();
-		if ( ! empty( $patch['home_surface_enabled'] ) && ! empty( $patch['duplicate_feed_guard'] ) && ! empty( $diagnostics['feed_conflict'] ) ) {
+		$blocked = ! empty( $patch['home_surface_enabled'] )
+			&& ! empty( $patch['duplicate_feed_guard'] )
+			&& ! empty( $diagnostics['feed_conflict'] )
+			&& empty( $patch['replace_existing_feed_surface'] );
+		if ( $blocked ) {
 			$patch['home_surface_enabled'] = 0;
 			$patch['wizard_completed']     = 0;
 		} else {
 			$patch['wizard_completed'] = 1;
 		}
 		$updated = CorrectivePublicSettings::patch( $patch );
-		AuditLog::record( 'corrective_public_components_updated', array( 'settings' => $updated, 'diagnostics' => $diagnostics ) );
-		return array( 'settings' => $updated, 'diagnostics' => $diagnostics );
+		AuditLog::record( 'corrective_public_components_updated', array( 'settings' => $updated, 'diagnostics' => $diagnostics, 'blocked' => $blocked ) );
+		return array( 'settings' => $updated, 'diagnostics' => $diagnostics, 'blocked' => $blocked );
 	}
 
 	/** Save gate-by-gate News choices while preserving dependency boundaries. */
