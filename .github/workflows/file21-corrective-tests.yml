@@ -85,7 +85,7 @@ jobs:
           grep -Fq 'RestProfileTimeline::class' includes/class-plugin.php
           grep -Fq 'CorrectiveAdmin::class' includes/class-plugin.php
           grep -Fq 'Gate-by-Gate Public News Activation' admin/views/corrective-wizard.php
-          grep -Fq 'exact 40-character commit SHA' FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md
+          grep -Fq 'exact 40-character File 21 commit SHA' FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md
           test -z "$(git status --porcelain --untracked-files=no)"
 
   immutable-package:
