@@ -43,12 +43,13 @@ final class CorrectivePublicSettings {
 	/** Safe defaults: protections on, public mounting off until explicit preview. */
 	public static function defaults() {
 		return array(
-			'home_surface_enabled'       => 0,
-			'profile_timeline_enabled'   => 0,
-			'distinct_surface_marker'    => 1,
-			'duplicate_feed_guard'       => 1,
-			'duplicate_navigation_guard' => 1,
-			'wizard_completed'           => 0,
+			'home_surface_enabled'         => 0,
+			'profile_timeline_enabled'     => 0,
+			'distinct_surface_marker'      => 1,
+			'duplicate_feed_guard'         => 1,
+			'replace_existing_feed_surface' => 0,
+			'duplicate_navigation_guard'   => 1,
+			'wizard_completed'             => 0,
 		);
 	}
 
