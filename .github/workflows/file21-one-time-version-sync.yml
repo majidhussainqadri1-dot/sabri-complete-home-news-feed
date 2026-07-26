@@ -1,0 +1,80 @@
+name: File 21 One-Time Version Assertion Sync
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/file21-one-time-version-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'build/file-21-comprehensive-harmonization-1.0.1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: build/file-21-comprehensive-harmonization-1.0.1
+          fetch-depth: 0
+      - name: Apply exact bounded replacements
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('tests/run-phase4a-content-model-tests.php'): [
+                  ("'1.0.0' === $identity['version']", "'1.0.1' === $identity['version']"),
+                  ('Phase 4A must not promote the plugin version.', 'Phase 4A contracts must accept the promoted plugin version.'),
+              ],
+              Path('tests/run-phase4c-public-news-tests.php'): [
+                  ("'1.0.0' === SABRI_HNF_VERSION", "'1.0.1' === SABRI_HNF_VERSION"),
+                  ('Phase 4C must not promote the plugin version.', 'Phase 4C must preserve the accepted plugin version.'),
+              ],
+              Path('tests/run-tests.php'): [
+                  ("'1.0.0' === $identity['version']", "'1.0.1' === $identity['version']"),
+              ],
+          }
+
+          for path, pairs in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{path}: expected exactly one occurrence of {old!r}, found {count}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+
+          workflow = Path('.github/workflows/file21-one-time-version-sync.yml')
+          if not workflow.exists():
+              raise SystemExit('self-removing workflow file is missing')
+          workflow.unlink()
+          PY
+      - name: Verify synchronized assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "'1.0.1' === \$identity['version']" tests/run-phase4a-content-model-tests.php
+          grep -Fq "'1.0.1' === SABRI_HNF_VERSION" tests/run-phase4c-public-news-tests.php
+          grep -Fq "'1.0.1' === \$identity['version']" tests/run-tests.php
+          ! grep -Fq "'1.0.0' === \$identity['version']" tests/run-phase4a-content-model-tests.php
+          ! grep -Fq "'1.0.0' === SABRI_HNF_VERSION" tests/run-phase4c-public-news-tests.php
+          php -l tests/run-phase4a-content-model-tests.php
+          php -l tests/run-phase4c-public-news-tests.php
+          php -l tests/run-tests.php
+      - name: Commit exact replacements and remove workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'File 21 Release Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add tests/run-phase4a-content-model-tests.php tests/run-phase4c-public-news-tests.php tests/run-tests.php .github/workflows/file21-one-time-version-sync.yml
+          git diff --cached --check
+          git commit -m 'Synchronize File 21 version assertions with release 1.0.1'
+          git push origin HEAD:build/file-21-comprehensive-harmonization-1.0.1
