@@ -1,6 +1,6 @@
 <?php
 /**
- * Phase 3H release-readiness gate.
+ * Phase 3 release-readiness gate with File 21 harmonization projection.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Prevents automated or accidental Phase 3 release promotion. */
+/** Prevents automated or accidental release promotion. */
 final class ReleaseReadiness {
 	const ACCEPTANCE_OPTION = 'sabri_hnf_phase3_staging_acceptance';
 
@@ -22,7 +22,7 @@ final class ReleaseReadiness {
 		}
 	}
 
-	/** Immutable acceptance checklist keys. */
+	/** Immutable legacy Phase 3 acceptance checklist keys. */
 	public static function checklist_items() {
 		return array(
 			'clean_install',
@@ -48,17 +48,25 @@ final class ReleaseReadiness {
 		);
 	}
 
-	/** Stable hash for the exact acceptance checklist contract. */
+	/** Stable hash for the exact legacy checklist contract. */
 	public static function checklist_hash() {
 		return hash( 'sha256', wp_json_encode( array( Phase3Contracts::TARGET_VERSION, self::checklist_items() ) ) );
 	}
 
 	/** Return a read-only readiness report. */
 	public static function report() {
-		$schema      = Phase3SchemaAudit::audit();
-		$acceptance  = self::acceptance_record();
-		$blocked     = array();
-		$code_ready  = ! empty( $schema['ok'] ) && self::required_classes_available();
+		$schema = Phase3SchemaAudit::audit();
+		$acceptance = self::acceptance_record();
+		$blocked = array();
+		$code_ready = ! empty( $schema['ok'] ) && self::required_classes_available();
+		$harmonization = class_exists( __NAMESPACE__ . '\\HarmonizationDiagnostics' )
+			? HarmonizationDiagnostics::readiness()
+			: array(
+				'code_ready_for_exact_head_qa' => false,
+				'live_release_ready' => false,
+				'blocking_checks' => array( 'harmonization_diagnostics_missing' ),
+				'external_acceptance_checks' => array(),
+			);
 
 		if ( ! $code_ready ) {
 			$blocked[] = 'code_or_schema_audit_failed';
@@ -67,7 +75,7 @@ final class ReleaseReadiness {
 			$blocked[] = 'staging_acceptance_missing_or_invalid';
 		}
 		if ( SABRI_HNF_VERSION !== Phase3Contracts::TARGET_VERSION ) {
-			$blocked[] = 'plugin_version_not_promoted';
+			$blocked[] = 'legacy_phase3_target_version_not_promoted';
 		}
 		if ( SafeMode::public_features_disabled() ) {
 			$blocked[] = 'safe_mode_or_emergency_disable_active';
@@ -75,32 +83,41 @@ final class ReleaseReadiness {
 
 		return array(
 			'code_ready_for_staging' => $code_ready,
-			'release_ready'          => empty( $blocked ),
-			'target_version'         => Phase3Contracts::TARGET_VERSION,
-			'plugin_version'         => SABRI_HNF_VERSION,
-			'schema_version'         => SABRI_HNF_SCHEMA_VERSION,
-			'checklist_hash'         => self::checklist_hash(),
-			'acceptance'             => $acceptance,
-			'blocked_reasons'        => array_values( array_unique( $blocked ) ),
-			'schema'                 => $schema,
-			'automatic_promotion'     => false,
-			'automatic_merge'         => false,
-			'automatic_deployment'    => false,
+			'release_ready' => empty( $blocked ),
+			'target_version' => Phase3Contracts::TARGET_VERSION,
+			'plugin_version' => SABRI_HNF_VERSION,
+			'schema_version' => SABRI_HNF_SCHEMA_VERSION,
+			'checklist_hash' => self::checklist_hash(),
+			'acceptance' => $acceptance,
+			'blocked_reasons' => array_values( array_unique( $blocked ) ),
+			'schema' => $schema,
+			'harmonization' => $harmonization,
+			'automatic_promotion' => false,
+			'automatic_merge' => false,
+			'automatic_deployment' => false,
 		);
 	}
 
-	/** Append a concise Shell system-check row. */
+	/** Append concise legacy and harmonization System Check rows. */
 	public static function append_system_check( $rows ) {
 		if ( ! is_array( $rows ) ) {
 			return $rows;
 		}
 		$report = self::report();
 		$rows[] = array(
-			'label'  => __( 'Phase 3 release readiness', 'sabri-complete-home-news-feed' ),
+			'label' => __( 'Legacy Phase 3 release readiness', 'sabri-complete-home-news-feed' ),
 			'status' => ! empty( $report['release_ready'] ) ? 'Ready' : ( ! empty( $report['code_ready_for_staging'] ) ? 'Staging Required' : 'Blocked' ),
 			'detail' => ! empty( $report['release_ready'] )
-				? __( 'The tested staging acceptance record matches the frozen checklist.', 'sabri-complete-home-news-feed' )
-				: __( 'Release promotion is blocked until the frozen staging checklist, rollback verification, and explicit acceptance are complete.', 'sabri-complete-home-news-feed' ),
+				? __( 'The tested staging acceptance record matches the frozen legacy checklist.', 'sabri-complete-home-news-feed' )
+				: __( 'Legacy Phase 3 promotion remains a separate historical gate and does not constitute File 21 harmonization acceptance.', 'sabri-complete-home-news-feed' ),
+		);
+		$harmonization = isset( $report['harmonization'] ) && is_array( $report['harmonization'] ) ? $report['harmonization'] : array();
+		$rows[] = array(
+			'label' => __( 'File 21 harmonization readiness', 'sabri-complete-home-news-feed' ),
+			'status' => ! empty( $harmonization['code_ready_for_exact_head_qa'] ) ? 'Exact-head QA Required' : 'Blocked',
+			'detail' => ! empty( $harmonization['code_ready_for_exact_head_qa'] )
+				? __( 'Source contracts are ready for exact-head CI; live release remains blocked until package, continuous QA and WordPress visual acceptance complete.', 'sabri-complete-home-news-feed' )
+				: __( 'One or more harmonization source checks are incomplete.', 'sabri-complete-home-news-feed' ),
 		);
 		return $rows;
 	}
@@ -110,13 +127,13 @@ final class ReleaseReadiness {
 		$record = function_exists( 'get_option' ) ? get_option( self::ACCEPTANCE_OPTION, array() ) : array();
 		$record = is_array( $record ) ? $record : array();
 		$accepted_at = isset( $record['accepted_at'] ) ? trim( (string) $record['accepted_at'] ) : '';
-		$tested_sha  = isset( $record['tested_head_sha'] ) ? strtolower( trim( (string) $record['tested_head_sha'] ) ) : '';
-		$hash        = isset( $record['checklist_hash'] ) ? strtolower( trim( (string) $record['checklist_hash'] ) ) : '';
-		$completed   = isset( $record['completed_items'] ) && is_array( $record['completed_items'] ) ? array_values( array_unique( array_map( 'sanitize_key', $record['completed_items'] ) ) ) : array();
-		$required    = self::checklist_items();
-		$valid_date  = '' !== $accepted_at && false !== strtotime( $accepted_at . ' UTC' );
-		$all_items   = empty( array_diff( $required, $completed ) );
-		$valid       = ! empty( $record['accepted'] )
+		$tested_sha = isset( $record['tested_head_sha'] ) ? strtolower( trim( (string) $record['tested_head_sha'] ) ) : '';
+		$hash = isset( $record['checklist_hash'] ) ? strtolower( trim( (string) $record['checklist_hash'] ) ) : '';
+		$completed = isset( $record['completed_items'] ) && is_array( $record['completed_items'] ) ? array_values( array_unique( array_map( 'sanitize_key', $record['completed_items'] ) ) ) : array();
+		$required = self::checklist_items();
+		$valid_date = '' !== $accepted_at && false !== strtotime( $accepted_at . ' UTC' );
+		$all_items = empty( array_diff( $required, $completed ) );
+		$valid = ! empty( $record['accepted'] )
 			&& ! empty( $record['accepted_by'] )
 			&& $valid_date
 			&& preg_match( '/^[a-f0-9]{40}$/', $tested_sha )
@@ -126,16 +143,16 @@ final class ReleaseReadiness {
 			&& ! empty( $record['backup_verified'] );
 
 		return array(
-			'valid'             => (bool) $valid,
-			'accepted'          => ! empty( $record['accepted'] ),
-			'accepted_by'       => isset( $record['accepted_by'] ) ? absint( $record['accepted_by'] ) : 0,
-			'accepted_at'       => $valid_date ? $accepted_at : '',
-			'tested_head_sha'   => preg_match( '/^[a-f0-9]{40}$/', $tested_sha ) ? $tested_sha : '',
+			'valid' => (bool) $valid,
+			'accepted' => ! empty( $record['accepted'] ),
+			'accepted_by' => isset( $record['accepted_by'] ) ? absint( $record['accepted_by'] ) : 0,
+			'accepted_at' => $valid_date ? $accepted_at : '',
+			'tested_head_sha' => preg_match( '/^[a-f0-9]{40}$/', $tested_sha ) ? $tested_sha : '',
 			'checklist_matches' => 64 === strlen( $hash ) && hash_equals( self::checklist_hash(), $hash ),
-			'completed_count'   => count( array_intersect( $required, $completed ) ),
-			'required_count'    => count( $required ),
+			'completed_count' => count( array_intersect( $required, $completed ) ),
+			'required_count' => count( $required ),
 			'rollback_verified' => ! empty( $record['rollback_verified'] ),
-			'backup_verified'   => ! empty( $record['backup_verified'] ),
+			'backup_verified' => ! empty( $record['backup_verified'] ),
 		);
 	}
 

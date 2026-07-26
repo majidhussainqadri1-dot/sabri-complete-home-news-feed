@@ -35,6 +35,16 @@ jobs:
         shell: pwsh
         run: ./tools/build-release.ps1
 
+      - name: Resolve exact harmonized candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          printf 'SABRI_PLUGIN_ZIP=%s\n' "$package" >> "$GITHUB_ENV"
+          printf 'SABRI_PLUGIN_SHA=%s\n' "$checksum" >> "$GITHUB_ENV"
+
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
@@ -43,7 +53,6 @@ jobs:
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
         run: |
           set -o pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
@@ -53,7 +62,6 @@ jobs:
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
         run: |
           set -o pipefail
           node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
@@ -61,8 +69,9 @@ jobs:
       - name: Verify package checksum
         shell: bash
         run: |
-          expected=$(awk '{print $1}' release/*PHASE-3-STAGING-CANDIDATE.sha256)
-          actual=$(sha256sum release/*PHASE-3-STAGING-CANDIDATE.zip | awk '{print $1}')
+          set -euo pipefail
+          expected=$(awk '{print tolower($1)}' "$SABRI_PLUGIN_SHA")
+          actual=$(sha256sum "$SABRI_PLUGIN_ZIP" | awk '{print $1}')
           test "$expected" = "$actual"
 
       - name: Upload initial packaged QA logs
@@ -101,6 +110,16 @@ jobs:
         shell: pwsh
         run: ./tools/build-release.ps1
 
+      - name: Resolve exact harmonized candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          printf 'SABRI_PLUGIN_ZIP=%s\n' "$package" >> "$GITHUB_ENV"
+          printf 'SABRI_PLUGIN_SHA=%s\n' "$checksum" >> "$GITHUB_ENV"
+
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
 
@@ -109,7 +128,6 @@ jobs:
         env:
           SABRI_PLAYGROUND_WP: latest
           SABRI_PLAYGROUND_PHP: '8.3'
-          SABRI_PLUGIN_ZIP: release/21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE.zip
         run: |
           set -o pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee second-qa-packaged-playground.log
@@ -119,10 +137,10 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = Get-ChildItem release/*PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
-          $sha = Get-ChildItem release/*PHASE-3-STAGING-CANDIDATE.sha256 | Select-Object -First 1
+          $zip = Get-Item $env:SABRI_PLUGIN_ZIP
+          $sha = Get-Item $env:SABRI_PLUGIN_SHA
           if (-not $zip -or -not $sha) { throw 'Second QA package or checksum is missing.' }
-          $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
+          $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim().ToLowerInvariant()
           $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -ne $actual) { throw 'Second QA checksum mismatch.' }
           $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
@@ -142,11 +160,12 @@ jobs:
       - name: Upload only second-QA-passed candidate
         uses: actions/upload-artifact@v4
         with:
-          name: sabri-home-news-feed-phase-3-SECOND-QA-PASSED
+          name: sabri-home-news-feed-HARMONIZED-SECOND-QA-PASSED
           path: |
-            release/*PHASE-3-STAGING-CANDIDATE.zip
-            release/*PHASE-3-STAGING-CANDIDATE.sha256
-            release/*PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+            release/*HARMONIZED-CANDIDATE.zip
+            release/*HARMONIZED-CANDIDATE.sha256
+            release/*HARMONIZED-CANDIDATE-TEST-REPORT.md
+            release/*HARMONIZED-CANDIDATE-MANIFEST.sha256
             second-qa-php-lint.log
             second-qa-social-features.log
             second-qa-packaged-playground.log

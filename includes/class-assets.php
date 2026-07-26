@@ -25,6 +25,7 @@ final class Assets {
 	public static function register_public() {
 		if ( function_exists( 'wp_register_style' ) ) {
 			wp_register_style( 'sabri-hnf-feed', SABRI_HNF_URL . 'assets/css/feed.css', array(), SABRI_HNF_VERSION );
+			wp_register_style( 'sabri-hnf-home-composition', SABRI_HNF_URL . 'assets/css/home-composition.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-interactions', SABRI_HNF_URL . 'assets/css/interactions.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-comments', SABRI_HNF_URL . 'assets/css/comments.css', array( 'sabri-hnf-feed', 'sabri-hnf-interactions' ), SABRI_HNF_VERSION );
 			wp_register_style( 'sabri-hnf-polls', SABRI_HNF_URL . 'assets/css/polls.css', array( 'sabri-hnf-feed' ), SABRI_HNF_VERSION );
@@ -41,12 +42,13 @@ final class Assets {
 		}
 	}
 
-	/** Enqueue feed assets; News assets load only when the resolved page contains a News card. */
+	/** Enqueue Feed assets; News assets load only when the resolved page contains a News card. */
 	public static function enqueue_feed( $contains_news = false ) {
 		self::register_public();
 		$interaction_assets = Phase3FeatureSettings::enabled( 'reactions_enabled' ) || Phase3FeatureSettings::enabled( 'saves_enabled' ) || Phase3FeatureSettings::enabled( 'share_enabled' ) || Phase3FeatureSettings::enabled( 'comments_enabled' ) || Phase3FeatureSettings::enabled( 'follows_enabled' ) || Phase3FeatureSettings::enabled( 'reports_enabled' ) || Phase3FeatureSettings::enabled( 'view_logging_enabled' );
 		if ( function_exists( 'wp_enqueue_style' ) ) {
 			wp_enqueue_style( 'sabri-hnf-feed' );
+			wp_enqueue_style( 'sabri-hnf-home-composition' );
 			if ( $interaction_assets ) { wp_enqueue_style( 'sabri-hnf-interactions' ); }
 			if ( $contains_news && NewsPolicy::public_reads_allowed() ) { wp_enqueue_style( 'sabri-hnf-news' ); }
 		}

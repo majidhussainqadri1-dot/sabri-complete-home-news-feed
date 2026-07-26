@@ -114,6 +114,7 @@ try {
 			'installed' => file_exists( WP_PLUGIN_DIR . '/${pluginPath}' ),
 			'active' => is_plugin_active( '${pluginPath}' ),
 			'version' => defined( 'SABRI_HNF_VERSION' ) ? SABRI_HNF_VERSION : '',
+			'schema_version' => defined( 'SABRI_HNF_SCHEMA_VERSION' ) ? SABRI_HNF_SCHEMA_VERSION : '',
 			'schema_success' => is_array( $schema ) && ! empty( $schema['success'] ),
 			'schema_status' => is_array( $schema ) && isset( $schema['status'] ) ? $schema['status'] : '',
 			'missing_tables' => is_array( $schema ) && isset( $schema['missing_tables'] ) ? $schema['missing_tables'] : array(),
@@ -123,7 +124,8 @@ try {
 		) );
 	`));
 	assert(!install.error && install.installed && install.active, `Packaged ZIP installation failed: ${JSON.stringify(install)}`);
-	assert(install.version === '1.0.0', `Unexpected packaged plugin version: ${install.version}`);
+	assert(install.version === '1.0.1', `Unexpected packaged plugin version: ${install.version}`);
+	assert(install.schema_version === '1.0.0', `Unexpected packaged schema version: ${install.schema_version}`);
 	assert(install.schema_success && install.schema_status === 'verified' && install.missing_tables.length === 0, `Packaged activation did not install and verify the schema: ${JSON.stringify(install)}`);
 	assert(install.social_view && install.share_script && install.catalog_complete, `Packaged social controls are incomplete: ${JSON.stringify(install)}`);
 

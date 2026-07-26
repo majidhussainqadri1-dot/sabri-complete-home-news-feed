@@ -250,7 +250,7 @@ $disabled_create = CommentService::create( $public_post, 'Disabled comment.', 0,
 sabri_phase3c_assert( empty( $disabled_create['ok'] ) && 'comments_disabled' === $disabled_create['code'], 'Disabled comments must fail closed at the service layer.' );
 
 $identity = Plugin::identity();
-sabri_phase3c_assert( '1.0.0' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3C must preserve the accepted plugin and schema versions.' );
+sabri_phase3c_assert( '1.0.1' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3C must preserve the accepted plugin and schema versions.' );
 
 if ( $phase3c_failures ) {
 	echo "FAILED\n";

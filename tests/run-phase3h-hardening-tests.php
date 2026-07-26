@@ -197,8 +197,9 @@ sabri_phase3h_assert( count( $checklist ) >= 20 && preg_match( '/^[a-f0-9]{64}$/
 $readiness = ReleaseReadiness::report();
 sabri_phase3h_assert( ! empty( $readiness['code_ready_for_staging'] ), 'Verified code and schema must be eligible for staging review.' );
 sabri_phase3h_assert( empty( $readiness['release_ready'] ) && in_array( 'staging_acceptance_missing_or_invalid', $readiness['blocked_reasons'], true ), 'Automated checks alone must never promote a release.' );
-sabri_phase3h_assert( in_array( 'plugin_version_not_promoted', $readiness['blocked_reasons'], true ), 'Plugin version promotion must remain blocked before explicit staging acceptance.' );
+sabri_phase3h_assert( in_array( 'legacy_phase3_target_version_not_promoted', $readiness['blocked_reasons'], true ), 'The historical Phase 3 target must remain separately gated before explicit staging acceptance.' );
 sabri_phase3h_assert( false === $readiness['automatic_merge'] && false === $readiness['automatic_deployment'], 'Release readiness must never merge or deploy automatically.' );
+sabri_phase3h_assert( isset( $readiness['harmonization']['live_release_ready'] ) && false === $readiness['harmonization']['live_release_ready'], 'Harmonization diagnostics must never claim live release readiness before external acceptance.' );
 
 $settings = Settings::defaults();
 $settings['advanced']['emergency_disabled'] = 1;
@@ -228,7 +229,7 @@ $contracts = Phase3Contracts::feature_flags();
 foreach ( array( 'comments_enabled', 'follows_enabled', 'followers_visibility_enabled', 'reports_enabled', 'polls_enabled', 'notification_bridge_enabled', 'view_logging_enabled' ) as $flag ) {
 	sabri_phase3h_assert( array_key_exists( $flag, $contracts ) && 0 === (int) $contracts[ $flag ], 'Frozen contract must default ' . $flag . ' to disabled.' );
 }
-sabri_phase3h_assert( '1.0.0' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION && '1.1.0' === Phase3Contracts::TARGET_VERSION, '3H must preserve accepted versions until staging acceptance.' );
+sabri_phase3h_assert( '1.0.1' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION && '1.1.0' === Phase3Contracts::TARGET_VERSION, '3H must preserve runtime 1.0.1, schema 1.0.0, and the historical Phase 3 target 1.1.0.' );
 
 if ( ! empty( $phase3h_failures ) ) {
 	fwrite( STDERR, "Phase 3H hardening tests failed:\n- " . implode( "\n- ", $phase3h_failures ) . "\n" );

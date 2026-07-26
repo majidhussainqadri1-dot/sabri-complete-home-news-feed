@@ -1,6 +1,6 @@
 <?php
 /**
- * Unified Shell integration contract.
+ * Unified Shell and companion integration contracts.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -11,15 +11,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Detects the Shell without requiring it.
- */
+/** Detects the Shell and numbered companion modules without hard dependencies. */
 final class Integrations {
-	/**
-	 * Register optional Shell filters.
-	 *
-	 * @return void
-	 */
+	/** Register optional Shell filters. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'sabri_shell_system_check_report', array( __CLASS__, 'append_shell_system_check_report' ) );
@@ -27,125 +21,101 @@ final class Integrations {
 		}
 	}
 
-	/**
-	 * Confirmed public Shell hooks inspected from the sibling repository.
-	 *
-	 * @return array<string,string>
-	 */
+	/** Confirmed public Shell 1.0.0 hooks. */
 	public static function confirmed_shell_hooks() {
 		return array(
 			'sabri_shell_navigation_destinations' => 'filter',
-			'sabri_shell_home_feed_post_types'   => 'filter',
-			'sabri_shell_create_url'             => 'filter',
-			'sabri_shell_layout_mode'            => 'filter',
-			'sabri_shell_system_check_report'    => 'filter',
-			'sabri_shell_complete_repair_ran'    => 'action',
+			'sabri_shell_home_feed_post_types' => 'filter',
+			'sabri_shell_create_url' => 'filter',
+			'sabri_shell_layout_mode' => 'filter',
+			'sabri_shell_system_check_report' => 'filter',
+			'sabri_shell_complete_repair_ran' => 'action',
 		);
 	}
 
-	/**
-	 * Plugin-owned fallback hooks for future reviewed integration.
-	 *
-	 * @return array<string,string>
-	 */
+	/** Required File 20 harmonization slots. */
+	public static function required_shell_slots() {
+		return array(
+			'sabri_shell_home_before_main' => 'action',
+			'sabri_shell_home_main' => 'action',
+			'sabri_shell_home_after_main' => 'action',
+			'sabri_shell_home_right_sidebar' => 'action',
+			'sabri_shell_news_main' => 'action',
+		);
+	}
+
+	/** Plugin-owned fallback hooks retained for backward compatibility. */
 	public static function plugin_owned_hooks() {
 		return array(
-			'sabri_feed_home_center_content'          => 'action',
-			'sabri_feed_home_contextual_sidebar'      => 'action',
-			'sabri_feed_news_center_content'          => 'action',
-			'sabri_feed_news_contextual_sidebar'      => 'action',
-			'sabri_feed_post_detail_context'          => 'action',
+			'sabri_feed_home_center_content' => 'action',
+			'sabri_feed_home_contextual_sidebar' => 'action',
+			'sabri_feed_news_center_content' => 'action',
+			'sabri_feed_news_contextual_sidebar' => 'action',
+			'sabri_feed_post_detail_context' => 'action',
 			'sabri_feed_mobile_context_drawer_modules' => 'filter',
 		);
 	}
 
-	/**
-	 * Proposed future Shell integration points.
-	 *
-	 * @return array<string,string>
-	 */
+	/** Proposed future integrations are superseded by required versioned slots. */
 	public static function proposed_future_integrations() {
-		return array(
-			'home_center_content'          => 'Proposed Shell slot for a Home feed center column. Not confirmed in Shell 1.0.0.',
-			'home_contextual_sidebar'      => 'Proposed Shell slot for Home-specific right sidebar modules. Not confirmed in Shell 1.0.0.',
-			'news_center_content'          => 'Proposed Shell slot for News center content. Not confirmed in Shell 1.0.0.',
-			'news_contextual_sidebar'      => 'Proposed Shell slot for News right sidebar modules. Not confirmed in Shell 1.0.0.',
-			'post_detail_context'          => 'Proposed Shell slot for post detail companion context. Not confirmed in Shell 1.0.0.',
-			'mobile_context_drawer_modules' => 'Proposed Shell mobile drawer module filter. Not confirmed in Shell 1.0.0.',
-		);
+		return self::required_shell_slots();
 	}
 
-	/**
-	 * Detect Shell and companion states.
-	 *
-	 * @return array<string,mixed>
-	 */
+	/** Detect Shell and all known companion states. */
 	public static function detect() {
-		$shell_active = defined( 'SABRI_SHELL_VERSION' ) || class_exists( 'Sabri\\UnifiedShell\\Plugin' );
-
+		$registry = CompanionIntegrationRegistry::all();
+		$shell = isset( $registry['shell'] ) ? $registry['shell'] : array( 'status' => 'Missing', 'evidence' => array() );
 		return array(
-			'shell'           => array(
-				'status'        => $shell_active ? 'Connected' : 'Missing',
-				'version'       => defined( 'SABRI_SHELL_VERSION' ) ? SABRI_SHELL_VERSION : '',
+			'shell' => array(
+				'status' => isset( $shell['status'] ) ? $shell['status'] : 'Missing',
+				'version' => defined( 'SABRI_SHELL_VERSION' ) ? SABRI_SHELL_VERSION : '',
 				'confirmed_hooks' => self::confirmed_shell_hooks(),
+				'required_slots' => self::required_shell_slots(),
 				'plugin_owned_hooks' => self::plugin_owned_hooks(),
-				'proposed_future' => self::proposed_future_integrations(),
+				'proposed_future' => array(),
+				'evidence' => isset( $shell['evidence'] ) ? $shell['evidence'] : array(),
 			),
-			'notifications'   => self::shortcode_or_function_state( 'sabri_notifications', 'sabri_notifications_render' ),
-			'messages'        => self::shortcode_or_function_state( 'sabri_messages', 'sabri_messages_render' ),
-			'appointments'    => self::shortcode_or_function_state( 'sabri_appointments', 'sabri_appointments_render' ),
-			'marketplace'     => function_exists( 'post_type_exists' ) && post_type_exists( 'product' ) ? 'Connected' : 'Missing',
+			'notifications' => self::status( $registry, 'notifications' ),
+			'messages' => self::status( $registry, 'network' ),
+			'network' => self::status( $registry, 'network' ),
+			'appointments' => self::status( $registry, 'appointments' ),
+			'marketplace' => self::status( $registry, 'marketplace' ),
+			'profiles' => self::status( $registry, 'profiles' ),
+			'membership' => self::status( $registry, 'membership' ),
+			'legacy_feed' => self::status( $registry, 'legacy_feed' ),
+			'registry' => $registry,
 		);
 	}
 
-	/**
-	 * Keep the Shell feed on core posts; custom output renders only by shortcode or plugin-owned hook.
-	 *
-	 * @param array<int,string> $post_types Post types.
-	 * @return array<int,string>
-	 */
+	/** Keep the Shell Feed on core posts; File 21 owns normalized rendering. */
 	public static function filter_shell_home_feed_post_types( $post_types ) {
 		$post_types = is_array( $post_types ) ? $post_types : array();
 		$post_types[] = 'post';
 		return array_values( array_unique( array_filter( $post_types ) ) );
 	}
 
-	/**
-	 * Add this plugin's status to Shell system checks when the Shell asks.
-	 *
-	 * @param mixed $rows Existing rows.
-	 * @return mixed
-	 */
+	/** Add File 21 and companion contract status to Shell System Check. */
 	public static function append_shell_system_check_report( $rows ) {
 		if ( ! is_array( $rows ) ) {
 			return $rows;
 		}
-
 		$rows[] = array(
-			'label'  => __( 'Home and News Feed foundation', 'sabri-complete-home-news-feed' ),
+			'label' => __( 'Home and News Feed foundation', 'sabri-complete-home-news-feed' ),
 			'status' => 'Connected',
-			'detail' => __( 'Phase 2 feed and composer runtime is active. Rendering uses shortcodes or plugin-owned hooks unless a confirmed Shell slot exists.', 'sabri-complete-home-news-feed' ),
+			'detail' => __( 'File 21 is the canonical Home/News content engine. File 20 owns the global Shell; official rendering slots are required for final acceptance.', 'sabri-complete-home-news-feed' ),
 		);
-
+		foreach ( CompanionIntegrationRegistry::all() as $service ) {
+			$rows[] = array(
+				'label' => isset( $service['label'] ) ? $service['label'] : __( 'Companion module', 'sabri-complete-home-news-feed' ),
+				'status' => isset( $service['status'] ) ? $service['status'] : 'Missing',
+				'detail' => ! empty( $service['evidence'] ) ? implode( ', ', array_map( 'sanitize_text_field', $service['evidence'] ) ) : __( 'No accepted runtime evidence detected.', 'sabri-complete-home-news-feed' ),
+			);
+		}
 		return $rows;
 	}
 
-	/**
-	 * Detect a shortcode or function integration.
-	 *
-	 * @param string $shortcode Shortcode.
-	 * @param string $function Function name.
-	 * @return string
-	 */
-	private static function shortcode_or_function_state( $shortcode, $function ) {
-		if ( function_exists( $function ) ) {
-			return 'Connected';
-		}
-
-		if ( function_exists( 'shortcode_exists' ) && shortcode_exists( $shortcode ) ) {
-			return 'Available but not configured';
-		}
-
-		return 'Missing';
+	/** Service status helper. */
+	private static function status( array $registry, $key ) {
+		return isset( $registry[ $key ]['status'] ) ? $registry[ $key ]['status'] : 'Missing';
 	}
 }

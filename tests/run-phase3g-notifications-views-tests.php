@@ -374,7 +374,7 @@ $before_runtime = count( $sabri_test_rows[ $view_table ] );
 ViewRuntime::record_single_post_view();
 sabri_phase3g_assert( $before_runtime + 1 === count( $sabri_test_rows[ $view_table ] ), 'Direct visible single-post runtime must record one server-side view.' );
 
-sabri_phase3g_assert( '1.0.0' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Checkpoint 3G must not change the accepted plugin or schema version.' );
+sabri_phase3g_assert( '1.0.1' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Checkpoint 3G must not change the accepted plugin or schema version.' );
 
 if ( ! empty( $phase3g_failures ) ) {
 	fwrite( STDERR, "Phase 3G Notification Bridge and Views failures:\n- " . implode( "\n- ", $phase3g_failures ) . "\n" );

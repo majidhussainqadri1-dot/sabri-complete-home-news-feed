@@ -175,7 +175,7 @@ try {
 		) );
 	`));
 
-	assert(result.version === '1.0.0' && result.schema === '1.0.0' && result.checkpoint === '4A', 'Phase 4C changed frozen version/checkpoint boundaries.');
+	assert(result.version === '1.0.1' && result.schema === '1.0.0' && result.checkpoint === '4A', 'Phase 4C runtime, schema, or checkpoint boundary is incorrect.');
 	assert(result.gate_off && !result.off_query.success && result.off_query.code === 'editorial_news_disabled', 'Gate-off public News did not fail closed.');
 	assert(result.collection.success && result.collection.data.items.length === 1, 'Public collection did not isolate one published article.');
 	assert(result.landing.success && result.landing.data.components.length >= 11, 'Complete bounded News landing was not assembled.');

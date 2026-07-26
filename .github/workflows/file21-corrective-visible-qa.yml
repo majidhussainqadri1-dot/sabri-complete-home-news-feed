@@ -48,7 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          grep -Fq 'Version: 1.0.0' sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.1' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.1' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -58,8 +59,6 @@ jobs:
           set -Eeuo pipefail
           readonly MINIMUM_SECONDS=3900
           readonly REQUIRED_CYCLES=13
-          # Thirteen cycles contain twelve start-to-start intervals. 12 x 325 = 3900,
-          # so cycle 13 cannot begin before the minimum QA duration has elapsed.
           readonly CYCLE_INTERVAL_SECONDS=325
           readonly START_EPOCH=$(date +%s)
           mkdir -p file21-visible-qa/cycle-logs
@@ -77,6 +76,9 @@ jobs:
           trap on_error ERR
 
           run_complete_suite() {
+            php tests/run-file21-harmonization-tests.php
+            php tests/run-file21-harmonization-negative-tests.php
+            php tests/run-file21-legacy-interaction-migration-tests.php
             bash tools/run-phase5-local-tests.sh
             php tests/run-phase4c-public-news-tests.php
             php tests/run-phase4c-security-tests.php
@@ -94,8 +96,8 @@ jobs:
             rm -rf release
             pwsh -NoProfile -File ./tools/build-release.ps1
             local package checksum expected actual
-            package=$(find release -maxdepth 1 -type f -name '*.zip' -print -quit)
-            checksum=$(find release -maxdepth 1 -type f -name '*.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+            package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
+            checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
             test -n "$package" && test -n "$checksum"
             expected=$(awk '{print tolower($1)}' "$checksum")
             actual=$(sha256sum "$package" | awk '{print $1}')
@@ -104,6 +106,8 @@ jobs:
             unzip -tqq "$package"
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-corrective-activation-wizard.php'
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-profile-timeline.php'
+            unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php'
+            unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-legacy-interaction-migration-adapter.php'
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/admin/views/corrective-wizard.php'
             LAST_PACKAGE="$package"
             LAST_PACKAGE_SHA="$actual"
@@ -146,7 +150,7 @@ jobs:
           cmp file21-visible-qa/initial-tracked-files.sha256 file21-visible-qa/final-tracked-files.sha256
           cp "$LAST_PACKAGE" file21-visible-qa/candidate.zip
           printf '%s  candidate.zip\n' "$LAST_PACKAGE_SHA" > file21-visible-qa/candidate.sha256
-          printf 'status=passed\nhead_sha=%s\ncycles=%s\nelapsed_seconds=%s\npackage_sha256=%s\nversion_promoted=0\nlive_deployed=0\n' "${TEST_SHA}" "$REQUIRED_CYCLES" "$ELAPSED" "$LAST_PACKAGE_SHA" > file21-visible-qa/result.env
+          printf 'status=passed\nhead_sha=%s\ncycles=%s\nelapsed_seconds=%s\npackage_sha256=%s\nversion_promoted=1\nlive_deployed=0\n' "${TEST_SHA}" "$REQUIRED_CYCLES" "$ELAPSED" "$LAST_PACKAGE_SHA" > file21-visible-qa/result.env
       - name: Upload visible QA evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -13,7 +13,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<header class="sabri-hnf-feed__header">
 		<h2 id="sabri-hnf-feed-title"><?php esc_html_e( 'Home Feed', 'sabri-complete-home-news-feed' ); ?></h2>
 	</header>
-	<?php echo $filters; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	<?php
+	if ( class_exists( '\\Sabri\\HomeNewsFeed\\HomeCompositionRegistry' ) ) {
+		echo \Sabri\HomeNewsFeed\HomeCompositionRegistry::render_control_bar( $result['mode'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	} else {
+		echo $filters; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+	?>
 	<div class="sabri-hnf-feed__status" aria-live="polite"></div>
 	<div class="sabri-hnf-feed__list" data-sabri-feed-list>
 		<?php echo '' !== $cards ? $cards : $empty_state; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>

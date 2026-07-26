@@ -4,8 +4,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $slug = 'sabri-complete-home-news-feed'
-$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-5-FINAL-CANDIDATE'
-$legacyBase = '21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE'
+$base = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'
+$legacyBase = '21-sabri-complete-home-news-feed-1.0.1-COMPATIBILITY-CANDIDATE'
+$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-PHASE-3-STAGING-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -15,12 +16,26 @@ $manifestPath = Join-Path $releaseDir "$base-MANIFEST.sha256"
 $reportPath = Join-Path $releaseDir "$base-TEST-REPORT.md"
 $legacyZipPath = Join-Path $releaseDir "$legacyBase.zip"
 $legacyShaPath = Join-Path $releaseDir "$legacyBase.sha256"
+$historicalZipPath = Join-Path $releaseDir "$historicalBase.zip"
+$historicalShaPath = Join-Path $releaseDir "$historicalBase.sha256"
+$historicalReportPath = Join-Path $releaseDir "$historicalBase-TEST-REPORT.md"
 
 $requiredRuntimeFiles = @(
     'sabri-complete-home-news-feed.php',
     'includes/class-plugin.php',
     'includes/class-activator.php',
     'includes/class-deactivator.php',
+    'includes/class-canonical-identity-adapter.php',
+    'includes/class-companion-integration-registry.php',
+    'includes/class-companion-home-row-adapters.php',
+    'includes/class-search-provider-registry.php',
+    'includes/class-viral-ranking-signals.php',
+    'includes/class-home-composition-registry.php',
+    'includes/class-legacy-interaction-migration-adapter.php',
+    'includes/class-legacy-publication-migration.php',
+    'includes/class-legacy-publication-rollback.php',
+    'includes/class-harmonization-diagnostics.php',
+    'includes/class-harmonized-settings.php',
     'includes/class-phase5-contracts.php',
     'includes/class-phase5-feature-settings.php',
     'includes/class-phase5-capabilities.php',
@@ -45,15 +60,21 @@ $requiredRuntimeFiles = @(
     'includes/class-phase5-rest.php',
     'includes/class-phase5-performance.php',
     'includes/class-phase5-diagnostics.php',
+    'admin/class-corrective-admin.php',
     'admin/class-phase5-newsroom-admin.php',
+    'admin/views/corrective-wizard.php',
+    'admin/views/migration.php',
+    'admin/views/system-check.php',
     'public/class-phase5-public-runtime.php',
     'templates/news-breaking-strip.php',
     'templates/news-sources-history.php',
     'templates/news-submission-portal.php',
+    'assets/css/home-composition.css',
     'assets/css/phase5-public.css',
     'assets/css/phase5-admin.css',
     'assets/js/phase5-public.js',
     'assets/js/phase5-admin.js',
+    'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',
     'PHASE-5-DATABASE-SCHEMA-MANIFEST.md',
     'PHASE-5-MIGRATION-UPGRADE-GUIDE.md',
     'PHASE-5-ROLE-CAPABILITY-MATRIX.md',
@@ -66,7 +87,7 @@ $requiredRuntimeFiles = @(
 foreach ($relativePath in $requiredRuntimeFiles) {
     $requiredPath = Join-Path $Root $relativePath
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-        throw "Required Phase 5 runtime file is missing: $relativePath"
+        throw "Required File 21 runtime file is missing: $relativePath"
     }
 }
 
@@ -104,7 +125,7 @@ Get-ChildItem -LiteralPath $Root -Force | ForEach-Object {
 foreach ($relativePath in $requiredRuntimeFiles) {
     $stagedPath = Join-Path $topDir $relativePath
     if (-not (Test-Path -LiteralPath $stagedPath -PathType Leaf)) {
-        throw "Required Phase 5 runtime file was not staged: $relativePath"
+        throw "Required File 21 runtime file was not staged: $relativePath"
     }
 }
 
@@ -118,7 +139,7 @@ Get-ChildItem -LiteralPath $topDir -Recurse -File | ForEach-Object {
     }
 }
 
-foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath, $legacyZipPath, $legacyShaPath)) {
+foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath, $legacyZipPath, $legacyShaPath, $historicalZipPath, $historicalShaPath, $historicalReportPath)) {
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
 }
 
@@ -153,28 +174,35 @@ Copy-Item -LiteralPath $zipPath -Destination $legacyZipPath -Force
 "$hash  $(Split-Path $legacyZipPath -Leaf)" | Set-Content -LiteralPath $legacyShaPath -Encoding ASCII
 $legacyHash = (Get-FileHash -LiteralPath $legacyZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($legacyHash -ne $hash) {
-    throw 'Legacy compatibility package digest does not match the canonical Phase 5 package.'
+    throw 'Compatibility package digest does not match the canonical harmonized package.'
+}
+Copy-Item -LiteralPath $zipPath -Destination $historicalZipPath -Force
+"$hash  $(Split-Path $historicalZipPath -Leaf)" | Set-Content -LiteralPath $historicalShaPath -Encoding ASCII
+$historicalHash = (Get-FileHash -LiteralPath $historicalZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($historicalHash -ne $hash) {
+    throw 'Historical Phase 3 alias digest does not match the canonical harmonized package.'
 }
 $manifestDigest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $report = @(
-    '# Sabri Complete Home and News Feed Phase 5 Candidate Test Report','',
-    '- Accepted plugin version shown in WordPress: 1.0.0',
+    '# Sabri Complete Home and News Feed 1.0.1 Harmonized Candidate Test Report','',
+    '- Accepted plugin version shown in WordPress: 1.0.1',
     '- Accepted schema constant: 1.0.0',
     '- Phase4Contracts checkpoint: 4A',
-    '- Target release after separately gated promotion: 1.2.0',
+    '- Historical Phase 4 target remains separately gated at 1.2.0',
     "- Artifact: $(Split-Path $zipPath -Leaf)",
     "- SHA-256: $hash",
-    "- Legacy compatibility alias: $(Split-Path $legacyZipPath -Leaf)",
+    "- Compatibility alias: $(Split-Path $legacyZipPath -Leaf)",
     "- Runtime manifest SHA-256: $manifestDigest",
     "- Top-level ZIP folder: $slug/",
     "- Runtime files included: $copied",
-    "- Required Phase 5 runtime files: $($requiredRuntimeFiles -join ', ')",
+    "- Required File 21 runtime files: $($requiredRuntimeFiles -join ', ')",
     "- Excluded development paths: $($excludedDirs + $excludedFiles -join ', ')",
-    '- All Phase 4 and Phase 5 public feature gates remain disabled by default.',
-    '- Automatic publication remains disabled.',
-    '- Package is an exact-head candidate only; not approved for merge, version promotion, staging activation, or live deployment.'
+    '- All Editorial News public feature gates remain disabled by default.',
+    '- Automatic publication and automatic legacy migration remain disabled.',
+    '- Package is an exact-head candidate only; merge, staging activation, WordPress visual acceptance, and live deployment remain separately gated.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
+Copy-Item -LiteralPath $reportPath -Destination $historicalReportPath -Force
 
 $resolvedStage = (Resolve-Path $stageDir).Path
 if (-not $resolvedStage.StartsWith($resolvedRelease, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -182,4 +210,5 @@ if (-not $resolvedStage.StartsWith($resolvedRelease, [System.StringComparison]::
 }
 Remove-Item -LiteralPath $stageDir -Recurse -Force
 Write-Output "Built $zipPath"
-Write-Output "Built legacy compatibility alias $legacyZipPath"
+Write-Output "Built compatibility alias $legacyZipPath"
+Write-Output "Built historical Phase 3 alias $historicalZipPath"
