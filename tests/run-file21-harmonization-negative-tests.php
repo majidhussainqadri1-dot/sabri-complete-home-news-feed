@@ -53,7 +53,9 @@ $assert( false === stripos( $rollback, 'wp_delete_post' ), 'Rollback deletes sou
 $settings = file_get_contents( $root . '/includes/class-settings.php' );
 $assert( false !== strpos( $settings, 'preserving unknown future keys' ), 'Settings no longer state future-key preservation.' );
 $assert( false !== strpos( $settings, 'sanitize_function_map' ), 'Integration function-map sanitizer is missing.' );
-$assert( false !== strpos( $settings, '(?:\\\\[A-Za-z_]' ), 'Namespaced callback validation is missing or malformed.' );
+$assert( false !== strpos( $settings, 'private static function clean_function_name' ), 'Namespaced callback sanitizer is missing.' );
+$assert( false !== strpos( $settings, "preg_match( '/^[A-Za-z_][A-Za-z0-9_]*" ), 'Callable names are not constrained to a PHP function-name grammar.' );
+$assert( false !== strpos( $settings, "? $value : ''" ), 'Invalid callable names do not fail closed.' );
 
 $diagnostics = file_get_contents( $root . '/includes/class-harmonization-diagnostics.php' );
 $assert( false !== strpos( $diagnostics, "'live_release_ready' => false" ), 'Diagnostics may falsely claim live release readiness.' );
