@@ -16,10 +16,13 @@ final class ProfileTimeline {
 	const MAX_PER_PAGE = 20;
 	const MAX_SCAN     = 500;
 
-	/** Register the profile hook. */
+	/** Register the profile hook and compatibility bridge. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'sabri_profile_timeline', array( __CLASS__, 'render_action' ), 10, 2 );
+		}
+		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'do_shortcode_tag', array( __CLASS__, 'append_to_profile_shortcode' ), 20, 4 );
 		}
 	}
 
@@ -150,6 +153,38 @@ final class ProfileTimeline {
 		return (string) ob_get_clean();
 	}
 
+	/**
+	 * Append the functional Timeline to the existing File 03 profile shortcodes.
+	 *
+	 * This bridge does not require File 03 classes and does not alter its stored
+	 * profile data. Unverified/hidden profile notices are not augmented because
+	 * only shortcode output containing a real <main> profile surface is accepted.
+	 *
+	 * @param string              $output Shortcode output.
+	 * @param string              $tag Shortcode tag.
+	 * @param array<string,mixed> $attr Shortcode attributes.
+	 * @param array<int,string>   $match Regex match.
+	 * @return string
+	 */
+	public static function append_to_profile_shortcode( $output, $tag, $attr, $match ) {
+		unset( $attr, $match );
+		if ( ! is_string( $output ) || false === strpos( $output, '<main' ) || false !== strpos( $output, 'data-sabri-profile-timeline' ) ) {
+			return $output;
+		}
+		if ( ! in_array( $tag, array( 'sabri_founder_profile', 'sabri_member_profile' ), true ) || ! CorrectivePublicSettings::enabled( 'profile_timeline_enabled' ) ) {
+			return $output;
+		}
+
+		$user_id = self::profile_shortcode_user_id( $tag );
+		$timeline = $user_id > 0 ? self::render( $user_id, array( 'page' => 1, 'per_page' => 10 ) ) : '';
+		if ( '' === $timeline ) {
+			return $output;
+		}
+
+		$position = strripos( $output, '</main>' );
+		return false === $position ? $output . $timeline : substr_replace( $output, $timeline . '</main>', $position, 7 );
+	}
+
 	/** Action bridge for profile plugins and File 22. */
 	public static function render_action( $user_id, $args = array() ) {
 		echo self::render( $user_id, is_array( $args ) ? $args : array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
@@ -178,6 +213,29 @@ final class ProfileTimeline {
 			'date_display' => function_exists( 'get_the_date' ) ? (string) get_the_date( '', $post_id ) : '',
 		);
 		return function_exists( 'apply_filters' ) ? apply_filters( 'sabri_hnf_profile_timeline_item', $item, $post_id ) : $item;
+	}
+
+	/** Resolve the author represented by a File 03 profile shortcode. */
+	private static function profile_shortcode_user_id( $tag ) {
+		if ( 'sabri_founder_profile' === $tag ) {
+			foreach ( array( 'spf_founder_user_id', 'spd_founder_user_id', 'sabri_founder_user_id' ) as $option ) {
+				$user_id = function_exists( 'get_option' ) ? absint( get_option( $option, 0 ) ) : 0;
+				if ( $user_id > 0 ) {
+					return $user_id;
+				}
+			}
+			$ids = LegacyFounderPostMigration::privileged_author_ids();
+			return ! empty( $ids ) ? (int) reset( $ids ) : 0;
+		}
+
+		$key = isset( $_GET['user'] ) ? sanitize_title( wp_unslash( $_GET['user'] ) ) : '';
+		if ( '' !== $key && function_exists( 'get_user_by' ) ) {
+			$user = get_user_by( 'slug', $key );
+			if ( is_object( $user ) && isset( $user->ID ) ) {
+				return (int) $user->ID;
+			}
+		}
+		return function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
 	}
 
 	/** Empty response. */
