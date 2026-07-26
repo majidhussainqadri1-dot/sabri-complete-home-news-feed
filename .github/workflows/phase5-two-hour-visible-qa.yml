@@ -1,0 +1,14 @@
+name: Phase 5 Mandatory Two-Hour Visible QA v1 (retired)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  retired:
+    name: Superseded by exact-head v2 workflow
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'The v1 soak did not retain failure evidence. Use phase5-two-hour-visible-qa-v2.yml.'

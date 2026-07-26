@@ -25,6 +25,11 @@ final class Deactivator {
 			update_option( 'sabri_feed_flush_rewrite_rules', 1, false );
 		}
 
+		if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+			wp_clear_scheduled_hook( BreakingNewsService::CRON_HOOK );
+			wp_clear_scheduled_hook( 'sabri_hnf_phase5_cleanup' );
+		}
+
 		AuditLog::record( 'deactivation', array( 'preserved_data' => true ) );
 
 		return array(
