@@ -15,7 +15,8 @@ final class Plugin {
 	public function register(){
 		if($this->registered){return;}$this->registered=true;
 		$modules=array(
-			Settings::class,Phase3FeatureSettings::class,NewsFeatureSettings::class,NewsCapabilities::class,NewsStatuses::class,
+			Settings::class,HarmonizedSettings::class,CanonicalIdentityAdapter::class,CompanionIntegrationRegistry::class,
+			Phase3FeatureSettings::class,NewsFeatureSettings::class,NewsCapabilities::class,NewsStatuses::class,
 			EditorialNewsPostType::class,NewsTaxonomies::class,NewsPolicy::class,NewsPublicSnapshot::class,NewsWorkflow::class,
 			NewsComposerValidator::class,NewsQueueService::class,NewsAudit::class,NewsSchedulingService::class,NewsroomDiagnostics::class,NewsService::class,
 			NewsCache::class,NewsPublicProjector::class,NewsQueryService::class,NewsFeedIntegration::class,NewsRouting::class,NewsPublicRuntime::class,RestNews::class,
@@ -23,7 +24,7 @@ final class Plugin {
 			CorrectivePublicSettings::class,CorrectivePublicMount::class,ProfileTimeline::class,RestProfileTimeline::class,
 			PollComposerIntegration::class,Capabilities::class,PrivilegedPublishingPolicy::class,PostTypes::class,Taxonomies::class,RewriteRules::class,Integrations::class,ReleaseReadiness::class,
 			SafeMode::class,RestFoundation::class,DataRetention::class,NotificationBridge::class,Assets::class,PostMetadata::class,PublicQueryGuard::class,
-			FollowersVisibility::class,FollowersQueryGuard::class,MediaHandler::class,FeedQuery::class,HomeIntegration::class,ViewRuntime::class,PollRuntime::class,
+			FollowersVisibility::class,FollowersQueryGuard::class,MediaHandler::class,ViralRankingSignals::class,FeedQuery::class,HomeIntegration::class,HomeCompositionRegistry::class,LegacyPublicationMigration::class,ViewRuntime::class,PollRuntime::class,
 			SocialRuntime::class,CommentRuntime::class,SavedPostsRuntime::class,FollowingRuntime::class,Shortcodes::class,Composer::class,RestFeed::class,
 			RestComposer::class,RestInteractions::class,RestComments::class,RestFollows::class,RestReports::class,RestPolls::class,
 		);
