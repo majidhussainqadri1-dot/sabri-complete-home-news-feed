@@ -277,7 +277,7 @@ sabri_phase3d_assert( false === strpos( SocialRuntime::render_action_bar( $targe
 sabri_phase3d_assert( false !== strpos( FollowingRuntime::render(), 'Following is currently unavailable' ), 'Disabled private Following surface must fail closed.' );
 
 $identity = Plugin::identity();
-sabri_phase3d_assert( '1.0.0' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3D must preserve accepted plugin and schema version 1.0.0.' );
+sabri_phase3d_assert( '1.0.1' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3D must preserve accepted plugin and schema version 1.0.0.' );
 
 if ( $phase3d_failures ) {
 	echo "FAILED\n";
