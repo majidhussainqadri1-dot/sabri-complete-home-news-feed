@@ -80,7 +80,12 @@ final class LegacyInteractionMigrationAdapter {
 			'source_deleted' => false,
 			'automatic' => false,
 		);
-		if ( $legacy_id <= 0 || $target_id <= 0 || $actor_id <= 0 || ! self::target_belongs_to_legacy( $target_id, $legacy_id ) ) {
+		if ( ! self::actor_can_migrate( $actor_id ) ) {
+			$base['status'] = 'permission_denied';
+			$base['errors'][] = 'actor_authorization_failed';
+			return $base;
+		}
+		if ( $legacy_id <= 0 || $target_id <= 0 || ! self::target_belongs_to_legacy( $target_id, $legacy_id ) ) {
 			$base['status'] = 'invalid_target';
 			$base['errors'][] = 'target_provenance_failed';
 			return $base;
@@ -160,6 +165,15 @@ final class LegacyInteractionMigrationAdapter {
 		return function_exists( 'get_post_meta' )
 			&& absint( get_post_meta( $target_id, '_sabri_hnf_legacy_source_id', true ) ) === $legacy_id
 			&& LegacyPublicationMigration::LEGACY_POST_TYPE === (string) get_post_meta( $target_id, '_sabri_hnf_legacy_source_type', true );
+	}
+
+	/** Require the explicit current actor and migration authority at this boundary. */
+	private static function actor_can_migrate( $actor_id ) {
+		return $actor_id > 0
+			&& function_exists( 'get_current_user_id' )
+			&& (int) get_current_user_id() === $actor_id
+			&& function_exists( 'current_user_can' )
+			&& ( current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' ) );
 	}
 
 	/** Normalize provider IDs. */
