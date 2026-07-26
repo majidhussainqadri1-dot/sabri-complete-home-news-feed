@@ -66,8 +66,7 @@ final class FeedQuery {
 			$wp_query = new \WP_Query( $query_args );
 			$posts = is_array( $wp_query->posts ) ? $wp_query->posts : array();
 			if ( $ranked_mode ) {
-				$posts = self::dedupe_posts( $posts );
-				$posts = FeedRanking::rank_posts( $posts, $mode, $settings );
+				$posts = FeedRanking::rank_posts( self::dedupe_posts( $posts ), $mode, $settings );
 				$total = count( $posts );
 				$total_is_complete = $total < $query_count;
 				$posts = array_slice( $posts, ( $page - 1 ) * $ordinary_per_page, $ordinary_per_page );
@@ -89,20 +88,12 @@ final class FeedQuery {
 			$max_pages = (int) ceil( $total / max( 1, $ordinary_per_page ) );
 		}
 
-		$posts = self::dedupe_posts( $posts );
 		$result = array(
-			'status' => 'ok',
-			'mode' => $mode,
-			'page' => $page,
-			'per_page' => $per_page,
-			'posts' => $posts,
-			'total' => $total,
-			'total_is_complete' => $total_is_complete,
+			'status' => 'ok', 'mode' => $mode, 'page' => $page, 'per_page' => $per_page,
+			'posts' => self::dedupe_posts( $posts ), 'total' => $total, 'total_is_complete' => $total_is_complete,
 			'max_pages' => max( 0, $max_pages ),
 			'has_more' => $page < max( 0, $max_pages ) || ( $ranked_mode && ! $total_is_complete ),
-			'cache_hit' => false,
-			'query_args' => $query_args,
-			'explanation' => FeedRanking::explanation(),
+			'cache_hit' => false, 'query_args' => $query_args, 'explanation' => FeedRanking::explanation(),
 		);
 		if ( ! empty( $integration['enabled'] ) && class_exists( __NAMESPACE__ . '\\NewsFeedIntegration' ) ) {
 			$result = NewsFeedIntegration::integrate_result( $result, $integration );
@@ -115,31 +106,20 @@ final class FeedQuery {
 	public static function wp_query_args( $mode, $page, $per_page, $user_id, array $settings ) {
 		$visibility = FeedContext::visible_feed_scopes_for_user( $user_id, $settings );
 		$args = array(
-			'post_type' => 'post',
-			'post_status' => array( 'publish' ),
-			'posts_per_page' => max( 1, (int) $per_page ),
-			'paged' => max( 1, (int) $page ),
-			'ignore_sticky_posts' => true,
-			'orderby' => 'date',
-			'order' => 'DESC',
-			'no_found_rows' => false,
+			'post_type' => 'post', 'post_status' => array( 'publish' ), 'posts_per_page' => max( 1, (int) $per_page ),
+			'paged' => max( 1, (int) $page ), 'ignore_sticky_posts' => true, 'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => false,
 			'meta_query' => array(
 				'relation' => 'AND',
-				array(
-					'relation' => 'OR',
-					array( 'key' => PostMetadata::META_VISIBILITY, 'compare' => 'NOT EXISTS' ),
-					array( 'key' => PostMetadata::META_VISIBILITY, 'value' => $visibility, 'compare' => 'IN' ),
-				),
+				array( 'relation' => 'OR', array( 'key' => PostMetadata::META_VISIBILITY, 'compare' => 'NOT EXISTS' ), array( 'key' => PostMetadata::META_VISIBILITY, 'value' => $visibility, 'compare' => 'IN' ) ),
 				PostMetadata::review_state_meta_clause(),
 			),
 		);
-
-		$mode_map = FeedContext::mode_type_map();
 		$all_types = array_keys( Taxonomies::feed_type_terms() );
 		$configured_types = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
 		$allowed_types = array_values( array_intersect( $all_types, $configured_types ) );
+		$mode_map = FeedContext::mode_type_map();
 		if ( isset( $mode_map[ $mode ] ) ) {
-			$requested = array_values( array_intersect( (array) $mode_map[ $mode ], $allowed_types ) );
+			$requested = self::allowed_query_terms( (array) $mode_map[ $mode ], $allowed_types );
 			$args['tax_query'] = array( array( 'taxonomy' => 'sabri_feed_type', 'field' => 'slug', 'terms' => $requested ? $requested : array( '__sabri_disabled_feed_type__' ) ) );
 		} elseif ( count( $allowed_types ) !== count( $all_types ) ) {
 			$args['tax_query'] = array( array( 'taxonomy' => 'sabri_feed_type', 'field' => 'slug', 'terms' => $allowed_types ? $allowed_types : array( '__sabri_no_allowed_types__' ) ) );
@@ -153,9 +133,8 @@ final class FeedQuery {
 
 	/** Cache invalidation hook. */
 	public static function invalidate_cache() {
-		$version = self::cache_version() + 1;
 		if ( function_exists( 'update_option' ) ) {
-			update_option( self::CACHE_VERSION_OPTION, $version, false );
+			update_option( self::CACHE_VERSION_OPTION, self::cache_version() + 1, false );
 		}
 	}
 
@@ -175,47 +154,41 @@ final class FeedQuery {
 		return 'sabri_hnf_feed_' . md5( self::cache_version() . '|' . $news_generation . '|' . $news_gate . '|' . $mode . '|' . $page . '|' . $per_page . '|' . $user_id . '|' . $scope );
 	}
 
-	/** Current cache version. */
-	private static function cache_version() {
-		return function_exists( 'get_option' ) ? max( 1, (int) get_option( self::CACHE_VERSION_OPTION, 1 ) ) : 1;
-	}
-
-	/** Cache duration. */
-	private static function cache_seconds( array $settings ) {
-		if ( isset( $settings['feed']['cache_duration'] ) ) {
-			return max( 0, (int) $settings['feed']['cache_duration'] );
+	/** Include an old alias only when its canonical target is enabled. */
+	private static function allowed_query_terms( array $requested, array $allowed_canonical ) {
+		$aliases = Taxonomies::feed_type_aliases();
+		$out = array();
+		foreach ( $requested as $term ) {
+			$term = sanitize_key( $term );
+			$canonical = isset( $aliases[ $term ] ) ? $aliases[ $term ] : $term;
+			if ( in_array( $canonical, $allowed_canonical, true ) ) {
+				$out[] = $term;
+				$out[] = $canonical;
+			}
 		}
-		return isset( $settings['performance']['cache_seconds'] ) ? max( 0, (int) $settings['performance']['cache_seconds'] ) : 300;
+		return array_values( array_unique( array_filter( $out ) ) );
 	}
 
-	/** Get cache. */
-	private static function get_cache( $key ) {
-		return function_exists( 'get_transient' ) ? get_transient( $key ) : false;
+	/** Whether one stored type is allowed through its canonical target. */
+	private static function stored_type_allowed( $type, array $allowed_canonical ) {
+		$type = sanitize_key( $type );
+		$aliases = Taxonomies::feed_type_aliases();
+		$canonical = isset( $aliases[ $type ] ) ? $aliases[ $type ] : $type;
+		return in_array( $canonical, $allowed_canonical, true );
 	}
 
-	/** Set cache. */
-	private static function set_cache( $key, array $value, $seconds ) {
-		if ( $seconds > 0 && function_exists( 'set_transient' ) ) {
-			set_transient( $key, $value, $seconds );
-		}
-	}
-
-	/** Empty result. */
-	private static function empty_result( $mode, $page, $per_page, $status ) {
-		return array( 'status' => $status, 'mode' => $mode, 'page' => $page, 'per_page' => $per_page, 'posts' => array(), 'total' => 0, 'total_is_complete' => true, 'max_pages' => 0, 'has_more' => false, 'cache_hit' => false, 'query_args' => array(), 'explanation' => FeedRanking::explanation() );
-	}
+	private static function cache_version() { return function_exists( 'get_option' ) ? max( 1, (int) get_option( self::CACHE_VERSION_OPTION, 1 ) ) : 1; }
+	private static function cache_seconds( array $settings ) { return isset( $settings['feed']['cache_duration'] ) ? max( 0, (int) $settings['feed']['cache_duration'] ) : ( isset( $settings['performance']['cache_seconds'] ) ? max( 0, (int) $settings['performance']['cache_seconds'] ) : 300 ); }
+	private static function get_cache( $key ) { return function_exists( 'get_transient' ) ? get_transient( $key ) : false; }
+	private static function set_cache( $key, array $value, $seconds ) { if ( $seconds > 0 && function_exists( 'set_transient' ) ) { set_transient( $key, $value, $seconds ); } }
+	private static function empty_result( $mode, $page, $per_page, $status ) { return array( 'status' => $status, 'mode' => $mode, 'page' => $page, 'per_page' => $per_page, 'posts' => array(), 'total' => 0, 'total_is_complete' => true, 'max_pages' => 0, 'has_more' => false, 'cache_hit' => false, 'query_args' => array(), 'explanation' => FeedRanking::explanation() ); }
 
 	/** Deduplicate ordinary posts by ID. */
 	private static function dedupe_posts( array $posts ) {
-		$seen = array();
-		$out = array();
+		$seen = array(); $out = array();
 		foreach ( $posts as $post ) {
 			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : ( is_numeric( $post ) ? (int) $post : 0 );
-			if ( $post_id <= 0 || isset( $seen[ $post_id ] ) ) {
-				continue;
-			}
-			$seen[ $post_id ] = true;
-			$out[] = $post;
+			if ( $post_id > 0 && ! isset( $seen[ $post_id ] ) ) { $seen[ $post_id ] = true; $out[] = $post; }
 		}
 		return $out;
 	}
@@ -224,35 +197,21 @@ final class FeedQuery {
 	private static function filter_posts_for_tests( array $posts, $mode, $user_id, array $settings ) {
 		$mode_map = FeedContext::mode_type_map();
 		$all_types = array_keys( Taxonomies::feed_type_terms() );
-		$configured_types = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
-		$allowed_types = array_values( array_intersect( $all_types, $configured_types ) );
-		return array_values(
-			array_filter(
-				$posts,
-				static function ( $post ) use ( $mode, $mode_map, $user_id, $allowed_types ) {
-					$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
-					if ( ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
-						return false;
-					}
-					if ( 'doctors-posts' === $mode ) {
-						$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
-						if ( ! CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) {
-							return false;
-						}
-					}
-					$type = PostMetadata::feed_type( $post_id );
-					$requested = isset( $mode_map[ $mode ] ) ? (array) $mode_map[ $mode ] : array();
-					return in_array( $type, $allowed_types, true ) && ( empty( $requested ) || in_array( $type, $requested, true ) );
-				}
-			)
-		);
+		$configured = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
+		$allowed = array_values( array_intersect( $all_types, $configured ) );
+		return array_values( array_filter( $posts, static function ( $post ) use ( $mode, $mode_map, $user_id, $allowed ) {
+			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
+			if ( ! PostMetadata::user_can_view( $post_id, $user_id ) ) { return false; }
+			if ( 'doctors-posts' === $mode ) {
+				$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
+				if ( ! CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) { return false; }
+			}
+			$type = PostMetadata::feed_type( $post_id );
+			if ( ! self::stored_type_allowed( $type, $allowed ) ) { return false; }
+			$requested = isset( $mode_map[ $mode ] ) ? (array) $mode_map[ $mode ] : array();
+			return empty( $requested ) || in_array( $type, $requested, true ) || in_array( Taxonomies::canonical_feed_type( $type ), array_map( array( Taxonomies::class, 'canonical_feed_type' ), $requested ), true );
+		} ) );
 	}
 
-	/** Read a request value. */
-	private static function request_value( $key ) {
-		if ( isset( $_GET[ $key ] ) ) {
-			return sanitize_text_field( wp_unslash( $_GET[ $key ] ) );
-		}
-		return '';
-	}
+	private static function request_value( $key ) { return isset( $_GET[ $key ] ) ? sanitize_text_field( wp_unslash( $_GET[ $key ] ) ) : ''; }
 }
