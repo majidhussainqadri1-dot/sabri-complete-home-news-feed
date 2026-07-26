@@ -11,10 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Resolves Founder, Administrator, verified-doctor and trusted-publisher state
- * across Membership Core, Profiles/Doctors and Doctor Verification modules.
- */
+/** Resolves accepted identity states across all project generations. */
 final class CanonicalIdentityAdapter {
 	/** Register extensibility hooks. */
 	public static function register() {}
@@ -24,12 +21,7 @@ final class CanonicalIdentityAdapter {
 		return array(
 			'founder' => array( 'founder', 'sabri_founder' ),
 			'administrator' => array( 'administrator' ),
-			'verified_doctor' => array(
-				'verified_doctor',
-				'approved_doctor',
-				'doctor_verified',
-				'sabri_verified_doctor',
-			),
+			'verified_doctor' => array( 'verified_doctor', 'approved_doctor', 'doctor_verified', 'sabri_verified_doctor' ),
 			'unverified_doctor' => array( 'doctor', 'sabri_doctor', 'sabri_doctor_pending' ),
 			'student' => array( 'student', 'sabri_student' ),
 			'patient' => array( 'patient', 'sabri_patient', 'subscriber' ),
@@ -64,10 +56,7 @@ final class CanonicalIdentityAdapter {
 		if ( $user_id <= 0 ) {
 			return false;
 		}
-		if ( in_array( 'administrator', self::roles( $user_id ), true ) ) {
-			return true;
-		}
-		return function_exists( 'user_can' ) && user_can( $user_id, 'manage_options' );
+		return in_array( 'administrator', self::roles( $user_id ), true ) || ( function_exists( 'user_can' ) && user_can( $user_id, 'manage_options' ) );
 	}
 
 	/** Whether a doctor is institutionally verified by any accepted project source. */
@@ -84,11 +73,30 @@ final class CanonicalIdentityAdapter {
 				return true;
 			}
 		}
-		$status = self::user_meta( $user_id, '_spd_verification_status' );
-		if ( in_array( self::clean_key( $status ), array( 'verified', 'approved', 'active' ), true ) ) {
+		$status = self::clean_key( self::user_meta( $user_id, '_spd_verification_status' ) );
+		if ( in_array( $status, array( 'verified', 'approved', 'active' ), true ) ) {
 			return true;
 		}
 		return (bool) self::filtered( 'sabri_hnf_identity_is_verified_doctor', false, $user_id );
+	}
+
+	/** Bounded IDs of institutionally verified doctors for the Home filter. */
+	public static function verified_doctor_ids( $limit = 500 ) {
+		$limit = max( 1, min( 500, (int) $limit ) );
+		if ( ! function_exists( 'get_users' ) ) {
+			return array();
+		}
+		$aliases = self::role_aliases();
+		$role_ids = get_users( array( 'role__in' => $aliases['verified_doctor'], 'fields' => 'ID', 'number' => $limit ) );
+		$meta_ids = array();
+		foreach ( array( '_smc_doctor_verified', '_sabri_doctor_verified' ) as $key ) {
+			$ids = get_users( array( 'meta_key' => $key, 'meta_value' => '1', 'fields' => 'ID', 'number' => $limit ) );
+			$meta_ids = array_merge( $meta_ids, is_array( $ids ) ? $ids : array() );
+		}
+		$status_ids = get_users( array( 'meta_key' => '_spd_verification_status', 'meta_value' => array( 'verified', 'approved', 'active' ), 'meta_compare' => 'IN', 'fields' => 'ID', 'number' => $limit ) );
+		$ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', array_merge( (array) $role_ids, $meta_ids, (array) $status_ids ) ) ) ) ), 0, $limit );
+		$filtered = function_exists( 'apply_filters' ) ? apply_filters( 'sabri_hnf_verified_doctor_ids', $ids, $limit ) : $ids;
+		return is_array( $filtered ) ? array_slice( array_values( array_unique( array_filter( array_map( 'absint', $filtered ) ) ) ), 0, $limit ) : $ids;
 	}
 
 	/** Whether the user is a doctor whose institutional verification is incomplete. */
@@ -131,7 +139,9 @@ final class CanonicalIdentityAdapter {
 		if ( 'publish' === $policy ) {
 			return true;
 		}
-		return 'trusted' === $policy && self::is_trusted_publisher( $user_id );
+		// Old `submit` installations are safely interpreted as trusted-only,
+		// rather than silently demoting an institutionally trusted doctor.
+		return in_array( $policy, array( 'trusted', 'submit' ), true ) && self::is_trusted_publisher( $user_id );
 	}
 
 	/** Public-safe author projection for Feed cards and File 22. */
@@ -140,22 +150,20 @@ final class CanonicalIdentityAdapter {
 		if ( $user_id <= 0 ) {
 			return array();
 		}
-		$specialty = self::first_public_meta( $user_id, array( '_smc_specialty', 'spd_specialty', 'specialty', 'doctor_specialty' ) );
-		$country = self::first_public_meta( $user_id, array( '_smc_country', 'spd_country', 'country', 'doctor_country' ) );
-		$clinic = self::first_public_meta( $user_id, array( '_smc_clinic_name', 'spd_clinic_name', 'clinic_name' ) );
 		$projection = array(
 			'id' => $user_id,
 			'name' => ProfileLinkResolver::display_name( $user_id ),
 			'profile_url' => ProfileLinkResolver::url( $user_id ),
-			'specialty' => $specialty,
-			'country' => $country,
-			'clinic_name' => $clinic,
+			'specialty' => self::first_public_meta( $user_id, array( '_smc_specialty', 'spd_specialty', 'specialty', 'doctor_specialty' ) ),
+			'country' => self::first_public_meta( $user_id, array( '_smc_country', 'spd_country', 'country', 'doctor_country' ) ),
+			'clinic_name' => self::first_public_meta( $user_id, array( '_smc_clinic_name', 'spd_clinic_name', 'clinic_name' ) ),
 			'is_founder' => self::is_founder( $user_id ),
 			'is_administrator' => self::is_administrator( $user_id ),
 			'is_verified_doctor' => self::is_verified_doctor( $user_id ),
 			'is_trusted_publisher' => self::is_trusted_publisher( $user_id ),
 		);
-		return is_array( self::filtered( 'sabri_hnf_public_author_projection', $projection, $user_id ) ) ? self::filtered( 'sabri_hnf_public_author_projection', $projection, $user_id ) : $projection;
+		$filtered = self::filtered( 'sabri_hnf_public_author_projection', $projection, $user_id );
+		return is_array( $filtered ) ? $filtered : $projection;
 	}
 
 	/** Whether a user belongs to a canonical role group. */
