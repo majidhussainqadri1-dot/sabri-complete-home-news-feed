@@ -155,7 +155,7 @@ final class FeedQuery {
 	/** Cache invalidation hook. */
 	public static function invalidate_cache() {
 		$version = self::cache_version() + 1;
-		if ( function_exists( 'update_option' ) {
+		if ( function_exists( 'update_option' ) ) {
 			update_option( self::CACHE_VERSION_OPTION, $version, false );
 		}
 	}
