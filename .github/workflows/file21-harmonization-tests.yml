@@ -1,0 +1,138 @@
+name: File 21 Comprehensive Harmonization Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'FILE-21-*.md'
+      - 'includes/**'
+      - 'admin/**'
+      - 'public/**'
+      - 'templates/**'
+      - 'assets/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'sabri-complete-home-news-feed.php'
+      - '.github/workflows/file21-harmonization-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: file21-harmonization-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  contracts:
+    name: Harmonization contracts (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Use PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Verify exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' \
+            ! -path './vendor/*' ! -path './node_modules/*' -print0 \
+            | xargs -0 -n1 php -l
+      - name: Harmonization contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+      - name: Existing regression suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/run-phase5-local-tests.sh
+          php tests/run-phase4c-public-news-tests.php
+          php tests/run-phase4c-security-tests.php
+          php tests/run-phase4c-ui-completeness-tests.php
+          php tests/run-phase4b-newsroom-tests.php
+          php tests/run-phase4b-ui-completeness-tests.php
+          php tests/run-phase4a-content-model-tests.php
+          php tools/run-tests.php
+      - name: Static safety scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RInE --include='*.php' '(eval\s*\(|shell_exec\s*\(|passthru\s*\(|proc_open\s*\()' includes admin public templates
+          ! grep -RInE --include='*.php' '(DROP TABLE|TRUNCATE TABLE|DELETE FROM wp_posts)' includes admin public templates
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+  package:
+    name: Harmonized immutable package
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Build and verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release file21-harmonization-package
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          package=$(find release -maxdepth 1 -type f -name '*.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          manifest=$(find release -maxdepth 1 -type f -name '*-MANIFEST.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum" && test -n "$manifest"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          unzip -Z1 "$package" > package-entries.txt
+          for entry in \
+            sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php \
+            sabri-complete-home-news-feed/includes/class-companion-integration-registry.php \
+            sabri-complete-home-news-feed/includes/class-viral-ranking-signals.php \
+            sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
+            sabri-complete-home-news-feed/includes/class-legacy-publication-migration.php \
+            sabri-complete-home-news-feed/includes/class-harmonized-settings.php \
+            sabri-complete-home-news-feed/includes/class-search-provider-registry.php \
+            sabri-complete-home-news-feed/FILE-21-HARMONIZATION-COMPLETION-PLAN.md; do
+            grep -Fxq "$entry" package-entries.txt
+          done
+          mkdir -p file21-harmonization-package
+          cp "$package" file21-harmonization-package/candidate.zip
+          printf '%s  candidate.zip\n' "$actual" > file21-harmonization-package/candidate.sha256
+          printf '%s\n' "${TEST_SHA}" > file21-harmonization-package/exact-commit.txt
+          cp package-entries.txt file21-harmonization-package/
+          cp "$manifest" file21-harmonization-package/runtime-manifest.sha256
+          printf 'status=passed\nhead_sha=%s\npackage_sha256=%s\nlive_deployed=0\n' "${TEST_SHA}" "$actual" > file21-harmonization-package/result.env
+      - name: Upload immutable candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-harmonization-package-${{ env.TEST_SHA }}
+          retention-days: 60
+          path: file21-harmonization-package/
+          if-no-files-found: error
