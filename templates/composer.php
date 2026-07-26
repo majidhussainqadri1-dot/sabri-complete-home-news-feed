@@ -101,12 +101,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php if ( ! empty( $settings['composer']['previews_enabled'] ) ) : ?>
 			<button type="submit" name="composer_action" value="preview" formnovalidate><?php esc_html_e( 'Preview', 'sabri-complete-home-news-feed' ); ?></button>
 		<?php endif; ?>
-		<button type="submit" name="composer_action" value="submit"><?php esc_html_e( 'Submit for Review', 'sabri-complete-home-news-feed' ); ?></button>
 		<?php if ( \Sabri\HomeNewsFeed\ComposerPermissions::user_can_publish() ) : ?>
-			<button type="submit" name="composer_action" value="publish"><?php esc_html_e( 'Publish', 'sabri-complete-home-news-feed' ); ?></button>
+			<button class="button button-primary sabri-hnf-composer__primary-action" type="submit" name="composer_action" value="publish"><?php esc_html_e( 'Publish', 'sabri-complete-home-news-feed' ); ?></button>
 			<?php if ( ! empty( $settings['composer']['scheduling_enabled'] ) ) : ?>
 				<button type="submit" name="composer_action" value="schedule"><?php esc_html_e( 'Schedule', 'sabri-complete-home-news-feed' ); ?></button>
 			<?php endif; ?>
+		<?php endif; ?>
+		<?php if ( \Sabri\HomeNewsFeed\ComposerPermissions::user_can_submit_for_review() ) : ?>
+			<button type="submit" name="composer_action" value="submit"><?php esc_html_e( 'Submit for Review', 'sabri-complete-home-news-feed' ); ?></button>
 		<?php endif; ?>
 	</div>
 </form>

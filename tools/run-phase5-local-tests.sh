@@ -7,6 +7,8 @@ node --check assets/js/phase5-public.js
 node --check assets/js/phase5-admin.js
 node --check tests/run-phase5-playground-tests.mjs
 node --check tests/run-phase5-browser-tests.mjs
+php tests/run-file21-corrective-tests.php
+php tests/run-file21-completion-audit-tests.php
 php tests/run-phase5-final-tests.php
 php tests/run-phase5-security-privacy-tests.php
 php tests/run-phase5-migration-tests.php
