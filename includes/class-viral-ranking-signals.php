@@ -18,7 +18,7 @@ final class ViralRankingSignals {
 
 	/** Public-safe bounded metrics for one authorized post. */
 	public static function metrics( $post_id ) {
-		$post_id = absint( $post_id );
+		$post_id = self::positive_id( $post_id );
 		if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id ) ) {
 			return self::empty_metrics();
 		}
@@ -37,7 +37,8 @@ final class ViralRankingSignals {
 			$filtered = apply_filters( 'sabri_hnf_viral_metrics', $metrics, $post_id );
 			if ( is_array( $filtered ) ) {
 				foreach ( $metrics as $key => $value ) {
-					$metrics[ $key ] = self::bounded( isset( $filtered[ $key ] ) ? $filtered[ $key ] : $value, 'watch_seconds' === $key ? 100000000 : ( 'quality' === $key ? 100 : 1000000 ) );
+					$maximum = 'watch_seconds' === $key ? 100000000 : ( 'quality' === $key ? 100 : 1000000 );
+					$metrics[ $key ] = self::bounded( isset( $filtered[ $key ] ) ? $filtered[ $key ] : $value, $maximum );
 				}
 			}
 		}
@@ -83,7 +84,8 @@ final class ViralRankingSignals {
 		if ( $timestamp <= 0 ) {
 			return 0;
 		}
-		$age_hours = max( 0, floor( ( time() - $timestamp ) / HOUR_IN_SECONDS ) );
+		$hour = defined( 'HOUR_IN_SECONDS' ) ? (int) HOUR_IN_SECONDS : 3600;
+		$age_hours = max( 0, floor( ( time() - $timestamp ) / max( 1, $hour ) ) );
 		return max( 0, 90 - (int) floor( $age_hours / 24 ) );
 	}
 
@@ -96,6 +98,11 @@ final class ViralRankingSignals {
 	/** Normalize a non-negative integer. */
 	private static function bounded( $value, $maximum ) {
 		return max( 0, min( (int) $maximum, is_numeric( $value ) ? (int) $value : 0 ) );
+	}
+
+	/** Strict positive ID without requiring WordPress helpers in lean tests. */
+	private static function positive_id( $value ) {
+		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/', (string) $value ) ? (int) $value : 0;
 	}
 
 	/** Empty metric shape. */
