@@ -1,0 +1,102 @@
+name: File 21 Phase 3 Runtime Assertion Sync
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'tests/run-phase3*.php'
+      - '.github/workflows/file21-phase3-runtime-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: file21-phase3-runtime-sync-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  synchronize:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Synchronize only Phase 3 runtime assertions
+        shell: python
+        run: |
+          from pathlib import Path
+
+          changed = []
+          replacements = (
+              ("'1.0.0' === $identity['version']", "'1.0.1' === $identity['version']"),
+              ("'1.0.0' === SABRI_HNF_VERSION", "'1.0.1' === SABRI_HNF_VERSION"),
+              ("SABRI_HNF_VERSION === '1.0.0'", "SABRI_HNF_VERSION === '1.0.1'"),
+              ("'plugin_version_not_promoted'", "'legacy_phase3_target_version_not_promoted'"),
+          )
+
+          for path in sorted(Path('tests').glob('run-phase3*.php')):
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(str(path))
+
+          print('Synchronized files:')
+          print('\n'.join(changed) if changed else '(none)')
+
+          for path in sorted(Path('tests').glob('run-phase3*.php')):
+              text = path.read_text(encoding='utf-8')
+              if "'1.0.0' === $identity['version']" in text:
+                  raise SystemExit(f'Frozen Plugin::identity assertion remains in {path}')
+              if "'1.0.0' === SABRI_HNF_VERSION" in text:
+                  raise SystemExit(f'Frozen runtime constant assertion remains in {path}')
+              if "SABRI_HNF_VERSION === '1.0.0'" in text:
+                  raise SystemExit(f'Frozen runtime constant assertion remains in {path}')
+
+      - name: Validate PHP syntax and complete Phase 3 matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          find tests -maxdepth 1 -type f -name 'run-phase3*.php' -print0 | xargs -0 -n1 php -l
+          tests=(
+            tests/run-phase3-contract-tests.php
+            tests/run-phase3-infrastructure-tests.php
+            tests/run-phase3b-reactions-saves-tests.php
+            tests/run-phase3b-race-shortcode-tests.php
+            tests/run-phase3c-comments-tests.php
+            tests/run-phase3d-follows-tests.php
+            tests/run-phase3e-reports-tests.php
+            tests/run-phase3f-polls-tests.php
+            tests/run-phase3g-notifications-views-tests.php
+            tests/run-phase3h-hardening-tests.php
+            tests/run-phase3-social-features-share-tests.php
+          )
+          for test_file in "${tests[@]}"; do
+            echo "=== ${test_file} ==="
+            php "$test_file"
+          done
+
+      - name: Commit synchronized assertions
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- tests; then
+            echo 'No assertion changes required.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tests/run-phase3*.php
+          git commit -m 'Synchronize Phase 3 tests with runtime 1.0.1'
+          git push origin HEAD:"${HEAD_BRANCH}"
