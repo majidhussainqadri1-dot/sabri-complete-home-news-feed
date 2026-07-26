@@ -18,31 +18,31 @@ final class FeedContext {
 	/** Canonical internal Feed modes. Cross-module links live in HomeCompositionRegistry. */
 	public static function modes() {
 		return array(
-			'for-you'              => __( 'For You', 'sabri-complete-home-news-feed' ),
-			'most-viral'           => __( 'Most Viral', 'sabri-complete-home-news-feed' ),
-			'latest'               => __( 'Latest', 'sabri-complete-home-news-feed' ),
-			'founder-updates'      => __( 'Founder Posts', 'sabri-complete-home-news-feed' ),
-			'doctors-posts'        => __( 'Doctors Posts', 'sabri-complete-home-news-feed' ),
+			'for-you' => __( 'For You', 'sabri-complete-home-news-feed' ),
+			'most-viral' => __( 'Most Viral', 'sabri-complete-home-news-feed' ),
+			'latest' => __( 'Latest', 'sabri-complete-home-news-feed' ),
+			'founder-updates' => __( 'Founder Posts', 'sabri-complete-home-news-feed' ),
+			'doctors-posts' => __( 'Doctors Posts', 'sabri-complete-home-news-feed' ),
 			'classical-homeopathy' => __( 'Classical Homeopathy', 'sabri-complete-home-news-feed' ),
-			'remedies'             => __( 'Remedies', 'sabri-complete-home-news-feed' ),
-			'diseases'             => __( 'Diseases', 'sabri-complete-home-news-feed' ),
-			'clinical-cases'       => __( 'Clinical Cases', 'sabri-complete-home-news-feed' ),
-			'materia-medica'       => __( 'Materia Medica', 'sabri-complete-home-news-feed' ),
-			'repertory'            => __( 'Repertory', 'sabri-complete-home-news-feed' ),
-			'research'             => __( 'Research', 'sabri-complete-home-news-feed' ),
-			'education'            => __( 'Education', 'sabri-complete-home-news-feed' ),
-			'nutrition'            => __( 'Nutrition', 'sabri-complete-home-news-feed' ),
-			'public-health'        => __( 'Public Health', 'sabri-complete-home-news-feed' ),
-			'pathology'            => __( 'Pathology', 'sabri-complete-home-news-feed' ),
-			'anatomy'              => __( 'Anatomy', 'sabri-complete-home-news-feed' ),
-			'hygiene'              => __( 'Principles of Hygiene', 'sabri-complete-home-news-feed' ),
+			'remedies' => __( 'Remedies', 'sabri-complete-home-news-feed' ),
+			'diseases' => __( 'Diseases', 'sabri-complete-home-news-feed' ),
+			'clinical-cases' => __( 'Clinical Cases', 'sabri-complete-home-news-feed' ),
+			'materia-medica' => __( 'Materia Medica', 'sabri-complete-home-news-feed' ),
+			'repertory' => __( 'Repertory', 'sabri-complete-home-news-feed' ),
+			'research' => __( 'Research', 'sabri-complete-home-news-feed' ),
+			'education' => __( 'Education', 'sabri-complete-home-news-feed' ),
+			'nutrition' => __( 'Nutrition', 'sabri-complete-home-news-feed' ),
+			'public-health' => __( 'Public Health', 'sabri-complete-home-news-feed' ),
+			'pathology' => __( 'Pathology', 'sabri-complete-home-news-feed' ),
+			'anatomy' => __( 'Anatomy', 'sabri-complete-home-news-feed' ),
+			'hygiene' => __( 'Principles of Hygiene', 'sabri-complete-home-news-feed' ),
 			'islamic-spiritual-healing' => __( 'Islamic Spiritual Healing', 'sabri-complete-home-news-feed' ),
 			'homeopathy-philosophy' => __( 'Homeopathy Philosophy', 'sabri-complete-home-news-feed' ),
-			'platform-news'        => __( 'Platform News', 'sabri-complete-home-news-feed' ),
+			'platform-news' => __( 'Platform News', 'sabri-complete-home-news-feed' ),
 		);
 	}
 
-	/** Human-author Feed types approved by the revised central publishing policy. */
+	/** Human-author types accepted for new social Composer submissions. */
 	public static function phase2_feed_type_slugs() {
 		return array(
 			'standard-post',
@@ -54,7 +54,6 @@ final class FeedContext {
 			'repertory',
 			'clinical-education',
 			'clinical-case',
-			'patient-case',
 			'research',
 			'nutrition',
 			'public-health-education',
@@ -63,33 +62,29 @@ final class FeedContext {
 			'principles-of-hygiene',
 			'islamic-spiritual-healing',
 			'homeopathy-philosophy',
-			// Legacy aliases retained for non-destructive compatibility.
-			'education',
-			'public-health',
-			'hygiene',
 		);
 	}
 
-	/** Map internal Feed modes to one or more accepted Feed type terms. */
+	/** Map Feed modes to canonical and non-destructive legacy term aliases. */
 	public static function mode_type_map() {
 		return array(
-			'founder-updates'      => array( 'founder-update' ),
+			'founder-updates' => array( 'founder-update' ),
 			'classical-homeopathy' => array( 'classical-homeopathy' ),
-			'remedies'             => array( 'materia-medica' ),
-			'diseases'             => array( 'pathology', 'public-health-education', 'public-health', 'clinical-case', 'patient-case' ),
-			'clinical-cases'       => array( 'clinical-case', 'patient-case', 'clinical-education' ),
-			'materia-medica'       => array( 'materia-medica' ),
-			'repertory'            => array( 'repertory' ),
-			'research'             => array( 'research' ),
-			'education'            => array( 'homeopathy-education', 'clinical-education', 'education' ),
-			'nutrition'            => array( 'nutrition' ),
-			'public-health'        => array( 'public-health-education', 'public-health' ),
-			'pathology'            => array( 'pathology' ),
-			'anatomy'              => array( 'anatomy' ),
-			'hygiene'              => array( 'principles-of-hygiene', 'hygiene' ),
+			'remedies' => array( 'materia-medica' ),
+			'diseases' => array( 'pathology', 'public-health-education', 'public-health', 'clinical-case', 'patient-case' ),
+			'clinical-cases' => array( 'clinical-case', 'patient-case', 'clinical-education' ),
+			'materia-medica' => array( 'materia-medica' ),
+			'repertory' => array( 'repertory' ),
+			'research' => array( 'research' ),
+			'education' => array( 'homeopathy-education', 'clinical-education', 'education' ),
+			'nutrition' => array( 'nutrition' ),
+			'public-health' => array( 'public-health-education', 'public-health' ),
+			'pathology' => array( 'pathology' ),
+			'anatomy' => array( 'anatomy' ),
+			'hygiene' => array( 'principles-of-hygiene', 'hygiene' ),
 			'islamic-spiritual-healing' => array( 'islamic-spiritual-healing' ),
 			'homeopathy-philosophy' => array( 'homeopathy-philosophy' ),
-			'platform-news'        => array( 'platform-news' ),
+			'platform-news' => array( 'platform-news', 'doctor-announcement', 'breaking-news' ),
 		);
 	}
 
