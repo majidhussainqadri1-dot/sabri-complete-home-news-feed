@@ -55,6 +55,29 @@ final class ComposerPermissions {
 	}
 
 	/**
+	 * Whether a user is an Administrator or configured Founder.
+	 *
+	 * @param int                      $user_id User ID.
+	 * @param array<string,mixed>|null $settings Settings.
+	 * @return bool
+	 */
+	public static function user_is_privileged_publisher( $user_id = 0, $settings = null ) {
+		$settings = null === $settings ? Settings::get() : $settings;
+		$user_id  = $user_id ? (int) $user_id : self::current_user_id();
+
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+
+		if ( self::user_has_role_group( $user_id, 'founder_roles', $settings ) ) {
+			return true;
+		}
+
+		return in_array( 'administrator', self::user_role_slugs( $user_id ), true )
+			|| ( $user_id === self::current_user_id() && self::current_user_can_any( array( 'manage_options' ) ) );
+	}
+
+	/**
 	 * Whether the current user can use the public composer.
 	 *
 	 * @param int                      $user_id User ID.
@@ -98,6 +121,10 @@ final class ComposerPermissions {
 			return false;
 		}
 
+		if ( self::user_is_privileged_publisher( $user_id, $settings ) ) {
+			return true;
+		}
+
 		if ( self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) ) ) {
 			return true;
 		}
@@ -126,8 +153,11 @@ final class ComposerPermissions {
 			return false;
 		}
 
-		return self::user_can_publish( $user_id, $settings )
-			|| self::current_user_can_any( array( 'sabri_feed_submit_for_review', 'manage_options' ) )
+		if ( self::user_is_privileged_publisher( $user_id, $settings ) ) {
+			return false;
+		}
+
+		return self::current_user_can_any( array( 'sabri_feed_submit_for_review' ) )
 			|| self::user_has_role_group( $user_id, 'verified_doctor_roles', $settings )
 			|| self::user_has_role_group( $user_id, 'unverified_doctor_roles', $settings );
 	}
@@ -201,6 +231,10 @@ final class ComposerPermissions {
 				return self::denied( 'publish_denied', __( 'This post must be submitted for review.', 'sabri-complete-home-news-feed' ) );
 			}
 			return array( 'allowed' => true, 'status' => 'publish' );
+		}
+
+		if ( self::user_is_privileged_publisher( $user_id, $settings ) ) {
+			return array( 'allowed' => true, 'status' => 'publish', 'normalized_action' => 'publish' );
 		}
 
 		if ( self::user_can_submit_for_review( $user_id, $settings ) ) {
