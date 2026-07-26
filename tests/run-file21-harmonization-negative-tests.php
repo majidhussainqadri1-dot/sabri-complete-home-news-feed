@@ -8,7 +8,7 @@ $permissions = file_get_contents( $root . '/includes/class-composer-permissions.
 $assert( false !== strpos( $permissions, 'current_actor_matches' ), 'Cross-user capability borrowing guard is missing.' );
 $assert( false !== strpos( $permissions, 'is_student_or_patient' ), 'Student/patient publishing denial is missing.' );
 $assert( false !== strpos( $permissions, 'CanonicalIdentityAdapter::can_publish_immediately' ), 'Canonical immediate-publishing authority is missing.' );
-$assert( false === strpos( $permissions, "|| self::user_has_role_group( $user_id, 'editorial_roles'" ), 'Editorial Newsroom roles still receive implicit social-Composer authority.' );
+$assert( false === strpos( $permissions, "|| self::user_has_role_group( \$user_id, 'editorial_roles'" ), 'Editorial Newsroom roles still receive implicit social-Composer authority.' );
 
 $identity = file_get_contents( $root . '/includes/class-canonical-identity-adapter.php' );
 $assert( false !== strpos( $identity, "'trusted'" ), 'Trusted verified-doctor policy is missing.' );
@@ -24,7 +24,7 @@ $search = file_get_contents( $root . '/includes/class-search-provider-registry.p
 $assert( false !== strpos( $search, 'MAX_QUERY_LENGTH' ), 'Search query length bound is missing.' );
 $assert( false !== strpos( $search, 'MAX_RESULTS_PER_PROVIDER' ), 'Search result bound is missing.' );
 $assert( false !== strpos( $search, 'PostMetadata::user_can_view' ), 'Search object-level authorization is missing.' );
-$assert( false === strpos( $search, "array( 'search' => $query" ), 'Search still uses the rejected News query parameter.' );
+$assert( false === strpos( $search, "array( 'search' => \$query" ), 'Search still uses the rejected News query parameter.' );
 
 $migration = file_get_contents( $root . '/includes/class-legacy-publication-migration.php' );
 foreach ( array( 'actor_can_migrate', 'Snapshot::capture_before_mutation', 'already_migrated', 'interaction_report', 'interaction_provider_requested', 'source_deleted', 'destructive', 'automatic' ) as $needle ) {
@@ -55,7 +55,7 @@ $assert( false !== strpos( $settings, 'preserving unknown future keys' ), 'Setti
 $assert( false !== strpos( $settings, 'sanitize_function_map' ), 'Integration function-map sanitizer is missing.' );
 $assert( false !== strpos( $settings, 'private static function clean_function_name' ), 'Namespaced callback sanitizer is missing.' );
 $assert( false !== strpos( $settings, "preg_match( '/^[A-Za-z_][A-Za-z0-9_]*" ), 'Callable names are not constrained to a PHP function-name grammar.' );
-$assert( false !== strpos( $settings, "? $value : ''" ), 'Invalid callable names do not fail closed.' );
+$assert( false !== strpos( $settings, "? \$value : ''" ), 'Invalid callable names do not fail closed.' );
 
 $diagnostics = file_get_contents( $root . '/includes/class-harmonization-diagnostics.php' );
 $assert( false !== strpos( $diagnostics, "'live_release_ready' => false" ), 'Diagnostics may falsely claim live release readiness.' );
