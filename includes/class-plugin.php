@@ -15,7 +15,7 @@ final class Plugin {
 	public function register(){
 		if($this->registered){return;}$this->registered=true;
 		$modules=array(
-			Settings::class,HarmonizedSettings::class,CanonicalIdentityAdapter::class,CompanionIntegrationRegistry::class,
+			Settings::class,HarmonizedSettings::class,CanonicalIdentityAdapter::class,CompanionIntegrationRegistry::class,SearchProviderRegistry::class,
 			Phase3FeatureSettings::class,NewsFeatureSettings::class,NewsCapabilities::class,NewsStatuses::class,
 			EditorialNewsPostType::class,NewsTaxonomies::class,NewsPolicy::class,NewsPublicSnapshot::class,NewsWorkflow::class,
 			NewsComposerValidator::class,NewsQueueService::class,NewsAudit::class,NewsSchedulingService::class,NewsroomDiagnostics::class,NewsService::class,
