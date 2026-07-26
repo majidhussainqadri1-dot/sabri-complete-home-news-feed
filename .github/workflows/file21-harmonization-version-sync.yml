@@ -1,0 +1,128 @@
+name: File 21 One-Shot Harmonization Sync
+
+on:
+  push:
+    branches:
+      - build/file-21-comprehensive-harmonization-1.0.1
+    paths:
+      - '.github/workflows/file21-harmonization-version-sync.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: file21-one-shot-harmonization-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: build/file-21-comprehensive-harmonization-1.0.1
+          fetch-depth: 0
+
+      - name: Apply bounded exact replacements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          root = Path('.')
+          replacements = {
+              "grep -Fq 'Version: 1.0.0'": "grep -Fq 'Version: 1.0.1'",
+              "grep -Fq \"define( 'SABRI_HNF_VERSION', '1.0.0' );\"": "grep -Fq \"define( 'SABRI_HNF_VERSION', '1.0.1' );\"",
+              "Accepted plugin version shown in WordPress: 1.0.0": "Accepted plugin version shown in WordPress: 1.0.1",
+              "$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-5-FINAL-CANDIDATE'": "$base = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'",
+              "$legacyBase = '21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE'": "$legacyBase = '21-sabri-complete-home-news-feed-1.0.1-COMPATIBILITY-CANDIDATE'",
+              "Sabri Complete Home and News Feed Phase 5 Candidate Test Report": "Sabri Complete Home and News Feed 1.0.1 Harmonized Candidate Test Report",
+          }
+
+          candidates = list((root / '.github' / 'workflows').glob('*.yml'))
+          candidates += list((root / '.github' / 'workflows').glob('*.yaml'))
+          candidates += [root / 'tools' / 'build-release.ps1']
+          changed = []
+          counts = {key: 0 for key in replacements}
+          for path in candidates:
+              if not path.is_file():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              original = text
+              for old, new in replacements.items():
+                  count = text.count(old)
+                  if count:
+                      text = text.replace(old, new)
+                      counts[old] += count
+              if path.name == 'build-release.ps1':
+                  anchor = "    'includes/class-plugin.php',\n"
+                  additions = """    'includes/class-canonical-identity-adapter.php',
+    'includes/class-companion-integration-registry.php',
+    'includes/class-companion-home-row-adapters.php',
+    'includes/class-search-provider-registry.php',
+    'includes/class-viral-ranking-signals.php',
+    'includes/class-home-composition-registry.php',
+    'includes/class-legacy-interaction-migration-adapter.php',
+    'includes/class-legacy-publication-migration.php',
+    'includes/class-legacy-publication-rollback.php',
+    'includes/class-harmonized-settings.php',
+    'assets/css/home-composition.css',
+"""
+                  if additions.strip() not in text and anchor in text:
+                      text = text.replace(anchor, anchor + additions, 1)
+                  text = text.replace("- Required Phase 5 runtime files:", "- Required 1.0.1 runtime files:")
+                  text = text.replace("canonical Phase 5 package", "canonical harmonized package")
+              if path.name == 'file21-harmonization-tests.yml':
+                  anchor = "            sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php \\\n"
+                  additions = """            sabri-complete-home-news-feed/includes/class-companion-home-row-adapters.php \\
+            sabri-complete-home-news-feed/includes/class-legacy-interaction-migration-adapter.php \\
+            sabri-complete-home-news-feed/includes/class-legacy-publication-rollback.php \\
+            sabri-complete-home-news-feed/assets/css/home-composition.css \\
+"""
+                  if additions.strip() not in text and anchor in text:
+                      text = text.replace(anchor, anchor + additions, 1)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(str(path))
+
+          required_exact = [
+              "grep -Fq 'Version: 1.0.0'",
+              "grep -Fq \"define( 'SABRI_HNF_VERSION', '1.0.0' );\"",
+              "$base = '21-sabri-complete-home-news-feed-1.0.0-PHASE-5-FINAL-CANDIDATE'",
+          ]
+          for key in required_exact:
+              if counts[key] < 1:
+                  raise SystemExit(f'Expected exact replacement not found: {key}')
+          print('Changed files:')
+          print('\n'.join(changed))
+          print('Replacement counts:', counts)
+
+      - name: Remove one-shot workflow
+        run: rm -f .github/workflows/file21-harmonization-version-sync.yml
+
+      - name: Validate synchronized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          php -l sabri-complete-home-news-feed.php
+          php -l includes/class-plugin.php
+          php -l includes/class-legacy-interaction-migration-adapter.php
+          php -l includes/class-legacy-publication-migration.php
+          php -l admin/class-corrective-admin.php
+          php -l admin/views/migration.php
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+
+      - name: Commit synchronized files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Synchronize 1.0.1 frozen checks and package manifest'
+          git push origin HEAD:build/file-21-comprehensive-harmonization-1.0.1
