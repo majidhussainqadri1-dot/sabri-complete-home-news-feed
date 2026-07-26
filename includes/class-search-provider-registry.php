@@ -116,7 +116,7 @@ final class SearchProviderRegistry {
 		if ( '' === $query || ! class_exists( __NAMESPACE__ . '\\NewsQueryService' ) || ! class_exists( __NAMESPACE__ . '\\NewsPolicy' ) || ! NewsPolicy::public_reads_allowed() ) {
 			return array();
 		}
-		$result = NewsQueryService::query( array( 'search' => $query, 'per_page' => $limit ) );
+		$result = NewsQueryService::query( array( 'q' => $query, 'per_page' => $limit ) );
 		$items = array();
 		foreach ( ! empty( $result['data']['items'] ) && is_array( $result['data']['items'] ) ? $result['data']['items'] : array() as $article ) {
 			$headline = isset( $article['headline'] ) ? (string) $article['headline'] : '';
