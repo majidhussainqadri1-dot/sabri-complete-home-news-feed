@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $slug = 'sabri-complete-home-news-feed'
 $base = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'
 $legacyBase = '21-sabri-complete-home-news-feed-1.0.1-COMPATIBILITY-CANDIDATE'
+$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-PHASE-3-STAGING-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -15,6 +16,9 @@ $manifestPath = Join-Path $releaseDir "$base-MANIFEST.sha256"
 $reportPath = Join-Path $releaseDir "$base-TEST-REPORT.md"
 $legacyZipPath = Join-Path $releaseDir "$legacyBase.zip"
 $legacyShaPath = Join-Path $releaseDir "$legacyBase.sha256"
+$historicalZipPath = Join-Path $releaseDir "$historicalBase.zip"
+$historicalShaPath = Join-Path $releaseDir "$historicalBase.sha256"
+$historicalReportPath = Join-Path $releaseDir "$historicalBase-TEST-REPORT.md"
 
 $requiredRuntimeFiles = @(
     'sabri-complete-home-news-feed.php',
@@ -135,7 +139,7 @@ Get-ChildItem -LiteralPath $topDir -Recurse -File | ForEach-Object {
     }
 }
 
-foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath, $legacyZipPath, $legacyShaPath)) {
+foreach ($path in @($zipPath, $shaPath, $manifestPath, $reportPath, $legacyZipPath, $legacyShaPath, $historicalZipPath, $historicalShaPath, $historicalReportPath)) {
     if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force }
 }
 
@@ -172,6 +176,12 @@ $legacyHash = (Get-FileHash -LiteralPath $legacyZipPath -Algorithm SHA256).Hash.
 if ($legacyHash -ne $hash) {
     throw 'Compatibility package digest does not match the canonical harmonized package.'
 }
+Copy-Item -LiteralPath $zipPath -Destination $historicalZipPath -Force
+"$hash  $(Split-Path $historicalZipPath -Leaf)" | Set-Content -LiteralPath $historicalShaPath -Encoding ASCII
+$historicalHash = (Get-FileHash -LiteralPath $historicalZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($historicalHash -ne $hash) {
+    throw 'Historical Phase 3 alias digest does not match the canonical harmonized package.'
+}
 $manifestDigest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $report = @(
     '# Sabri Complete Home and News Feed 1.0.1 Harmonized Candidate Test Report','',
@@ -192,6 +202,7 @@ $report = @(
     '- Package is an exact-head candidate only; merge, staging activation, WordPress visual acceptance, and live deployment remain separately gated.'
 )
 $report | Set-Content -LiteralPath $reportPath -Encoding UTF8
+Copy-Item -LiteralPath $reportPath -Destination $historicalReportPath -Force
 
 $resolvedStage = (Resolve-Path $stageDir).Path
 if (-not $resolvedStage.StartsWith($resolvedRelease, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -200,3 +211,4 @@ if (-not $resolvedStage.StartsWith($resolvedRelease, [System.StringComparison]::
 Remove-Item -LiteralPath $stageDir -Recurse -Force
 Write-Output "Built $zipPath"
 Write-Output "Built compatibility alias $legacyZipPath"
+Write-Output "Built historical Phase 3 alias $historicalZipPath"
