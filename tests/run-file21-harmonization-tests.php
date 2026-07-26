@@ -98,7 +98,7 @@ foreach ( array( 'sabri_network', 'swc_request_appointment', 'sabri_marketplace'
 }
 
 $search = file_get_contents( $root . '/includes/class-search-provider-registry.php' );
-foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', "array( 'q' => $query" ) as $needle ) {
+foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', 'array( \'q\' => $query' ) as $needle ) {
 	$assert( false !== strpos( $search, $needle ), 'Search-provider safeguard missing: ' . $needle );
 }
 
