@@ -13,11 +13,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Keeps File 21 as the Home content engine without copying companion data. */
 final class HomeCompositionRegistry {
-	/** Register optional row providers and Shell rendering slots. */
+	private static $rows_rendered = false;
+
+	/** Register optional row providers, Shell slots and fallback content mounting. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'sabri_shell_home_main', array( __CLASS__, 'render_shell_home' ), 20 );
 			add_action( 'sabri_feed_home_after_primary', array( __CLASS__, 'render_rows_action' ), 20 );
+		}
+		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'the_content', array( __CLASS__, 'append_rows_to_corrective_surface' ), 9 );
 		}
 	}
 
@@ -51,11 +56,12 @@ final class HomeCompositionRegistry {
 			if ( empty( $item['label'] ) ) {
 				continue;
 			}
-			$url = 'feed' === ( isset( $item['kind'] ) ? $item['kind'] : '' ) ? self::feed_url( $key ) : self::module_url( $item );
+			$kind = isset( $item['kind'] ) ? $item['kind'] : '';
+			$url = 'feed' === $kind ? self::feed_url( $key ) : self::module_url( $item );
 			if ( '' === $url ) {
 				continue;
 			}
-			$is_active = 'feed' === $item['kind'] && $active_mode === $key;
+			$is_active = 'feed' === $kind && $active_mode === $key;
 			$html .= '<li><a class="sabri-hnf-filter__link' . ( $is_active ? ' is-active' : '' ) . '" href="' . esc_url( $url ) . '"' . ( $is_active ? ' aria-current="page"' : '' ) . ' data-sabri-home-control="' . esc_attr( $key ) . '">' . esc_html( $item['label'] ) . '</a></li>';
 		}
 		return $html . '</ul></nav>';
@@ -80,19 +86,25 @@ final class HomeCompositionRegistry {
 
 	/** Render rows from normalized provider callbacks; no companion database is copied. */
 	public static function render_rows() {
-		$html = '';
+		if ( self::$rows_rendered ) {
+			return '';
+		}
+		self::$rows_rendered = true;
+		$html = '<div class="sabri-hnf-home-rows" data-sabri-home-rows>';
+		$count = 0;
 		foreach ( self::rows() as $key => $row ) {
 			$items = self::row_items( $key, $row );
 			if ( empty( $items ) ) {
 				continue;
 			}
+			$count++;
 			$html .= '<section class="sabri-hnf-home-row" data-sabri-home-row="' . esc_attr( $key ) . '"><header><h2>' . esc_html( $row['label'] ) . '</h2></header><div class="sabri-hnf-home-row__items">';
 			foreach ( $items as $item ) {
 				$html .= self::render_row_item( $item );
 			}
 			$html .= '</div></section>';
 		}
-		return $html;
+		return $count > 0 ? $html . '</div>' : '';
 	}
 
 	/** Render the official Shell Home slot. */
@@ -109,6 +121,15 @@ final class HomeCompositionRegistry {
 		echo self::render_rows(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
+	/** Append rows after the priority-8 corrective fallback surface. */
+	public static function append_rows_to_corrective_surface( $content ) {
+		if ( ! is_string( $content ) || false === strpos( $content, 'data-sabri-hnf-surface="file-21-corrective"' ) || false !== strpos( $content, 'data-sabri-home-rows' ) ) {
+			return $content;
+		}
+		$rows = self::render_rows();
+		return '' !== $rows ? $content . $rows : $content;
+	}
+
 	/** Resolve one row's normalized items. */
 	private static function row_items( $key, array $row ) {
 		$limit = isset( $row['limit'] ) ? max( 1, min( 12, (int) $row['limit'] ) ) : 6;
@@ -119,7 +140,11 @@ final class HomeCompositionRegistry {
 			foreach ( isset( $result['posts'] ) && is_array( $result['posts'] ) ? $result['posts'] : array() as $post ) {
 				$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
 				if ( $post_id > 0 ) {
-					$items[] = array( 'title' => get_the_title( $post_id ), 'url' => get_permalink( $post_id ), 'type' => 'post' );
+					$items[] = array(
+						'title' => function_exists( 'get_the_title' ) ? get_the_title( $post_id ) : '',
+						'url' => function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '',
+						'type' => 'post',
+					);
 				}
 			}
 		} elseif ( 'news' === $provider && class_exists( __NAMESPACE__ . '\\NewsQueryService' ) ) {
