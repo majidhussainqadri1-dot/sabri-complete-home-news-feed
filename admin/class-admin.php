@@ -44,6 +44,7 @@ final class Admin {
 		add_action( 'admin_post_sabri_feed_emergency', array( __CLASS__, 'handle_emergency' ) );
 		add_action( 'admin_post_sabri_feed_repair', array( __CLASS__, 'handle_repair' ) );
 		add_action( 'admin_post_sabri_feed_migration', array( __CLASS__, 'handle_migration' ) );
+		add_action( 'admin_post_sabri_feed_restore_legacy_founder_posts', array( __CLASS__, 'handle_restore_legacy_founder_posts' ) );
 		add_action( 'admin_post_sabri_feed_rollback', array( __CLASS__, 'handle_rollback' ) );
 	}
 
@@ -156,6 +157,15 @@ final class Admin {
 		$result = 'execute' === $mode ? Migrations::migrate() : Migrations::preview();
 		update_option( 'sabri_feed_last_migration_report', $result, false );
 		self::redirect( 'sabri-feed-migration', 'migration=1' );
+	}
+
+	/** Handle selected legacy Founder/Admin post restoration. */
+	public static function handle_restore_legacy_founder_posts() {
+		self::require_admin_action( 'sabri_feed_restore_legacy_founder_posts' );
+		$post_ids = isset( $_POST['post_ids'] ) && is_array( $_POST['post_ids'] ) ? wp_unslash( $_POST['post_ids'] ) : array();
+		$result   = LegacyFounderPostMigration::restore_selected( $post_ids );
+		update_option( LegacyFounderPostMigration::LAST_REPORT_OPTION, $result, false );
+		self::redirect( 'sabri-feed-migration', 'legacy_restore=1' );
 	}
 
 	/** Handle rollback action. */
