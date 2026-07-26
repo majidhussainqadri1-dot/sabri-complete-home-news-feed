@@ -58,7 +58,9 @@ jobs:
           set -Eeuo pipefail
           readonly MINIMUM_SECONDS=3900
           readonly REQUIRED_CYCLES=13
-          readonly CYCLE_INTERVAL_SECONDS=300
+          # Thirteen cycles contain twelve start-to-start intervals. 12 x 325 = 3900,
+          # so cycle 13 cannot begin before the minimum QA duration has elapsed.
+          readonly CYCLE_INTERVAL_SECONDS=325
           readonly START_EPOCH=$(date +%s)
           mkdir -p file21-visible-qa/cycle-logs
           git rev-parse HEAD > file21-visible-qa/exact-commit.txt
