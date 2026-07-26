@@ -83,7 +83,7 @@ function sabri_rest_arg_sanitized( $route, $arg, $value ) {
 
 function sabri_test_identity() {
 	$identity = Plugin::identity();
-	sabri_assert( '1.0.0' === $identity['version'], 'Plugin identity version must be 1.0.0.' );
+	sabri_assert( '1.0.1' === $identity['version'], 'Plugin identity version must be 1.0.0.' );
 	sabri_assert( SABRI_HNF_VERSION === $identity['version'], 'Constant and identity versions must match.' );
 	sabri_assert( SABRI_HNF_SCHEMA_VERSION === $identity['schema_version'], 'Schema version constant and identity must match.' );
 }
