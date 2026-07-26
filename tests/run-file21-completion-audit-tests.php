@@ -46,16 +46,23 @@ sabri_file21_completion_assert( 'sabri_news_feed' === CorrectivePublicMount::con
 sabri_file21_completion_assert( '' === CorrectivePublicMount::content_feed_shortcode( '<p>No feed here.</p>' ), 'Normal content must not be reported as a duplicate Feed.' );
 
 sabri_file21_completion_assert( 20 === ProfileTimeline::MAX_PER_PAGE, 'Profile Timeline must remain bounded to 20 items per request.' );
+sabri_file21_completion_assert( 500 === ProfileTimeline::MAX_SCAN, 'Profile Timeline candidate scan must remain bounded.' );
 sabri_file21_completion_assert( RestProfileTimeline::validate_positive_int( '1' ), 'Timeline REST must accept strict positive integers.' );
 sabri_file21_completion_assert( ! RestProfileTimeline::validate_positive_int( '0' ), 'Timeline REST must reject zero.' );
 sabri_file21_completion_assert( ! RestProfileTimeline::validate_per_page( '21' ), 'Timeline REST must reject requests above the maximum page size.' );
 
 $shortcodes = file_get_contents( dirname( __DIR__ ) . '/includes/class-shortcodes.php' );
 $plugin     = file_get_contents( dirname( __DIR__ ) . '/includes/class-plugin.php' );
+$timeline   = file_get_contents( dirname( __DIR__ ) . '/includes/class-profile-timeline.php' );
 $view       = file_get_contents( dirname( __DIR__ ) . '/admin/views/corrective-wizard.php' );
 $checklist  = file_get_contents( dirname( __DIR__ ) . '/FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md' );
 
 sabri_file21_completion_assert( false !== strpos( $shortcodes, 'sabri_profile_timeline' ), 'Profile Timeline shortcode must be registered.' );
+sabri_file21_completion_assert( false === strpos( $shortcodes, "'user_id'  => function_exists( 'get_queried_object_id'" ), 'Profile Timeline must not treat an arbitrary queried post ID as a user ID.' );
+sabri_file21_completion_assert( false !== strpos( $timeline, "'no_found_rows'       => true" ), 'Profile Timeline must not expose WordPress found_posts for restricted content.' );
+sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::visibility_meta_clause()' ), 'Timeline candidate query must apply the visibility meta clause.' );
+sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::user_can_view' ), 'Timeline serialization must retain object-level visibility authorization.' );
+sabri_file21_completion_assert( false !== strpos( $timeline, "'total_is_complete'" ), 'Timeline contract must disclose whether its bounded visible count is complete.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectivePublicMount::class' ) && false !== strpos( $plugin, 'RestProfileTimeline::class' ), 'Corrective public and Timeline modules must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectiveAdmin::class' ), 'Activation Wizard administration must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $view, 'Gate-by-Gate Public News Activation' ), 'Wizard must visibly expose gate-by-gate News activation.' );
