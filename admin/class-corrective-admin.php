@@ -78,7 +78,18 @@ final class CorrectiveAdmin {
 		$target = isset( $_POST['target'] ) ? sanitize_key( wp_unslash( $_POST['target'] ) ) : 'auto';
 		$target = in_array( $target, array( 'auto', 'post', 'sabri_news' ), true ) ? $target : 'auto';
 		$copy_comments = isset( $_POST['copy_comments'] ) && '1' === (string) wp_unslash( $_POST['copy_comments'] );
-		$result = LegacyPublicationMigration::migrate_selected( $legacy_ids, get_current_user_id(), array( 'target' => $target, 'copy_comments' => $copy_comments ) );
+		$migrate_interactions = isset( $_POST['migrate_interactions'] ) && '1' === (string) wp_unslash( $_POST['migrate_interactions'] );
+		$interaction_provider = isset( $_POST['interaction_provider'] ) ? sanitize_key( wp_unslash( $_POST['interaction_provider'] ) ) : '';
+		$result = LegacyPublicationMigration::migrate_selected(
+			$legacy_ids,
+			get_current_user_id(),
+			array(
+				'target' => $target,
+				'copy_comments' => $copy_comments,
+				'migrate_interactions' => $migrate_interactions,
+				'interaction_provider' => $interaction_provider,
+			)
+		);
 		self::redirect_migration( self::report_notice( $result, 'legacy_publications_migrated', 'legacy_publications_partial', 'legacy_publications_failed' ) );
 	}
 
