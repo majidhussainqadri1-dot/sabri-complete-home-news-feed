@@ -53,18 +53,27 @@ final class CorrectivePublicMount {
 		$content       = $front_page_id > 0 && function_exists( 'get_post_field' ) ? (string) get_post_field( 'post_content', $front_page_id ) : '';
 		$shortcode     = self::content_feed_shortcode( $content );
 		$navigation    = self::navigation_duplicates();
+		$replacement   = CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' );
 
 		return array(
 			'front_page_id'             => $front_page_id,
 			'existing_feed_shortcode'   => $shortcode,
 			'feed_conflict'             => '' !== $shortcode,
+			'replacement_enabled'       => $replacement,
+			'can_mount_without_duplicate' => '' === $shortcode || $replacement,
 			'navigation_duplicate_keys' => $navigation,
 			'navigation_conflict'       => ! empty( $navigation ),
 			'plugin_adds_navigation'    => false,
 		);
 	}
 
-	/** Never inject a second Feed when an existing Feed contract is detected. */
+	/**
+	 * Mount exactly one File 21 Feed surface.
+	 *
+	 * If a known legacy/current Feed shortcode exists, explicit replacement mode
+	 * substitutes its runtime output without mutating the page in the database.
+	 * Additional duplicate Feed shortcode instances are removed from that request.
+	 */
 	public static function mount_on_front_page( $content ) {
 		if ( ! CorrectivePublicSettings::enabled( 'home_surface_enabled' ) || SafeMode::public_features_disabled() || self::$rendered ) {
 			return $content;
@@ -87,7 +96,9 @@ final class CorrectivePublicMount {
 		if ( $post_id > 0 && function_exists( 'get_post_field' ) ) {
 			$raw_content = (string) get_post_field( 'post_content', $post_id );
 		}
-		if ( CorrectivePublicSettings::enabled( 'duplicate_feed_guard' ) && '' !== self::content_feed_shortcode( $raw_content ) ) {
+		$existing_shortcode = self::content_feed_shortcode( $raw_content );
+		$replacement        = CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' );
+		if ( CorrectivePublicSettings::enabled( 'duplicate_feed_guard' ) && '' !== $existing_shortcode && ! $replacement ) {
 			return $content;
 		}
 
@@ -96,17 +107,52 @@ final class CorrectivePublicMount {
 		if ( '' === $feed ) {
 			return $content;
 		}
-
-		$marker = CorrectivePublicSettings::enabled( 'distinct_surface_marker' )
-			? '<p class="sabri-hnf-corrective-surface__eyebrow">' . esc_html__( 'Sabri Home & News Feed', 'sabri-complete-home-news-feed' ) . '</p>'
-			: '';
-		$surface = '<section class="sabri-hnf-corrective-surface" data-sabri-hnf-surface="file-21-corrective" data-sabri-hnf-version="1.0.1">'
-			. $marker
-			. $feed
-			. '</section>';
-
+		$surface = self::surface( $feed );
 		self::enqueue_assets();
+
+		if ( '' !== $existing_shortcode && $replacement ) {
+			$replaced = self::replace_known_feed_shortcodes( $content, $surface );
+			return $replaced !== $content ? $replaced : $content;
+		}
+
 		return $content . $surface;
+	}
+
+	/** Replace the first known Feed shortcode with File 21 and remove duplicates. */
+	public static function replace_known_feed_shortcodes( $content, $surface ) {
+		$content = is_string( $content ) ? $content : '';
+		$surface = is_string( $surface ) ? $surface : '';
+		if ( '' === $content || '' === $surface || '' === self::content_feed_shortcode( $content ) ) {
+			return $content;
+		}
+
+		$replacement_count = 0;
+		if ( function_exists( 'get_shortcode_regex' ) ) {
+			$regex = get_shortcode_regex( self::known_feed_shortcodes() );
+			$result = preg_replace_callback(
+				'~' . $regex . '~s',
+				static function ( $match ) use ( &$replacement_count, $surface ) {
+					if ( isset( $match[1], $match[6] ) && '[' === $match[1] && ']' === $match[6] ) {
+						return substr( $match[0], 1, -1 );
+					}
+					$replacement_count++;
+					return 1 === $replacement_count ? $surface : '';
+				},
+				$content
+			);
+			return is_string( $result ) ? $result : $content;
+		}
+
+		$tags = implode( '|', array_map( 'preg_quote', self::known_feed_shortcodes() ) );
+		$result = preg_replace_callback(
+			'~\[(?:' . $tags . ')(?:\s[^\]]*)?\](?:.*?\[/(?:' . $tags . ')\])?~is',
+			static function () use ( &$replacement_count, $surface ) {
+				$replacement_count++;
+				return 1 === $replacement_count ? $surface : '';
+			},
+			$content
+		);
+		return is_string( $result ) ? $result : $content;
 	}
 
 	/** Add an observable body marker only when the corrective surface is enabled. */
@@ -124,12 +170,22 @@ final class CorrectivePublicMount {
 			return $rows;
 		}
 		$diagnostics = self::diagnostics();
+		$enabled     = CorrectivePublicSettings::enabled( 'home_surface_enabled' );
+		$status      = 'Available but not configured';
+		$detail      = __( 'File 21 never inserts primary navigation and renders at most one corrective Feed surface per request.', 'sabri-complete-home-news-feed' );
+		if ( $enabled && ! empty( $diagnostics['feed_conflict'] ) && empty( $diagnostics['replacement_enabled'] ) ) {
+			$status = 'Blocked by duplicate guard';
+			$detail = sprintf( __( 'Existing Feed shortcode detected: %s. Enable controlled replacement in the Activation Wizard or keep File 21 auto-mount disabled.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
+		} elseif ( $enabled && ! empty( $diagnostics['feed_conflict'] ) && ! empty( $diagnostics['replacement_enabled'] ) ) {
+			$status = 'Enabled with controlled replacement';
+			$detail = sprintf( __( 'Existing Feed shortcode %s is replaced only at render time; page content is not mutated.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
+		} elseif ( $enabled ) {
+			$status = 'Enabled';
+		}
 		$rows[] = array(
 			'label'  => __( 'File 21 public mount', 'sabri-complete-home-news-feed' ),
-			'status' => CorrectivePublicSettings::enabled( 'home_surface_enabled' ) ? ( $diagnostics['feed_conflict'] ? 'Blocked by duplicate guard' : 'Enabled' ) : 'Available but not configured',
-			'detail' => $diagnostics['feed_conflict']
-				? sprintf( __( 'Existing Feed shortcode detected: %s. Corrective auto-mount remains blocked.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] )
-				: __( 'File 21 never inserts primary navigation and renders at most one corrective Feed surface per request.', 'sabri-complete-home-news-feed' ),
+			'status' => $status,
+			'detail' => $detail,
 		);
 		return $rows;
 	}
@@ -137,6 +193,17 @@ final class CorrectivePublicMount {
 	/** Reset request guards for tests. */
 	public static function reset_runtime_guards() {
 		self::$rendered = false;
+	}
+
+	/** Build the identifiable File 21 surface. */
+	private static function surface( $feed ) {
+		$marker = CorrectivePublicSettings::enabled( 'distinct_surface_marker' )
+			? '<p class="sabri-hnf-corrective-surface__eyebrow">' . esc_html__( 'Sabri Home & News Feed', 'sabri-complete-home-news-feed' ) . '</p>'
+			: '';
+		return '<section class="sabri-hnf-corrective-surface" data-sabri-hnf-surface="file-21-corrective" data-sabri-hnf-version="1.0.1">'
+			. $marker
+			. $feed
+			. '</section>';
 	}
 
 	/** Detect duplicate enabled Shell destinations that resolve to the same URL/page. */
