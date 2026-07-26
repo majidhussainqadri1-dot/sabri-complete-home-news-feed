@@ -1,0 +1,71 @@
+.sabri-hnf-corrective-surface {
+	margin-block: 1.5rem;
+	padding: clamp(1rem, 2vw, 1.5rem);
+	border: 1px solid rgba(242, 97, 0, 0.28);
+	border-radius: 18px;
+	background: #fff;
+	box-shadow: 0 10px 30px rgba(17, 24, 39, 0.07);
+}
+
+.sabri-hnf-corrective-surface__eyebrow {
+	margin: 0 0 1rem;
+	font-size: 0.78rem;
+	font-weight: 800;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #c64f00;
+}
+
+.sabri-hnf-profile-timeline {
+	display: grid;
+	gap: 1rem;
+}
+
+.sabri-hnf-profile-timeline__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	flex-wrap: wrap;
+}
+
+.sabri-hnf-profile-timeline__list {
+	display: grid;
+	gap: 1rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.sabri-hnf-profile-timeline__item {
+	padding: 1rem;
+	border: 1px solid rgba(17, 24, 39, 0.12);
+	border-radius: 14px;
+	background: #fff;
+}
+
+.sabri-hnf-profile-timeline__item h3 {
+	margin: 0 0 0.5rem;
+	font-size: 1.05rem;
+}
+
+.sabri-hnf-profile-timeline__meta {
+	margin: 0 0 0.75rem;
+	font-size: 0.85rem;
+	color: #596273;
+}
+
+.sabri-hnf-profile-timeline__empty {
+	padding: 1rem;
+	border: 1px dashed rgba(17, 24, 39, 0.2);
+	border-radius: 14px;
+	background: #fffaf5;
+}
+
+@media (max-width: 480px) {
+	.sabri-hnf-corrective-surface {
+		margin-inline: -0.25rem;
+		padding: 0.875rem;
+		border-radius: 14px;
+	}
+}
