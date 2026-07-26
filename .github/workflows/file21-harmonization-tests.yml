@@ -60,38 +60,47 @@ jobs:
             ! -path './vendor/*' ! -path './node_modules/*' -print0 \
             | xargs -0 -n1 php -l
       - name: Harmonization positive contracts
-        shell: bash
         run: php tests/run-file21-harmonization-tests.php
       - name: Harmonization negative contracts
-        shell: bash
         run: php tests/run-file21-harmonization-negative-tests.php
       - name: Legacy interaction migration behavior
-        shell: bash
         run: php tests/run-file21-legacy-interaction-migration-tests.php
-      - name: Phase 5 regression suite
-        shell: bash
-        run: bash tools/run-phase5-local-tests.sh
+      - name: Phase 5 corrective contracts
+        run: php tests/run-file21-corrective-tests.php
+      - name: Phase 5 completion audit
+        run: php tests/run-file21-completion-audit-tests.php
+      - name: Phase 5 final contracts
+        run: php tests/run-phase5-final-tests.php
+      - name: Phase 5 security and privacy
+        run: php tests/run-phase5-security-privacy-tests.php
+      - name: Phase 5 migrations
+        run: php tests/run-phase5-migration-tests.php
+      - name: Phase 5 UI completeness
+        run: php tests/run-phase5-ui-completeness-tests.php
+      - name: Phase 5 traceability
+        run: php tests/run-phase5-traceability-tests.php
       - name: Phase 4C behavior
-        shell: bash
         run: php tests/run-phase4c-public-news-tests.php
       - name: Phase 4C security
-        shell: bash
         run: php tests/run-phase4c-security-tests.php
       - name: Phase 4C UI completeness
-        shell: bash
         run: php tests/run-phase4c-ui-completeness-tests.php
       - name: Phase 4B newsroom behavior
-        shell: bash
         run: php tests/run-phase4b-newsroom-tests.php
       - name: Phase 4B UI completeness
-        shell: bash
         run: php tests/run-phase4b-ui-completeness-tests.php
       - name: Phase 4A content model
-        shell: bash
         run: php tests/run-phase4a-content-model-tests.php
       - name: Core regression suite
-        shell: bash
         run: php tools/run-tests.php
+      - name: JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/js/phase5-public.js
+          node --check assets/js/phase5-admin.js
+          node --check tests/run-phase5-playground-tests.mjs
+          node --check tests/run-phase5-browser-tests.mjs
       - name: Static safety scan
         shell: bash
         run: |
