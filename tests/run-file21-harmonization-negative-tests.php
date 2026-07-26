@@ -8,15 +8,17 @@ $permissions = file_get_contents( $root . '/includes/class-composer-permissions.
 $assert( false !== strpos( $permissions, 'current_actor_matches' ), 'Cross-user capability borrowing guard is missing.' );
 $assert( false !== strpos( $permissions, 'is_student_or_patient' ), 'Student/patient publishing denial is missing.' );
 $assert( false !== strpos( $permissions, 'CanonicalIdentityAdapter::can_publish_immediately' ), 'Canonical immediate-publishing authority is missing.' );
+$assert( false === strpos( $permissions, "|| self::user_has_role_group( $user_id, 'editorial_roles'" ), 'Editorial Newsroom roles still receive implicit social-Composer authority.' );
 
 $identity = file_get_contents( $root . '/includes/class-canonical-identity-adapter.php' );
 $assert( false !== strpos( $identity, "'trusted'" ), 'Trusted verified-doctor policy is missing.' );
 $assert( false !== strpos( $identity, '_smc_trusted_publisher' ), 'Membership Core trust marker is ignored.' );
 
 $feed = file_get_contents( $root . '/includes/class-feed-query.php' );
-foreach ( array( 'MAX_RANK_SCAN', 'PostMetadata::review_state_meta_clause', 'PostMetadata::visibility_meta_clause', 'author__in', 'total_is_complete' ) as $needle ) {
+foreach ( array( 'MAX_RANK_SCAN', 'PostMetadata::review_state_meta_clause', 'PostMetadata::META_VISIBILITY', 'author__in', 'total_is_complete', '$query_count' ) as $needle ) {
 	$assert( false !== strpos( $feed, $needle ), 'Bounded/authorized Feed query contract missing: ' . $needle );
 }
+$assert( false === strpos( $feed, 'posts_per_page' . "' => -1" ), 'Feed ranking query is unbounded.' );
 
 $search = file_get_contents( $root . '/includes/class-search-provider-registry.php' );
 $assert( false !== strpos( $search, 'MAX_QUERY_LENGTH' ), 'Search query length bound is missing.' );
