@@ -1,6 +1,7 @@
 <?php
 /** Migration and rollback view. @package SabriCompleteHomeNewsFeed */
 use Sabri\HomeNewsFeed\LegacyFounderPostMigration;
+use Sabri\HomeNewsFeed\LegacyInteractionMigrationAdapter;
 use Sabri\HomeNewsFeed\LegacyPublicationMigration;
 use Sabri\HomeNewsFeed\LegacyPublicationRollback;
 use Sabri\HomeNewsFeed\Migrations;
@@ -11,6 +12,7 @@ $founder_preview = LegacyFounderPostMigration::preview();
 $founder_last = get_option( LegacyFounderPostMigration::LAST_REPORT_OPTION, array() );
 $file04_preview = LegacyPublicationMigration::preview();
 $file04_last = get_option( LegacyPublicationMigration::LAST_REPORT_OPTION, array() );
+$interaction_providers = class_exists( LegacyInteractionMigrationAdapter::class ) ? LegacyInteractionMigrationAdapter::providers() : array();
 $rollback_preview = LegacyPublicationRollback::preview();
 $rollback_last = get_option( LegacyPublicationRollback::LAST_REPORT_OPTION, array() );
 ?>
@@ -47,6 +49,15 @@ $rollback_last = get_option( LegacyPublicationRollback::LAST_REPORT_OPTION, arra
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<input type="hidden" name="action" value="sabri_feed_migrate_legacy_publications"><?php wp_nonce_field( 'sabri_feed_migrate_legacy_publications' ); ?>
 		<p><label for="sabri-file04-target"><strong><?php esc_html_e( 'Target', 'sabri-complete-home-news-feed' ); ?></strong></label> <select id="sabri-file04-target" name="target"><option value="auto"><?php esc_html_e( 'Automatic safe target', 'sabri-complete-home-news-feed' ); ?></option><option value="post"><?php esc_html_e( 'Social Post', 'sabri-complete-home-news-feed' ); ?></option><option value="sabri_news"><?php esc_html_e( 'Editorial News Draft', 'sabri-complete-home-news-feed' ); ?></option></select> <label><input type="checkbox" name="copy_comments" value="1" checked> <?php esc_html_e( 'Copy approved comments', 'sabri-complete-home-news-feed' ); ?></label></p>
+		<fieldset class="sabri-feed-migration-interactions">
+			<legend><strong><?php esc_html_e( 'Legacy interactions', 'sabri-complete-home-news-feed' ); ?></strong></legend>
+			<?php if ( $interaction_providers ) : ?>
+				<p><label><input type="checkbox" name="migrate_interactions" value="1"> <?php esc_html_e( 'Migrate interaction records or verified aggregate metrics through the selected schema provider', 'sabri-complete-home-news-feed' ); ?></label></p>
+				<p><label for="sabri-file04-interaction-provider"><?php esc_html_e( 'Schema provider', 'sabri-complete-home-news-feed' ); ?></label> <select id="sabri-file04-interaction-provider" name="interaction_provider"><option value=""><?php esc_html_e( 'Select a provider', 'sabri-complete-home-news-feed' ); ?></option><?php foreach ( $interaction_providers as $provider_id => $provider ) : ?><option value="<?php echo esc_attr( $provider_id ); ?>"><?php echo esc_html( $provider['label'] ); ?><?php echo ! empty( $provider['source_schema'] ) ? ' — ' . esc_html( $provider['source_schema'] ) : ''; ?></option><?php endforeach; ?></select></p>
+			<?php else : ?>
+				<p class="description"><?php esc_html_e( 'No verified File 04 interaction-schema provider is connected. Publications and approved comments can still migrate; likes, saves, shares and views will be reported as unavailable rather than guessed.', 'sabri-complete-home-news-feed' ); ?></p>
+			<?php endif; ?>
+		</fieldset>
 		<table class="widefat striped"><thead><tr><td class="check-column"><span class="screen-reader-text"><?php esc_html_e( 'Select', 'sabri-complete-home-news-feed' ); ?></span></td><th><?php esc_html_e( 'Legacy publication', 'sabri-complete-home-news-feed' ); ?></th><th><?php esc_html_e( 'Status', 'sabri-complete-home-news-feed' ); ?></th><th><?php esc_html_e( 'Published', 'sabri-complete-home-news-feed' ); ?></th></tr></thead><tbody>
 		<?php foreach ( $file04_preview['candidates'] as $candidate ) : ?><tr><th class="check-column"><input type="checkbox" name="legacy_ids[]" value="<?php echo esc_attr( (int) $candidate['id'] ); ?>"></th><td><strong><?php echo esc_html( $candidate['title'] ? $candidate['title'] : sprintf( __( 'Publication #%d', 'sabri-complete-home-news-feed' ), (int) $candidate['id'] ) ); ?></strong><br><code><?php echo esc_html( $candidate['slug'] ); ?></code></td><td><?php echo esc_html( $candidate['status'] ); ?></td><td><?php echo esc_html( $candidate['published'] ); ?></td></tr><?php endforeach; ?>
 		</tbody></table><p><button class="button button-primary" type="submit"><?php esc_html_e( 'Migrate Selected Publications', 'sabri-complete-home-news-feed' ); ?></button></p>
