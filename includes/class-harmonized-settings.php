@@ -28,33 +28,54 @@ final class HarmonizedSettings {
 	/** Normalize an option payload without deleting unknown future keys. */
 	public static function normalize( $value ) {
 		$value = is_array( $value ) ? $value : array();
-		if ( ! isset( $value['capabilities'] ) || ! is_array( $value['capabilities'] ) ) {
-			$value['capabilities'] = array();
-		}
-		$value['capabilities']['founder_roles'] = self::merge_roles(
+		$value['capabilities'] = isset( $value['capabilities'] ) && is_array( $value['capabilities'] ) ? $value['capabilities'] : array();
+		$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed'] ) ? $value['feed'] : array();
+		$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
+
+		$value['capabilities']['founder_roles'] = self::merge_keys(
 			isset( $value['capabilities']['founder_roles'] ) ? $value['capabilities']['founder_roles'] : array(),
 			array( 'founder', 'sabri_founder' )
 		);
-		$value['capabilities']['verified_doctor_roles'] = self::merge_roles(
+		$value['capabilities']['verified_doctor_roles'] = self::merge_keys(
 			isset( $value['capabilities']['verified_doctor_roles'] ) ? $value['capabilities']['verified_doctor_roles'] : array(),
 			array( 'verified_doctor', 'approved_doctor', 'doctor_verified', 'sabri_verified_doctor' )
 		);
-		$value['capabilities']['unverified_doctor_roles'] = self::merge_roles(
+		$value['capabilities']['unverified_doctor_roles'] = self::merge_keys(
 			isset( $value['capabilities']['unverified_doctor_roles'] ) ? $value['capabilities']['unverified_doctor_roles'] : array(),
 			array( 'doctor', 'sabri_doctor', 'sabri_doctor_pending' )
 		);
-		$value['capabilities']['student_roles'] = self::merge_roles(
+		$value['capabilities']['student_roles'] = self::merge_keys(
 			isset( $value['capabilities']['student_roles'] ) ? $value['capabilities']['student_roles'] : array(),
 			array( 'student', 'sabri_student' )
 		);
-		$value['capabilities']['patient_roles'] = self::merge_roles(
+		$value['capabilities']['patient_roles'] = self::merge_keys(
 			isset( $value['capabilities']['patient_roles'] ) ? $value['capabilities']['patient_roles'] : array(),
 			array( 'patient', 'sabri_patient', 'subscriber' )
 		);
-		$policy = isset( $value['capabilities']['verified_doctor_policy'] ) ? sanitize_key( $value['capabilities']['verified_doctor_policy'] ) : '';
-		if ( ! in_array( $policy, array( 'trusted', 'publish', 'submit' ), true ) || 'submit' === $policy ) {
-			$value['capabilities']['verified_doctor_policy'] = 'trusted';
-		}
+
+		$policy = isset( $value['capabilities']['verified_doctor_policy'] ) ? self::clean_key( $value['capabilities']['verified_doctor_policy'] ) : '';
+		$value['capabilities']['verified_doctor_policy'] = in_array( $policy, array( 'trusted', 'publish' ), true ) ? $policy : 'trusted';
+
+		$value['feed']['enabled_filters'] = self::merge_allowed(
+			isset( $value['feed']['enabled_filters'] ) ? $value['feed']['enabled_filters'] : array(),
+			array_keys( FeedContext::modes() ),
+			array_keys( FeedContext::modes() )
+		);
+		$value['feed']['allowed_types'] = self::merge_allowed(
+			isset( $value['feed']['allowed_types'] ) ? $value['feed']['allowed_types'] : array(),
+			array_keys( Taxonomies::feed_type_terms() ),
+			array_keys( Taxonomies::feed_type_terms() )
+		);
+		$value['composer']['allowed_feed_types'] = self::merge_allowed(
+			isset( $value['composer']['allowed_feed_types'] ) ? $value['composer']['allowed_feed_types'] : array(),
+			FeedContext::phase2_feed_type_slugs(),
+			FeedContext::phase2_feed_type_slugs()
+		);
+		$value['composer']['allowed_visibility_modes'] = self::merge_allowed(
+			isset( $value['composer']['allowed_visibility_modes'] ) ? $value['composer']['allowed_visibility_modes'] : array(),
+			FeedContext::phase2_visibility_slugs( true ),
+			FeedContext::phase2_visibility_slugs( true )
+		);
 		$value['version'] = SABRI_HNF_VERSION;
 		return $value;
 	}
@@ -80,11 +101,22 @@ final class HarmonizedSettings {
 		AuditLog::record( 'file21_settings_harmonized', array( 'version' => SABRI_HNF_VERSION ) );
 	}
 
-	/** Merge and sanitize role aliases. */
-	private static function merge_roles( $current, array $required ) {
+	/** Merge and sanitize role or controlled-key aliases. */
+	private static function merge_keys( $current, array $required ) {
 		$current = is_array( $current ) ? $current : array();
-		$roles = array_merge( $current, $required );
-		$roles = array_map( 'sanitize_key', $roles );
-		return array_values( array_unique( array_filter( $roles ) ) );
+		$keys = array_map( array( __CLASS__, 'clean_key' ), array_merge( $current, $required ) );
+		return array_values( array_unique( array_filter( $keys ) ) );
+	}
+
+	/** Merge a stored allow-list with newly accepted values while rejecting unknown keys. */
+	private static function merge_allowed( $current, array $required, array $allowed ) {
+		$current = is_array( $current ) ? $current : array();
+		$items = self::merge_keys( $current, $required );
+		return array_values( array_intersect( $items, array_map( array( __CLASS__, 'clean_key' ), $allowed ) ) );
+	}
+
+	/** Normalize a controlled key without assuming WordPress helpers in lean tests. */
+	private static function clean_key( $value ) {
+		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
 	}
 }
