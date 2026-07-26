@@ -51,6 +51,8 @@ final class LegacyPublicationMigration {
 			'legacy_post_type' => self::LEGACY_POST_TYPE,
 			'candidate_count' => count( $candidates ),
 			'candidates' => $candidates,
+			'interaction_providers' => class_exists( __NAMESPACE__ . '\\LegacyInteractionMigrationAdapter' ) ? LegacyInteractionMigrationAdapter::providers() : array(),
+			'interaction_migration_default' => 'not_requested',
 			'max_batch' => self::MAX_BATCH,
 			'destructive' => false,
 			'automatic' => false,
@@ -61,16 +63,28 @@ final class LegacyPublicationMigration {
 	public static function migrate_selected( array $legacy_ids, $actor_id = 0, array $options = array() ) {
 		$actor_id = $actor_id ? absint( $actor_id ) : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
 		if ( ! self::actor_can_migrate( $actor_id ) ) {
-			return array( 'success' => false, 'error' => 'permission_denied', 'migrated' => array(), 'skipped' => array() );
+			return array( 'success' => false, 'error' => 'permission_denied', 'migrated' => array(), 'skipped' => array(), 'warnings' => array() );
 		}
 		$legacy_ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $legacy_ids ) ) ) ), 0, self::MAX_BATCH );
 		if ( empty( $legacy_ids ) ) {
-			return array( 'success' => false, 'error' => 'no_publications_selected', 'migrated' => array(), 'skipped' => array() );
+			return array( 'success' => false, 'error' => 'no_publications_selected', 'migrated' => array(), 'skipped' => array(), 'warnings' => array() );
 		}
-		$options = array_merge( array( 'copy_comments' => true, 'target' => 'auto' ), $options );
+		$options = array_merge(
+			array(
+				'copy_comments' => true,
+				'target' => 'auto',
+				'migrate_interactions' => false,
+				'interaction_provider' => '',
+			),
+			$options
+		);
+		$options['target'] = in_array( sanitize_key( $options['target'] ), array( 'auto', 'post', 'sabri_news' ), true ) ? sanitize_key( $options['target'] ) : 'auto';
+		$options['interaction_provider'] = sanitize_key( $options['interaction_provider'] );
+		$options['migrate_interactions'] = ! empty( $options['migrate_interactions'] );
 		Snapshot::capture_before_mutation( 'legacy_file04_publication_migration' );
 		$migrated = array();
 		$skipped = array();
+		$warnings = array();
 		foreach ( $legacy_ids as $legacy_id ) {
 			if ( self::target_for( $legacy_id ) ) {
 				$skipped[ $legacy_id ] = 'already_migrated';
@@ -106,12 +120,45 @@ final class LegacyPublicationMigration {
 			self::copy_public_metadata( $legacy_id, $target_id, $target_type );
 			self::copy_terms( $legacy_id, $target_id, $target_type );
 			$comment_map = ! empty( $options['copy_comments'] ) ? self::copy_comments( $legacy_id, $target_id ) : array();
-			self::record_mapping( $legacy_id, $target_id, $target_type, $comment_map );
-			$migrated[ $legacy_id ] = array( 'target_id' => $target_id, 'target_type' => $target_type, 'comments_copied' => count( $comment_map ) );
-			AuditLog::record( 'legacy_file04_publication_migrated', array( 'legacy_id' => $legacy_id, 'target_id' => $target_id, 'target_type' => $target_type, 'actor_id' => $actor_id ), 'post', $target_id );
+			$interaction_report = self::interaction_report( $legacy_id, $target_id, $actor_id, $options );
+			if ( ! empty( $options['migrate_interactions'] ) && ! in_array( $interaction_report['status'], array( 'migrated', 'nothing_to_migrate' ), true ) ) {
+				$warnings[ $legacy_id ] = 'interaction_' . sanitize_key( $interaction_report['status'] );
+			}
+			self::record_mapping( $legacy_id, $target_id, $target_type, $comment_map, $interaction_report );
+			$migrated[ $legacy_id ] = array(
+				'target_id' => $target_id,
+				'target_type' => $target_type,
+				'comments_copied' => count( $comment_map ),
+				'interactions' => $interaction_report,
+			);
+			AuditLog::record(
+				'legacy_file04_publication_migrated',
+				array(
+					'legacy_id' => $legacy_id,
+					'target_id' => $target_id,
+					'target_type' => $target_type,
+					'actor_id' => $actor_id,
+					'interaction_status' => $interaction_report['status'],
+					'interaction_provider' => $interaction_report['provider'],
+				),
+				'post',
+				$target_id
+			);
 		}
 		FeedQuery::invalidate_cache();
-		$report = array( 'success' => empty( $skipped ), 'partial' => ! empty( $migrated ) && ! empty( $skipped ), 'actor_id' => $actor_id, 'migrated' => $migrated, 'skipped' => $skipped, 'created_at_utc' => gmdate( 'Y-m-d H:i:s' ), 'destructive' => false, 'automatic' => false );
+		$report = array(
+			'success' => empty( $skipped ) && empty( $warnings ),
+			'partial' => ! empty( $migrated ) && ( ! empty( $skipped ) || ! empty( $warnings ) ),
+			'actor_id' => $actor_id,
+			'migrated' => $migrated,
+			'skipped' => $skipped,
+			'warnings' => $warnings,
+			'interaction_provider_requested' => $options['interaction_provider'],
+			'interaction_migration_requested' => $options['migrate_interactions'],
+			'created_at_utc' => gmdate( 'Y-m-d H:i:s' ),
+			'destructive' => false,
+			'automatic' => false,
+		);
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::LAST_REPORT_OPTION, $report, false );
 		}
@@ -134,7 +181,11 @@ final class LegacyPublicationMigration {
 	/** Return mapped target ID. */
 	public static function target_for( $legacy_id ) {
 		$mapping = function_exists( 'get_option' ) ? get_option( self::MAPPING_OPTION, array() ) : array();
-		return is_array( $mapping ) && isset( $mapping[ absint( $legacy_id ) ]['target_id'] ) ? absint( $mapping[ absint( $legacy_id ) ]['target_id'] ) : 0;
+		if ( ! is_array( $mapping ) || ! isset( $mapping[ absint( $legacy_id ) ] ) || ! is_array( $mapping[ absint( $legacy_id ) ] ) ) {
+			return 0;
+		}
+		$row = $mapping[ absint( $legacy_id ) ];
+		return 'rolled_back' === ( isset( $row['status'] ) ? $row['status'] : '' ) ? 0 : ( isset( $row['target_id'] ) ? absint( $row['target_id'] ) : 0 );
 	}
 
 	/** Copy only public-safe and required metadata. */
@@ -211,6 +262,35 @@ final class LegacyPublicationMigration {
 		return $map;
 	}
 
+	/** Explicit interaction report; no provider means no guessed migration. */
+	private static function interaction_report( $legacy_id, $target_id, $actor_id, array $options ) {
+		if ( empty( $options['migrate_interactions'] ) ) {
+			return array(
+				'status' => 'not_requested',
+				'provider' => '',
+				'migrated_records' => 0,
+				'migrated_metrics' => array(),
+				'skipped_records' => 0,
+				'errors' => array(),
+				'source_deleted' => false,
+				'automatic' => false,
+			);
+		}
+		if ( ! class_exists( __NAMESPACE__ . '\\LegacyInteractionMigrationAdapter' ) ) {
+			return array(
+				'status' => 'unavailable',
+				'provider' => '',
+				'migrated_records' => 0,
+				'migrated_metrics' => array(),
+				'skipped_records' => 0,
+				'errors' => array( 'adapter_unavailable' ),
+				'source_deleted' => false,
+				'automatic' => false,
+			);
+		}
+		return LegacyInteractionMigrationAdapter::migrate( $legacy_id, $target_id, $actor_id, $options['interaction_provider'] );
+	}
+
 	/** Target post type chosen by explicit option or legacy editorial markers. */
 	private static function target_type( $legacy, array $options ) {
 		$requested = isset( $options['target'] ) ? sanitize_key( $options['target'] ) : 'auto';
@@ -231,10 +311,17 @@ final class LegacyPublicationMigration {
 	}
 
 	/** Persist an idempotent migration mapping. */
-	private static function record_mapping( $legacy_id, $target_id, $target_type, array $comment_map ) {
+	private static function record_mapping( $legacy_id, $target_id, $target_type, array $comment_map, array $interaction_report ) {
 		$mapping = function_exists( 'get_option' ) ? get_option( self::MAPPING_OPTION, array() ) : array();
 		$mapping = is_array( $mapping ) ? $mapping : array();
-		$mapping[ $legacy_id ] = array( 'target_id' => $target_id, 'target_type' => $target_type, 'comment_map' => $comment_map, 'migrated_at_utc' => gmdate( 'Y-m-d H:i:s' ) );
+		$mapping[ $legacy_id ] = array(
+			'target_id' => $target_id,
+			'target_type' => $target_type,
+			'comment_map' => $comment_map,
+			'interaction_report' => $interaction_report,
+			'status' => 'active',
+			'migrated_at_utc' => gmdate( 'Y-m-d H:i:s' ),
+		);
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::MAPPING_OPTION, $mapping, false );
 		}
