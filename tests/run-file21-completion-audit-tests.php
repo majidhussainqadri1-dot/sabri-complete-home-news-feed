@@ -25,12 +25,15 @@ function sabri_file21_completion_assert( $condition, $message ) {
 $defaults = CorrectivePublicSettings::defaults();
 sabri_file21_completion_assert( 0 === $defaults['home_surface_enabled'], 'Corrective Home auto-mount must remain disabled until explicit wizard activation.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_feed_guard'], 'Duplicate Feed protection must default on.' );
+sabri_file21_completion_assert( 0 === $defaults['replace_existing_feed_surface'], 'Existing Feed replacement must require explicit administrator selection.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_navigation_guard'], 'Duplicate navigation diagnostics must default on.' );
 
 $steps = CorrectiveActivationWizard::steps();
 foreach ( array( 'environment', 'existing-content', 'public-components', 'duplicate-protection', 'news-gates', 'preview-activate' ) as $step ) {
 	sabri_file21_completion_assert( isset( $steps[ $step ] ), 'Activation Wizard is missing required step: ' . $step );
 }
+$components = CorrectiveActivationWizard::component_definitions();
+sabri_file21_completion_assert( isset( $components['replace_existing_feed_surface'] ), 'Activation Wizard must expose controlled existing Feed replacement.' );
 
 $gates = CorrectiveActivationWizard::gate_definitions();
 sabri_file21_completion_assert( isset( $gates['phase4']['editorial_news_enabled'] ), 'Wizard must expose the Editorial News parent gate.' );
@@ -44,6 +47,9 @@ foreach ( array( 'sabri_complete_home_feed', 'sabri_news_feed', 'sabri_news_home
 }
 sabri_file21_completion_assert( 'sabri_news_feed' === CorrectivePublicMount::content_feed_shortcode( '[sabri_news_feed]' ), 'Existing File 04 Feed shortcode must be detected.' );
 sabri_file21_completion_assert( '' === CorrectivePublicMount::content_feed_shortcode( '<p>No feed here.</p>' ), 'Normal content must not be reported as a duplicate Feed.' );
+$replacement = CorrectivePublicMount::replace_known_feed_shortcodes( '<div>[sabri_news_feed][sabri_platform_home]</div>', '<section data-test="file21">New Feed</section>' );
+sabri_file21_completion_assert( 1 === substr_count( $replacement, 'data-test="file21"' ), 'Controlled replacement must render exactly one File 21 Feed surface.' );
+sabri_file21_completion_assert( false === strpos( $replacement, '[sabri_news_feed]' ) && false === strpos( $replacement, '[sabri_platform_home]' ), 'Controlled replacement must remove duplicate known Feed shortcodes from the current request.' );
 
 sabri_file21_completion_assert( 20 === ProfileTimeline::MAX_PER_PAGE, 'Profile Timeline must remain bounded to 20 items per request.' );
 sabri_file21_completion_assert( 500 === ProfileTimeline::MAX_SCAN, 'Profile Timeline candidate scan must remain bounded.' );
@@ -54,6 +60,7 @@ sabri_file21_completion_assert( ! RestProfileTimeline::validate_per_page( '21' )
 $shortcodes = file_get_contents( dirname( __DIR__ ) . '/includes/class-shortcodes.php' );
 $plugin     = file_get_contents( dirname( __DIR__ ) . '/includes/class-plugin.php' );
 $timeline   = file_get_contents( dirname( __DIR__ ) . '/includes/class-profile-timeline.php' );
+$mount      = file_get_contents( dirname( __DIR__ ) . '/includes/class-corrective-public-mount.php' );
 $view       = file_get_contents( dirname( __DIR__ ) . '/admin/views/corrective-wizard.php' );
 $checklist  = file_get_contents( dirname( __DIR__ ) . '/FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md' );
 
@@ -63,6 +70,8 @@ sabri_file21_completion_assert( false !== strpos( $timeline, "'no_found_rows'   
 sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::visibility_meta_clause()' ), 'Timeline candidate query must apply the visibility meta clause.' );
 sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::user_can_view' ), 'Timeline serialization must retain object-level visibility authorization.' );
 sabri_file21_completion_assert( false !== strpos( $timeline, "'total_is_complete'" ), 'Timeline contract must disclose whether its bounded visible count is complete.' );
+sabri_file21_completion_assert( false !== strpos( $timeline, "add_filter( 'do_shortcode_tag'" ) && false !== strpos( $timeline, "'sabri_founder_profile', 'sabri_member_profile'" ), 'Timeline must integrate with the existing File 03 Founder and Member profile shortcodes.' );
+sabri_file21_completion_assert( false !== strpos( $mount, 'replace_existing_feed_surface' ) && false !== strpos( $mount, 'page content is not mutated' ), 'Existing Feed replacement must be explicit and non-destructive.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectivePublicMount::class' ) && false !== strpos( $plugin, 'RestProfileTimeline::class' ), 'Corrective public and Timeline modules must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectiveAdmin::class' ), 'Activation Wizard administration must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $view, 'Gate-by-Gate Public News Activation' ), 'Wizard must visibly expose gate-by-gate News activation.' );
