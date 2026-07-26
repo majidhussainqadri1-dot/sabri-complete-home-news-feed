@@ -68,29 +68,30 @@ final class CorrectiveActivationWizard {
 
 	/** Complete non-mutating preview. */
 	public static function preview() {
-		$components  = CorrectivePublicSettings::get();
-		$duplicates  = CorrectivePublicMount::diagnostics();
-		$legacy      = LegacyFounderPostMigration::preview();
-		$phase4      = NewsFeatureSettings::get();
-		$phase5      = Phase5FeatureSettings::get();
-		$front_page  = isset( $duplicates['front_page_id'] ) ? (int) $duplicates['front_page_id'] : 0;
-		$post_count  = function_exists( 'wp_count_posts' ) ? wp_count_posts( 'post' ) : null;
+		global $wpdb;
+		$components = CorrectivePublicSettings::get();
+		$duplicates = CorrectivePublicMount::diagnostics();
+		$legacy     = LegacyFounderPostMigration::preview();
+		$phase4     = NewsFeatureSettings::get();
+		$phase5     = Phase5FeatureSettings::get();
+		$front_page = isset( $duplicates['front_page_id'] ) ? (int) $duplicates['front_page_id'] : 0;
+		$post_count = function_exists( 'wp_count_posts' ) ? wp_count_posts( 'post' ) : null;
 
 		return array(
 			'environment' => array(
-				'wordpress'         => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '',
-				'php'               => PHP_VERSION,
-				'membership_core'   => defined( 'SABRI_MEMBERSHIP_CORE_VERSION' ) || class_exists( 'Sabri_Membership_Core' ) || class_exists( 'Sabri\\Membership\\Plugin' ),
-				'unified_shell'     => defined( 'SABRI_SHELL_VERSION' ) || class_exists( 'Sabri\\UnifiedShell\\Plugin' ),
-				'notifications'     => shortcode_exists( 'sabri_notifications' ) || function_exists( 'sabri_notifications_render' ),
-				'database'          => SystemCheck::database_available(),
-				'schema_status'     => SystemCheck::migration_status(),
+				'wordpress'       => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '',
+				'php'             => PHP_VERSION,
+				'membership_core' => defined( 'SABRI_MEMBERSHIP_CORE_VERSION' ) || class_exists( 'Sabri_Membership_Core' ) || class_exists( 'Sabri\\Membership\\Plugin' ),
+				'unified_shell'   => defined( 'SABRI_SHELL_VERSION' ) || class_exists( 'Sabri\\UnifiedShell\\Plugin' ),
+				'notifications'   => ( function_exists( 'shortcode_exists' ) && shortcode_exists( 'sabri_notifications' ) ) || function_exists( 'sabri_notifications_render' ),
+				'database'        => is_object( $wpdb ),
+				'schema_status'   => SystemCheck::migration_status(),
 			),
 			'existing_content' => array(
-				'front_page_id'              => $front_page,
-				'published_posts'            => is_object( $post_count ) && isset( $post_count->publish ) ? (int) $post_count->publish : 0,
-				'pending_posts'              => is_object( $post_count ) && isset( $post_count->pending ) ? (int) $post_count->pending : 0,
-				'legacy_restore_candidates'  => isset( $legacy['candidate_count'] ) ? (int) $legacy['candidate_count'] : 0,
+				'front_page_id'             => $front_page,
+				'published_posts'           => is_object( $post_count ) && isset( $post_count->publish ) ? (int) $post_count->publish : 0,
+				'pending_posts'             => is_object( $post_count ) && isset( $post_count->pending ) ? (int) $post_count->pending : 0,
+				'legacy_restore_candidates' => isset( $legacy['candidate_count'] ) ? (int) $legacy['candidate_count'] : 0,
 			),
 			'components'            => $components,
 			'duplicate_protection'  => $duplicates,
@@ -119,7 +120,6 @@ final class CorrectiveActivationWizard {
 		if ( ! empty( $patch['home_surface_enabled'] ) && ! empty( $patch['duplicate_feed_guard'] ) && ! empty( $diagnostics['feed_conflict'] ) ) {
 			$patch['home_surface_enabled'] = 0;
 			$patch['wizard_completed']     = 0;
-			$patch['blocked_reason']       = 'existing_feed_shortcode';
 		} else {
 			$patch['wizard_completed'] = 1;
 		}
