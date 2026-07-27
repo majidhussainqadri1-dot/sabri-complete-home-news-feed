@@ -53,14 +53,10 @@ final class HomeCompositionRegistry {
 		$html = '<nav class="sabri-hnf-filter sabri-hnf-home-control" aria-label="' . esc_attr__( 'Home content filters', 'sabri-complete-home-news-feed' ) . '"><ul>';
 		foreach ( self::control_items() as $key => $item ) {
 			$key = sanitize_key( $key );
-			if ( empty( $item['label'] ) ) {
-				continue;
-			}
+			if ( empty( $item['label'] ) ) { continue; }
 			$kind = isset( $item['kind'] ) ? $item['kind'] : '';
 			$url = 'feed' === $kind ? self::feed_url( $key ) : self::module_url( $item );
-			if ( '' === $url ) {
-				continue;
-			}
+			if ( '' === $url ) { continue; }
 			$is_active = 'feed' === $kind && $active_mode === $key;
 			$html .= '<li><a class="sabri-hnf-filter__link' . ( $is_active ? ' is-active' : '' ) . '" href="' . esc_url( $url ) . '"' . ( $is_active ? ' aria-current="page"' : '' ) . ' data-sabri-home-control="' . esc_attr( $key ) . '">' . esc_html( $item['label'] ) . '</a></li>';
 		}
@@ -86,46 +82,34 @@ final class HomeCompositionRegistry {
 
 	/** Render rows from normalized provider callbacks; no companion database is copied. */
 	public static function render_rows() {
-		if ( self::$rows_rendered ) {
-			return '';
-		}
+		if ( self::$rows_rendered ) { return ''; }
 		self::$rows_rendered = true;
 		$html = '<div class="sabri-hnf-home-rows" data-sabri-home-rows>';
 		$count = 0;
 		foreach ( self::rows() as $key => $row ) {
 			$items = self::row_items( $key, $row );
-			if ( empty( $items ) ) {
-				continue;
-			}
+			if ( empty( $items ) ) { continue; }
 			$count++;
 			$html .= '<section class="sabri-hnf-home-row" data-sabri-home-row="' . esc_attr( $key ) . '"><header><h2>' . esc_html( $row['label'] ) . '</h2></header><div class="sabri-hnf-home-row__items">';
-			foreach ( $items as $item ) {
-				$html .= self::render_row_item( $item );
-			}
+			foreach ( $items as $item ) { $html .= self::render_row_item( $item ); }
 			$html .= '</div></section>';
 		}
 		return $count > 0 ? $html . '</div>' : '';
 	}
 
-	/** Render the official Shell Home slot. */
+	/** Render the official Shell Home slot as the same complete surface used by fallbacks. */
 	public static function render_shell_home() {
-		if ( SafeMode::public_features_disabled() || ! CorrectivePublicSettings::enabled( 'home_surface_enabled' ) ) {
-			return;
-		}
-		echo HomeIntegration::render_feed_once( 'shell_home_main', array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		echo self::render_rows(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		if ( ! class_exists( __NAMESPACE__ . '\\CorrectivePublicMount' ) ) { return; }
+		$surface = CorrectivePublicMount::render_complete_surface( 'shell_home_main' );
+		if ( '' !== $surface ) { echo $surface; } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
 	/** Action wrapper after a primary Feed rendered by another accepted slot. */
-	public static function render_rows_action() {
-		echo self::render_rows(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-	}
+	public static function render_rows_action() { echo self::render_rows(); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 
-	/** Append rows after the priority-8 corrective fallback surface. */
+	/** Append rows after a legacy corrective surface that did not yet include them. */
 	public static function append_rows_to_corrective_surface( $content ) {
-		if ( ! is_string( $content ) || false === strpos( $content, 'data-sabri-hnf-surface="file-21-corrective"' ) || false !== strpos( $content, 'data-sabri-home-rows' ) ) {
-			return $content;
-		}
+		if ( ! is_string( $content ) || false === strpos( $content, 'data-sabri-hnf-surface="file-21-corrective"' ) || false !== strpos( $content, 'data-sabri-home-rows' ) ) { return $content; }
 		$rows = self::render_rows();
 		return '' !== $rows ? $content . $rows : $content;
 	}
@@ -140,11 +124,7 @@ final class HomeCompositionRegistry {
 			foreach ( isset( $result['posts'] ) && is_array( $result['posts'] ) ? $result['posts'] : array() as $post ) {
 				$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
 				if ( $post_id > 0 ) {
-					$items[] = array(
-						'title' => function_exists( 'get_the_title' ) ? get_the_title( $post_id ) : '',
-						'url' => function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '',
-						'type' => 'post',
-					);
+					$items[] = array( 'title' => function_exists( 'get_the_title' ) ? get_the_title( $post_id ) : '', 'url' => function_exists( 'get_permalink' ) ? get_permalink( $post_id ) : '', 'type' => 'post' );
 				}
 			}
 		} elseif ( 'news' === $provider && class_exists( __NAMESPACE__ . '\\NewsQueryService' ) ) {
@@ -164,9 +144,7 @@ final class HomeCompositionRegistry {
 	private static function render_row_item( array $item ) {
 		$title = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '';
 		$url = isset( $item['url'] ) ? esc_url( $item['url'] ) : '';
-		if ( '' === $title || '' === $url ) {
-			return '';
-		}
+		if ( '' === $title || '' === $url ) { return ''; }
 		$summary = isset( $item['summary'] ) ? sanitize_text_field( $item['summary'] ) : '';
 		return '<article class="sabri-hnf-home-row-card"><h3><a href="' . $url . '">' . esc_html( $title ) . '</a></h3>' . ( '' !== $summary ? '<p>' . esc_html( $summary ) . '</p>' : '' ) . '</article>';
 	}
@@ -182,9 +160,10 @@ final class HomeCompositionRegistry {
 		$module = isset( $item['module'] ) ? sanitize_key( $item['module'] ) : '';
 		$path = isset( $item['path'] ) ? (string) $item['path'] : '/';
 		$url = function_exists( 'home_url' ) ? home_url( $path ) : $path;
-		if ( function_exists( 'apply_filters' ) ) {
-			$url = apply_filters( 'sabri_hnf_module_url_' . $module, $url, $item );
-		}
+		if ( function_exists( 'apply_filters' ) ) { $url = apply_filters( 'sabri_hnf_module_url_' . $module, $url, $item ); }
 		return is_scalar( $url ) ? (string) $url : '';
 	}
+
+	/** Reset request-level row guard for tests and fallback remount diagnostics. */
+	public static function reset_runtime_guards() { self::$rows_rendered = false; }
 }
