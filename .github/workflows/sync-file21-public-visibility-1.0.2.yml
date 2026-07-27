@@ -98,17 +98,21 @@ jobs:
 
           rm .github/workflows/sync-file21-public-visibility-1.0.2.yml
 
-      - name: Verify PHP and public visibility contracts
+      - name: PHP syntax
         shell: bash
-        run: |
-          set -euo pipefail
-          find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
-          php tests/run-file21-public-visibility-tests.php
-          php tests/run-file21-harmonization-tests.php
-          php tests/run-file21-harmonization-negative-tests.php
-          php tests/run-file21-corrective-tests.php
-          php tests/run-file21-completion-audit-tests.php
-          php tools/run-tests.php
+        run: find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+      - name: Public visibility recovery contracts
+        run: php tests/run-file21-public-visibility-tests.php
+      - name: Harmonization positive contracts
+        run: php tests/run-file21-harmonization-tests.php
+      - name: Harmonization negative contracts
+        run: php tests/run-file21-harmonization-negative-tests.php
+      - name: Corrective contracts
+        run: php tests/run-file21-corrective-tests.php
+      - name: Completion audit
+        run: php tests/run-file21-completion-audit-tests.php
+      - name: Core regression suite
+        run: php tools/run-tests.php
 
       - name: Build exact package
         shell: bash
