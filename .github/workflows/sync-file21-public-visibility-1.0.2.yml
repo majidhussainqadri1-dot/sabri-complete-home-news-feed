@@ -111,8 +111,10 @@ jobs:
         run: php tests/run-file21-corrective-tests.php
       - name: Completion audit
         run: php tests/run-file21-completion-audit-tests.php
-      - name: Core regression suite
-        run: php tools/run-tests.php
+      - name: Core behavior regression
+        run: php tests/run-tests.php
+      - name: Safe Boot regression
+        run: php tests/run-safe-boot-tests.php
 
       - name: Build exact package
         shell: bash
