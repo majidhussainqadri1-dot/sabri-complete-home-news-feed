@@ -50,7 +50,7 @@ final class HarmonizedSettings {
 
 		try {
 			$value['capabilities'] = isset( $value['capabilities'] ) && is_array( $value['capabilities'] ) ? $value['capabilities'] : array();
-			$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed']'] ) ? $value['feed'] : array();
+			$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed'] ) ? $value['feed'] : array();
 			$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
 
 			$value['capabilities']['founder_roles'] = self::merge_keys(
