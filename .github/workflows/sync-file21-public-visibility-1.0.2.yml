@@ -1,0 +1,133 @@
+name: Sync File 21 Public Visibility 1.0.2
+
+on:
+  push:
+    branches:
+      - fix/file-21-public-surface-visibility-1.0.2
+    paths:
+      - '.github/workflows/sync-file21-public-visibility-1.0.2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/file-21-public-surface-visibility-1.0.2
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          coverage: none
+      - name: Synchronize exact runtime and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, minimum=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count < minimum:
+                  raise SystemExit(f'{path}: expected at least {minimum} occurrences of {old!r}, found {count}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace('sabri-complete-home-news-feed.php', ' * Description: Phase 2 Home Feed and public Composer runtime for Sabri home feed, social news, publishing, safety, and data architecture.', ' * Description: Complete public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.')
+          replace('sabri-complete-home-news-feed.php', ' * Version: 1.0.1', ' * Version: 1.0.2')
+          replace('sabri-complete-home-news-feed.php', "define( 'SABRI_HNF_VERSION', '1.0.1' );", "define( 'SABRI_HNF_VERSION', '1.0.2' );")
+
+          build = Path('tools/build-release.ps1')
+          text = build.read_text(encoding='utf-8')
+          text = text.replace("$base = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'", "$base = '21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE'")
+          text = text.replace("$legacyBase = '21-sabri-complete-home-news-feed-1.0.1-COMPATIBILITY-CANDIDATE'", "$legacyBase = '21-sabri-complete-home-news-feed-1.0.2-HARMONIZED-CANDIDATE'")
+          text = text.replace("$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-PHASE-3-STAGING-CANDIDATE'", "$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'")
+          text = text.replace("    'includes/class-plugin.php',", "    'includes/class-plugin.php',\n    'includes/class-public-surface-recovery.php',")
+          text = text.replace("    'assets/css/home-composition.css',", "    'assets/css/home-composition.css',\n    'assets/css/corrective-public.css',")
+          text = text.replace("    'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',", "    'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',\n    'FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md',")
+          text = text.replace('# Sabri Complete Home and News Feed 1.0.1 Harmonized Candidate Test Report', '# Sabri Complete Home and News Feed 1.0.2 Public Visibility Candidate Test Report')
+          text = text.replace('- Accepted plugin version shown in WordPress: 1.0.1', '- Accepted plugin version shown in WordPress: 1.0.2')
+          build.write_text(text, encoding='utf-8')
+
+          targets = list(Path('tests').glob('*.php')) + list(Path('tests').glob('*.mjs')) + list(Path('.github/workflows').glob('*.yml'))
+          patterns = [
+              ("Version: 1.0.1", "Version: 1.0.2"),
+              ("SABRI_HNF_VERSION', '1.0.1", "SABRI_HNF_VERSION', '1.0.2"),
+              ("SABRI_HNF_VERSION\", \"1.0.1", "SABRI_HNF_VERSION\", \"1.0.2"),
+              ("install.version === '1.0.1'", "install.version === '1.0.2'"),
+              ("result.version === '1.0.1'", "result.version === '1.0.2'"),
+              ("'1.0.1' === SABRI_HNF_VERSION", "'1.0.2' === SABRI_HNF_VERSION"),
+              ("define( 'SABRI_HNF_VERSION', '1.0.1' );", "define( 'SABRI_HNF_VERSION', '1.0.2' );"),
+          ]
+          for p in targets:
+              text = p.read_text(encoding='utf-8')
+              for old, new in patterns:
+                  text = text.replace(old, new)
+              p.write_text(text, encoding='utf-8')
+
+          harmonization = Path('tests/run-file21-harmonization-tests.php')
+          text = harmonization.read_text(encoding='utf-8')
+          if "'includes/class-public-surface-recovery.php'," not in text:
+              text = text.replace("'includes/class-canonical-identity-adapter.php',", "'includes/class-public-surface-recovery.php',\n\t'includes/class-canonical-identity-adapter.php',")
+          harmonization.write_text(text, encoding='utf-8')
+
+          workflow = Path('.github/workflows/file21-harmonization-tests.yml')
+          text = workflow.read_text(encoding='utf-8')
+          marker = "      - name: Harmonization positive contracts\n        run: php tests/run-file21-harmonization-tests.php\n"
+          addition = marker + "      - name: Public visibility recovery contracts\n        run: php tests/run-file21-public-visibility-tests.php\n"
+          if 'Public visibility recovery contracts' not in text:
+              if marker not in text:
+                  raise SystemExit('Harmonization workflow insertion marker missing')
+              text = text.replace(marker, addition)
+          workflow.write_text(text, encoding='utf-8')
+
+          for path in ('.github/workflows/file21-corrective-visible-qa.yml', '.github/workflows/phase4c-one-hour-visible-qa.yml'):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              marker = 'php tests/run-file21-harmonization-tests.php'
+              if marker in text and 'php tests/run-file21-public-visibility-tests.php' not in text:
+                  text = text.replace(marker, marker + '\n            php tests/run-file21-public-visibility-tests.php')
+              p.write_text(text, encoding='utf-8')
+          PY
+
+          rm .github/workflows/sync-file21-public-visibility-1.0.2.yml
+
+      - name: Verify PHP and public visibility contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+          php tests/run-file21-public-visibility-tests.php
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+          php tests/run-file21-corrective-tests.php
+          php tests/run-file21-completion-audit-tests.php
+          php tools/run-tests.php
+
+      - name: Build exact package
+        shell: bash
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -File ./tools/build-release.ps1
+          package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum"
+          test "$(awk '{print tolower($1)}' "$checksum")" = "$(sha256sum "$package" | awk '{print $1}')"
+          unzip -tqq "$package"
+          unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-public-surface-recovery.php'
+          unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/assets/css/corrective-public.css'
+
+      - name: Commit synchronized release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Promote File 21 public visibility recovery to 1.0.2'
+          git push origin HEAD:fix/file-21-public-surface-visibility-1.0.2
