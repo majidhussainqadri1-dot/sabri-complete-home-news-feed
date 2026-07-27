@@ -4,9 +4,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $slug = 'sabri-complete-home-news-feed'
-$base = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'
-$legacyBase = '21-sabri-complete-home-news-feed-1.0.1-COMPATIBILITY-CANDIDATE'
-$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-PHASE-3-STAGING-CANDIDATE'
+$base = '21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE'
+$legacyBase = '21-sabri-complete-home-news-feed-1.0.2-HARMONIZED-CANDIDATE'
+$historicalBase = '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -23,6 +23,7 @@ $historicalReportPath = Join-Path $releaseDir "$historicalBase-TEST-REPORT.md"
 $requiredRuntimeFiles = @(
     'sabri-complete-home-news-feed.php',
     'includes/class-plugin.php',
+    'includes/class-public-surface-recovery.php',
     'includes/class-activator.php',
     'includes/class-deactivator.php',
     'includes/class-canonical-identity-adapter.php',
@@ -70,11 +71,13 @@ $requiredRuntimeFiles = @(
     'templates/news-sources-history.php',
     'templates/news-submission-portal.php',
     'assets/css/home-composition.css',
+    'assets/css/corrective-public.css',
     'assets/css/phase5-public.css',
     'assets/css/phase5-admin.css',
     'assets/js/phase5-public.js',
     'assets/js/phase5-admin.js',
     'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',
+    'FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md',
     'PHASE-5-DATABASE-SCHEMA-MANIFEST.md',
     'PHASE-5-MIGRATION-UPGRADE-GUIDE.md',
     'PHASE-5-ROLE-CAPABILITY-MATRIX.md',
@@ -184,8 +187,8 @@ if ($historicalHash -ne $hash) {
 }
 $manifestDigest = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $report = @(
-    '# Sabri Complete Home and News Feed 1.0.1 Harmonized Candidate Test Report','',
-    '- Accepted plugin version shown in WordPress: 1.0.1',
+    '# Sabri Complete Home and News Feed 1.0.2 Public Visibility Candidate Test Report','',
+    '- Accepted plugin version shown in WordPress: 1.0.2',
     '- Accepted schema constant: 1.0.0',
     '- Phase4Contracts checkpoint: 4A',
     '- Historical Phase 4 target remains separately gated at 1.2.0',

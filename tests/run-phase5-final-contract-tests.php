@@ -15,7 +15,7 @@ use Sabri\HomeNewsFeed\UploadSecurity;
 $failures = array();
 $assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) $failures[] = $message; };
 $assert( '4A' === Phase4Contracts::CHECKPOINT, 'Checkpoint changed before release acceptance.' );
-$assert( '1.0.1' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Plugin/schema release identities are inconsistent.' );
+$assert( '1.0.2' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Plugin/schema release identities are inconsistent.' );
 $assert( 0 === array_sum( Phase5Contracts::feature_flags() ), 'Phase 5 gates are not disabled by default.' );
 $assert( count( Phase5Database::table_names( 'wp_' ) ) === 10, 'Phase 5 canonical table count is incomplete.' );
 foreach ( Phase5Database::table_names( 'wp_' ) as $table ) $assert( str_starts_with( $table, 'wp_sabri_news_' ), 'Dynamic table prefix is incorrect.' );

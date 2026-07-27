@@ -65,7 +65,7 @@ $missing = SafeBoot::register_module( 'Sabri\HomeNewsFeed\ClassThatDoesNotExist'
 sabri_safe_boot_assert( false === $missing && SafeBoot::is_blocked(), 'A missing packaged class must fail safely instead of causing a site-wide fatal.' );
 SafeBoot::clear();
 
-sabri_safe_boot_assert( '1.0.1' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Safe Boot hardening must preserve runtime 1.0.1 and schema 1.0.0.' );
+sabri_safe_boot_assert( '1.0.2' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Safe Boot hardening must preserve runtime 1.0.1 and schema 1.0.0.' );
 
 if ( ! empty( $safe_boot_failures ) ) {
 	fwrite( STDERR, "Safe Boot tests failed:\n- " . implode( "\n- ", $safe_boot_failures ) . "\n" );

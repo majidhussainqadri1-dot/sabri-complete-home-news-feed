@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Sabri Complete Home and News Feed
  * Plugin URI: https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed
- * Description: Phase 2 Home Feed and public Composer runtime for Sabri home feed, social news, publishing, safety, and data architecture.
- * Version: 1.0.1
+ * Description: Complete public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.
+ * Version: 1.0.2
  * Author: Dr. Allama Majid Hussain Sabri
  * Text Domain: sabri-complete-home-news-feed
  * Domain Path: /languages
@@ -92,7 +92,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
 	return;
 }
 
-define( 'SABRI_HNF_VERSION', '1.0.1' );
+define( 'SABRI_HNF_VERSION', '1.0.2' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
 define( 'SABRI_HNF_PATH', function_exists( 'plugin_dir_path' ) ? plugin_dir_path( __FILE__ ) : dirname( __FILE__ ) . DIRECTORY_SEPARATOR );
