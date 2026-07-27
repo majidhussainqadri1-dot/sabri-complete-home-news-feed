@@ -1,19 +1,50 @@
 .sabri-hnf-corrective-surface {
 	margin-block: 1.5rem;
 	padding: clamp(1rem, 2vw, 1.5rem);
-	border: 1px solid rgba(242, 97, 0, 0.28);
+	border: 1px solid rgba(255, 138, 31, 0.35);
 	border-radius: 18px;
 	background: #fff;
 	box-shadow: 0 10px 30px rgba(17, 24, 39, 0.07);
 }
 
+.sabri-hnf-corrective-surface__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem 1rem;
+	flex-wrap: wrap;
+	margin-block-end: 1rem;
+	padding-block-end: 0.875rem;
+	border-block-end: 1px solid rgba(255, 138, 31, 0.2);
+}
+
+.sabri-hnf-corrective-surface__eyebrow,
+.sabri-hnf-corrective-surface__status {
+	margin: 0;
+}
+
 .sabri-hnf-corrective-surface__eyebrow {
-	margin: 0 0 1rem;
 	font-size: 0.78rem;
 	font-weight: 800;
 	letter-spacing: 0.08em;
 	text-transform: uppercase;
-	color: #c64f00;
+	color: #b94700;
+}
+
+.sabri-hnf-corrective-surface__status {
+	font-size: 0.82rem;
+	font-weight: 700;
+	color: #334155;
+}
+
+.sabri-hnf-last-resort-mount {
+	width: min(100% - 2rem, 1200px);
+	margin-inline: auto;
+	clear: both;
+}
+
+body.sabri-hnf-public-surface-ready .sabri-hnf-corrective-surface {
+	outline: 1px solid transparent;
 }
 
 .sabri-hnf-profile-timeline {
@@ -67,5 +98,20 @@
 		margin-inline: -0.25rem;
 		padding: 0.875rem;
 		border-radius: 14px;
+	}
+
+	.sabri-hnf-last-resort-mount {
+		width: min(100% - 1rem, 1200px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sabri-hnf-corrective-surface *,
+	.sabri-hnf-corrective-surface *::before,
+	.sabri-hnf-corrective-surface *::after {
+		scroll-behavior: auto !important;
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
 	}
 }
