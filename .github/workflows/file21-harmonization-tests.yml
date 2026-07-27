@@ -56,9 +56,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find . -type f -name '*.php' \
-            ! -path './vendor/*' ! -path './node_modules/*' -print0 \
-            | xargs -0 -n1 php -l
+          find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+      - name: Public visibility recovery contracts
+        run: php tests/run-file21-public-visibility-tests.php
       - name: Harmonization positive contracts
         run: php tests/run-file21-harmonization-tests.php
       - name: Harmonization negative contracts
@@ -110,7 +110,7 @@ jobs:
           test -z "$(git status --porcelain --untracked-files=no)"
 
   package:
-    name: Harmonized immutable package
+    name: Public visibility immutable package
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -124,11 +124,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf release file21-harmonization-package
+          rm -rf release file21-public-visibility-package
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          manifest=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE-MANIFEST.sha256' -print -quit)
+          package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          manifest=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
           test -n "$package" && test -n "$checksum" && test -n "$manifest"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
@@ -137,6 +137,8 @@ jobs:
           unzip -Z1 "$package" > package-entries.txt
           for entry in \
             sabri-complete-home-news-feed/sabri-complete-home-news-feed.php \
+            sabri-complete-home-news-feed/includes/class-public-surface-recovery.php \
+            sabri-complete-home-news-feed/includes/class-corrective-public-mount.php \
             sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php \
             sabri-complete-home-news-feed/includes/class-companion-integration-registry.php \
             sabri-complete-home-news-feed/includes/class-companion-home-row-adapters.php \
@@ -153,20 +155,22 @@ jobs:
             sabri-complete-home-news-feed/admin/views/migration.php \
             sabri-complete-home-news-feed/admin/views/system-check.php \
             sabri-complete-home-news-feed/assets/css/home-composition.css \
-            sabri-complete-home-news-feed/FILE-21-HARMONIZATION-COMPLETION-PLAN.md; do
+            sabri-complete-home-news-feed/assets/css/corrective-public.css \
+            sabri-complete-home-news-feed/FILE-21-HARMONIZATION-COMPLETION-PLAN.md \
+            sabri-complete-home-news-feed/FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md; do
             grep -Fxq "$entry" package-entries.txt
           done
-          mkdir -p file21-harmonization-package
-          cp "$package" file21-harmonization-package/candidate.zip
-          printf '%s  candidate.zip\n' "$actual" > file21-harmonization-package/candidate.sha256
-          printf '%s\n' "${TEST_SHA}" > file21-harmonization-package/exact-commit.txt
-          cp package-entries.txt file21-harmonization-package/
-          cp "$manifest" file21-harmonization-package/runtime-manifest.sha256
-          printf 'status=passed\nhead_sha=%s\npackage_sha256=%s\nlive_deployed=0\n' "${TEST_SHA}" "$actual" > file21-harmonization-package/result.env
+          mkdir -p file21-public-visibility-package
+          cp "$package" file21-public-visibility-package/candidate.zip
+          printf '%s  candidate.zip\n' "$actual" > file21-public-visibility-package/candidate.sha256
+          printf '%s\n' "${TEST_SHA}" > file21-public-visibility-package/exact-commit.txt
+          cp package-entries.txt file21-public-visibility-package/
+          cp "$manifest" file21-public-visibility-package/runtime-manifest.sha256
+          printf 'status=passed\nhead_sha=%s\nplugin_version=1.0.2\nschema_version=1.0.0\npackage_sha256=%s\npublic_visibility_recovery=1\nlive_deployed=0\n' "${TEST_SHA}" "$actual" > file21-public-visibility-package/result.env
       - name: Upload immutable candidate
         uses: actions/upload-artifact@v4
         with:
-          name: file21-harmonization-package-${{ env.TEST_SHA }}
+          name: file21-public-visibility-package-${{ env.TEST_SHA }}
           retention-days: 60
-          path: file21-harmonization-package/
+          path: file21-public-visibility-package/
           if-no-files-found: error
