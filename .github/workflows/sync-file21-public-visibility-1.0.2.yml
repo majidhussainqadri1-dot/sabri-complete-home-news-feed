@@ -24,7 +24,7 @@ jobs:
         with:
           php-version: '8.1'
           coverage: none
-      - name: Synchronize exact runtime and package identity
+      - name: Synchronize runtime, tests, and package identity
         shell: bash
         run: |
           set -euo pipefail
@@ -55,7 +55,7 @@ jobs:
           text = text.replace('- Accepted plugin version shown in WordPress: 1.0.1', '- Accepted plugin version shown in WordPress: 1.0.2')
           build.write_text(text, encoding='utf-8')
 
-          targets = list(Path('tests').glob('*.php')) + list(Path('tests').glob('*.mjs')) + list(Path('.github/workflows').glob('*.yml'))
+          targets = list(Path('tests').glob('*.php')) + list(Path('tests').glob('*.mjs'))
           patterns = [
               ("Version: 1.0.1", "Version: 1.0.2"),
               ("SABRI_HNF_VERSION', '1.0.1", "SABRI_HNF_VERSION', '1.0.2"),
@@ -76,45 +76,22 @@ jobs:
           if "'includes/class-public-surface-recovery.php'," not in text:
               text = text.replace("'includes/class-canonical-identity-adapter.php',", "'includes/class-public-surface-recovery.php',\n\t'includes/class-canonical-identity-adapter.php',")
           harmonization.write_text(text, encoding='utf-8')
-
-          workflow = Path('.github/workflows/file21-harmonization-tests.yml')
-          text = workflow.read_text(encoding='utf-8')
-          marker = "      - name: Harmonization positive contracts\n        run: php tests/run-file21-harmonization-tests.php\n"
-          addition = marker + "      - name: Public visibility recovery contracts\n        run: php tests/run-file21-public-visibility-tests.php\n"
-          if 'Public visibility recovery contracts' not in text:
-              if marker not in text:
-                  raise SystemExit('Harmonization workflow insertion marker missing')
-              text = text.replace(marker, addition)
-          workflow.write_text(text, encoding='utf-8')
-
-          for path in ('.github/workflows/file21-corrective-visible-qa.yml', '.github/workflows/phase4c-one-hour-visible-qa.yml'):
-              p = Path(path)
-              text = p.read_text(encoding='utf-8')
-              marker = 'php tests/run-file21-harmonization-tests.php'
-              if marker in text and 'php tests/run-file21-public-visibility-tests.php' not in text:
-                  text = text.replace(marker, marker + '\n            php tests/run-file21-public-visibility-tests.php')
-              p.write_text(text, encoding='utf-8')
           PY
 
           rm .github/workflows/sync-file21-public-visibility-1.0.2.yml
 
-      - name: PHP syntax
+      - name: Verify synchronized source
         shell: bash
-        run: find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
-      - name: Public visibility recovery contracts
-        run: php tests/run-file21-public-visibility-tests.php
-      - name: Harmonization positive contracts
-        run: php tests/run-file21-harmonization-tests.php
-      - name: Harmonization negative contracts
-        run: php tests/run-file21-harmonization-negative-tests.php
-      - name: Corrective contracts
-        run: php tests/run-file21-corrective-tests.php
-      - name: Completion audit
-        run: php tests/run-file21-completion-audit-tests.php
-      - name: Core behavior regression
-        run: php tests/run-tests.php
-      - name: Safe Boot regression
-        run: php tests/run-safe-boot-tests.php
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+          php tests/run-file21-public-visibility-tests.php
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+          php tests/run-file21-corrective-tests.php
+          php tests/run-file21-completion-audit-tests.php
+          php tests/run-tests.php
+          php tests/run-safe-boot-tests.php
 
       - name: Build exact package
         shell: bash
