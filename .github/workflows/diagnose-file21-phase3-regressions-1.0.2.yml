@@ -1,0 +1,50 @@
+name: Diagnose File 21 Phase 3 Regressions 1.0.2
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/diagnose-file21-phase3-regressions-1.0.2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  phase3:
+    if: github.head_ref == 'fix/file-21-public-surface-visibility-1.0.2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: PHP syntax
+        run: find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+      - name: Phase 3 contracts
+        run: php tests/run-phase3-contract-tests.php
+      - name: Phase 3 infrastructure
+        run: php tests/run-phase3-infrastructure-tests.php
+      - name: Phase 3B reactions and saves
+        run: php tests/run-phase3b-reactions-saves-tests.php
+      - name: Phase 3B race and shortcode
+        run: php tests/run-phase3b-race-shortcode-tests.php
+      - name: Phase 3C comments
+        run: php tests/run-phase3c-comments-tests.php
+      - name: Phase 3D follows
+        run: php tests/run-phase3d-follows-tests.php
+      - name: Phase 3E reports
+        run: php tests/run-phase3e-reports-tests.php
+      - name: Phase 3F polls
+        run: php tests/run-phase3f-polls-tests.php
+      - name: Phase 3G notifications and views
+        run: php tests/run-phase3g-notifications-views-tests.php
+      - name: Phase 3H hardening
+        run: php tests/run-phase3h-hardening-tests.php
+      - name: Phase 3 social and share
+        run: php tests/run-phase3-social-features-share-tests.php
+      - name: Public query routing
+        run: php tests/run-public-query-routing-tests.php
+      - name: WordPress option-filter compatibility
+        run: php tests/run-wordpress-option-filter-compatibility-tests.php
+      - name: Duplicate plugin compatibility
+        run: php tests/run-duplicate-plugin-compat-tests.php
