@@ -4,7 +4,6 @@
  *
  * @package SabriCompleteHomeNewsFeed
  */
-
 require_once __DIR__ . '/bootstrap.php';
 
 use Sabri\HomeNewsFeed\Composer;
@@ -56,20 +55,31 @@ sabri_corrective_assert( ! empty( $doctor_submit['allowed'] ) && 'pending' === $
 
 $sabri_test_current_user_id = 2;
 $normalized = PrivilegedPublishingPolicy::normalize_core_pending_submission(
-	array( 'post_type' => 'post', 'post_status' => 'pending' ),
-	array(),
+	array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 2 ),
+	array( 'post_author' => 2 ),
 	array(),
 	false
 );
 sabri_corrective_assert( 'publish' === $normalized['post_status'], 'Core Founder pending submission must normalize to publish.' );
 
 $privacy_held = PrivilegedPublishingPolicy::normalize_core_pending_submission(
-	array( 'post_type' => 'post', 'post_status' => 'pending' ),
-	array(),
+	array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 2 ),
+	array( 'post_author' => 2 ),
 	array( 'sabri_privacy_review_required' => 1 ),
 	false
 );
 sabri_corrective_assert( 'pending' === $privacy_held['post_status'], 'Explicit privacy hold must override auto-publish.' );
+
+/* An Administrator reviewing another author's pending post must not auto-publish it. */
+$sabri_test_current_user_id = 1;
+$sabri_test_current_caps    = array( 'manage_options' => true );
+$doctor_reviewed_by_admin = PrivilegedPublishingPolicy::normalize_core_pending_submission(
+	array( 'post_type' => 'post', 'post_status' => 'pending', 'post_author' => 4 ),
+	array( 'post_author' => 4 ),
+	array(),
+	true
+);
+sabri_corrective_assert( 'pending' === $doctor_reviewed_by_admin['post_status'], 'Administrator editing an unverified Doctor post must not silently auto-publish it.' );
 
 $published = sabri_test_add_post(
 	array( 'post_author' => 2, 'post_status' => 'publish' ),

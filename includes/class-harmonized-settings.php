@@ -13,6 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Keeps old installations compatible while applying current canonical defaults. */
 final class HarmonizedSettings {
+	/** @var bool Prevent recursive option-filter normalization. */
+	private static $normalizing = false;
+
 	/** Register option normalization. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
@@ -25,59 +28,80 @@ final class HarmonizedSettings {
 		}
 	}
 
-	/** Normalize an option payload without deleting unknown future keys. */
+	/**
+	 * Normalize an option payload without deleting unknown future keys.
+	 *
+	 * Option filters must be re-entry safe. A translation, compatibility or
+	 * third-party sanitizer filter may read the same option while this method is
+	 * executing. Returning the already bounded payload during that nested read
+	 * prevents an infinite normalize -> option read -> normalize cycle.
+	 *
+	 * @param mixed $value Stored/default option value.
+	 * @return array
+	 */
 	public static function normalize( $value ) {
 		$value = is_array( $value ) ? $value : array();
-		$value['capabilities'] = isset( $value['capabilities'] ) && is_array( $value['capabilities'] ) ? $value['capabilities'] : array();
-		$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed'] ) ? $value['feed'] : array();
-		$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
 
-		$value['capabilities']['founder_roles'] = self::merge_keys(
-			isset( $value['capabilities']['founder_roles'] ) ? $value['capabilities']['founder_roles'] : array(),
-			array( 'founder', 'sabri_founder' )
-		);
-		$value['capabilities']['verified_doctor_roles'] = self::merge_keys(
-			isset( $value['capabilities']['verified_doctor_roles'] ) ? $value['capabilities']['verified_doctor_roles'] : array(),
-			array( 'verified_doctor', 'approved_doctor', 'doctor_verified', 'sabri_verified_doctor' )
-		);
-		$value['capabilities']['unverified_doctor_roles'] = self::merge_keys(
-			isset( $value['capabilities']['unverified_doctor_roles'] ) ? $value['capabilities']['unverified_doctor_roles'] : array(),
-			array( 'doctor', 'sabri_doctor', 'sabri_doctor_pending' )
-		);
-		$value['capabilities']['student_roles'] = self::merge_keys(
-			isset( $value['capabilities']['student_roles'] ) ? $value['capabilities']['student_roles'] : array(),
-			array( 'student', 'sabri_student' )
-		);
-		$value['capabilities']['patient_roles'] = self::merge_keys(
-			isset( $value['capabilities']['patient_roles'] ) ? $value['capabilities']['patient_roles'] : array(),
-			array( 'patient', 'sabri_patient', 'subscriber' )
-		);
+		if ( self::$normalizing ) {
+			return $value;
+		}
 
-		$policy = isset( $value['capabilities']['verified_doctor_policy'] ) ? self::clean_key( $value['capabilities']['verified_doctor_policy'] ) : '';
-		$value['capabilities']['verified_doctor_policy'] = in_array( $policy, array( 'trusted', 'publish' ), true ) ? $policy : 'trusted';
+		self::$normalizing = true;
 
-		$value['feed']['enabled_filters'] = self::merge_allowed(
-			isset( $value['feed']['enabled_filters'] ) ? $value['feed']['enabled_filters'] : array(),
-			array_keys( FeedContext::modes() ),
-			array_keys( FeedContext::modes() )
-		);
-		$value['feed']['allowed_types'] = self::merge_allowed(
-			isset( $value['feed']['allowed_types'] ) ? $value['feed']['allowed_types'] : array(),
-			array_keys( Taxonomies::feed_type_terms() ),
-			array_keys( Taxonomies::feed_type_terms() )
-		);
-		$value['composer']['allowed_feed_types'] = self::merge_allowed(
-			isset( $value['composer']['allowed_feed_types'] ) ? $value['composer']['allowed_feed_types'] : array(),
-			FeedContext::phase2_feed_type_slugs(),
-			FeedContext::phase2_feed_type_slugs()
-		);
-		$value['composer']['allowed_visibility_modes'] = self::merge_allowed(
-			isset( $value['composer']['allowed_visibility_modes'] ) ? $value['composer']['allowed_visibility_modes'] : array(),
-			FeedContext::phase2_visibility_slugs( true ),
-			FeedContext::phase2_visibility_slugs( true )
-		);
-		$value['version'] = SABRI_HNF_VERSION;
-		return $value;
+		try {
+			$value['capabilities'] = isset( $value['capabilities'] ) && is_array( $value['capabilities'] ) ? $value['capabilities'] : array();
+			$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed'] ) ? $value['feed'] : array();
+			$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
+
+			$value['capabilities']['founder_roles'] = self::merge_keys(
+				isset( $value['capabilities']['founder_roles'] ) ? $value['capabilities']['founder_roles'] : array(),
+				array( 'founder', 'sabri_founder' )
+			);
+			$value['capabilities']['verified_doctor_roles'] = self::merge_keys(
+				isset( $value['capabilities']['verified_doctor_roles'] ) ? $value['capabilities']['verified_doctor_roles'] : array(),
+				array( 'verified_doctor', 'approved_doctor', 'doctor_verified', 'sabri_verified_doctor' )
+			);
+			$value['capabilities']['unverified_doctor_roles'] = self::merge_keys(
+				isset( $value['capabilities']['unverified_doctor_roles'] ) ? $value['capabilities']['unverified_doctor_roles'] : array(),
+				array( 'doctor', 'sabri_doctor', 'sabri_doctor_pending' )
+			);
+			$value['capabilities']['student_roles'] = self::merge_keys(
+				isset( $value['capabilities']['student_roles'] ) ? $value['capabilities']['student_roles'] : array(),
+				array( 'student', 'sabri_student' )
+			);
+			$value['capabilities']['patient_roles'] = self::merge_keys(
+				isset( $value['capabilities']['patient_roles'] ) ? $value['capabilities']['patient_roles'] : array(),
+				array( 'patient', 'sabri_patient', 'subscriber' )
+			);
+
+			$policy = isset( $value['capabilities']['verified_doctor_policy'] ) ? self::clean_key( $value['capabilities']['verified_doctor_policy'] ) : '';
+			$value['capabilities']['verified_doctor_policy'] = in_array( $policy, array( 'trusted', 'publish' ), true ) ? $policy : 'trusted';
+
+			$value['feed']['enabled_filters'] = self::merge_allowed(
+				isset( $value['feed']['enabled_filters'] ) ? $value['feed']['enabled_filters'] : array(),
+				array_keys( FeedContext::modes() ),
+				array_keys( FeedContext::modes() )
+			);
+			$value['feed']['allowed_types'] = self::merge_allowed(
+				isset( $value['feed']['allowed_types'] ) ? $value['feed']['allowed_types'] : array(),
+				array_keys( Taxonomies::feed_type_terms() ),
+				array_keys( Taxonomies::feed_type_terms() )
+			);
+			$value['composer']['allowed_feed_types'] = self::merge_allowed(
+				isset( $value['composer']['allowed_feed_types'] ) ? $value['composer']['allowed_feed_types'] : array(),
+				FeedContext::phase2_feed_type_slugs(),
+				FeedContext::phase2_feed_type_slugs()
+			);
+			$value['composer']['allowed_visibility_modes'] = self::merge_allowed(
+				isset( $value['composer']['allowed_visibility_modes'] ) ? $value['composer']['allowed_visibility_modes'] : array(),
+				FeedContext::phase2_visibility_slugs( true ),
+				FeedContext::phase2_visibility_slugs( true )
+			);
+			$value['version'] = SABRI_HNF_VERSION;
+			return $value;
+		} finally {
+			self::$normalizing = false;
+		}
 	}
 
 	/** Pre-update filter signature. */
@@ -115,8 +139,17 @@ final class HarmonizedSettings {
 		return array_values( array_intersect( $items, array_map( array( __CLASS__, 'clean_key' ), $allowed ) ) );
 	}
 
-	/** Normalize a controlled key without assuming WordPress helpers in lean tests. */
+	/**
+	 * Normalize a controlled ASCII key without invoking WordPress filters.
+	 *
+	 * WordPress sanitize_key() applies the global `sanitize_key` filter. Calling
+	 * it from an option filter can recurse when another callback reads this same
+	 * settings option. File 21 keys are controlled ASCII slugs, so a local pure
+	 * sanitizer is both sufficient and safer here.
+	 */
 	private static function clean_key( $value ) {
-		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		$value = strtolower( (string) $value );
+		$value = preg_replace( '/[^a-z0-9_\-]/', '', $value );
+		return is_string( $value ) ? $value : '';
 	}
 }

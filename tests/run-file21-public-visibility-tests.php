@@ -28,6 +28,7 @@ $assert( false !== strpos( $plugin, 'PublicSurfaceRecovery::class' ), 'PublicSur
 $recovery = file_get_contents( $root . '/includes/class-public-surface-recovery.php' );
 foreach ( array(
 	"const VERSION = '1.0.2'",
+	'NORMALIZATION_BATCH_SIZE',
 	'home_surface_enabled',
 	'profile_timeline_enabled',
 	'replace_existing_feed_surface',
@@ -36,14 +37,22 @@ foreach ( array(
 	'normalize_published_privileged_posts',
 	"'post_status'            => 'publish'",
 	"'has_password'           => false",
-	"'news_gates_changed'   => false",
-	"'publication_changed'  => false",
-	"'legacy_migration_run' => false",
+	"'news_gates_changed'      => false",
+	"'publication_changed'     => false",
+	"'legacy_migration_run'    => false",
+	"'recovery_complete'",
+	"'more_possible'",
+	"'complete'",
+	'safe_read_surfaces_recovery_continues',
+	'administrator_recovery_continues',
+	'if ( $normalization_complete )',
 	'check_admin_referer',
 	'wp_safe_redirect',
 ) as $needle ) {
 	$assert( false !== strpos( $recovery, $needle ), 'Recovery safeguard missing: ' . $needle );
 }
+$assert( false !== strpos( $recovery, "'posts_per_page'         => self::NORMALIZATION_BATCH_SIZE" ), 'Recovery is not using its bounded batch constant.' );
+$assert( false === strpos( $recovery, "'posts_per_page'         => 200" ), 'Recovery still hard-codes a one-shot 200-post batch.' );
 $assert( false === stripos( $recovery, 'wp_publish_post' ), 'Recovery may not publish drafts.' );
 $assert( false === stripos( $recovery, 'wp_delete_post' ), 'Recovery may not delete posts.' );
 $assert( false === stripos( $recovery, 'DELETE FROM' ), 'Recovery contains destructive SQL.' );
