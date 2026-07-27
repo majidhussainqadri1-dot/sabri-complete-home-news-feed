@@ -101,13 +101,17 @@ final class CorrectiveAdmin {
 		self::redirect_migration( self::report_notice( $result, 'legacy_publications_rolled_back', 'legacy_publications_rollback_partial', 'legacy_publications_rollback_failed' ) );
 	}
 
-	/** Show a bounded reminder until the wizard is reviewed. */
+	/** Show the exact public-surface state until the wizard is reviewed. */
 	public static function wizard_notice() {
 		if ( ! self::can_manage() || CorrectivePublicSettings::enabled( 'wizard_completed' ) ) { return; }
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		if ( is_object( $screen ) && isset( $screen->id ) && false !== strpos( (string) $screen->id, self::PAGE_SLUG ) ) { return; }
 		$url = function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=' . self::PAGE_SLUG ) : '#';
-		echo '<div class="notice notice-warning"><p>' . esc_html__( 'File 21 public components remain fail-closed until the comprehensive Activation Wizard is reviewed.', 'sabri-complete-home-news-feed' ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open Activation Wizard', 'sabri-complete-home-news-feed' ) . '</a></p></div>';
+		$diagnostics = CorrectivePublicMount::diagnostics();
+		$message = ! empty( $diagnostics['effective_home_surface'] )
+			? __( 'File 21 read-only Home and Profile Timeline surfaces are active. Editorial News gates, automatic publication, and legacy migration remain closed until the Activation Wizard is reviewed.', 'sabri-complete-home-news-feed' )
+			: __( 'File 21 public Home is not observable yet. Review the Activation Wizard or use the public-surface recovery action.', 'sabri-complete-home-news-feed' );
+		echo '<div class="notice notice-warning"><p>' . esc_html( $message ) . ' <a href="' . esc_url( $url ) . '">' . esc_html__( 'Open Activation Wizard', 'sabri-complete-home-news-feed' ) . '</a></p></div>';
 	}
 
 	private static function capability() { return 'sabri_feed_manage_settings'; }
