@@ -35,9 +35,15 @@ final class PrivilegedPublishingPolicy {
 	}
 
 	/**
-	 * Convert a core-editor pending submission by a Founder or Administrator to publish.
-	 * Drafts, autosaves, revisions, privacy-held Composer submissions, and non-post
-	 * content are not changed here.
+	 * Convert a core-editor pending submission authored by a privileged publisher
+	 * to publish. Drafts, autosaves, revisions, privacy-held submissions, and
+	 * non-post content are not changed here.
+	 *
+	 * The author check is deliberate: an Administrator reviewing an unverified
+	 * Doctor's pending post must not accidentally publish it merely because the
+	 * current actor is privileged. Administrators may still deliberately select
+	 * WordPress `publish`; this normalizer only corrects privileged authors' own
+	 * pending submissions.
 	 *
 	 * @param array<string,mixed> $data Sanitized post data.
 	 * @param array<string,mixed> $postarr Submitted post array.
@@ -46,7 +52,7 @@ final class PrivilegedPublishingPolicy {
 	 * @return array<string,mixed>
 	 */
 	public static function normalize_core_pending_submission( $data, $postarr, $unsanitized_postarr = array(), $update = false ) {
-		unset( $postarr, $update );
+		unset( $update );
 		if ( ! is_array( $data ) || 'post' !== ( isset( $data['post_type'] ) ? (string) $data['post_type'] : 'post' ) ) {
 			return $data;
 		}
@@ -57,8 +63,17 @@ final class PrivilegedPublishingPolicy {
 			return $data;
 		}
 
-		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
-		if ( ! ComposerPermissions::user_is_privileged_publisher( $user_id ) ) {
+		$author_id = 0;
+		foreach ( array( $data, $postarr, $unsanitized_postarr ) as $source ) {
+			if ( is_array( $source ) && ! empty( $source['post_author'] ) ) {
+				$author_id = (int) $source['post_author'];
+				break;
+			}
+		}
+		if ( $author_id <= 0 && function_exists( 'get_current_user_id' ) ) {
+			$author_id = (int) get_current_user_id();
+		}
+		if ( ! ComposerPermissions::user_is_privileged_publisher( $author_id ) ) {
 			return $data;
 		}
 
@@ -67,7 +82,7 @@ final class PrivilegedPublishingPolicy {
 	}
 
 	/**
-	 * Ensure a published Founder/Administrator post is publicly approved.
+	 * Ensure a published privileged-author post is publicly approved.
 	 * Explicit moderation restrictions remain protected.
 	 *
 	 * @param int   $post_id Post ID.
