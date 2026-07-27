@@ -16,16 +16,17 @@ final class CorrectivePublicMount {
 	/** Whether this corrective surface rendered in the current request. */
 	private static $rendered = false;
 
-	/** Register native, content, loop, and last-resort mounting paths. */
+	/** Register native, content, loop, shortcode, and block mounting paths. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'the_content', array( __CLASS__, 'mount_on_front_page' ), 8 );
+			add_filter( 'pre_do_shortcode_tag', array( __CLASS__, 'intercept_feed_shortcode' ), 8, 4 );
+			add_filter( 'render_block', array( __CLASS__, 'intercept_shortcode_block' ), 8, 2 );
 			add_filter( 'body_class', array( __CLASS__, 'body_classes' ) );
 			add_filter( 'sabri_shell_system_check_report', array( __CLASS__, 'append_shell_report' ) );
 		}
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'loop_start', array( __CLASS__, 'mount_on_posts_index_loop' ), 1 );
-			add_action( 'wp_footer', array( __CLASS__, 'mount_last_resort' ), 1 );
 		}
 	}
 
@@ -34,7 +35,7 @@ final class CorrectivePublicMount {
 		return array( 'sabri_complete_home_feed', 'sabri_news_feed', 'sabri_news_home', 'sabri_platform_home', 'sabri_shell_home_feed' );
 	}
 
-	/** Detect a feed shortcode already present in raw page content. */
+	/** Detect a Feed shortcode already present in raw page content. */
 	public static function content_feed_shortcode( $content ) {
 		$content = is_string( $content ) ? $content : '';
 		foreach ( self::known_feed_shortcodes() as $shortcode ) {
@@ -79,7 +80,7 @@ final class CorrectivePublicMount {
 			'navigation_conflict'         => ! empty( $navigation ),
 			'plugin_adds_navigation'      => false,
 			'preferred_mount'             => 'sabri_shell_home_main',
-			'fallback_mounts'             => array( 'the_content', 'loop_start', 'wp_footer' ),
+			'fallback_mounts'             => array( 'the_content', 'pre_do_shortcode_tag', 'render_block', 'loop_start' ),
 		);
 	}
 
@@ -91,8 +92,7 @@ final class CorrectivePublicMount {
 
 	/** Mount exactly one File 21 surface on a static front page. */
 	public static function mount_on_front_page( $content ) {
-		if ( ! self::public_mount_allowed() || self::$rendered ) { return $content; }
-		if ( function_exists( 'is_admin' ) && is_admin() ) { return $content; }
+		if ( self::$rendered || ( function_exists( 'is_admin' ) && is_admin() ) ) { return $content; }
 		if ( ! function_exists( 'is_front_page' ) || ! is_front_page() || HomeIntegration::is_single_post_request() ) { return $content; }
 		if ( function_exists( 'is_home' ) && is_home() ) { return $content; }
 		if ( function_exists( 'in_the_loop' ) && ! in_the_loop() ) { return $content; }
@@ -114,28 +114,40 @@ final class CorrectivePublicMount {
 		return $content . $surface;
 	}
 
+	/** Intercept direct legacy shortcode execution used by themes or builders. */
+	public static function intercept_feed_shortcode( $return, $tag, $attr, $match ) {
+		unset( $attr, $match );
+		if ( false !== $return || self::$rendered || ! in_array( sanitize_key( $tag ), self::known_feed_shortcodes(), true ) ) { return $return; }
+		if ( ! self::is_public_front_context() || ! CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' ) ) { return $return; }
+		$surface = self::render_complete_surface( 'direct_shortcode_replacement' );
+		return '' !== $surface ? $surface : $return;
+	}
+
+	/** Intercept a Shortcode block before a builder bypasses the normal content filter. */
+	public static function intercept_shortcode_block( $block_content, $block ) {
+		if ( self::$rendered || ! is_array( $block ) || 'core/shortcode' !== ( isset( $block['blockName'] ) ? $block['blockName'] : '' ) ) { return $block_content; }
+		$raw = isset( $block['innerHTML'] ) ? (string) $block['innerHTML'] : (string) $block_content;
+		if ( '' === self::content_feed_shortcode( $raw ) || ! self::is_public_front_context() || ! CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' ) ) { return $block_content; }
+		$surface = self::render_complete_surface( 'shortcode_block_replacement' );
+		return '' !== $surface ? $surface : $block_content;
+	}
+
 	/** Render before a posts-index loop when no static Page content is available. */
 	public static function mount_on_posts_index_loop( $query ) {
-		if ( self::$rendered || ! self::public_mount_allowed() || ( function_exists( 'is_admin' ) && is_admin() ) ) { return; }
+		if ( self::$rendered || ( function_exists( 'is_admin' ) && is_admin() ) ) { return; }
 		if ( ! function_exists( 'is_front_page' ) || ! is_front_page() || ! function_exists( 'is_home' ) || ! is_home() ) { return; }
 		if ( is_object( $query ) && method_exists( $query, 'is_main_query' ) && ! $query->is_main_query() ) { return; }
 		$surface = self::render_complete_surface( 'posts_index_loop' );
 		if ( '' !== $surface ) { echo $surface; } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
-	/** Guarded final fallback for themes/builders that omit accepted content slots. */
-	public static function mount_last_resort() {
-		if ( self::$rendered || ! self::public_mount_allowed() || ( function_exists( 'is_admin' ) && is_admin() ) ) { return; }
-		if ( ! function_exists( 'is_front_page' ) || ! is_front_page() || HomeIntegration::is_single_post_request() ) { return; }
-		$surface = self::render_complete_surface( 'footer_last_resort' );
-		if ( '' !== $surface ) {
-			echo '<div class="sabri-hnf-last-resort-mount" data-sabri-hnf-last-resort="1">' . $surface . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-		}
-	}
-
 	/** Build the complete identifiable Home surface for Shell or fallback callers. */
 	public static function render_complete_surface( $source = 'public' ) {
-		if ( self::$rendered || ! self::public_mount_allowed() ) { return ''; }
+		if ( self::$rendered ) { return ''; }
+		if ( ! self::public_mount_allowed() && class_exists( __NAMESPACE__ . '\\PublicSurfaceRecovery' ) ) {
+			PublicSurfaceRecovery::maybe_recover();
+		}
+		if ( ! self::public_mount_allowed() ) { return ''; }
 		$feed = HomeIntegration::render_feed_once( sanitize_key( $source ), array() );
 		if ( '' === $feed ) { return ''; }
 		$rows = class_exists( __NAMESPACE__ . '\\HomeCompositionRegistry' ) ? HomeCompositionRegistry::render_rows() : '';
@@ -187,14 +199,20 @@ final class CorrectivePublicMount {
 		$status = 'Available but not configured';
 		$detail = __( 'File 21 never inserts primary navigation and renders at most one complete Home surface per request.', 'sabri-complete-home-news-feed' );
 		if ( 'safe_or_emergency_mode' === $diagnostics['visibility_reason'] ) {
-			$status = 'Disabled'; $detail = __( 'Safe Mode or Emergency Disable is preventing all File 21 public surfaces.', 'sabri-complete-home-news-feed' );
+			$status = 'Disabled';
+			$detail = __( 'Safe Mode or Emergency Disable is preventing all File 21 public surfaces.', 'sabri-complete-home-news-feed' );
 		} elseif ( 'home_surface_disabled' === $diagnostics['visibility_reason'] ) {
-			$status = 'Disabled by settings'; $detail = __( 'The File 21 Home surface is disabled. Use the Activation Wizard or public-surface recovery action.', 'sabri-complete-home-news-feed' );
+			$status = 'Disabled by settings';
+			$detail = __( 'The File 21 Home surface is disabled. Use the Activation Wizard or public-surface recovery action.', 'sabri-complete-home-news-feed' );
 		} elseif ( 'legacy_feed_blocked_by_duplicate_guard' === $diagnostics['visibility_reason'] ) {
-			$status = 'Blocked by duplicate guard'; $detail = sprintf( __( 'Existing Feed shortcode detected: %s. Enable controlled replacement or run public-surface recovery.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
+			$status = 'Blocked by duplicate guard';
+			$detail = sprintf( __( 'Existing Feed shortcode detected: %s. Enable controlled replacement or run public-surface recovery.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
 		} elseif ( ! empty( $diagnostics['feed_conflict'] ) && ! empty( $diagnostics['replacement_enabled'] ) ) {
-			$status = 'Enabled with controlled replacement'; $detail = sprintf( __( 'Existing Feed shortcode %s is replaced only at render time; saved page content is not mutated.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
-		} elseif ( ! empty( $diagnostics['effective_home_surface'] ) ) { $status = 'Enabled'; }
+			$status = 'Enabled with controlled replacement';
+			$detail = sprintf( __( 'Existing Feed shortcode %s is replaced only at render time; saved page content is not mutated.', 'sabri-complete-home-news-feed' ), $diagnostics['existing_feed_shortcode'] );
+		} elseif ( ! empty( $diagnostics['effective_home_surface'] ) ) {
+			$status = 'Enabled';
+		}
 		$rows[] = array( 'label' => __( 'File 21 public mount', 'sabri-complete-home-news-feed' ), 'status' => $status, 'detail' => $detail );
 		return $rows;
 	}
@@ -214,11 +232,19 @@ final class CorrectivePublicMount {
 		return '<section class="sabri-hnf-corrective-surface" aria-label="' . esc_attr__( 'Sabri Home and News Feed', 'sabri-complete-home-news-feed' ) . '" data-sabri-hnf-surface="file-21-corrective" data-sabri-hnf-version="' . esc_attr( SABRI_HNF_VERSION ) . '" data-sabri-hnf-mount-source="' . esc_attr( sanitize_key( $source ) ) . '">' . $marker . $feed . $rows . '</section>';
 	}
 
+	/** Determine whether a replacement belongs to the public front context. */
+	private static function is_public_front_context() {
+		if ( function_exists( 'is_admin' ) && is_admin() ) { return false; }
+		if ( HomeIntegration::is_single_post_request() ) { return false; }
+		return function_exists( 'is_front_page' ) && is_front_page();
+	}
+
 	/** Detect duplicate enabled Shell destinations that resolve to the same URL/page. */
 	private static function navigation_duplicates() {
 		$settings = function_exists( 'get_option' ) ? get_option( 'sabri_shell_settings', array() ) : array();
 		$nav = is_array( $settings ) && isset( $settings['navigation'] ) && is_array( $settings['navigation'] ) ? $settings['navigation'] : array();
-		$seen = array(); $dupes = array();
+		$seen = array();
+		$dupes = array();
 		foreach ( $nav as $key => $row ) {
 			if ( ! is_array( $row ) || empty( $row['enabled'] ) ) { continue; }
 			$identity = '';
