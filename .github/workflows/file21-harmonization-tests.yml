@@ -57,6 +57,8 @@ jobs:
         run: |
           set -euo pipefail
           find . -type f -name '*.php' ! -path './vendor/*' ! -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+      - name: Safe Boot settings recursion regression
+        run: php tests/run-file21-settings-recursion-tests.php
       - name: Public visibility recovery contracts
         run: php tests/run-file21-public-visibility-tests.php
       - name: Harmonization positive contracts
