@@ -29,7 +29,7 @@ function sabri_phase4c_assert( $condition, $message ) {
 sabri_test_reset_state( true );
 global $sabri_test_filter_overrides, $sabri_test_terms, $sabri_test_posts, $sabri_test_post_meta, $sabri_test_rewrite_rules, $sabri_test_rest_routes, $sabri_test_enqueued_styles, $sabri_test_enqueued_scripts;
 
-sabri_phase4c_assert( '1.0.1' === SABRI_HNF_VERSION, 'Phase 4C must preserve the accepted plugin version.' );
+sabri_phase4c_assert( '1.0.2' === SABRI_HNF_VERSION, 'Phase 4C must preserve the accepted plugin version.' );
 sabri_phase4c_assert( '1.0.0' === SABRI_HNF_SCHEMA_VERSION, 'Phase 4C must not promote the schema version.' );
 sabri_phase4c_assert( '4A' === Phase4Contracts::CHECKPOINT, 'Phase 4C must preserve the Phase 4A checkpoint.' );
 sabri_phase4c_assert( 0 === NewsFeatureSettings::defaults()['editorial_news_enabled'], 'Editorial News must remain disabled by default.' );

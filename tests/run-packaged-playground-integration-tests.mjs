@@ -124,7 +124,7 @@ try {
 		) );
 	`));
 	assert(!install.error && install.installed && install.active, `Packaged ZIP installation failed: ${JSON.stringify(install)}`);
-	assert(install.version === '1.0.1', `Unexpected packaged plugin version: ${install.version}`);
+	assert(install.version === '1.0.2', `Unexpected packaged plugin version: ${install.version}`);
 	assert(install.schema_version === '1.0.0', `Unexpected packaged schema version: ${install.schema_version}`);
 	assert(install.schema_success && install.schema_status === 'verified' && install.missing_tables.length === 0, `Packaged activation did not install and verify the schema: ${JSON.stringify(install)}`);
 	assert(install.social_view && install.share_script && install.catalog_complete, `Packaged social controls are incomplete: ${JSON.stringify(install)}`);

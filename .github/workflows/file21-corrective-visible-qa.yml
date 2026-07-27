@@ -48,8 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          grep -Fq 'Version: 1.0.1' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.1' );" sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.2' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.2' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -76,6 +76,7 @@ jobs:
           trap on_error ERR
 
           run_complete_suite() {
+            php tests/run-file21-public-visibility-tests.php
             php tests/run-file21-harmonization-tests.php
             php tests/run-file21-harmonization-negative-tests.php
             php tests/run-file21-legacy-interaction-migration-tests.php
@@ -95,15 +96,17 @@ jobs:
           verify_fresh_package() {
             rm -rf release
             pwsh -NoProfile -File ./tools/build-release.ps1
-            local package checksum expected actual
-            package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-            checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-            test -n "$package" && test -n "$checksum"
+            local package checksum manifest expected actual
+            package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
+            checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+            manifest=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
+            test -n "$package" && test -n "$checksum" && test -n "$manifest"
             expected=$(awk '{print tolower($1)}' "$checksum")
             actual=$(sha256sum "$package" | awk '{print $1}')
             test "$expected" = "$actual"
             test "${#actual}" -eq 64
             unzip -tqq "$package"
+            unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-public-surface-recovery.php'
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-corrective-activation-wizard.php'
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-profile-timeline.php'
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-canonical-identity-adapter.php'
@@ -111,10 +114,12 @@ jobs:
             unzip -Z1 "$package" | grep -Fxq 'sabri-complete-home-news-feed/admin/views/corrective-wizard.php'
             LAST_PACKAGE="$package"
             LAST_PACKAGE_SHA="$actual"
+            LAST_MANIFEST="$manifest"
           }
 
           LAST_PACKAGE=''
           LAST_PACKAGE_SHA=''
+          LAST_MANIFEST=''
           for cycle in $(seq 1 "${REQUIRED_CYCLES}"); do
             current_cycle=$cycle
             cycle_start=$(date +%s)
@@ -149,8 +154,9 @@ jobs:
           git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > file21-visible-qa/final-tracked-files.sha256
           cmp file21-visible-qa/initial-tracked-files.sha256 file21-visible-qa/final-tracked-files.sha256
           cp "$LAST_PACKAGE" file21-visible-qa/candidate.zip
+          cp "$LAST_MANIFEST" file21-visible-qa/runtime-manifest.sha256
           printf '%s  candidate.zip\n' "$LAST_PACKAGE_SHA" > file21-visible-qa/candidate.sha256
-          printf 'status=passed\nhead_sha=%s\ncycles=%s\nelapsed_seconds=%s\npackage_sha256=%s\nversion_promoted=1\nlive_deployed=0\n' "${TEST_SHA}" "$REQUIRED_CYCLES" "$ELAPSED" "$LAST_PACKAGE_SHA" > file21-visible-qa/result.env
+          printf 'status=passed\nhead_sha=%s\ncycles=%s\nelapsed_seconds=%s\npackage_sha256=%s\nruntime_version=1.0.2\nschema_version=1.0.0\nlive_deployed=0\n' "${TEST_SHA}" "$REQUIRED_CYCLES" "$ELAPSED" "$LAST_PACKAGE_SHA" > file21-visible-qa/result.env
       - name: Upload visible QA evidence
         if: always()
         uses: actions/upload-artifact@v4

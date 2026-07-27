@@ -11,6 +11,7 @@ $assert = static function ( $condition, $message ) use ( &$failures ) {
 };
 
 foreach ( array(
+	'includes/class-public-surface-recovery.php',
 	'includes/class-canonical-identity-adapter.php',
 	'includes/class-companion-integration-registry.php',
 	'includes/class-companion-home-row-adapters.php',
@@ -29,7 +30,7 @@ foreach ( array(
 }
 
 $bootstrap = file_get_contents( $root . '/sabri-complete-home-news-feed.php' );
-foreach ( array( 'Version: 1.0.1', "define( 'SABRI_HNF_VERSION', '1.0.1' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap' ) as $needle ) {
+foreach ( array( 'Version: 1.0.2', "define( 'SABRI_HNF_VERSION', '1.0.2' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap' ) as $needle ) {
 	$assert( false !== strpos( $bootstrap, $needle ), 'Complete 1.0.1 bootstrap contract missing: ' . $needle );
 }
 

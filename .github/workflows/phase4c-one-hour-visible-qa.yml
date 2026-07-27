@@ -32,7 +32,7 @@ jobs:
   preflight:
     name: Exact-head preflight and immutable package
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - name: Checkout exact head
         uses: actions/checkout@v4
@@ -48,8 +48,8 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          grep -Fq 'Version: 1.0.1' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.1' );" sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.2' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.2' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -58,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           find includes admin public templates tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          php tests/run-file21-public-visibility-tests.php
           php tests/run-file21-harmonization-tests.php
           php tests/run-file21-harmonization-negative-tests.php
           php tests/run-file21-legacy-interaction-migration-tests.php
@@ -72,21 +73,23 @@ jobs:
           node --check assets/js/news.js
           node --check tests/run-phase4c-playground-tests.mjs
           pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
-      - name: Build immutable harmonized package
+      - name: Build immutable canonical package
         shell: bash
         run: |
           set -euo pipefail
           rm -rf release phase4c-one-hour-package
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum"
+          package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
+          checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+          manifest=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
+          test -n "$package" && test -n "$checksum" && test -n "$manifest"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
           test "$expected" = "$actual"
           unzip -tqq "$package"
           mkdir -p phase4c-one-hour-package
           cp "$package" phase4c-one-hour-package/candidate.zip
+          cp "$manifest" phase4c-one-hour-package/runtime-manifest.sha256
           printf '%s  candidate.zip\n' "$actual" > phase4c-one-hour-package/candidate.sha256
           printf '%s\n' "${TEST_SHA}" > phase4c-one-hour-package/exact-commit.txt
           test -z "$(git status --porcelain --untracked-files=no)"
@@ -227,6 +230,7 @@ jobs:
           trap on_error ERR
 
           run_suite() {
+            php tests/run-file21-public-visibility-tests.php
             php tests/run-file21-harmonization-tests.php
             php tests/run-file21-harmonization-negative-tests.php
             php tests/run-file21-legacy-interaction-migration-tests.php
@@ -245,9 +249,10 @@ jobs:
           build_package() {
             rm -rf release
             pwsh -NoProfile -File ./tools/build-release.ps1
-            LAST_PACKAGE=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-            checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-            test -n "$LAST_PACKAGE" && test -n "$checksum"
+            LAST_PACKAGE=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
+            checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
+            LAST_MANIFEST=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
+            test -n "$LAST_PACKAGE" && test -n "$checksum" && test -n "$LAST_MANIFEST"
             LAST_PACKAGE_SHA=$(sha256sum "$LAST_PACKAGE" | awk '{print $1}')
             test "$(awk '{print tolower($1)}' "$checksum")" = "$LAST_PACKAGE_SHA"
             unzip -tqq "$LAST_PACKAGE"
@@ -255,6 +260,7 @@ jobs:
 
           LAST_PACKAGE=''
           LAST_PACKAGE_SHA=''
+          LAST_MANIFEST=''
           for cycle in $(seq 1 "$REQUIRED_CYCLES"); do
             current_cycle=$cycle
             cycle_start=$(date +%s)
@@ -285,9 +291,10 @@ jobs:
           cmp phase4c-one-hour-soak/initial-tracked-files.sha256 phase4c-one-hour-soak/final-tracked-files.sha256
           sha256sum phase4c-one-hour-soak/initial-tracked-files.sha256 > phase4c-one-hour-soak/tracked-manifest-digest.sha256
           cp "$LAST_PACKAGE" phase4c-one-hour-soak/final-candidate.zip
+          cp "$LAST_MANIFEST" phase4c-one-hour-soak/runtime-manifest.sha256
           printf '%s  final-candidate.zip\n' "$LAST_PACKAGE_SHA" > phase4c-one-hour-soak/final-package.sha256
           manifest_sha=$(awk '{print $1}' phase4c-one-hour-soak/tracked-manifest-digest.sha256)
-          printf 'status=soak-passed\nhead_sha=%s\nduration_seconds=%s\ncycles=%s\npackage_sha256=%s\ntracked_manifest_sha256=%s\nversion_promoted=1\npublic_gates_enabled=0\nauto_publish_enabled=0\n' "${TEST_SHA}" "$DURATION_SECONDS" "$REQUIRED_CYCLES" "$LAST_PACKAGE_SHA" "$manifest_sha" > phase4c-one-hour-soak/result.env
+          printf 'status=soak-passed\nhead_sha=%s\nduration_seconds=%s\ncycles=%s\npackage_sha256=%s\ntracked_manifest_sha256=%s\nruntime_version=1.0.2\nschema_version=1.0.0\npublic_gates_enabled=0\nauto_publish_enabled=0\n' "${TEST_SHA}" "$DURATION_SECONDS" "$REQUIRED_CYCLES" "$LAST_PACKAGE_SHA" "$manifest_sha" > phase4c-one-hour-soak/result.env
           test -z "$(git status --porcelain --untracked-files=no)"
       - name: Upload soak evidence
         if: always()
@@ -371,12 +378,14 @@ jobs:
           set -euo pipefail
           grep -Fxq 'status=soak-passed' phase4c-one-hour-soak/result.env
           grep -Fxq "head_sha=${TEST_SHA}" phase4c-one-hour-soak/result.env
+          grep -Fxq 'runtime_version=1.0.2' phase4c-one-hour-soak/result.env
+          grep -Fxq 'schema_version=1.0.0' phase4c-one-hour-soak/result.env
           test "$(awk -F= '$1=="duration_seconds"{print $2}' phase4c-one-hour-soak/result.env)" -ge 3900
           test "$(awk -F= '$1=="cycles"{print $2}' phase4c-one-hour-soak/result.env)" -eq 13
           cmp phase4c-one-hour-soak/initial-tracked-files.sha256 phase4c-one-hour-soak/final-tracked-files.sha256
           (cd phase4c-one-hour-soak && sha256sum -c final-package.sha256)
           mkdir -p phase4c-one-hour-acceptance
-          cp phase4c-one-hour-soak/{result.env,cycles.log,tracked-manifest-digest.sha256,final-package.sha256,exact-commit.txt} phase4c-one-hour-acceptance/
+          cp phase4c-one-hour-soak/{result.env,cycles.log,tracked-manifest-digest.sha256,final-package.sha256,runtime-manifest.sha256,exact-commit.txt} phase4c-one-hour-acceptance/
       - name: Upload passed acceptance artifact
         uses: actions/upload-artifact@v4
         with:

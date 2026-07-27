@@ -1,30 +1,67 @@
 # Sabri Complete Home and News Feed
 
-Version: 1.0.0
+Version: 1.0.2
 
 Plugin slug: `sabri-complete-home-news-feed`
 
 Text domain: `sabri-complete-home-news-feed`
 
-Sabri Complete Home and News Feed is an independent WordPress plugin for the Sabri Social Homeopathy Platform. Phase 2 adds a real Home Feed and public Composer runtime on top of the Phase 1 bootstrap, settings architecture, capability policy, custom social-data schema, Safe Mode, repair, migration, rollback, privacy, REST diagnostics, admin screens, CI workflow, and release-builder foundation.
+Sabri Complete Home and News Feed is the canonical public Home, social Feed, Profile Timeline, Editorial News, Newsroom, publishing, interaction, migration, diagnostics, and distribution module for the Sabri Social Homeopathy Platform.
 
-Phase 2 completes the foundation Home Feed and public Composer runtime only. Likes, dislikes, comments, replies, saves, follows, reports, polls, complete editorial News workflows, moderation workflows, and analytics dashboards remain deferred.
+## Public Visibility Recovery in 1.0.2
+
+Version 1.0.2 fixes the production-blocking condition in which File 21 could be installed and active while the public website continued to show only a legacy Feed.
+
+The recovery is deliberately bounded:
+
+- the read-only Home surface and Profile Timeline become observable when no completed administrator Wizard decision exists;
+- a detected legacy Feed shortcode is replaced only at render time, without changing saved Page content;
+- native File 20 slots are preferred when available;
+- static front-page content, posts-index loop, and a guarded last-resort public fallback keep File 21 observable when the current Shell/theme does not expose the preferred slot;
+- only one complete File 21 surface may render per request;
+- Founder posts are queried by canonical Founder identity;
+- already-published privileged posts with blank File 21 metadata receive only missing public visibility and review metadata;
+- password-protected posts remain excluded;
+- Editorial News gates, automatic publication, and File 04 migration remain closed.
+
+## Complete Public Home Contract
+
+The Home surface includes the exact fourteen approved controls:
+
+1. For You
+2. Most Viral
+3. Latest
+4. Founder Posts
+5. Doctors Posts
+6. Classical Learning
+7. Remedies
+8. Diseases
+9. Clinical Cases
+10. Videos
+11. Reels
+12. PDF Books
+13. Clinics
+14. Marketplace
+
+It also provides ten bounded Home rows: Most Viral Now, Latest News, From the Founder, From Verified Doctors, Learn Sabri Classical Homeopathy, Videos, Reels, PDF Books, Worldwide Clinics, and Marketplace.
+
+Companion modules keep ownership of their data. When no item provider is available, File 21 may show only an honest landing destination; it does not fabricate items or metrics.
 
 ## Safety Boundaries
 
 - Existing WordPress posts, pages, users, comments, media, URLs, and companion-plugin data are preserved.
 - Activation, repair, migration, rollback, deactivation, and default uninstall behavior are non-destructive.
 - No fake doctors, fake news, fake engagement, fake analytics, or placeholder production records are created.
-- No messaging, calls, end-to-end encryption, live streaming, AI recommendations, or appointment functionality is claimed.
-- No external CDNs, remote fonts, or runtime third-party JavaScript are used.
-- The plugin does not wrap the whole theme between `wp_body_open` and `wp_footer` and does not use whole-page output buffering.
-- No production claim is made until GitHub Actions and Hostinger staging acceptance pass.
+- Public-surface recovery does not publish drafts, enable News gates, or run legacy migration.
+- File 04 migration is selected, bounded, source-preserving, audited, and reversible.
+- File 20 remains the owner of the global header, navigation, sidebars, mobile navigation, and layout resolver.
+- No production-complete claim is made until controlled WordPress/Hostinger installation, visual acceptance, rollback evidence, monitoring, and Founder sign-off are complete.
 
 ## Architecture Summary
 
-The plugin uses deterministic autoloading under the `Sabri\HomeNewsFeed` namespace. Core responsibilities are split across focused classes in `includes/`, admin screens live under `admin/views/`, and runtime assets are local to `assets/`.
+The plugin uses deterministic autoloading under the `Sabri\HomeNewsFeed` namespace. Core responsibilities are split across focused classes in `includes/`, administration screens live under `admin/views/`, public templates live under `templates/`, and runtime assets are local to `assets/`.
 
-Custom tables are reserved only for social data WordPress core does not model safely:
+Social data WordPress core does not model safely is stored in seven plugin-owned tables:
 
 - `wp_sabri_feed_reactions`
 - `wp_sabri_feed_follows`
@@ -34,46 +71,41 @@ Custom tables are reserved only for social data WordPress core does not model sa
 - `wp_sabri_feed_poll_votes`
 - `wp_sabri_feed_audit_log`
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), and [CAPABILITIES.md](CAPABILITIES.md).
+Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit, and audit-integrity tables. The schema remains version `1.0.0`; runtime version `1.0.2` is an additive corrective release.
 
-## Admin
+See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), [CAPABILITIES.md](CAPABILITIES.md), [FILE-21-HARMONIZATION-COMPLETION-PLAN.md](FILE-21-HARMONIZATION-COMPLETION-PLAN.md), and [FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md](FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md).
 
-The admin menu is **Home & News Feed** with:
+## Administration
 
-Overview, Feed Settings, News Settings, Composer, Roles & Capabilities, Integrations, System Check, Repair, Migration, Rollback, Help, and an administrator-only Staging Preview.
+The **Home & News Feed** administration area includes settings, Composer policy, roles and capabilities, integrations, System Check, Repair, Migration, Rollback, Staging Preview, Newsroom, Release Readiness, and the comprehensive Activation Wizard.
 
-Staging Preview renders the real Home Feed and Composer inside WordPress administration without requiring test pages or block-editor changes. Feed and Composer settings are functional for the Phase 2 runtime. Deferred Phase 3 and Phase 4 functions remain labelled as future work.
+When File 21 is active but not publicly observable, administrators receive an explicit **Recover File 21 Public Surface** action. The report confirms that News gates, automatic publication, and legacy migration were unchanged.
 
 ## Public Runtime
 
 - Home Feed shortcode: `[sabri_complete_home_feed]`
 - Public Composer shortcode: `[sabri_public_post_composer]`
-- Plugin-owned fallback hook: `sabri_feed_home_center_content`
+- Profile Timeline shortcode: `[sabri_profile_timeline]`
+- Profile Timeline action: `sabri_profile_timeline`
+- File 21 fallback hook: `sabri_feed_home_center_content`
+- Preferred File 20 Home slot: `sabri_shell_home_main`
+- Preferred File 20 News slot: `sabri_shell_news_main`
 
-The Home Feed reuses existing WordPress posts with feed taxonomies and metadata. It does not copy posts into a new post type and does not create placeholder production data.
+The complete surface carries `data-sabri-hnf-surface="file-21-corrective"`, the active runtime version, and the mount source so staging and production screenshots can prove which renderer is active.
 
-## Unified Shell Integration
+## Release Artifact
 
-The sibling Sabri Unified Application Shell repository was inspected read-only. Confirmed Shell hooks are documented in [INTEGRATIONS.md](INTEGRATIONS.md). This plugin detects the Shell when present, does not fatal when absent, does not render a second global navigation, and does not alter the Shell layout resolver.
-
-## Local Checks
-
-```powershell
-.\tools\run-local-static-checks.ps1
-```
-
-If PHP, Node, npm, Python, or GitHub CLI are unavailable locally, the script reports that instead of fabricating results. GitHub Actions runs the full intended test and packaging workflow.
-
-## Phase 2 Release Artifact
-
-The release builder creates a Phase 2 development artifact:
+The canonical 1.0.2 release builder creates:
 
 ```powershell
 .\tools\build-release.ps1
 ```
 
-The official final filenames remain reserved for the complete future release:
+Canonical candidate:
 
-- `21-sabri-complete-home-news-feed-1.0.0.zip`
-- `21-sabri-complete-home-news-feed-1.0.0.sha256`
-- `21-sabri-complete-home-news-feed-1.0.0-TEST-REPORT.md`
+- `21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.zip`
+- matching `.sha256`
+- runtime manifest
+- exact test report
+
+All source, packaged WordPress, security, migration, public visibility, Phase 4A/4B/4C, harmonization, corrective, and continuous QA gates must succeed on one unchanged exact head before merge.
