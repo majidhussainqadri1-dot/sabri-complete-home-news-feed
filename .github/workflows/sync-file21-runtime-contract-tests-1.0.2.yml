@@ -1,0 +1,60 @@
+name: Synchronize File 21 Runtime Contracts 1.0.2
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/sync-file21-runtime-contract-tests-1.0.2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    if: github.head_ref == 'fix/file-21-public-surface-visibility-1.0.2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/file-21-public-surface-visibility-1.0.2
+          fetch-depth: 0
+      - name: Synchronize runtime assertions only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              'tests/run-phase3-contract-tests.php': [
+                  ("'1.0.1' === $identity['version']", "'1.0.2' === $identity['version']"),
+              ],
+              'tests/run-phase4a-content-model-tests.php': [
+                  ("'1.0.1' === $identity['version']", "'1.0.2' === $identity['version']"),
+              ],
+          }
+
+          for filename, pairs in replacements.items():
+              path = Path(filename)
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f'{filename}: expected exactly one {old!r}, found {count}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+          PY
+          php -l tests/run-phase3-contract-tests.php
+          php -l tests/run-phase4a-content-model-tests.php
+          php tests/run-phase3-contract-tests.php
+          php tests/run-phase4a-content-model-tests.php
+      - name: Commit synchronized contract assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '4189826+github-actions[bot]@users.noreply.github.com'
+          git add tests/run-phase3-contract-tests.php tests/run-phase4a-content-model-tests.php
+          git commit -m 'Align historical contract tests with File 21 runtime 1.0.2'
+          git push origin HEAD:fix/file-21-public-surface-visibility-1.0.2
