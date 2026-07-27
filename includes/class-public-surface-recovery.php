@@ -20,6 +20,7 @@ final class PublicSurfaceRecovery {
 	const VERSION = '1.0.2';
 	const VERSION_OPTION = 'sabri_hnf_public_surface_recovery_version';
 	const REPORT_OPTION = 'sabri_hnf_public_surface_recovery_report';
+	const NORMALIZATION_BATCH_SIZE = 200;
 
 	/** Register the one-time migration and an explicit administrator recovery action. */
 	public static function register() {
@@ -30,7 +31,7 @@ final class PublicSurfaceRecovery {
 		}
 	}
 
-	/** Run a bounded, non-destructive recovery once for this patch release. */
+	/** Run a bounded, non-destructive recovery until every eligible post is normalized. */
 	public static function maybe_recover() {
 		if ( ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
 			return self::report( false, 'wordpress_options_unavailable', array() );
@@ -47,37 +48,44 @@ final class PublicSurfaceRecovery {
 		$wizard_done    = ! empty( $current['wizard_completed'] );
 		$explicit       = is_array( $raw_components ) && $wizard_done;
 		$diagnostics    = CorrectivePublicMount::diagnostics();
-		$patch          = array();
 		$normalized     = array();
 
 		/* A completed wizard is an explicit administrator decision. */
 		if ( ! $explicit ) {
-			$patch      = self::safe_read_surface_patch( $diagnostics );
-			$updated    = CorrectivePublicSettings::patch( $patch );
-			$normalized = self::normalize_published_privileged_posts();
-			$changed    = $updated !== $current || ! empty( $normalized['updated'] );
-			$reason     = $changed ? 'safe_read_surfaces_recovered' : 'safe_read_surfaces_already_ready';
+			$updated                = CorrectivePublicSettings::patch( self::safe_read_surface_patch( $diagnostics ) );
+			$normalized             = self::normalize_published_privileged_posts();
+			$normalization_complete = ! empty( $normalized['complete'] );
+			$changed                = $updated !== $current || ! empty( $normalized['updated'] );
+			if ( ! $normalization_complete ) {
+				$reason = 'safe_read_surfaces_recovery_continues';
+			} else {
+				$reason = $changed ? 'safe_read_surfaces_recovered' : 'safe_read_surfaces_already_ready';
+			}
 		} else {
-			$updated = $current;
-			$changed = false;
-			$reason  = 'administrator_wizard_decision_preserved';
+			$updated                = $current;
+			$changed                = false;
+			$normalization_complete = true;
+			$reason                 = 'administrator_wizard_decision_preserved';
 		}
 
 		$report = self::report(
 			$changed,
 			$reason,
 			array(
-				'previous'             => $current,
-				'current'              => $updated,
-				'diagnostics'          => $diagnostics,
-				'normalized_posts'     => $normalized,
-				'news_gates_changed'   => false,
-				'publication_changed'  => false,
-				'legacy_migration_run' => false,
+				'previous'                => $current,
+				'current'                 => $updated,
+				'diagnostics'             => $diagnostics,
+				'normalized_posts'        => $normalized,
+				'recovery_complete'       => $normalization_complete,
+				'news_gates_changed'      => false,
+				'publication_changed'     => false,
+				'legacy_migration_run'    => false,
 			)
 		);
 
-		update_option( self::VERSION_OPTION, self::VERSION, false );
+		if ( $normalization_complete ) {
+			update_option( self::VERSION_OPTION, self::VERSION, false );
+		}
 		update_option( self::REPORT_OPTION, $report, false );
 		if ( $changed && class_exists( __NAMESPACE__ . '\\FeedQuery' ) ) {
 			FeedQuery::invalidate_cache();
@@ -100,25 +108,29 @@ final class PublicSurfaceRecovery {
 			check_admin_referer( 'sabri_hnf_recover_public_surface' );
 		}
 
-		$before      = CorrectivePublicSettings::get();
-		$diagnostics = CorrectivePublicMount::diagnostics();
-		$after       = CorrectivePublicSettings::patch( self::safe_read_surface_patch( $diagnostics ) );
-		$normalized  = self::normalize_published_privileged_posts();
-		$report      = self::report(
+		$before                 = CorrectivePublicSettings::get();
+		$diagnostics            = CorrectivePublicMount::diagnostics();
+		$after                  = CorrectivePublicSettings::patch( self::safe_read_surface_patch( $diagnostics ) );
+		$normalized             = self::normalize_published_privileged_posts();
+		$normalization_complete = ! empty( $normalized['complete'] );
+		$report                 = self::report(
 			true,
-			'administrator_recovery_completed',
+			$normalization_complete ? 'administrator_recovery_completed' : 'administrator_recovery_continues',
 			array(
-				'previous'             => $before,
-				'current'              => $after,
-				'diagnostics'          => $diagnostics,
-				'normalized_posts'     => $normalized,
-				'news_gates_changed'   => false,
-				'publication_changed'  => false,
-				'legacy_migration_run' => false,
+				'previous'                => $before,
+				'current'                 => $after,
+				'diagnostics'             => $diagnostics,
+				'normalized_posts'        => $normalized,
+				'recovery_complete'       => $normalization_complete,
+				'news_gates_changed'      => false,
+				'publication_changed'     => false,
+				'legacy_migration_run'    => false,
 			)
 		);
 		if ( function_exists( 'update_option' ) ) {
-			update_option( self::VERSION_OPTION, self::VERSION, false );
+			if ( $normalization_complete ) {
+				update_option( self::VERSION_OPTION, self::VERSION, false );
+			}
 			update_option( self::REPORT_OPTION, $report, false );
 		}
 		if ( class_exists( __NAMESPACE__ . '\\FeedQuery' ) ) {
@@ -172,9 +184,16 @@ final class PublicSurfaceRecovery {
 		);
 	}
 
-	/** Normalize only already-published privileged posts with blank File 21 metadata. */
+	/** Normalize one bounded batch of already-published privileged posts. */
 	private static function normalize_published_privileged_posts() {
-		$result = array( 'scanned' => 0, 'updated' => array(), 'bounded' => true );
+		$result = array(
+			'scanned'       => 0,
+			'updated'       => array(),
+			'bounded'       => true,
+			'batch_size'    => self::NORMALIZATION_BATCH_SIZE,
+			'more_possible' => false,
+			'complete'      => false,
+		);
 		if ( ! class_exists( 'WP_Query' ) || ! function_exists( 'update_post_meta' ) ) {
 			return $result;
 		}
@@ -189,6 +208,7 @@ final class PublicSurfaceRecovery {
 		}
 		$author_ids = array_values( array_unique( array_filter( array_map( 'absint', is_array( $author_ids ) ? $author_ids : array() ) ) ) );
 		if ( empty( $author_ids ) ) {
+			$result['complete'] = true;
 			return $result;
 		}
 
@@ -197,7 +217,7 @@ final class PublicSurfaceRecovery {
 				'post_type'              => 'post',
 				'post_status'            => 'publish',
 				'author__in'             => $author_ids,
-				'posts_per_page'         => 200,
+				'posts_per_page'         => self::NORMALIZATION_BATCH_SIZE,
 				'fields'                 => 'ids',
 				'no_found_rows'          => true,
 				'ignore_sticky_posts'    => true,
@@ -212,7 +232,8 @@ final class PublicSurfaceRecovery {
 			)
 		);
 		$post_ids = is_array( $query->posts ) ? array_map( 'absint', $query->posts ) : array();
-		$result['scanned'] = count( $post_ids );
+		$result['scanned']       = count( $post_ids );
+		$result['more_possible'] = self::NORMALIZATION_BATCH_SIZE === count( $post_ids );
 		foreach ( $post_ids as $post_id ) {
 			if ( $post_id <= 0 || 'publish' !== get_post_status( $post_id ) ) {
 				continue;
@@ -228,6 +249,7 @@ final class PublicSurfaceRecovery {
 			}
 			$result['updated'][] = $post_id;
 		}
+		$result['complete'] = ! $result['more_possible'];
 		return $result;
 	}
 
