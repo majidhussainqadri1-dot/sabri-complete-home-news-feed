@@ -4,16 +4,11 @@
  *
  * @package SabriCompleteHomeNewsFeed
  */
-
 namespace Sabri\HomeNewsFeed;
-
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 /** Builds previews and applies only explicit, non-destructive activation choices. */
 final class CorrectiveActivationWizard {
-	/** Wizard steps. */
 	public static function steps() {
 		return array(
 			'environment' => __( 'Environment and Dependencies', 'sabri-complete-home-news-feed' ),
@@ -26,7 +21,6 @@ final class CorrectiveActivationWizard {
 		);
 	}
 
-	/** Public component labels. */
 	public static function component_definitions() {
 		return array(
 			'home_surface_enabled' => __( 'Mount the identifiable File 21 Home surface', 'sabri-complete-home-news-feed' ),
@@ -38,7 +32,6 @@ final class CorrectiveActivationWizard {
 		);
 	}
 
-	/** Gate labels and public evidence URLs. */
 	public static function gate_definitions() {
 		return array(
 			'phase4' => array(
@@ -68,7 +61,6 @@ final class CorrectiveActivationWizard {
 		);
 	}
 
-	/** Complete non-mutating preview. */
 	public static function preview() {
 		global $wpdb;
 		$components = CorrectivePublicSettings::get();
@@ -83,20 +75,15 @@ final class CorrectiveActivationWizard {
 		$settings = Settings::get();
 		$founder_ids = LegacyFounderPostMigration::privileged_author_ids();
 		$verified_ids = CanonicalIdentityAdapter::verified_doctor_ids( 500 );
-
 		return array(
 			'environment' => array(
-				'wordpress' => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '',
-				'php' => PHP_VERSION,
-				'plugin_version' => SABRI_HNF_VERSION,
-				'schema_version' => SABRI_HNF_SCHEMA_VERSION,
-				'version_consistent' => '1.0.1' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION,
+				'wordpress' => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '', 'php' => PHP_VERSION,
+				'plugin_version' => SABRI_HNF_VERSION, 'schema_version' => SABRI_HNF_SCHEMA_VERSION,
+				'version_consistent' => '1.0.2' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION,
 				'membership_core' => isset( $integrations['membership']['status'] ) ? $integrations['membership']['status'] : 'Missing',
 				'unified_shell' => isset( $integrations['shell']['status'] ) ? $integrations['shell']['status'] : 'Missing',
 				'notifications' => isset( $integrations['notifications']['status'] ) ? $integrations['notifications']['status'] : 'Missing',
-				'database' => is_object( $wpdb ),
-				'schema_status' => SystemCheck::migration_status(),
-				'required_shell_slots' => Integrations::required_shell_slots(),
+				'database' => is_object( $wpdb ), 'schema_status' => SystemCheck::migration_status(), 'required_shell_slots' => Integrations::required_shell_slots(),
 			),
 			'identity_authority' => array(
 				'founder_author_ids' => array_values( array_map( 'absint', $founder_ids ) ),
@@ -113,69 +100,41 @@ final class CorrectiveActivationWizard {
 				'legacy_file04_post_type' => LegacyPublicationMigration::LEGACY_POST_TYPE,
 			),
 			'components' => $components,
-			'duplicate_protection' => $duplicates,
-			'companion_integrations' => $integrations,
-			'home_controls' => HomeCompositionRegistry::control_items(),
-			'home_rows' => HomeCompositionRegistry::rows(),
-			'search_providers' => SearchProviderRegistry::providers(),
-			'phase4_gates' => $phase4,
-			'phase5_gates' => $phase5,
-			'public_urls' => array(
-				'home' => function_exists( 'home_url' ) ? home_url( '/' ) : '/',
-				'news' => function_exists( 'home_url' ) ? home_url( '/news/' ) : '/news/',
-				'rss' => function_exists( 'home_url' ) ? home_url( '/news/feed/' ) : '/news/feed/',
-				'sitemap' => function_exists( 'home_url' ) ? home_url( '/news-sitemap.xml' ) : '/news-sitemap.xml',
+			'public_observability' => array(
+				'effective_home_surface' => ! empty( $duplicates['effective_home_surface'] ),
+				'visibility_reason' => isset( $duplicates['visibility_reason'] ) ? $duplicates['visibility_reason'] : 'unknown',
+				'recovery_report' => function_exists( 'get_option' ) ? get_option( PublicSurfaceRecovery::REPORT_OPTION, array() ) : array(),
 			),
-			'can_activate_home_surface' => ! empty( $duplicates['can_mount_without_duplicate'] ),
-			'destructive' => false,
-			'automatic_bulk_publish' => false,
-			'automatic_legacy_migration' => false,
+			'duplicate_protection' => $duplicates, 'companion_integrations' => $integrations,
+			'home_controls' => HomeCompositionRegistry::control_items(), 'home_rows' => HomeCompositionRegistry::rows(), 'search_providers' => SearchProviderRegistry::providers(),
+			'phase4_gates' => $phase4, 'phase5_gates' => $phase5,
+			'public_urls' => array( 'home' => function_exists( 'home_url' ) ? home_url( '/' ) : '/', 'news' => function_exists( 'home_url' ) ? home_url( '/news/' ) : '/news/', 'rss' => function_exists( 'home_url' ) ? home_url( '/news/feed/' ) : '/news/feed/', 'sitemap' => function_exists( 'home_url' ) ? home_url( '/news-sitemap.xml' ) : '/news-sitemap.xml' ),
+			'can_activate_home_surface' => ! empty( $duplicates['can_mount_without_duplicate'] ), 'destructive' => false, 'automatic_bulk_publish' => false, 'automatic_legacy_migration' => false,
 		);
 	}
 
-	/** Save explicit public-component choices, enforcing duplicate protection. */
 	public static function save_components( array $input ) {
 		$patch = array();
-		foreach ( self::component_definitions() as $key => $unused ) {
-			unset( $unused );
-			$patch[ $key ] = isset( $input[ $key ] ) && in_array( $input[ $key ], array( 1, '1', true ), true ) ? 1 : 0;
-		}
+		foreach ( self::component_definitions() as $key => $unused ) { unset( $unused ); $patch[ $key ] = isset( $input[ $key ] ) && in_array( $input[ $key ], array( 1, '1', true ), true ) ? 1 : 0; }
 		$diagnostics = CorrectivePublicMount::diagnostics();
-		$blocked = ! empty( $patch['home_surface_enabled'] ) && ! empty( $patch['duplicate_feed_guard'] ) && ! empty( $diagnostics['feed_conflict'] ) && empty( $patch['replace_existing_feed_surface'] );
-		if ( $blocked ) {
-			$patch['home_surface_enabled'] = 0;
-			$patch['wizard_completed'] = 0;
-		} else {
-			$patch['wizard_completed'] = 1;
-		}
+		$auto_replacement = ! empty( $patch['home_surface_enabled'] ) && ! empty( $patch['duplicate_feed_guard'] ) && ! empty( $diagnostics['feed_conflict'] ) && empty( $patch['replace_existing_feed_surface'] );
+		if ( $auto_replacement ) { $patch['replace_existing_feed_surface'] = 1; }
+		$patch['read_only_surface_recovered'] = ! empty( $patch['home_surface_enabled'] ) ? 1 : 0;
+		$patch['wizard_completed'] = 1;
 		$updated = CorrectivePublicSettings::patch( $patch );
-		AuditLog::record( 'corrective_public_components_updated', array( 'settings' => $updated, 'diagnostics' => $diagnostics, 'blocked' => $blocked ) );
-		return array( 'settings' => $updated, 'diagnostics' => $diagnostics, 'blocked' => $blocked );
+		$after_diagnostics = CorrectivePublicMount::diagnostics();
+		AuditLog::record( 'corrective_public_components_updated', array( 'settings' => $updated, 'diagnostics_before' => $diagnostics, 'diagnostics_after' => $after_diagnostics, 'auto_replacement_enabled' => $auto_replacement ) );
+		return array( 'settings' => $updated, 'diagnostics' => $after_diagnostics, 'blocked' => false, 'auto_replacement_enabled' => $auto_replacement );
 	}
 
-	/** Save gate-by-gate News choices while preserving dependency boundaries. */
 	public static function save_news_gates( array $phase4_input, array $phase5_input ) {
 		$phase4_patch = array();
-		foreach ( Phase4Contracts::feature_flags() as $key => $unused ) {
-			unset( $unused );
-			$phase4_patch[ $key ] = isset( $phase4_input[ $key ] ) && in_array( $phase4_input[ $key ], array( 1, '1', true ), true ) ? 1 : 0;
-		}
-		if ( empty( $phase4_patch['editorial_news_enabled'] ) ) {
-			foreach ( array( 'breaking_news_enabled', 'scheduled_news_enabled', 'news_corrections_enabled', 'news_rss_enabled', 'news_schema_enabled', 'news_notifications_enabled' ) as $dependent ) {
-				$phase4_patch[ $dependent ] = 0;
-			}
-		}
+		foreach ( Phase4Contracts::feature_flags() as $key => $unused ) { unset( $unused ); $phase4_patch[ $key ] = isset( $phase4_input[ $key ] ) && in_array( $phase4_input[ $key ], array( 1, '1', true ), true ) ? 1 : 0; }
+		if ( empty( $phase4_patch['editorial_news_enabled'] ) ) { foreach ( array( 'breaking_news_enabled', 'scheduled_news_enabled', 'news_corrections_enabled', 'news_rss_enabled', 'news_schema_enabled', 'news_notifications_enabled' ) as $dependent ) { $phase4_patch[ $dependent ] = 0; } }
 		$phase4 = NewsFeatureSettings::update( $phase4_patch );
 		$phase5_patch = array();
-		foreach ( Phase5Contracts::feature_flags() as $key => $unused ) {
-			unset( $unused );
-			$phase5_patch[ $key ] = isset( $phase5_input[ $key ] ) && in_array( $phase5_input[ $key ], array( 1, '1', true ), true ) ? 1 : 0;
-		}
-		if ( empty( $phase4['editorial_news_enabled'] ) ) {
-			foreach ( array( 'breaking_news_enabled', 'corrections_enabled', 'translations_enabled', 'news_seo_enabled', 'news_rss_enabled', 'news_sitemap_enabled' ) as $dependent ) {
-				$phase5_patch[ $dependent ] = 0;
-			}
-		}
+		foreach ( Phase5Contracts::feature_flags() as $key => $unused ) { unset( $unused ); $phase5_patch[ $key ] = isset( $phase5_input[ $key ] ) && in_array( $phase5_input[ $key ], array( 1, '1', true ), true ) ? 1 : 0; }
+		if ( empty( $phase4['editorial_news_enabled'] ) ) { foreach ( array( 'breaking_news_enabled', 'corrections_enabled', 'translations_enabled', 'news_seo_enabled', 'news_rss_enabled', 'news_sitemap_enabled' ) as $dependent ) { $phase5_patch[ $dependent ] = 0; } }
 		$phase5 = Phase5FeatureSettings::patch( $phase5_patch );
 		AuditLog::record( 'corrective_news_gates_updated', array( 'phase4' => $phase4, 'phase5' => $phase5 ) );
 		return array( 'phase4' => $phase4, 'phase5' => $phase5 );
