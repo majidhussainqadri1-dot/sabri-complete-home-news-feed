@@ -58,7 +58,7 @@ sabri_test_reset_state( true );
 sabri_phase4a_reset_roles();
 
 $identity = Plugin::identity();
-sabri_phase4a_assert( '1.0.1' === $identity['version'], 'Phase 4A contracts must accept the promoted plugin version.' );
+sabri_phase4a_assert( '1.0.2' === $identity['version'], 'Phase 4A contracts must accept the promoted plugin version.' );
 sabri_phase4a_assert( '1.0.0' === $identity['schema_version'], 'Phase 4A must not advance the accepted schema version.' );
 sabri_phase4a_assert( '1.2.0' === Phase4Contracts::TARGET_VERSION, 'Phase 4 target version must remain 1.2.0.' );
 sabri_phase4a_assert( '4A' === Phase4Contracts::CHECKPOINT, 'Executable contract checkpoint must remain 4A.' );
