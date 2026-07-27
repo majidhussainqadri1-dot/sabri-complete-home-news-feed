@@ -5,9 +5,7 @@ require_once __DIR__ . '/bootstrap.php';
 $root = dirname( __DIR__ );
 $failures = array();
 $assert = static function ( $condition, $message ) use ( &$failures ) {
-	if ( ! $condition ) {
-		$failures[] = $message;
-	}
+	if ( ! $condition ) { $failures[] = $message; }
 };
 
 $required = array(
@@ -54,38 +52,30 @@ $assert( false === strpos( $recovery, 'LegacyPublicationMigration::migrate_selec
 $mount = file_get_contents( $root . '/includes/class-corrective-public-mount.php' );
 foreach ( array(
 	"add_filter( 'the_content'",
+	"add_filter( 'pre_do_shortcode_tag'",
+	"add_filter( 'render_block'",
 	"add_action( 'loop_start'",
-	"add_action( 'wp_footer'",
 	'render_complete_surface',
 	'replace_known_feed_shortcodes',
+	'intercept_feed_shortcode',
+	'intercept_shortcode_block',
+	'PublicSurfaceRecovery::maybe_recover()',
 	'effective_home_surface',
 	'visibility_reason',
 	'data-sabri-hnf-surface="file-21-corrective"',
 	'File 21 public surface is active',
 	'data-sabri-hnf-mount-source',
-	'footer_last_resort',
 ) as $needle ) {
 	$assert( false !== strpos( $mount, $needle ), 'Observable mount contract missing: ' . $needle );
 }
+$assert( false === strpos( $mount, "add_action( 'wp_footer'" ), 'File 21 must not use a footer-based public Feed fallback.' );
+$assert( false === strpos( $mount, 'footer_last_resort' ), 'Footer last-resort mounting must remain removed.' );
 
 $home = file_get_contents( $root . '/includes/class-home-composition-registry.php' );
 foreach ( array(
 	'sabri_shell_home_main',
-	"'for-you'",
-	"'most-viral'",
-	"'founder-updates'",
-	"'doctors-posts'",
-	"'videos'",
-	"'reels'",
-	"'pdf-books'",
-	"'clinics'",
-	"'marketplace'",
-	'Most Viral Now',
-	'Latest News',
-	'From the Founder',
-	'From Verified Doctors',
-	'Learn Sabri Classical Homeopathy',
-	'Worldwide Clinics',
+	"'for-you'", "'most-viral'", "'founder-updates'", "'doctors-posts'", "'videos'", "'reels'", "'pdf-books'", "'clinics'", "'marketplace'",
+	'Most Viral Now', 'Latest News', 'From the Founder', 'From Verified Doctors', 'Learn Sabri Classical Homeopathy', 'Worldwide Clinics',
 ) as $needle ) {
 	$assert( false !== strpos( $home, $needle ), 'Master-plan Home control/row missing: ' . $needle );
 }
