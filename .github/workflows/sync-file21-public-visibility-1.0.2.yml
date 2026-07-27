@@ -1,17 +1,18 @@
 name: Sync File 21 Public Visibility 1.0.2
 
 on:
-  push:
-    branches:
-      - fix/file-21-public-surface-visibility-1.0.2
+  pull_request:
+    branches: [ main ]
     paths:
       - '.github/workflows/sync-file21-public-visibility-1.0.2.yml'
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   synchronize:
+    if: github.head_ref == 'fix/file-21-public-surface-visibility-1.0.2'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
