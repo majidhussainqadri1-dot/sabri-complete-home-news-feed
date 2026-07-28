@@ -75,7 +75,7 @@ final class UniversalComposerPublicationAdapter implements Adapter {
 		$settings = Settings::get();
 		return ! empty( $settings['composer']['public_composer_enabled'] )
 			&& ! SafeMode::public_features_disabled()
-			&& '' !== PublicComposerSurface::native_url();
+			&& '' !== $this->native_url();
 	}
 
 	public function can_create( int $user_id ): bool {
@@ -85,6 +85,11 @@ final class UniversalComposerPublicationAdapter implements Adapter {
 	}
 
 	public function start_url( int $user_id ): string {
-		return $this->can_create( $user_id ) ? PublicComposerSurface::native_url() : '';
+		return $this->can_create( $user_id ) ? $this->native_url() : '';
+	}
+
+	/** Return File 21's canonical native route, never a File 22 override. */
+	private function native_url(): string {
+		return function_exists( 'home_url' ) ? home_url( '/create-post/' ) : '/create-post/';
 	}
 }
