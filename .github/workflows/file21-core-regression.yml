@@ -39,6 +39,16 @@ jobs:
           php -l public/class-phase5-public-runtime.php
       - name: Focused public recovery contracts
         run: php tests/run-file21-public-visibility-tests.php
+      - name: Capture harmonization contracts
+        id: harmonization
+        shell: bash
+        run: |
+          set +e
+          php tests/run-file21-harmonization-tests.php > file21-harmonization.log 2>&1
+          status=$?
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat file21-harmonization.log
+          exit 0
       - name: Capture core regression output
         id: core_regression
         shell: bash
@@ -49,18 +59,25 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           cat file21-core-regression.log
           exit 0
-      - name: Upload core regression log
+      - name: Upload core and harmonization logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: file21-core-regression-log
-          path: file21-core-regression.log
+          name: file21-core-contract-logs
+          path: |
+            file21-core-regression.log
+            file21-harmonization.log
           if-no-files-found: error
           retention-days: 7
+      - name: Enforce harmonization result
+        if: steps.harmonization.outputs.status != '0'
+        run: |
+          echo 'File 21 harmonization contracts failed. Download file21-core-contract-logs for the exact failures.'
+          exit 1
       - name: Enforce core regression result
         if: steps.core_regression.outputs.status != '0'
         run: |
-          echo 'File 21 core regression failed. Download the file21-core-regression-log artifact for exact failures.'
+          echo 'File 21 core regression failed. Download file21-core-contract-logs for the exact failures.'
           exit 1
 
   package:
