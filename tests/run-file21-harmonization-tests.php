@@ -4,11 +4,7 @@ require_once __DIR__ . '/bootstrap.php';
 
 $root = dirname( __DIR__ );
 $failures = array();
-$assert = static function ( $condition, $message ) use ( &$failures ) {
-	if ( ! $condition ) {
-		$failures[] = $message;
-	}
-};
+$assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) { $failures[] = $message; } };
 
 foreach ( array(
 	'includes/class-public-surface-recovery.php',
@@ -25,28 +21,22 @@ foreach ( array(
 	'includes/class-search-provider-registry.php',
 	'assets/css/home-composition.css',
 	'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',
+	'FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md',
 ) as $file ) {
 	$assert( is_file( $root . '/' . $file ), 'Missing harmonization file: ' . $file );
 }
 
 $bootstrap = file_get_contents( $root . '/sabri-complete-home-news-feed.php' );
-foreach ( array( 'Version: 1.0.2', "define( 'SABRI_HNF_VERSION', '1.0.2' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap' ) as $needle ) {
-	$assert( false !== strpos( $bootstrap, $needle ), 'Complete 1.0.1 bootstrap contract missing: ' . $needle );
+foreach ( array( 'Version: 1.0.3', "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
+	$assert( false !== strpos( $bootstrap, $needle ), 'Complete 1.0.3 bootstrap contract missing: ' . $needle );
 }
 
 $plugin = file_get_contents( $root . '/includes/class-plugin.php' );
 foreach ( array(
-	'CanonicalIdentityAdapter::class',
-	'CompanionIntegrationRegistry::class',
-	'CompanionHomeRowAdapters::class',
-	'SearchProviderRegistry::class',
-	'ViralRankingSignals::class',
-	'HomeCompositionRegistry::class',
-	'LegacyInteractionMigrationAdapter::class',
-	'LegacyPublicationMigration::class',
-	'LegacyPublicationRollback::class',
-	'HarmonizationDiagnostics::class',
-	'HarmonizedSettings::class',
+	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class',
+	'SearchProviderRegistry::class', 'ViralRankingSignals::class', 'HomeCompositionRegistry::class',
+	'LegacyInteractionMigrationAdapter::class', 'LegacyPublicationMigration::class', 'LegacyPublicationRollback::class',
+	'HarmonizationDiagnostics::class', 'HarmonizedSettings::class',
 ) as $needle ) {
 	$assert( false !== strpos( $plugin, $needle ), 'Runtime module is not registered: ' . $needle );
 }
@@ -62,12 +52,12 @@ foreach ( array( "'most-viral'", "'doctors-posts'", "'remedies'", "'diseases'", 
 }
 
 $home = file_get_contents( $root . '/includes/class-home-composition-registry.php' );
-foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_hnf_home_row_items_' ) as $needle ) {
-	$assert( false !== strpos( $home, $needle ), 'Home composition contract missing: ' . $needle );
+foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_shell_news_main', 'sabri_hnf_home_row_items_', 'data-sabri-home-row-count="10"', 'data-provider-state', 'Content is not available from this module yet.' ) as $needle ) {
+	$assert( false !== strpos( $home, $needle ), 'Home/News composition contract missing: ' . $needle );
 }
 
 $home_css = file_get_contents( $root . '/assets/css/home-composition.css' );
-foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
+foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
 	$assert( false !== strpos( $home_css, $needle ), 'Responsive/accessibility Home CSS missing: ' . $needle );
 }
 
@@ -99,7 +89,7 @@ foreach ( array( 'sabri_network', 'swc_request_appointment', 'sabri_marketplace'
 }
 
 $search = file_get_contents( $root . '/includes/class-search-provider-registry.php' );
-foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', 'array( \'q\' => $query' ) as $needle ) {
+foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', "array( 'q' => $query" ) as $needle ) {
 	$assert( false !== strpos( $search, $needle ), 'Search-provider safeguard missing: ' . $needle );
 }
 
@@ -109,8 +99,8 @@ foreach ( array( 'profile_url', 'specialty', 'country', 'clinic_name' ) as $need
 }
 
 $integrations = file_get_contents( $root . '/includes/class-integrations.php' );
-foreach ( array( 'CompanionIntegrationRegistry::all', 'sabri_shell_home_main', 'File 20 owns the global Shell' ) as $needle ) {
-	$assert( false !== strpos( $integrations, $needle ), 'File 20/File 21 integration contract missing: ' . $needle );
+foreach ( array( 'CompanionIntegrationRegistry::all', 'sabri_shell_home_main', 'sabri_shell_news_main', 'shell_slot_audit', 'Compatibility fallback', 'missing_slots', 'native_slots_ready' ) as $needle ) {
+	$assert( false !== strpos( $integrations, $needle ), 'File 20/File 21 truthful integration contract missing: ' . $needle );
 }
 
 $diagnostics = file_get_contents( $root . '/includes/class-harmonization-diagnostics.php' );
@@ -118,8 +108,5 @@ foreach ( array( 'File 21 release identity', 'Plugin bootstrap completeness', 'H
 	$assert( false !== strpos( $diagnostics, $needle ), 'Harmonization diagnostic/readiness contract missing: ' . $needle );
 }
 
-if ( $failures ) {
-	fwrite( STDERR, implode( "\n", $failures ) . "\n" );
-	exit( 1 );
-}
+if ( $failures ) { fwrite( STDERR, implode( "\n", $failures ) . "\n" ); exit( 1 ); }
 echo "File 21 comprehensive harmonization contract tests passed.\n";
