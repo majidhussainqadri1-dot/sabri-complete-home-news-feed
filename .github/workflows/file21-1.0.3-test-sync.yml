@@ -1,0 +1,66 @@
+name: File 21 temporary 1.0.3 test synchronization
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/file21-1.0.3-test-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  synchronize:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix/file-21-production-rejection-1.0.3'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/file-21-production-rejection-1.0.3
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Synchronize only current-runtime test assertions
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          targets = [Path('tools/run-tests.php'), Path('tests/run-phase4a-content-model-tests.php'), Path('tests/run-phase3-infrastructure-tests.php')]
+          changed = []
+          for path in targets:
+              text = path.read_text(encoding='utf-8')
+              original = text
+              text = re.sub(r"'1\.0\.2'(\s*===\s*\$identity\['version'\])", r"'1.0.3'\1", text)
+              text = text.replace('Plugin identity runtime version must be 1.0.2.', 'Plugin identity runtime version must be 1.0.3.')
+              text = text.replace('runtime 1.0.2 while preserving schema 1.0.0', 'runtime 1.0.3 while preserving schema 1.0.0')
+              text = text.replace('runtime 1.0.1 while preserving schema 1.0.0', 'runtime 1.0.3 while preserving schema 1.0.0')
+              text = text.replace("'1.0.2' === $identity['version']", "'1.0.3' === $identity['version']")
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+                  changed.append(str(path))
+          workflow = Path('.github/workflows/file21-1.0.3-test-sync.yml')
+          workflow.unlink()
+          print('Changed:', ', '.join(changed))
+      - name: Validate synchronized tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tools/run-tests.php
+          php -l tests/run-phase4a-content-model-tests.php
+          php -l tests/run-phase3-infrastructure-tests.php
+          php tools/run-tests.php
+          php tests/run-phase4a-content-model-tests.php
+          php tests/run-phase3-infrastructure-tests.php
+      - name: Commit exact synchronization and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/run-tests.php tests/run-phase4a-content-model-tests.php tests/run-phase3-infrastructure-tests.php .github/workflows/file21-1.0.3-test-sync.yml
+          git diff --cached --quiet && exit 1
+          git commit -m 'Synchronize File 21 current-runtime test assertions to 1.0.3'
+          git push origin HEAD:fix/file-21-production-rejection-1.0.3
