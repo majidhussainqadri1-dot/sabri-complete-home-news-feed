@@ -11,13 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Enforces core-post visibility before pagination and again after resolution.
- */
+/** Enforces visibility before list queries while retaining a singular fallback. */
 final class PublicQueryGuard {
 	const FILTER_MARKER = 'sabri_hnf_public_query_filtered';
 
-	/** Register SQL-stage and object-stage safeguards. */
+	/** Register query-time enforcement and a narrow object-level safety net. */
 	public static function register() {
 		if ( function_exists( 'remove_action' ) ) {
 			remove_action( 'pre_get_posts', array( PostMetadata::class, 'filter_public_queries' ), 10 );
@@ -26,22 +24,19 @@ final class PublicQueryGuard {
 			add_action( 'pre_get_posts', array( __CLASS__, 'filter_public_queries' ), 20 );
 		}
 		if ( function_exists( 'add_filter' ) ) {
-			add_filter( 'the_posts', array( __CLASS__, 'filter_public_post_results' ), 10, 2 );
+			add_filter( 'the_posts', array( __CLASS__, 'filter_public_post_results' ), 20, 2 );
 		}
 	}
 
-	/**
-	 * Add File 21 visibility/review clauses before WordPress calculates totals.
-	 *
-	 * This runs only for unambiguous public core-post collections and explicit
-	 * core-post queries. Pages, attachments, searches, 404s and mixed post types
-	 * are left untouched so routing remains stable.
-	 *
-	 * @param mixed $query WP_Query-like object.
-	 * @return void
-	 */
+	/** Apply SQL eligibility clauses to unambiguous public main core-post lists. */
 	public static function filter_public_queries( $query ) {
-		if ( ! self::public_query_allowed() || ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
+		if ( ! self::public_query_allowed() ) {
+			return;
+		}
+		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
+			return;
+		}
+		if ( method_exists( $query, 'is_main_query' ) && ! $query->is_main_query() ) {
 			return;
 		}
 		if ( $query->get( self::FILTER_MARKER ) || ! self::targets_core_posts( $query ) ) {
@@ -49,27 +44,28 @@ final class PublicQueryGuard {
 		}
 
 		$existing = $query->get( 'meta_query' );
-		$existing = is_array( $existing ) ? $existing : array();
-		$combined = array( 'relation' => 'AND' );
-		if ( ! empty( $existing ) ) {
-			$combined[] = $existing;
+		$clauses = array( 'relation' => 'AND' );
+		if ( is_array( $existing ) && ! empty( $existing ) ) {
+			$clauses[] = $existing;
 		}
-		$combined[] = PostMetadata::visibility_meta_clause();
-		$combined[] = PostMetadata::review_state_meta_clause();
-		$query->set( 'meta_query', $combined );
+		$clauses[] = PostMetadata::visibility_meta_clause();
+		$clauses[] = PostMetadata::review_state_meta_clause();
+		$query->set( 'meta_query', $clauses );
 		$query->set( self::FILTER_MARKER, 1 );
 	}
 
 	/**
-	 * Object-level defense for single posts, custom loops and third-party queries.
-	 *
-	 * @param mixed $posts Resolved posts.
-	 * @param mixed $query WP_Query-like object.
-	 * @return mixed
+	 * Object-level fallback for singular or ambiguous queries only.
+	 * Queries marked above must not be shortened after pagination calculation.
 	 */
 	public static function filter_public_post_results( $posts, $query ) {
-		unset( $query );
-		if ( ! self::public_query_allowed() || ! is_array( $posts ) || empty( $posts ) ) {
+		if ( ! self::public_query_allowed() ) {
+			return $posts;
+		}
+		if ( ! is_array( $posts ) || empty( $posts ) || ! is_object( $query ) ) {
+			return $posts;
+		}
+		if ( method_exists( $query, 'get' ) && $query->get( self::FILTER_MARKER ) ) {
 			return $posts;
 		}
 
@@ -85,24 +81,32 @@ final class PublicQueryGuard {
 				$visible[] = $post;
 			}
 		}
-		return array_values( $visible );
+
+		$visible = array_values( $visible );
+		if ( property_exists( $query, 'posts' ) ) {
+			$query->posts = $visible;
+		}
+		if ( property_exists( $query, 'post_count' ) ) {
+			$query->post_count = count( $visible );
+		}
+		return $visible;
 	}
 
-	/** Determine whether a query is unambiguously a core-post collection/query. */
+	/** Determine whether a query is unambiguously a core-post list. */
 	public static function targets_core_posts( $query ) {
 		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) ) {
 			return false;
 		}
-		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 ) {
+		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 || self::positive_id( $query->get( 'p' ) ) > 0 ) {
 			return false;
 		}
-		foreach ( array( 'pagename', 'attachment', 'error' ) as $route_key ) {
+		foreach ( array( 'pagename', 'name', 'attachment', 'error' ) as $route_key ) {
 			$value = $query->get( $route_key );
 			if ( is_scalar( $value ) && '' !== trim( (string) $value ) ) {
 				return false;
 			}
 		}
-		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404' ) as $conditional ) {
+		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404', 'is_single', 'is_singular' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
 				return false;
 			}
@@ -111,13 +115,11 @@ final class PublicQueryGuard {
 		$post_type = $query->get( 'post_type' );
 		if ( is_array( $post_type ) ) {
 			$post_types = array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $post_type ) ) ) );
+			sort( $post_types );
 			return array( 'post' ) === $post_types;
 		}
 		if ( is_scalar( $post_type ) && '' !== trim( (string) $post_type ) ) {
 			return 'post' === self::clean_key( $post_type );
-		}
-		if ( self::positive_id( $query->get( 'p' ) ) > 0 ) {
-			return true;
 		}
 		foreach ( array( 'is_home', 'is_category', 'is_tag', 'is_date', 'is_author', 'is_feed' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
@@ -136,13 +138,15 @@ final class PublicQueryGuard {
 		return true;
 	}
 
-	/** Clean a query key in WordPress and lean test environments. */
+	/** Pure controlled-key sanitizer; no filterable WordPress callbacks. */
 	public static function clean_key( $value ) {
-		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		$value = strtolower( (string) $value );
+		$value = preg_replace( '/[^a-z0-9_\-]/', '', $value );
+		return is_string( $value ) ? $value : '';
 	}
 
 	/** Strict positive query ID. */
 	private static function positive_id( $value ) {
-		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/', (string) $value ) ? (int) $value : 0;
+		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/D', (string) $value ) ? (int) $value : 0;
 	}
 }
