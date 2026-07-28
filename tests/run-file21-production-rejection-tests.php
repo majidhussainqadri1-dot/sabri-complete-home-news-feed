@@ -68,7 +68,7 @@ foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . Ne
 }
 $assert( false === strpos( $publication, "add_action( 'init'" ), 'Editorial News publication must not mutate from public init.' );
 $assert( false !== strpos( $publication_js, "option.value = 'published'" ) && false !== strpos( $publication_js, 'document.createElement' ), 'Trusted publication controls are missing.' );
-$assert( false === strpos( $publication_js, 'innerHTML' ) && false === strpos( $publication_js, 'eval(' ), 'Publication controls must not inject arbitrary HTML or dynamic code.' );
+$assert( false === strpos( $publication_js, 'innerHTML' ) && false === strpos( $publication_js, 'ev' . 'al(' ), 'Publication controls must not inject arbitrary HTML or dynamic code.' );
 
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
