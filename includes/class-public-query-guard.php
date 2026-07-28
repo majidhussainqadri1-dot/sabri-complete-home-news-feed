@@ -50,13 +50,13 @@ final class PublicQueryGuard {
 
 		$existing = $query->get( 'meta_query' );
 		$existing = is_array( $existing ) ? $existing : array();
-		$existing = array(
-			'relation' => 'AND',
-			$existing,
-			PostMetadata::visibility_meta_clause(),
-			PostMetadata::review_state_meta_clause(),
-		);
-		$query->set( 'meta_query', $existing );
+		$combined = array( 'relation' => 'AND' );
+		if ( ! empty( $existing ) ) {
+			$combined[] = $existing;
+		}
+		$combined[] = PostMetadata::visibility_meta_clause();
+		$combined[] = PostMetadata::review_state_meta_clause();
+		$query->set( 'meta_query', $combined );
 		$query->set( self::FILTER_MARKER, 1 );
 	}
 

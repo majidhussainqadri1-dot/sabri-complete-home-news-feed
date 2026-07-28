@@ -1,0 +1,68 @@
+<?php
+/** Static release contracts for the 1.0.3 production-rejection corrective line. */
+$root = getenv( 'FILE21_ROOT' );
+$root = $root ? rtrim( $root, '/\\' ) : dirname( __DIR__, 2 ) . '/file21fix';
+$failures = array();
+$read = static function ( $relative ) use ( $root, &$failures ) {
+	$path = $root . '/' . $relative;
+	if ( ! is_file( $path ) ) { $failures[] = 'Missing: ' . $relative; return ''; }
+	return (string) file_get_contents( $path );
+};
+$assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) { $failures[] = $message; } };
+
+$main = $read( 'sabri-complete-home-news-feed.php' );
+$assert( false !== strpos( $main, 'Version: 1.0.3' ), 'Plugin header is not 1.0.3.' );
+$assert( false !== strpos( $main, "SABRI_HNF_VERSION', '1.0.3" ), 'Runtime constant is not 1.0.3.' );
+$assert( false !== strpos( $main, "SABRI_HNF_SCHEMA_VERSION', '1.0.0" ), 'Schema must remain 1.0.0.' );
+$assert( false !== strpos( $main, 'sabri_hnf_duplicate_resolved=1' ), 'Duplicate-copy controlled reload is missing.' );
+$assert( false !== strpos( $main, 'register_safe_boot_routes' ), 'Safe Boot REST registration is missing.' );
+
+$recovery = $read( 'includes/class-public-surface-recovery.php' );
+$assert( false === strpos( $recovery, "add_action( 'init', array( __CLASS__, 'maybe_recover'" ), 'Recovery still writes from init.' );
+$assert( false !== strpos( $recovery, 'explicit_admin_action_required' ), 'Read-only recovery diagnostic is missing.' );
+$assert( false !== strpos( $recovery, 'check_admin_referer' ), 'Explicit recovery nonce is missing.' );
+
+$mount = $read( 'includes/class-corrective-public-mount.php' );
+$assert( false === strpos( $mount, 'PublicSurfaceRecovery::maybe_recover()' ), 'Public rendering still invokes recovery writes.' );
+foreach ( array( 'render_news_surface', 'is_public_news_context', '/sabri-news/', '/blog/', 'file-21-news' ) as $needle ) {
+	$assert( false !== strpos( $mount, $needle ), 'News compatibility contract missing: ' . $needle );
+}
+
+$composition = $read( 'includes/class-home-composition-registry.php' );
+$assert( false !== strpos( $composition, "add_action( 'sabri_shell_news_main'" ), 'File 21 does not register the News slot.' );
+$assert( false !== strpos( $composition, 'data-sabri-home-row-count="10"' ), 'Ten-row evidence marker is missing.' );
+$assert( false !== strpos( $composition, 'Content is not available from this module yet.' ), 'Unavailable row state is missing.' );
+$assert( 10 === substr_count( $composition, "=> array( 'label' => __(" ) - 14, 'Home row definition count is not exactly ten.' );
+
+$breaking = $read( 'public/class-phase5-public-runtime.php' );
+foreach ( array( 'private static $breaking_rendered', 'public_home_or_news_context', 'is_main_query', 'reset_runtime_guards' ) as $needle ) {
+	$assert( false !== strpos( $breaking, $needle ), 'Breaking News guard missing: ' . $needle );
+}
+
+$query = $read( 'includes/class-public-query-guard.php' );
+$assert( false !== strpos( $query, "add_action( 'pre_get_posts'" ), 'Pre-query eligibility is not registered.' );
+$assert( false !== strpos( $query, "'relation' => 'AND'" ), 'Pre-query meta clauses are not AND-bounded.' );
+$assert( false !== strpos( $query, "add_filter( 'the_posts'" ), 'Object-level visibility defense is missing.' );
+$assert( false !== strpos( $query, 'if ( ! empty( $existing ) )' ), 'Empty existing meta queries are not excluded from nested groups.' );
+
+$integrations = $read( 'includes/class-integrations.php' );
+$assert( false !== strpos( $integrations, 'shell_slot_audit' ), 'Shell native-slot audit is missing.' );
+$assert( false !== strpos( $integrations, 'Compatibility fallback' ), 'Truthful fallback status is missing.' );
+$assert( false === strpos( $integrations, "'status' => 'Connected',\n\t\t\t'detail' => __( 'File 21 is the canonical" ), 'System Check still hardcodes Connected.' );
+
+$routing = $read( 'public/class-news-routing.php' );
+$assert( false !== strpos( $routing, 'redirect_legacy_pages' ), 'Legacy News redirect is missing.' );
+$assert( false !== strpos( $routing, "home_url('/news/')" ), 'Canonical /news/ target is missing.' );
+
+$rest = $read( 'includes/class-rest-foundation.php' );
+foreach ( array( 'register_safe_boot_routes', 'safe_boot_status', 'safe_boot_schema' ) as $needle ) {
+	$assert( false !== strpos( $rest, $needle ), 'Safe Boot REST contract missing: ' . $needle );
+}
+
+$readme = $read( 'readme.txt' );
+$change = $read( 'CHANGELOG.md' );
+$assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
+$assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
+
+if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
+echo "File 21 production-rejection corrective contracts passed.\n";
