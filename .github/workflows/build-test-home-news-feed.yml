@@ -104,7 +104,6 @@ jobs:
           unzip -tqq "$package"
           unzip -Z1 "$package" > package-entries.txt
           for entry in \
-            sabri-complete-home-news-feed/ \
             sabri-complete-home-news-feed/sabri-complete-home-news-feed.php \
             sabri-complete-home-news-feed/includes/class-home-integration.php \
             sabri-complete-home-news-feed/includes/class-public-query-guard.php \
