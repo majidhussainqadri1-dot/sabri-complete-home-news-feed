@@ -23,10 +23,12 @@ function sabri_file21_completion_assert( $condition, $message ) {
 }
 
 $defaults = CorrectivePublicSettings::defaults();
-sabri_file21_completion_assert( 0 === $defaults['home_surface_enabled'], 'Corrective Home auto-mount must remain disabled until explicit wizard activation.' );
+sabri_file21_completion_assert( 1 === $defaults['home_surface_enabled'], 'The safe read-only Home surface must recover automatically in 1.0.3.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_feed_guard'], 'Duplicate Feed protection must default on.' );
-sabri_file21_completion_assert( 0 === $defaults['replace_existing_feed_surface'], 'Existing Feed replacement must require explicit administrator selection.' );
+sabri_file21_completion_assert( 1 === $defaults['replace_existing_feed_surface'], 'Legacy Feed replacement must be enabled as a non-destructive render-time recovery.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_navigation_guard'], 'Duplicate navigation diagnostics must default on.' );
+sabri_file21_completion_assert( 0 === $defaults['wizard_completed'], 'The Activation Wizard must remain incomplete until an administrator explicitly accepts it.' );
+sabri_file21_completion_assert( 0 === $defaults['read_only_surface_recovered'], 'A default projection must not falsely claim that persistent recovery has completed.' );
 
 $steps = CorrectiveActivationWizard::steps();
 foreach ( array( 'environment', 'identity-authority', 'existing-content', 'public-components', 'duplicate-protection', 'news-gates', 'preview-activate' ) as $step ) {
@@ -49,7 +51,7 @@ sabri_file21_completion_assert( 'sabri_news_feed' === CorrectivePublicMount::con
 sabri_file21_completion_assert( '' === CorrectivePublicMount::content_feed_shortcode( '<p>No feed here.</p>' ), 'Normal content must not be reported as a duplicate Feed.' );
 $replacement = CorrectivePublicMount::replace_known_feed_shortcodes( '<div>[sabri_news_feed][sabri_platform_home]</div>', '<section data-test="file21">New Feed</section>' );
 sabri_file21_completion_assert( 1 === substr_count( $replacement, 'data-test="file21"' ), 'Controlled replacement must render exactly one File 21 Feed surface.' );
-sabri_file21_completion_assert( false === strpos( $replacement, '[sabri_news_feed]' ) && false === strpos( $replacement, '[sabri_platform_home]' ), 'Controlled replacement must remove duplicate known Feed shortcodes from the current request.' );
+sabri_file21_completion_assert( false === strpos( $replacement, '[sabri_news_feed]' ) && false === strpos( $replacement, '[sabri_platform_home]' ), 'Controlled replacement must remove duplicate known Feed shortcodes from the current response.' );
 
 sabri_file21_completion_assert( 20 === ProfileTimeline::MAX_PER_PAGE, 'Profile Timeline must remain bounded to 20 items per request.' );
 sabri_file21_completion_assert( 500 === ProfileTimeline::MAX_SCAN, 'Profile Timeline candidate scan must remain bounded.' );
@@ -71,7 +73,8 @@ sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::visi
 sabri_file21_completion_assert( false !== strpos( $timeline, 'PostMetadata::user_can_view' ), 'Timeline serialization must retain object-level visibility authorization.' );
 sabri_file21_completion_assert( false !== strpos( $timeline, "'total_is_complete'" ), 'Timeline contract must disclose whether its bounded visible count is complete.' );
 sabri_file21_completion_assert( false !== strpos( $timeline, "add_filter( 'do_shortcode_tag'" ) && false !== strpos( $timeline, "'sabri_founder_profile', 'sabri_member_profile'" ), 'Timeline must integrate with the existing File 03 Founder and Member profile shortcodes.' );
-sabri_file21_completion_assert( false !== strpos( $mount, 'replace_existing_feed_surface' ) && false !== strpos( $mount, 'page content is not mutated' ), 'Existing Feed replacement must be explicit and non-destructive.' );
+sabri_file21_completion_assert( false !== strpos( $mount, 'replace_existing_feed_surface' ) && false !== strpos( $mount, 'replace_known_shortcodes' ), 'Existing Feed replacement must remain a controlled render-time operation.' );
+sabri_file21_completion_assert( false === strpos( $mount, 'wp_update_post(' ) && false === strpos( $mount, 'wp_insert_post(' ) && false === strpos( $mount, 'update_post_meta(' ), 'Public mounting must never mutate saved Page or post content.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectivePublicMount::class' ) && false !== strpos( $plugin, 'RestProfileTimeline::class' ), 'Corrective public and Timeline modules must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $plugin, 'CorrectiveAdmin::class' ), 'Activation Wizard administration must be registered.' );
 sabri_file21_completion_assert( false !== strpos( $view, 'Gate-by-Gate Public News Activation' ), 'Wizard must visibly expose gate-by-gate News activation.' );
