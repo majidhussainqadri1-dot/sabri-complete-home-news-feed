@@ -37,17 +37,30 @@ jobs:
           php -l includes/class-home-composition-registry.php
           php -l includes/class-integrations.php
           php -l public/class-phase5-public-runtime.php
-      - name: Focused public recovery contracts
-        run: php tests/run-file21-public-visibility-tests.php
-      - name: Capture harmonization contracts
-        id: harmonization
+      - name: Capture File 21 contract suite
+        id: contracts
         shell: bash
         run: |
           set +e
-          php tests/run-file21-harmonization-tests.php > file21-harmonization.log 2>&1
-          status=$?
+          : > file21-contracts.log
+          status=0
+          for test in \
+            tests/run-file21-public-visibility-tests.php \
+            tests/run-file21-harmonization-tests.php \
+            tests/run-file21-harmonization-negative-tests.php \
+            tests/run-file21-corrective-tests.php \
+            tests/run-file21-completion-audit-tests.php \
+            tests/run-file21-legacy-interaction-migration-tests.php; do
+            echo "=== $test ===" | tee -a file21-contracts.log
+            php "$test" >> file21-contracts.log 2>&1
+            test_status=$?
+            if [ "$test_status" -ne 0 ]; then
+              echo "FAILED: $test ($test_status)" | tee -a file21-contracts.log
+              status=1
+            fi
+          done
+          cat file21-contracts.log
           echo "status=$status" >> "$GITHUB_OUTPUT"
-          cat file21-harmonization.log
           exit 0
       - name: Capture core regression output
         id: core_regression
@@ -59,25 +72,25 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           cat file21-core-regression.log
           exit 0
-      - name: Upload core and harmonization logs
+      - name: Upload core and contract logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: file21-core-contract-logs
           path: |
             file21-core-regression.log
-            file21-harmonization.log
+            file21-contracts.log
           if-no-files-found: error
           retention-days: 7
-      - name: Enforce harmonization result
-        if: steps.harmonization.outputs.status != '0'
+      - name: Enforce contract suite
+        if: steps.contracts.outputs.status != '0'
         run: |
-          echo 'File 21 harmonization contracts failed. Download file21-core-contract-logs for the exact failures.'
+          echo 'File 21 contract suite failed. Download file21-core-contract-logs for exact failures.'
           exit 1
       - name: Enforce core regression result
         if: steps.core_regression.outputs.status != '0'
         run: |
-          echo 'File 21 core regression failed. Download file21-core-contract-logs for the exact failures.'
+          echo 'File 21 core regression failed. Download file21-core-contract-logs for exact failures.'
           exit 1
 
   package:
