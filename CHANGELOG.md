@@ -2,6 +2,7 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Corrected the Integrations diagnostics Safe Boot fatal by restoring the side-effect-free `proposed_future_integrations()` contract and guarding the administration view against mixed-version method absence.
 - Restored secure public visibility for Founder/Administrator Editorial News: explicit single and bulk publication now set the canonical workflow/status, create the approved public snapshot, open `/news/`, flush rewrites once, and purge File 21 News caches.
 - Removed all automatic recovery writes from public GET requests; recovery is now an explicit nonce/capability-protected administrator operation.
 - Added File 21 registration and rendering for `sabri_shell_news_main`, plus guarded Home/News fallback mounts.

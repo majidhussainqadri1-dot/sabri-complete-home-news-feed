@@ -46,9 +46,13 @@ $assert( false !== strpos( $query, "add_filter( 'the_posts'" ), 'Object-level vi
 $assert( false !== strpos( $query, 'if ( ! empty( $existing ) )' ), 'Empty existing meta queries are not excluded from nested groups.' );
 
 $integrations = $read( 'includes/class-integrations.php' );
+$integrations_view = $read( 'admin/views/integrations.php' );
 $assert( false !== strpos( $integrations, 'shell_slot_audit' ), 'Shell native-slot audit is missing.' );
 $assert( false !== strpos( $integrations, 'Compatibility fallback' ), 'Truthful fallback status is missing.' );
 $assert( false === strpos( $integrations, "'status' => 'Connected',\n\t\t\t'detail' => __( 'File 21 is the canonical" ), 'System Check still hardcodes Connected.' );
+$assert( false !== strpos( $integrations, 'public static function proposed_future_integrations()' ), 'Integrations roadmap method required by the administration view is missing.' );
+$assert( false !== strpos( $integrations_view, "is_callable( array( Integrations::class, 'proposed_future_integrations' ) )" ), 'Integrations administration view does not guard mixed-version method availability.' );
+$assert( false !== strpos( $integrations_view, '$future_integrations' ), 'Integrations administration view does not use the guarded roadmap projection.' );
 
 $routing = $read( 'public/class-news-routing.php' );
 $assert( false !== strpos( $routing, 'redirect_legacy_pages' ), 'Legacy News redirect is missing.' );
@@ -75,6 +79,7 @@ $change = $read( 'CHANGELOG.md' );
 $assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
 $assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
 $assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks the Editorial News visibility repair.' );
+$assert( false !== strpos( $change, 'Integrations diagnostics Safe Boot fatal' ), 'Changelog lacks the Integrations Safe Boot correction.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 echo "File 21 production-rejection corrective contracts passed.\n";

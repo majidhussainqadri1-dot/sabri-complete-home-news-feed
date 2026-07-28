@@ -12,6 +12,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $detected = Integrations::detect();
+$future_integrations = is_callable( array( Integrations::class, 'proposed_future_integrations' ) )
+	? Integrations::proposed_future_integrations()
+	: array();
 ?>
 <section class="sabri-feed-panel">
 	<h2><?php esc_html_e( 'Unified Shell Detection', 'sabri-complete-home-news-feed' ); ?></h2>
@@ -46,9 +49,13 @@ $detected = Integrations::detect();
 	<h2><?php esc_html_e( 'Proposed Future Integration Points', 'sabri-complete-home-news-feed' ); ?></h2>
 	<table class="sabri-feed-table">
 		<tbody>
-			<?php foreach ( Integrations::proposed_future_integrations() as $key => $description ) : ?>
-				<tr><th><?php echo esc_html( $key ); ?></th><td><?php echo esc_html( $description ); ?></td></tr>
-			<?php endforeach; ?>
+			<?php if ( $future_integrations ) : ?>
+				<?php foreach ( $future_integrations as $key => $description ) : ?>
+					<tr><th><?php echo esc_html( $key ); ?></th><td><?php echo esc_html( $description ); ?></td></tr>
+				<?php endforeach; ?>
+			<?php else : ?>
+				<tr><td colspan="2"><?php esc_html_e( 'Integration roadmap data is temporarily unavailable; the rest of the plugin remains operational.', 'sabri-complete-home-news-feed' ); ?></td></tr>
+			<?php endif; ?>
 		</tbody>
 	</table>
 </section>
