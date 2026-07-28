@@ -10,7 +10,7 @@ Sabri Complete Home and News Feed is the canonical public Home, social Feed, Pro
 
 ## Production-Rejection Corrective Release in 1.0.3
 
-Version 1.0.3 closes the live-deployment defects found after 1.0.2: public GET requests no longer write recovery metadata; File 21 registers and renders the native News slot; canonical and legacy News pages are routed or redirected safely after explicit gate activation; all ten Home rows remain observable with honest unavailable states; Breaking News is main-loop/context/render-once guarded; core-post visibility is applied before pagination; Shell diagnostics no longer claim Connected without all five native slots; Safe Boot keeps authenticated status/schema diagnostics available; and duplicate plugin copies resolve to the highest canonical version with one controlled administrator reload.
+Version 1.0.3 closes the live-deployment defects found after 1.0.2: public GET requests no longer write recovery metadata; File 21 registers and renders the native News slot; canonical and legacy News pages are routed or redirected safely after explicit gate activation; all ten Home rows remain observable with honest unavailable states; Breaking News is main-loop/context/render-once guarded; core-post visibility is applied before pagination; recursive Home Feed rendering is blocked while WordPress applies `the_content`; Shell diagnostics no longer claim Connected without all five native slots; Safe Boot keeps authenticated status/schema diagnostics available; and duplicate plugin copies resolve to the highest canonical version with one controlled administrator reload.
 
 Editorial News gates remain fail-closed until the Activation Wizard is completed on staging. File 20 native-slot availability remains an external dependency and is reported truthfully; File 21 compatibility mounts do not modify File 20.
 
@@ -108,4 +108,10 @@ The canonical 1.0.3 release builders create one candidate identity:
 - runtime manifest
 - exact test report
 
-Historical misleading aliases are not generated. All source, packaged WordPress, security, migration, public visibility, Phase 4A/4B/4C, harmonization, corrective, and continuous QA gates must succeed on one unchanged exact head before merge.
+Historical misleading aliases are not generated.
+
+## QA Policy
+
+The repository owner explicitly disabled the three former one-hour/3,900-second soak jobs. Their workflow files now execute only fast disabled-state confirmation and must not be cited as long-duration evidence.
+
+All required short source, packaged WordPress, PHP 8.1/8.3, security, migration, public visibility, routing, pagination, Phase 4A/4B/4C, harmonization, corrective, UI, and WordPress Playground gates must succeed on one unchanged exact head before merge.
