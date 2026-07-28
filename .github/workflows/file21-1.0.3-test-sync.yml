@@ -18,19 +18,19 @@ jobs:
         with:
           ref: fix/file-21-production-rejection-1.0.3
           fetch-depth: 0
-      - name: Synchronize current-runtime and canonical-package assertions only
+      - name: Synchronize tests and tools only
         shell: python
         run: |
           from pathlib import Path
           import re
 
-          roots = [Path('tests'), Path('tools'), Path('.github/workflows')]
+          roots = [Path('tests'), Path('tools')]
           files = []
           for root in roots:
               if not root.exists():
                   continue
               for path in root.rglob('*'):
-                  if path.is_file() and path.suffix.lower() in {'.php', '.mjs', '.js', '.yml', '.yaml', '.ps1', '.sh'}:
+                  if path.is_file() and path.suffix.lower() in {'.php', '.mjs', '.js', '.ps1', '.sh'}:
                       files.append(path)
 
           old_packages = [
@@ -43,12 +43,8 @@ jobs:
           current_package = '21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE'
           changed = []
           for path in sorted(files):
-              if path.name == 'file21-1.0.3-test-sync.yml':
-                  continue
               text = path.read_text(encoding='utf-8')
               original = text
-
-              # Runtime identity only; schema and historical migration fixture versions stay untouched.
               text = re.sub(r"'1\.0\.2'(\s*===\s*\$identity\['version'\])", r"'1.0.3'\1", text)
               text = re.sub(r"\$identity\['version'\](\s*===\s*)'1\.0\.2'", r"$identity['version']\1'1.0.3'", text)
               text = re.sub(r"'1\.0\.2'(\s*===\s*SABRI_HNF_VERSION)", r"'1.0.3'\1", text)
@@ -63,21 +59,18 @@ jobs:
               text = text.replace('version=1.0.2', 'version=1.0.3')
               for old in old_packages:
                   text = text.replace(old, current_package)
-
               if text != original:
                   path.write_text(text, encoding='utf-8')
                   changed.append(str(path))
-
-          Path('.github/workflows/file21-1.0.3-test-sync.yml').unlink()
           print('Changed files:')
           print('\n'.join(changed))
-      - name: Commit synchronization and remove temporary workflow
+      - name: Commit tests and tools synchronization
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tests tools .github/workflows
+          git add tests tools
           git diff --cached --quiet && exit 1
-          git commit -m 'Synchronize File 21 1.0.3 runtime and canonical package assertions'
+          git commit -m 'Synchronize File 21 1.0.3 test and tool assertions'
           git push origin HEAD:fix/file-21-production-rejection-1.0.3
