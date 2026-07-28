@@ -68,7 +68,8 @@ function sabri_hnf_activate() {}
 function sabri_hnf_deactivate() {}
 function sabri_hnf_bootstrap() {}
 
-$plugin_file = str_replace( '\\', '/', dirname( __DIR__ ) . '/sabri-complete-home-news-feed.php' );
+$root = dirname( __DIR__ );
+$plugin_file = str_replace( '\\', '/', $root . '/sabri-complete-home-news-feed.php' );
 require $plugin_file;
 
 if ( empty( $sabri_duplicate_activation_hooks[ $plugin_file ] ) || ! is_callable( $sabri_duplicate_activation_hooks[ $plugin_file ] ) ) {
@@ -87,6 +88,25 @@ if ( array( $expected_legacy ) !== $sabri_duplicate_deactivated ) {
 $resolution = isset( $sabri_duplicate_options['sabri_hnf_duplicate_plugin_resolution'] ) ? $sabri_duplicate_options['sabri_hnf_duplicate_plugin_resolution'] : array();
 if ( empty( $resolution['resolved'] ) || array( $expected_legacy ) !== $resolution['previous_copies'] ) {
 	fwrite( STDERR, "FAIL: duplicate resolution record was not stored correctly.\n" );
+	exit( 1 );
+}
+
+$notice_file = $root . '/admin/class-duplicate-copy-notice.php';
+$plugin_runtime = file_get_contents( $root . '/includes/class-plugin.php' );
+$notice_source = is_file( $notice_file ) ? file_get_contents( $notice_file ) : '';
+if ( ! is_file( $notice_file ) || false === strpos( $plugin_runtime, 'DuplicateCopyNotice::class' ) ) {
+	fwrite( STDERR, "FAIL: duplicate resolution is not exposed to the administrator on the next safe request.\n" );
+	exit( 1 );
+}
+foreach ( array( 'previous_copies', 'current_copy', 'Retry Safe Boot', 'check_admin_referer', 'acknowledged_at_utc' ) as $needle ) {
+	if ( false === strpos( $notice_source, $needle ) ) {
+		fwrite( STDERR, 'FAIL: duplicate-copy notice is missing operator contract: ' . $needle . "\n" );
+		exit( 1 );
+	}
+}
+
+if ( empty( array_filter( $sabri_duplicate_actions, static function ( $action ) { return 'admin_init' === $action['hook']; } ) ) ) {
+	fwrite( STDERR, "FAIL: duplicate resolution did not register the administrator bootstrap fallback.\n" );
 	exit( 1 );
 }
 
