@@ -67,8 +67,11 @@ $plugin = $read( 'includes/class-plugin.php' );
 $publication = $read( 'admin/class-editorial-news-publication-bridge.php' );
 $publication_js = $read( 'assets/js/news-publication-controls.js' );
 $composer_recovery = $read( 'admin/class-news-composer-access-recovery.php' );
+$public_composer = $read( 'includes/class-public-composer-surface.php' );
+$public_composer_css = $read( 'assets/css/public-composer-surface.css' );
 $assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), 'Editorial News publication bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'NewsComposerAccessRecovery::class' ), 'News Composer access recovery is not registered.' );
+$assert( false !== strpos( $plugin, 'PublicComposerSurface::class' ), 'Public Composer surface is not registered.' );
 foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . NewsroomAdmin::BULK_ACTION", 'check_admin_referer', "current_user_can( 'publish_editorial_news'", 'CanonicalIdentityAdapter::can_publish_immediately', "post_status' => 'publish'", "WORKFLOW_META_KEY, 'published'", 'NewsPublicSnapshot::capture', "editorial_news_enabled' => 1", 'NewsCache::purge_owned', 'publication_snapshot_failed' ) as $needle ) {
 	$assert( false !== strpos( $publication, $needle ), 'Editorial News publication contract missing: ' . $needle );
 }
@@ -79,6 +82,13 @@ foreach ( array( "add_action( 'admin_init'", 'NewsCapabilities::apply_default_po
 	$assert( false !== strpos( $composer_recovery, $needle ), 'News Composer access recovery contract missing: ' . $needle );
 }
 $assert( false === strpos( $composer_recovery, "add_action( 'init'" ), 'News Composer access recovery must remain administration-only.' );
+foreach ( array( 'create-post', "add_filter( 'sabri_shell_create_url'", "add_filter( 'the_content'", "add_action( 'sabri_shell_home_before_main'", "add_action( 'sabri_shell_news_main'", 'data-sabri-hnf-public-composer-action', 'ComposerPermissions::user_can_create', 'wp_login_url', 'REWRITE_POLICY_VERSION', 'public-composer-surface.css' ) as $needle ) {
+	$assert( false !== strpos( $public_composer, $needle ), 'Public Composer surface contract missing: ' . $needle );
+}
+$render_pos = strpos( $public_composer, '$composer_html = Composer::render();' );
+$header_pos = strpos( $public_composer, 'get_header();' );
+$assert( false !== $render_pos && false !== $header_pos && $render_pos < $header_pos, 'Composer assets must be enqueued before the theme header is printed.' );
+$assert( false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-cta' ) && false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-page' ), 'Public Composer CTA/page styles are missing.' );
 
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
@@ -87,6 +97,7 @@ $assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
 $assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks the Editorial News visibility repair.' );
 $assert( false !== strpos( $change, 'Integrations diagnostics Safe Boot fatal' ), 'Changelog lacks the Integrations Safe Boot correction.' );
 $assert( false !== strpos( $change, 'News Composer posting option' ), 'Changelog lacks the News Composer access correction.' );
+$assert( false !== strpos( $change, 'public **Create Post** action' ), 'Changelog lacks the public Composer action correction.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 echo "File 21 production-rejection corrective contracts passed.\n";

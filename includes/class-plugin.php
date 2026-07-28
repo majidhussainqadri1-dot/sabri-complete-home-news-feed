@@ -24,7 +24,7 @@ final class Plugin {
 			CorrectivePublicSettings::class,PublicSurfaceRecovery::class,CorrectivePublicMount::class,ProfileTimeline::class,RestProfileTimeline::class,
 			PollComposerIntegration::class,Capabilities::class,PrivilegedPublishingPolicy::class,PostTypes::class,Taxonomies::class,RewriteRules::class,Integrations::class,HarmonizationDiagnostics::class,ReleaseReadiness::class,
 			SafeMode::class,RestFoundation::class,DataRetention::class,NotificationBridge::class,Assets::class,PostMetadata::class,PublicQueryGuard::class,
-			FollowersVisibility::class,FollowersQueryGuard::class,MediaHandler::class,ViralRankingSignals::class,FeedQuery::class,HomeIntegration::class,HomeCompositionRegistry::class,CompanionHomeRowAdapters::class,LegacyInteractionMigrationAdapter::class,LegacyPublicationMigration::class,LegacyPublicationRollback::class,ViewRuntime::class,PollRuntime::class,
+			FollowersVisibility::class,FollowersQueryGuard::class,MediaHandler::class,ViralRankingSignals::class,FeedQuery::class,PublicComposerSurface::class,HomeIntegration::class,HomeCompositionRegistry::class,CompanionHomeRowAdapters::class,LegacyInteractionMigrationAdapter::class,LegacyPublicationMigration::class,LegacyPublicationRollback::class,ViewRuntime::class,PollRuntime::class,
 			SocialRuntime::class,CommentRuntime::class,SavedPostsRuntime::class,FollowingRuntime::class,Shortcodes::class,Composer::class,RestFeed::class,
 			RestComposer::class,RestInteractions::class,RestComments::class,RestFollows::class,RestReports::class,RestPolls::class,
 		);
