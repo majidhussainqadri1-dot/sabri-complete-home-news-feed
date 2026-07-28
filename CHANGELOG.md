@@ -8,10 +8,12 @@
 - Rendered exactly ten governing Home rows, including honest unavailable states when companion providers are absent.
 - Guarded Breaking News by public Home/News context, main query, and one render per request.
 - Added pre-query visibility and review-state constraints so `found_posts`, page counts, and pagination match public eligibility.
+- Prevented recursive Home Feed rendering while WordPress applies `the_content` to Feed cards.
 - Replaced unconditional Shell “Connected” status with explicit five-slot advertisement/audit.
 - Kept authenticated REST status/schema diagnostics available while Safe Boot pauses the full runtime.
 - Added highest-version/canonical duplicate-folder selection and a controlled administrator reload after deactivation.
 - Unified runtime, readme, changelog, builders, package name, report, and manifest on 1.0.3 while preserving schema 1.0.0.
+- Disabled the three former one-hour/3,900-second soak workflows at the repository owner's direction; retained workflow files now perform fast, truthful disabled-state confirmation only.
 
 ## 1.0.2 - Public Visibility and Safe Boot Corrections
 
