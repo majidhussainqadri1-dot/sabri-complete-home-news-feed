@@ -2,6 +2,7 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Restored the public **Create Post** action on Home and News, supplied the Unified Shell Create destination, and added the canonical `/create-post/` public Composer route with login, permission, duplicate-render and one-shot rewrite safeguards.
 - Restored the News Composer posting option after ZIP replacement by reconciling plugin-owned Administrator/Founder Editorial News capabilities on `admin_init`, preserving the canonical submenu, and adding a prominent **Create Editorial News** action on the Newsroom screen.
 - Corrected the Integrations diagnostics Safe Boot fatal by restoring the side-effect-free `proposed_future_integrations()` contract and guarding the administration view against mixed-version method absence.
 - Restored secure public visibility for Founder/Administrator Editorial News: explicit single and bulk publication now set the canonical workflow/status, create the approved public snapshot, open `/news/`, flush rewrites once, and purge File 21 News caches.
