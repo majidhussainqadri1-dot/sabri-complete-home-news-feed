@@ -2,8 +2,7 @@ name: File 21 Corrective Release Tests
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
     paths:
       - 'FILE-21-*.md'
       - 'includes/**'
@@ -13,6 +12,8 @@ on:
       - 'assets/**'
       - 'tests/**'
       - 'tools/**'
+      - 'readme.txt'
+      - 'CHANGELOG.md'
       - 'sabri-complete-home-news-feed.php'
       - '.github/workflows/file21-corrective-tests.yml'
       - '.github/workflows/file21-corrective-visible-qa.yml'
@@ -27,47 +28,50 @@ concurrency:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE_BASE: 21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE
 
 jobs:
   contracts:
     name: Corrective contracts (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
         php: ['8.1', '8.3']
     steps:
-      - name: Checkout exact head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Use PHP ${{ matrix.php }}
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify exact head and release boundaries
-        shell: bash
+      - name: Verify exact head and release identity
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          grep -Fq 'Version: 1.0.2' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.2' );" sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.3' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.3' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
-          grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
+          grep -Fq 'Stable tag: 1.0.3' readme.txt
+          grep -Fq '## 1.0.3' CHANGELOG.md
           test -z "$(git status --porcelain --untracked-files=no)"
       - name: Run complete corrective acceptance suite
-        shell: bash
         run: |
           set -euo pipefail
-          bash tools/run-phase5-local-tests.sh
+          find includes admin public templates tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+          php tests/run-file21-settings-recursion-tests.php
           php tests/run-file21-public-visibility-tests.php
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+          php tests/run-file21-legacy-interaction-migration-tests.php
+          bash tools/run-phase5-local-tests.sh
           php tests/run-phase4c-public-news-tests.php
           php tests/run-phase4c-security-tests.php
           php tests/run-phase4c-ui-completeness-tests.php
@@ -76,8 +80,7 @@ jobs:
           php tests/run-phase4a-content-model-tests.php
           php tools/run-tests.php
           pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
-      - name: Verify frozen corrective plan coverage
-        shell: bash
+      - name: Verify corrective plan coverage
         run: |
           set -euo pipefail
           php tests/run-file21-corrective-tests.php
@@ -87,6 +90,7 @@ jobs:
           grep -Fq 'CorrectiveAdmin::class' includes/class-plugin.php
           grep -Fq 'Gate-by-Gate Public News Activation' admin/views/corrective-wizard.php
           grep -Fq 'exact 40-character File 21 commit SHA' FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md
+          ! grep -Fq "add_action( 'init', array( __CLASS__, 'maybe_recover'" includes/class-public-surface-recovery.php
           test -z "$(git status --porcelain --untracked-files=no)"
 
   immutable-package:
@@ -95,24 +99,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout exact head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Build and verify package
-        shell: bash
+      - name: Build and verify canonical package
         run: |
           set -euo pipefail
           rm -rf release file21-corrective-package
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          manifest=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum" && test -n "$manifest"
-          expected=$(awk '{print tolower($1)}' "$checksum")
+          package="release/${PACKAGE_BASE}.zip"
+          checksum="release/${PACKAGE_BASE}.sha256"
+          manifest="release/${PACKAGE_BASE}-MANIFEST.sha256"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest"
           actual=$(sha256sum "$package" | awk '{print $1}')
-          test "$expected" = "$actual"
+          test "$(awk '{print tolower($1)}' "$checksum")" = "$actual"
           unzip -tqq "$package"
           unzip -Z1 "$package" > package-entries.txt
           for entry in \
@@ -122,24 +123,30 @@ jobs:
             sabri-complete-home-news-feed/includes/class-corrective-public-settings.php \
             sabri-complete-home-news-feed/includes/class-corrective-public-mount.php \
             sabri-complete-home-news-feed/includes/class-corrective-activation-wizard.php \
+            sabri-complete-home-news-feed/includes/class-public-query-guard.php \
+            sabri-complete-home-news-feed/includes/class-integrations.php \
+            sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
+            sabri-complete-home-news-feed/includes/class-rest-foundation.php \
             sabri-complete-home-news-feed/includes/class-profile-timeline.php \
             sabri-complete-home-news-feed/includes/class-rest-profile-timeline.php \
+            sabri-complete-home-news-feed/public/class-news-routing.php \
+            sabri-complete-home-news-feed/public/class-phase5-public-runtime.php \
             sabri-complete-home-news-feed/admin/class-corrective-admin.php \
             sabri-complete-home-news-feed/admin/views/corrective-wizard.php \
             sabri-complete-home-news-feed/assets/css/corrective-public.css \
+            sabri-complete-home-news-feed/FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md \
             sabri-complete-home-news-feed/FILE-21-LIVE-VISUAL-ACCEPTANCE-CHECKLIST.md; do
             grep -Fxq "$entry" package-entries.txt
           done
           mkdir -p file21-corrective-package
           cp "$package" file21-corrective-package/candidate.zip
+          cp "$manifest" file21-corrective-package/runtime-manifest.sha256
+          cp package-entries.txt file21-corrective-package/
           printf '%s  candidate.zip\n' "$actual" > file21-corrective-package/candidate.sha256
           printf '%s\n' "${TEST_SHA}" > file21-corrective-package/exact-commit.txt
-          cp package-entries.txt file21-corrective-package/
-          cp "$manifest" file21-corrective-package/runtime-manifest.sha256
-          printf 'status=passed\nhead_sha=%s\npackage_sha256=%s\nruntime_version=1.0.2\nschema_version=1.0.0\nlive_deployed=0\n' "${TEST_SHA}" "$actual" > file21-corrective-package/result.env
+          printf 'status=passed\nhead_sha=%s\npackage_sha256=%s\nruntime_version=1.0.3\nschema_version=1.0.0\npublic_get_recovery_writes=0\nauto_migration=0\nlive_deployed=0\n' "${TEST_SHA}" "$actual" > file21-corrective-package/result.env
           test -z "$(git status --porcelain --untracked-files=no)"
-      - name: Upload immutable corrective candidate
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: file21-corrective-immutable-package-${{ env.TEST_SHA }}
           retention-days: 60
