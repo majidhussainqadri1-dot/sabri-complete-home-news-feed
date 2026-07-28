@@ -6,13 +6,21 @@ on:
     branches:
       - main
       - build/**
+      - fix/**
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE
 
 jobs:
   packaged-playground:
-    name: Initial packaged QA (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    name: Initial canonical packaged QA (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -21,125 +29,118 @@ jobs:
             php: '8.3'
           - wp: '6.8'
             php: '8.1'
-
     steps:
-      - name: Checkout
+      - name: Checkout exact source head
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Verify exact source head
+        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Build exact staging candidate ZIP
+      - name: Build canonical candidate ZIP
         shell: pwsh
         run: ./tools/build-release.ps1
-
-      - name: Resolve exact harmonized candidate
+      - name: Resolve and verify canonical candidate
         shell: bash
         run: |
           set -euo pipefail
-          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum"
+          package="release/${CANONICAL_BASE}.zip"
+          checksum="release/${CANONICAL_BASE}.sha256"
+          manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
           printf 'SABRI_PLUGIN_ZIP=%s\n' "$package" >> "$GITHUB_ENV"
           printf 'SABRI_PLUGIN_SHA=%s\n' "$checksum" >> "$GITHUB_ENV"
-
-      - name: Install official WordPress Playground CLI
+      - name: Install WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-
       - name: Test exact packaged ZIP through WordPress installer
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
-
-      - name: Reproduce Day and name Hello World permalink
+      - name: Reproduce date permalink behavior
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
         run: |
-          set -o pipefail
-          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
-
-      - name: Verify package checksum
-        shell: bash
-        run: |
           set -euo pipefail
-          expected=$(awk '{print tolower($1)}' "$SABRI_PLUGIN_SHA")
-          actual=$(sha256sum "$SABRI_PLUGIN_ZIP" | awk '{print $1}')
-          test "$expected" = "$actual"
-
+          node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
       - name: Upload initial packaged QA logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: initial-packaged-qa-${{ matrix.wp }}-php-${{ matrix.php }}
+          name: canonical-packaged-qa-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
           path: |
             packaged-playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
             date-permalink-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: warn
+          retention-days: 30
 
   second-independent-qa:
-    name: Mandatory second independent QA
+    name: Mandatory second independent canonical QA
     needs: packaged-playground
     runs-on: ubuntu-latest
-    timeout-minutes: 35
-
+    timeout-minutes: 40
     steps:
-      - name: Fresh checkout for second QA
+      - name: Fresh exact-head checkout
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Re-run PHP syntax and social feature contracts independently
-        shell: bash
-        run: |
-          set -o pipefail
-          find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l 2>&1 | tee second-qa-php-lint.log
-          php tests/run-phase3-social-features-share-tests.php 2>&1 | tee second-qa-social-features.log
-
-      - name: Rebuild exact candidate from clean checkout
-        shell: pwsh
-        run: ./tools/build-release.ps1
-
-      - name: Resolve exact harmonized candidate
+      - name: Re-run syntax, query, and social contracts independently
         shell: bash
         run: |
           set -euo pipefail
-          package=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-HARMONIZED-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum"
+          find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l 2>&1 | tee second-qa-php-lint.log
+          php tests/run-phase3-social-features-share-tests.php 2>&1 | tee second-qa-social-features.log
+          php tests/run-public-query-routing-tests.php 2>&1 | tee second-qa-query-routing.log
+          php tests/run-file21-public-visibility-tests.php 2>&1 | tee second-qa-public-visibility.log
+          php tests/run-file21-completion-audit-tests.php 2>&1 | tee second-qa-completion-audit.log
+      - name: Rebuild canonical candidate from clean checkout
+        shell: pwsh
+        run: ./tools/build-release.ps1
+      - name: Resolve canonical candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          package="release/${CANONICAL_BASE}.zip"
+          checksum="release/${CANONICAL_BASE}.sha256"
+          manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest"
           printf 'SABRI_PLUGIN_ZIP=%s\n' "$package" >> "$GITHUB_ENV"
           printf 'SABRI_PLUGIN_SHA=%s\n' "$checksum" >> "$GITHUB_ENV"
-
-      - name: Install official WordPress Playground CLI
+      - name: Install WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-
-      - name: Re-run exact ZIP lifecycle and complete social surface
+      - name: Re-run exact ZIP lifecycle and public surface
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: latest
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
-          set -o pipefail
+          set -euo pipefail
           node tests/run-packaged-playground-integration-tests.mjs 2>&1 | tee second-qa-packaged-playground.log
           node tests/run-date-permalink-playground-tests.mjs 2>&1 | tee second-qa-date-permalink.log
-
       - name: Independently inspect ZIP and checksum
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $zip = Get-Item $env:SABRI_PLUGIN_ZIP
           $sha = Get-Item $env:SABRI_PLUGIN_SHA
-          if (-not $zip -or -not $sha) { throw 'Second QA package or checksum is missing.' }
           $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim().ToLowerInvariant()
           $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           if ($expected -ne $actual) { throw 'Second QA checksum mismatch.' }
@@ -147,26 +148,26 @@ jobs:
           try {
             $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
             foreach ($required in @(
-              'sabri-complete-home-news-feed/admin/views/social-features.php',
-              'sabri-complete-home-news-feed/assets/js/share.js',
-              'sabri-complete-home-news-feed/templates/action-bar.php'
+              'sabri-complete-home-news-feed/includes/class-public-query-guard.php',
+              'sabri-complete-home-news-feed/includes/class-public-surface-recovery.php',
+              'sabri-complete-home-news-feed/includes/class-home-composition-registry.php',
+              'sabri-complete-home-news-feed/includes/class-integrations.php',
+              'sabri-complete-home-news-feed/public/class-news-public-runtime.php'
             )) {
               if (-not ($entries -contains $required)) { throw "Second QA missing: $required" }
             }
           } finally {
             $archive.Dispose()
           }
-
-      - name: Upload only second-QA-passed candidate
+      - name: Upload second-QA-passed canonical candidate
         uses: actions/upload-artifact@v4
         with:
-          name: sabri-home-news-feed-HARMONIZED-SECOND-QA-PASSED
+          name: file21-canonical-second-QA-passed-${{ env.TEST_SHA }}
           path: |
-            release/*HARMONIZED-CANDIDATE.zip
-            release/*HARMONIZED-CANDIDATE.sha256
-            release/*HARMONIZED-CANDIDATE-TEST-REPORT.md
-            release/*HARMONIZED-CANDIDATE-MANIFEST.sha256
-            second-qa-php-lint.log
-            second-qa-social-features.log
-            second-qa-packaged-playground.log
-            second-qa-date-permalink.log
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256
+            second-qa-*.log
+          if-no-files-found: error
+          retention-days: 60
