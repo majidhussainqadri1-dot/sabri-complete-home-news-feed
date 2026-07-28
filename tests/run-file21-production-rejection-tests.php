@@ -59,10 +59,22 @@ foreach ( array( 'register_safe_boot_routes', 'safe_boot_status', 'safe_boot_sch
 	$assert( false !== strpos( $rest, $needle ), 'Safe Boot REST contract missing: ' . $needle );
 }
 
+$plugin = $read( 'includes/class-plugin.php' );
+$publication = $read( 'admin/class-editorial-news-publication-bridge.php' );
+$publication_js = $read( 'assets/js/news-publication-controls.js' );
+$assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), 'Editorial News publication bridge is not registered.' );
+foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . NewsroomAdmin::BULK_ACTION", 'check_admin_referer', "current_user_can( 'publish_editorial_news'", 'CanonicalIdentityAdapter::can_publish_immediately', "post_status' => 'publish'", "WORKFLOW_META_KEY, 'published'", 'NewsPublicSnapshot::capture', "editorial_news_enabled' => 1", 'NewsCache::purge_owned', 'publication_snapshot_failed' ) as $needle ) {
+	$assert( false !== strpos( $publication, $needle ), 'Editorial News publication contract missing: ' . $needle );
+}
+$assert( false === strpos( $publication, "add_action( 'init'" ), 'Editorial News publication must not mutate from public init.' );
+$assert( false !== strpos( $publication_js, "option.value = 'published'" ) && false !== strpos( $publication_js, 'document.createElement' ), 'Trusted publication controls are missing.' );
+$assert( false === strpos( $publication_js, 'innerHTML' ) && false === strpos( $publication_js, 'eval(' ), 'Publication controls must not inject arbitrary HTML or dynamic code.' );
+
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
 $assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
 $assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
+$assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks the Editorial News visibility repair.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 echo "File 21 production-rejection corrective contracts passed.\n";
