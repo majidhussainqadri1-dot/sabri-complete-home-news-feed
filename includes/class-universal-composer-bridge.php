@@ -23,14 +23,17 @@ final class UniversalComposerBridge {
 	/** @var bool Prevent duplicate registration during the same request. */
 	private static $registered = false;
 
-	/** Attach both compatibility-event and late-registration paths. */
+	/** Attach compatibility, late-registration, and surface-harmonization paths. */
 	public static function register() {
-		if ( ! function_exists( 'add_action' ) ) {
-			return;
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'supc_registry_ready', array( __CLASS__, 'maybe_register_adapter' ), 5 );
+			add_action( 'init', array( __CLASS__, 'maybe_register_adapter' ), 25 );
+			add_action( 'init', array( __CLASS__, 'harmonize_create_surfaces' ), 30 );
 		}
 
-		add_action( 'supc_registry_ready', array( __CLASS__, 'maybe_register_adapter' ), 5 );
-		add_action( 'init', array( __CLASS__, 'maybe_register_adapter' ), 25 );
+		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'sabri_shell_create_url', array( __CLASS__, 'prefer_universal_create_url' ), 100 );
+		}
 	}
 
 	/** Register the route-only native publication adapter. */
@@ -53,6 +56,38 @@ final class UniversalComposerBridge {
 			if ( function_exists( 'do_action' ) ) {
 				do_action( 'sabri_hnf_file22_adapter_registration_error', get_class( $error ) );
 			}
+		}
+	}
+
+	/** Prefer File 22's universal Create page after all native fallback filters. */
+	public static function prefer_universal_create_url( $url ) {
+		if ( ! self::gateway_available() ) {
+			return $url;
+		}
+
+		$resolver = array( '\\Sabri\\UniversalComposer\\Core\\Page_Resolver', 'url' );
+		$universal_url = is_callable( $resolver ) ? (string) call_user_func( $resolver ) : '';
+		return '' !== $universal_url ? $universal_url : $url;
+	}
+
+	/**
+	 * Remove File 21's Home/News fallback CTA only when File 20 and File 22 can
+	 * provide the complete global gateway. The native `/create-post/` route
+	 * remains available as the adapter destination.
+	 */
+	public static function harmonize_create_surfaces() {
+		if ( ! self::gateway_available() ) {
+			return;
+		}
+
+		if ( function_exists( 'remove_action' ) ) {
+			remove_action( 'sabri_shell_home_before_main', array( PublicComposerSurface::class, 'render_shell_home_button' ), 5 );
+			remove_action( 'sabri_shell_news_main', array( PublicComposerSurface::class, 'render_shell_news_button' ), 5 );
+			remove_action( 'loop_start', array( PublicComposerSurface::class, 'render_loop_button' ), 0 );
+		}
+
+		if ( function_exists( 'remove_filter' ) ) {
+			remove_filter( 'the_content', array( PublicComposerSurface::class, 'inject_content_button' ), 9 );
 		}
 	}
 
