@@ -39,11 +39,17 @@ final class CorrectivePublicSettings {
 		);
 	}
 
-	/** Safe defaults. Version 1.0.2 recovery enables only read-only surfaces when no wizard decision exists. */
+	/**
+	 * Safe defaults.
+	 *
+	 * Read-only Home and Profile Timeline are available without a frontend write.
+	 * Publication, legacy replacement, Editorial News, migration, and all write
+	 * gates remain closed until activation/recovery or an administrator decision.
+	 */
 	public static function defaults() {
 		return array(
-			'home_surface_enabled'          => 0,
-			'profile_timeline_enabled'      => 0,
+			'home_surface_enabled'          => 1,
+			'profile_timeline_enabled'      => 1,
 			'distinct_surface_marker'       => 1,
 			'duplicate_feed_guard'          => 1,
 			'replace_existing_feed_surface' => 0,
