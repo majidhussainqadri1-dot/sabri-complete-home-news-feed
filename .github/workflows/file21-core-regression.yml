@@ -62,3 +62,43 @@ jobs:
         run: |
           echo 'File 21 core regression failed. Download the file21-core-regression-log artifact for exact failures.'
           exit 1
+
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - name: Capture canonical package build output
+        id: package_build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          & ./tools/build-release.ps1 *> file21-package-build.log
+          $status = $LASTEXITCODE
+          if ($null -eq $status) { $status = 0 }
+          "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Get-Content file21-package-build.log
+          if (Test-Path release) {
+            Get-ChildItem release -File | Sort-Object Name | ForEach-Object { $_.Name } | Out-File -FilePath file21-package-files.log -Encoding utf8
+          } else {
+            'release-directory-missing' | Out-File -FilePath file21-package-files.log -Encoding utf8
+          }
+          exit 0
+      - name: Upload package diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-package-diagnostics
+          path: |
+            file21-package-build.log
+            file21-package-files.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce canonical package build
+        if: steps.package_build.outputs.status != '0'
+        run: |
+          echo 'Canonical File 21 package build failed. Download file21-package-diagnostics for the exact error.'
+          exit 1
