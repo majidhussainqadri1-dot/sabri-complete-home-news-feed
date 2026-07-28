@@ -13,6 +13,7 @@ on:
 # main after merge, preventing duplicate checks and unnecessary Actions usage.
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE
 
 concurrency:
   group: phase4a-content-model-${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -29,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
 
       - name: Show and verify exact commit and runtime
         shell: bash
@@ -39,7 +41,7 @@ jobs:
           php -v
           node -v
           pwsh -v
-          git status --short
+          test -z "$(git status --porcelain --untracked-files=no)"
 
       - name: PHP syntax lint
         run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
@@ -63,13 +65,13 @@ jobs:
       - name: Phase 4A content model and security behavior tests
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           php tests/run-phase4a-content-model-tests.php 2>&1 | tee phase4a-content-model-test.log
 
       - name: Complete Phase 2 behavior and Safe Boot regression
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           php tools/run-tests.php 2>&1 | tee phase2-safe-boot-regression.log
 
       - name: Complete Phase 3 regression matrix
@@ -105,32 +107,32 @@ jobs:
           SABRI_PLAYGROUND_WP: latest
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
-          set -o pipefail
+          set -euo pipefail
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee phase4a-playground-security.log
 
       - name: Static security and whitespace checks
         shell: pwsh
         run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-      - name: Build unchanged-version staging package from a clean release directory
+      - name: Build canonical File 21 package from a clean release directory
         shell: pwsh
         run: |
           if (Test-Path release) { Remove-Item release -Recurse -Force }
           ./tools/build-release.ps1
 
-      - name: Verify Phase 4A package structure and checksum
+      - name: Verify Phase 4A canonical package structure and checksum
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t zips < <(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.zip' | sort)
-          mapfile -t shas < <(find release -maxdepth 1 -name '*-PHASE-3-STAGING-CANDIDATE.sha256' | sort)
-          test "${#zips[@]}" -eq 1
-          test "${#shas[@]}" -eq 1
-          zip_file="${zips[0]}"
-          sha_file="${shas[0]}"
+          zip_file="release/${CANONICAL_BASE}.zip"
+          sha_file="release/${CANONICAL_BASE}.sha256"
+          manifest_file="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          report_file="release/${CANONICAL_BASE}-TEST-REPORT.md"
+          test -f "$zip_file" && test -f "$sha_file" && test -f "$manifest_file" && test -f "$report_file"
           expected=$(awk '{print tolower($1)}' "$sha_file")
           actual=$(sha256sum "$zip_file" | awk '{print $1}')
           test "$expected" = "$actual"
+          unzip -tqq "$zip_file"
           python3 - "$zip_file" <<'PY'
           import sys, zipfile
           zip_path = sys.argv[1]
@@ -142,6 +144,9 @@ jobs:
               'sabri-complete-home-news-feed/includes/class-news-capabilities.php',
               'sabri-complete-home-news-feed/includes/class-editorial-news-post-type.php',
               'sabri-complete-home-news-feed/includes/class-news-taxonomies.php',
+              'sabri-complete-home-news-feed/includes/class-public-query-guard.php',
+              'sabri-complete-home-news-feed/includes/class-public-surface-recovery.php',
+              'sabri-complete-home-news-feed/includes/class-home-composition-registry.php',
               'sabri-complete-home-news-feed/includes/class-snapshot.php',
               'sabri-complete-home-news-feed/includes/class-rollback.php',
           }
@@ -150,7 +155,7 @@ jobs:
           missing = sorted(required - names)
           if missing:
               raise SystemExit('Missing Phase 4A package files: ' + ', '.join(missing))
-          print('Phase 4A package structure and checksum passed.')
+          print('Phase 4A canonical package structure and checksum passed.')
           PY
           echo "SABRI_PLUGIN_ZIP=$zip_file" >> "$GITHUB_ENV"
 
@@ -160,7 +165,7 @@ jobs:
           SABRI_PLAYGROUND_WP: latest
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
-          set -o pipefail
+          set -euo pipefail
           node tests/run-phase4a-playground-tests.mjs 2>&1 | tee phase4a-packaged-playground-security.log
 
       - name: Verify exact commit remained unchanged
@@ -174,14 +179,15 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase4a-content-model-evidence
+          name: phase4a-content-model-evidence-${{ env.TEST_SHA }}
           retention-days: 30
           path: |
             phase4a-content-model-test.log
             phase2-safe-boot-regression.log
             phase4a-playground-security.log
             phase4a-packaged-playground-security.log
-            release/*-PHASE-3-STAGING-CANDIDATE.zip
-            release/*-PHASE-3-STAGING-CANDIDATE.sha256
-            release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE-TEST-REPORT.md
           if-no-files-found: warn
