@@ -33,6 +33,23 @@ final class Integrations {
 		);
 	}
 
+	/**
+	 * Human-readable roadmap entries used by the Integrations administration view.
+	 *
+	 * This compatibility method is deliberately side-effect free so mixed-file or
+	 * rollback states cannot trigger Safe Boot merely by rendering diagnostics.
+	 */
+	public static function proposed_future_integrations() {
+		return array(
+			'notifications' => __( 'Deliver publishing, moderation, appointment, message, and marketplace events through the unified notifications provider.', 'sabri-complete-home-news-feed' ),
+			'messages'      => __( 'Open secure phone-number-based conversations while preserving the originating post, doctor, appointment, or listing context.', 'sabri-complete-home-news-feed' ),
+			'appointments'  => __( 'Expose Worldwide Clinic availability, booking status, reminders, and doctor-patient appointment actions.', 'sabri-complete-home-news-feed' ),
+			'marketplace'   => __( 'Attach Marketplace listings and product-linked conversations without duplicating payment or fulfillment authority.', 'sabri-complete-home-news-feed' ),
+			'profiles'      => __( 'Resolve canonical Founder, doctor, student, and patient profile destinations through the shared identity layer.', 'sabri-complete-home-news-feed' ),
+			'membership'    => __( 'Consume canonical roles, verification states, and access policies from the membership foundation.', 'sabri-complete-home-news-feed' ),
+		);
+	}
+
 	/** Required File 20 native slots. */
 	public static function required_shell_slots() {
 		return array(
