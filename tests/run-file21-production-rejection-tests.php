@@ -93,10 +93,11 @@ $header_pos = strpos( $public_composer, 'get_header();' );
 $assert( false !== $render_pos && false !== $header_pos && $render_pos < $header_pos, 'Composer assets must be enqueued before the theme header is printed.' );
 $assert( false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-cta' ) && false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-page' ), 'Public Composer CTA/page styles are missing.' );
 
-foreach ( array( "ADAPTER_API_VERSION = '1.0.0'", "MINIMUM_SHELL_VERSION = '1.0.1'", 'supc_register_adapter', "add_filter( 'sabri_shell_create_url'", 'prefer_universal_create_url', 'harmonize_create_surfaces', "remove_action( 'sabri_shell_home_before_main'", "remove_action( 'sabri_shell_news_main'", "remove_action( 'loop_start'", "remove_filter( 'the_content'" ) as $needle ) {
+foreach ( array( "ADAPTER_API_VERSION          = '1.0.0'", "ADAPTER_KEY                  = 'social_publication'", "MINIMUM_SHELL_VERSION        = '1.0.1'", "SHELL_CREATE_CONTRACT_VERSION = '1.0.0'", 'supc_register_adapter', 'supc_adapter_matches', 'SABRI_SHELL_CREATE_CONTRACT_VERSION', 'sabri_shell_create_contract_available', "add_filter( 'sabri_shell_create_url'", 'prefer_universal_create_url', 'harmonize_create_surfaces', "remove_action( 'sabri_shell_home_before_main'", "remove_action( 'sabri_shell_news_main'", "remove_action( 'loop_start'", "remove_filter( 'the_content'" ) as $needle ) {
 	$assert( false !== strpos( $file22_bridge, $needle ), 'File 22 bridge contract missing: ' . $needle );
 }
-foreach ( array( 'implements Adapter', "return 'social_publication'", "return '1.0.3'", "return 'read'", 'ComposerPermissions::user_can_create', "home_url( '/create-post/' )", 'File 22 receives no duplicate content copy' ) as $needle ) {
+$assert( false === strpos( $file22_bridge, "'supc_duplicate_key' ===" ), 'A duplicate adapter key must not be treated as successful File 21 registration.' );
+foreach ( array( 'implements Diagnostic_Adapter', 'UniversalComposerBridge::ADAPTER_KEY', "return '1.0.3'", "return 'sabri_feed_create_posts'", "SafeMode::feature_enabled( 'composer' )", 'ComposerPermissions::user_can_create', 'health_report', 'actual_native_version', "home_url( '/create-post/' )", 'File 22 receives no duplicate content copy' ) as $needle ) {
 	$assert( false !== strpos( $file22_adapter, $needle ), 'File 22 publication adapter contract missing: ' . $needle );
 }
 $assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'File 22 adapter must not duplicate native File 21 records.' );
