@@ -44,8 +44,9 @@ final class PublicQueryGuard {
 		}
 
 		$existing = $query->get( 'meta_query' );
+		$existing = is_array( $existing ) ? $existing : array();
 		$clauses = array( 'relation' => 'AND' );
-		if ( is_array( $existing ) && ! empty( $existing ) ) {
+		if ( ! empty( $existing ) ) {
 			$clauses[] = $existing;
 		}
 		$clauses[] = PostMetadata::visibility_meta_clause();
