@@ -11,14 +11,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Keeps File 21 as the Home content engine without copying companion data. */
+/** Keeps File 21 as the Home and News content engine without copying companion data. */
 final class HomeCompositionRegistry {
 	private static $rows_rendered = false;
+	private static $news_rendered = false;
 
-	/** Register optional row providers, Shell slots and fallback content mounting. */
+	/** Register optional row providers, official Shell slots, and fallback content mounting. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'sabri_shell_home_main', array( __CLASS__, 'render_shell_home' ), 20 );
+			add_action( 'sabri_shell_news_main', array( __CLASS__, 'render_shell_news' ), 20 );
 			add_action( 'sabri_feed_home_after_primary', array( __CLASS__, 'render_rows_action' ), 20 );
 		}
 		if ( function_exists( 'add_filter' ) ) {
@@ -63,7 +65,7 @@ final class HomeCompositionRegistry {
 		return $html . '</ul></nav>';
 	}
 
-	/** Home content rows and their owning modules. */
+	/** The ten mandatory Home content rows and their owning modules. */
 	public static function rows() {
 		$rows = array(
 			'most-viral-now' => array( 'label' => __( 'Most Viral Now', 'sabri-complete-home-news-feed' ), 'provider' => 'feed', 'mode' => 'most-viral', 'limit' => 6 ),
@@ -77,37 +79,61 @@ final class HomeCompositionRegistry {
 			'clinics' => array( 'label' => __( 'Worldwide Clinics', 'sabri-complete-home-news-feed' ), 'provider' => 'appointments', 'limit' => 6 ),
 			'marketplace' => array( 'label' => __( 'Marketplace', 'sabri-complete-home-news-feed' ), 'provider' => 'marketplace', 'limit' => 6 ),
 		);
-		return function_exists( 'apply_filters' ) ? (array) apply_filters( 'sabri_hnf_home_rows', $rows ) : $rows;
+		if ( ! function_exists( 'apply_filters' ) ) { return $rows; }
+		$filtered = apply_filters( 'sabri_hnf_home_rows', $rows );
+		$filtered = is_array( $filtered ) ? $filtered : array();
+		foreach ( $rows as $key => $default ) {
+			if ( isset( $filtered[ $key ] ) && is_array( $filtered[ $key ] ) ) {
+				$rows[ $key ] = array_merge( $default, $filtered[ $key ] );
+			}
+		}
+		return $rows;
 	}
 
-	/** Render rows from normalized provider callbacks; no companion database is copied. */
+	/** Render all ten rows; empty providers receive a truthful visible state. */
 	public static function render_rows() {
 		if ( self::$rows_rendered ) { return ''; }
 		self::$rows_rendered = true;
-		$html = '<div class="sabri-hnf-home-rows" data-sabri-home-rows>';
-		$count = 0;
-		foreach ( self::rows() as $key => $row ) {
+		$rows = self::rows();
+		$html = '<div class="sabri-hnf-home-rows" data-sabri-home-rows data-sabri-home-row-count="' . esc_attr( count( $rows ) ) . '">';
+		foreach ( $rows as $key => $row ) {
 			$items = self::row_items( $key, $row );
-			if ( empty( $items ) ) { continue; }
-			$count++;
-			$html .= '<section class="sabri-hnf-home-row" data-sabri-home-row="' . esc_attr( $key ) . '"><header><h2>' . esc_html( $row['label'] ) . '</h2></header><div class="sabri-hnf-home-row__items">';
-			foreach ( $items as $item ) { $html .= self::render_row_item( $item ); }
-			$html .= '</div></section>';
+			$html .= '<section class="sabri-hnf-home-row" data-sabri-home-row="' . esc_attr( $key ) . '"><header><h2>' . esc_html( $row['label'] ) . '</h2></header>';
+			if ( empty( $items ) ) {
+				$html .= self::render_empty_row( $row );
+			} else {
+				$html .= '<div class="sabri-hnf-home-row__items">';
+				foreach ( $items as $item ) { $html .= self::render_row_item( $item ); }
+				$html .= '</div>';
+			}
+			$html .= '</section>';
 		}
-		return $count > 0 ? $html . '</div>' : '';
+		return $html . '</div>';
 	}
 
-	/** Render the official Shell Home slot as the same complete surface used by fallbacks. */
+	/** Render the official Shell Home slot. */
 	public static function render_shell_home() {
 		if ( ! class_exists( __NAMESPACE__ . '\\CorrectivePublicMount' ) ) { return; }
 		$surface = CorrectivePublicMount::render_complete_surface( 'shell_home_main' );
 		if ( '' !== $surface ) { echo $surface; } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
 
-	/** Action wrapper after a primary Feed rendered by another accepted slot. */
-	public static function render_rows_action() { echo self::render_rows(); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	/** Render the official Shell News slot exactly once. */
+	public static function render_shell_news() {
+		if ( self::$news_rendered || ! class_exists( __NAMESPACE__ . '\\CorrectivePublicMount' ) ) { return; }
+		$surface = CorrectivePublicMount::render_news_surface( 'shell_news_main' );
+		if ( '' !== $surface ) {
+			self::$news_rendered = true;
+			echo $surface; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		}
+	}
 
-	/** Append rows after a legacy corrective surface that did not yet include them. */
+	/** Action wrapper after a primary Feed rendered by another accepted slot. */
+	public static function render_rows_action() {
+		echo self::render_rows(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/** Append rows after a legacy corrective surface that did not include them. */
 	public static function append_rows_to_corrective_surface( $content ) {
 		if ( ! is_string( $content ) || false === strpos( $content, 'data-sabri-hnf-surface="file-21-corrective"' ) || false !== strpos( $content, 'data-sabri-home-rows' ) ) { return $content; }
 		$rows = self::render_rows();
@@ -140,6 +166,15 @@ final class HomeCompositionRegistry {
 		return array_slice( array_values( array_filter( $items, 'is_array' ) ), 0, $limit );
 	}
 
+	/** Render a truthful unavailable/empty state without inventing content. */
+	private static function render_empty_row( array $row ) {
+		$provider = isset( $row['provider'] ) ? sanitize_key( $row['provider'] ) : '';
+		$message = in_array( $provider, array( 'feed', 'news' ), true )
+			? __( 'No approved publications are available in this section yet.', 'sabri-complete-home-news-feed' )
+			: __( 'This section is temporarily unavailable because its approved provider returned no items.', 'sabri-complete-home-news-feed' );
+		return '<p class="sabri-hnf-home-row__empty" role="status" data-sabri-home-row-empty="' . esc_attr( $provider ) . '">' . esc_html( $message ) . '</p>';
+	}
+
 	/** Render a safe generic card projection. */
 	private static function render_row_item( array $item ) {
 		$title = isset( $item['title'] ) ? sanitize_text_field( $item['title'] ) : '';
@@ -164,6 +199,9 @@ final class HomeCompositionRegistry {
 		return is_scalar( $url ) ? (string) $url : '';
 	}
 
-	/** Reset request-level row guard for tests and fallback remount diagnostics. */
-	public static function reset_runtime_guards() { self::$rows_rendered = false; }
+	/** Reset request-level guards. */
+	public static function reset_runtime_guards() {
+		self::$rows_rendered = false;
+		self::$news_rendered = false;
+	}
 }
