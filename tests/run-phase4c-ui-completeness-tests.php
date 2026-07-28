@@ -118,8 +118,14 @@ $assert( false === strpos( $js, 'innerHTML =' ) && false === strpos( $js, 'ev' .
 foreach ( array( $home, $archive, $single, $card, $correction, $retraction ) as $template_source ) {
 	$assert( false === strpos( $template_source, '$_GET' ) && false === strpos( $template_source, 'WP_Query' ) && false === strpos( $template_source, '$wpdb' ), 'Templates must not read requests or query persistence directly.' );
 }
-$assert( false !== strpos( $workflow, 'MINIMUM_SECONDS=3900' ) && false !== strpos( $workflow, 'REQUIRED_CYCLES=13' ), 'One-hour workflow must enforce 3,900 seconds and 13 cycles.' );
-$assert( false !== strpos( $workflow, 'initial-tracked-files.sha256' ) && false !== strpos( $workflow, 'final-tracked-files.sha256' ), 'One-hour workflow must compare tracked manifests.' );
+
+// Long soak QA was explicitly disabled by the repository owner. The retained
+// workflow must remain a fast, truthful confirmation and must not silently
+// reintroduce waiting intervals or 3,900-second acceptance claims.
+$assert( false !== strpos( $workflow, 'Long QA — Disabled' ), 'Disabled long-QA workflow must identify its state truthfully.' );
+$assert( false !== strpos( $workflow, 'No soak cycles or waiting intervals are executed.' ), 'Disabled long-QA workflow must confirm that no waiting or soak cycle runs.' );
+$assert( false === strpos( $workflow, 'MINIMUM_SECONDS=3900' ) && false === strpos( $workflow, 'REQUIRED_CYCLES=13' ), 'Disabled long-QA workflow must not retain one-hour execution constants.' );
+$assert( false === strpos( $workflow, 'sleep ' ) && false === strpos( $workflow, 'timeout-minutes: 105' ), 'Disabled long-QA workflow must not contain long waits or long-run timeouts.' );
 
 if ( $failures ) {
 	fwrite( STDERR, "Phase 4C UI completeness failures:\n- " . implode( "\n- ", $failures ) . "\n" );
