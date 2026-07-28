@@ -25,6 +25,7 @@ final class PublicComposerSurface {
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( __CLASS__, 'register_route' ), 15 );
+			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'maybe_enqueue_assets' ), 20 );
 			add_action( 'template_redirect', array( __CLASS__, 'render_route' ), 1 );
 			add_action( 'admin_init', array( __CLASS__, 'schedule_rewrite_recovery' ), 20 );
 			add_action( 'sabri_shell_home_before_main', array( __CLASS__, 'render_shell_home_button' ), 5 );
@@ -54,7 +55,7 @@ final class PublicComposerSurface {
 		return array_values( array_unique( $vars ) );
 	}
 
-	/** Canonical public Composer destination, with a configured same-site override. */
+	/** Canonical public Composer destination, with a configured override. */
 	public static function canonical_url() {
 		$fallback = function_exists( 'home_url' ) ? home_url( '/' . self::ROUTE_SLUG . '/' ) : '/' . self::ROUTE_SLUG . '/';
 		$settings = Settings::get();
@@ -62,18 +63,26 @@ final class PublicComposerSurface {
 		if ( '' === $configured ) {
 			return $fallback;
 		}
-		if ( function_exists( 'wp_validate_redirect' ) ) {
-			return wp_validate_redirect( $configured, $fallback );
-		}
-		return $configured;
+		return function_exists( 'wp_validate_redirect' ) ? wp_validate_redirect( $configured, $fallback ) : $configured;
 	}
 
 	/** Replace an empty or stale Shell Create destination with the working route. */
 	public static function filter_shell_create_url( $url ) {
+		return self::composer_enabled() ? self::canonical_url() : $url;
+	}
+
+	/** Load styles before wp_head whenever the route or a public action is relevant. */
+	public static function maybe_enqueue_assets() {
 		if ( ! self::composer_enabled() ) {
-			return $url;
+			return;
 		}
-		return self::canonical_url();
+		$relevant = self::is_route_request();
+		if ( ! $relevant && class_exists( __NAMESPACE__ . '\CorrectivePublicMount' ) ) {
+			$relevant = CorrectivePublicMount::is_public_home_context() || CorrectivePublicMount::is_public_news_context();
+		}
+		if ( $relevant ) {
+			self::enqueue_assets();
+		}
 	}
 
 	/** Render the public create-post action for Home or News surfaces. */
@@ -181,6 +190,7 @@ final class PublicComposerSurface {
 		}
 
 		self::enqueue_assets();
+		$composer_html = Composer::render();
 		if ( function_exists( 'get_header' ) ) {
 			get_header();
 		}
@@ -188,7 +198,7 @@ final class PublicComposerSurface {
 		echo '<main id="sabri-hnf-public-composer-page" class="sabri-hnf-public-composer-page" data-sabri-hnf-surface="public-composer">';
 		echo '<div class="sabri-hnf-public-composer-page__inner">';
 		echo '<header class="sabri-hnf-public-composer-page__header"><h1>' . esc_html__( 'Create a Post', 'sabri-complete-home-news-feed' ) . '</h1><p>' . esc_html__( 'Publish an approved Home Feed post from the public website.', 'sabri-complete-home-news-feed' ) . '</p></header>';
-		echo Composer::render(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo $composer_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 		echo '</div></main>';
 
 		if ( function_exists( 'get_footer' ) ) {
