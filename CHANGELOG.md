@@ -2,6 +2,7 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Added fail-soft Sabri Universal Post Composer interoperability: File 21 registers a versioned `social_publication` adapter, retains permanent ownership and native permissions, prefers the universal Create page when the complete File 20/File 22 gateway is available, and preserves its existing `/create-post/` fallback when that gateway is absent.
 - Restored the public **Create Post** action on Home and News, supplied the Unified Shell Create destination, and added the canonical `/create-post/` public Composer route with login, permission, duplicate-render and one-shot rewrite safeguards.
 - Restored the News Composer posting option after ZIP replacement by reconciling plugin-owned Administrator/Founder Editorial News capabilities on `admin_init`, preserving the canonical submenu, and adding a prominent **Create Editorial News** action on the Newsroom screen.
 - Corrected the Integrations diagnostics Safe Boot fatal by restoring the side-effect-free `proposed_future_integrations()` contract and guarding the administration view against mixed-version method absence.
@@ -28,5 +29,3 @@
 - Added canonical identity, Home controls, ranking, File 04 migration/rollback, integration registry, Search providers, Profile Timeline, Activation Wizard, package QA, and release diagnostics.
 
 ## 1.0.0 - Initial Foundation through Editorial News
-
-- Added independent plugin bootstrap, settings, database, Safe Mode, Home Feed, Composer, interactions, Editorial News, Newsroom, public routes, moderation, privacy, migration, and release tooling foundations.
