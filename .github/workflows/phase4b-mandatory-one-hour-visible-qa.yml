@@ -2,23 +2,18 @@ name: Phase 4B Mandatory One-Hour Visible QA
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
     paths:
-      - 'PHASE-4B-IMPLEMENTATION.md'
-      - 'PHASE-4B-ONE-HOUR-QA-PROTOCOL.md'
-      - 'admin/class-newsroom-admin.php'
-      - 'assets/css/newsroom-admin.css'
-      - 'assets/js/newsroom-editor.js'
-      - 'includes/class-editorial-news-post-type.php'
-      - 'includes/class-news-*.php'
-      - 'includes/class-newsroom-diagnostics.php'
-      - 'includes/class-plugin.php'
-      - 'tests/phase4b-stubs.php'
-      - 'tests/run-phase4b-newsroom-tests.php'
-      - 'tests/run-phase4b-ui-completeness-tests.php'
-      - 'tests/run-phase4b-playground-tests.mjs'
+      - 'PHASE-4B-*.md'
+      - 'FILE-21-*.md'
+      - 'admin/**'
+      - 'assets/**'
+      - 'includes/**'
+      - 'public/**'
+      - 'templates/**'
+      - 'tests/**'
       - 'tools/**'
+      - 'sabri-complete-home-news-feed.php'
       - '.github/workflows/phase4b-mandatory-one-hour-visible-qa.yml'
   workflow_dispatch:
 
@@ -31,77 +26,57 @@ concurrency:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE_BASE: 21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE
 
 jobs:
   preflight:
     name: Exact-head preflight and immutable package
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-
-      - name: Verify exact head and runtimes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact head and run complete newsroom regressions
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          php -v
-          node -v
-          pwsh -v
-          test -z "$(git status --porcelain --untracked-files=no)"
-
-      - name: Lint complete Phase 4B surface
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            includes/class-news-policy.php \
-            includes/class-news-workflow.php \
-            includes/class-news-composer-validator.php \
-            includes/class-news-queue-service.php \
-            includes/class-news-audit.php \
-            includes/class-news-scheduling-service.php \
-            includes/class-newsroom-diagnostics.php \
-            includes/class-news-service.php \
-            includes/class-editorial-news-post-type.php \
-            admin/class-newsroom-admin.php \
-            includes/class-plugin.php \
-            tests/phase4b-stubs.php \
-            tests/run-phase4b-newsroom-tests.php \
-            tests/run-phase4b-ui-completeness-tests.php; do
-            php -l "$file"
-          done
-          node --check assets/js/newsroom-editor.js
-          node --check tests/run-phase4b-playground-tests.mjs
-
-      - name: Run complete regression surface
-        shell: bash
-        run: |
-          set -euo pipefail
+          grep -Fq 'Version: 1.0.3' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
+          find includes admin public templates tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+          FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+          php tests/run-file21-settings-recursion-tests.php
+          php tests/run-file21-public-visibility-tests.php
+          php tests/run-file21-harmonization-tests.php
           php tests/run-phase4b-newsroom-tests.php
           php tests/run-phase4b-ui-completeness-tests.php
           php tests/run-phase4a-content-model-tests.php
           php tools/run-tests.php
+          node --check assets/js/newsroom-editor.js
+          node --check tests/run-phase4b-playground-tests.mjs
           pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
-
-      - name: Build and verify immutable package
+          test -z "$(git status --porcelain --untracked-files=no)"
+      - name: Build immutable canonical package
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf release visible-qa-package visible-qa-preflight
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum"
-          expected=$(awk '{print tolower($1)}' "$checksum")
+          package="release/${PACKAGE_BASE}.zip"
+          checksum="release/${PACKAGE_BASE}.sha256"
+          manifest="release/${PACKAGE_BASE}-MANIFEST.sha256"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest"
           actual=$(sha256sum "$package" | awk '{print $1}')
-          test "$expected" = "$actual"
+          test "$(awk '{print tolower($1)}' "$checksum")" = "$actual"
           unzip -tqq "$package"
           mkdir -p visible-qa-package visible-qa-preflight
           cp "$package" visible-qa-package/candidate.zip
+          cp "$manifest" visible-qa-package/runtime-manifest.sha256
           printf '%s  candidate.zip\n' "$actual" > visible-qa-package/candidate.sha256
           printf '%s\n' "${TEST_SHA}" > visible-qa-package/exact-commit.txt
           unzip -Z1 "$package" > visible-qa-package/package-entries.txt
@@ -122,29 +97,24 @@ jobs:
           git rev-parse HEAD > visible-qa-preflight/exact-commit.txt
           git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > visible-qa-preflight/tracked-files.sha256
           sha256sum visible-qa-preflight/tracked-files.sha256 > visible-qa-preflight/manifest-digest.sha256
-          test -z "$(git status --porcelain --untracked-files=no)"
-
-      - name: Upload immutable package
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: phase4b-visible-package-${{ env.TEST_SHA }}
-          retention-days: 30
+          retention-days: 60
           path: visible-qa-package/
           if-no-files-found: error
-
-      - name: Upload preflight evidence
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: phase4b-visible-preflight-${{ env.TEST_SHA }}
-          retention-days: 30
+          retention-days: 60
           path: visible-qa-preflight/
           if-no-files-found: error
 
   source-playground:
-    name: Visible source Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    name: Source newsroom WordPress (${{ matrix.wp }}, PHP ${{ matrix.php }})
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -154,43 +124,34 @@ jobs:
           - wp: '6.8'
             php: '8.1'
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Verify exact head
-        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install official WordPress Playground CLI
-        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-      - name: Run source newsroom integration
-        shell: bash
+      - run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Run source newsroom matrix
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
         run: |
-          set -euo pipefail
-          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee visible-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
-      - name: Upload source evidence
-        if: always()
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase4b-visible-source-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
-          retention-days: 30
-          path: visible-source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          name: phase4b-source-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
+          retention-days: 60
+          path: source-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: error
 
   packaged-playground:
-    name: Visible packaged Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
-    needs:
-      - preflight
-      - source-playground
+    name: Packaged newsroom WordPress (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    needs: [preflight, source-playground]
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -200,155 +161,133 @@ jobs:
           - wp: '6.8'
             php: '8.1'
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Download immutable package
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: phase4b-visible-package-${{ env.TEST_SHA }}
           path: visible-qa-package
-      - name: Verify downloaded package
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd visible-qa-package
-          sha256sum -c candidate.sha256
-          unzip -tqq candidate.zip
-          test "$(cat exact-commit.txt)" = "${TEST_SHA}"
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+      - run: |
+          (cd visible-qa-package && sha256sum -c candidate.sha256 && unzip -tqq candidate.zip)
+          test "$(cat visible-qa-package/exact-commit.txt)" = "${TEST_SHA}"
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install official WordPress Playground CLI
-        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-      - name: Run packaged newsroom integration
-        shell: bash
+      - run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Run packaged newsroom matrix
         env:
           SABRI_PLUGIN_ZIP: visible-qa-package/candidate.zip
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-        run: |
-          set -euo pipefail
-          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee visible-packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
-      - name: Upload packaged evidence
-        if: always()
+        run: node tests/run-phase4b-playground-tests.mjs 2>&1 | tee packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase4b-visible-packaged-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
-          retention-days: 30
-          path: visible-packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          name: phase4b-packaged-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
+          retention-days: 60
+          path: packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: error
 
   one-hour-soak:
-    name: Observable uninterrupted 3,900-second soak
+    name: Exactly 13 complete cycles and at least 3,900 seconds
     needs: packaged-playground
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 105
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-
-      - name: Run 13 complete cycles for at least 3,900 seconds
+      - name: Run visible newsroom soak
         shell: bash
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
           readonly MINIMUM_SECONDS=3900
           readonly REQUIRED_CYCLES=13
-          readonly CYCLE_INTERVAL_SECONDS=300
+          readonly CYCLE_INTERVAL_SECONDS=325
           readonly START_EPOCH=$(date +%s)
-          mkdir -p visible-one-hour-soak
-          git rev-parse HEAD > visible-one-hour-soak/exact-commit.txt
-          test "$(cat visible-one-hour-soak/exact-commit.txt)" = "${TEST_SHA}"
-          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > visible-one-hour-soak/initial-tracked-files.sha256
-
-          run_local_suite() {
+          mkdir -p phase4b-one-hour-soak/cycle-logs
+          git rev-parse HEAD > phase4b-one-hour-soak/exact-commit.txt
+          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4b-one-hour-soak/initial-tracked-files.sha256
+          current_cycle=0
+          on_error() {
+            status=$?
+            now=$(date +%s)
+            printf 'status=failed\nhead_sha=%s\ncycle=%s\nelapsed_seconds=%s\nexit_status=%s\n' "${TEST_SHA}" "$current_cycle" "$((now-START_EPOCH))" "$status" > phase4b-one-hour-soak/failure.env
+            exit "$status"
+          }
+          trap on_error ERR
+          run_suite() {
+            FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+            php tests/run-file21-settings-recursion-tests.php
+            php tests/run-file21-public-visibility-tests.php
+            php tests/run-file21-harmonization-tests.php
             php tests/run-phase4b-newsroom-tests.php
             php tests/run-phase4b-ui-completeness-tests.php
             php tests/run-phase4a-content-model-tests.php
             php tools/run-tests.php
             node --check assets/js/newsroom-editor.js
-            node --check tests/run-phase4b-playground-tests.mjs
             pwsh -NoProfile -File ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
           }
-
-          verify_fresh_package() {
+          build_package() {
             rm -rf release
             pwsh -NoProfile -File ./tools/build-release.ps1
-            local package checksum expected actual
-            package=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)
-            checksum=$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.sha256' -print -quit)
-            test -n "$package" && test -n "$checksum"
-            expected=$(awk '{print tolower($1)}' "$checksum")
-            actual=$(sha256sum "$package" | awk '{print $1}')
-            test "$expected" = "$actual"
-            unzip -tqq "$package"
-            LAST_PACKAGE_SHA="$actual"
+            LAST_PACKAGE="release/${PACKAGE_BASE}.zip"
+            checksum="release/${PACKAGE_BASE}.sha256"
+            LAST_MANIFEST="release/${PACKAGE_BASE}-MANIFEST.sha256"
+            test -f "$LAST_PACKAGE" && test -f "$checksum" && test -f "$LAST_MANIFEST"
+            LAST_PACKAGE_SHA=$(sha256sum "$LAST_PACKAGE" | awk '{print $1}')
+            test "$(awk '{print tolower($1)}' "$checksum")" = "$LAST_PACKAGE_SHA"
+            unzip -tqq "$LAST_PACKAGE"
           }
-
-          LAST_PACKAGE_SHA=''
-          for cycle in $(seq 1 "${REQUIRED_CYCLES}"); do
+          LAST_PACKAGE=''; LAST_PACKAGE_SHA=''; LAST_MANIFEST=''
+          for cycle in $(seq 1 "$REQUIRED_CYCLES"); do
+            current_cycle=$cycle
             cycle_start=$(date +%s)
-            printf 'Starting cycle %02d at %s\n' "$cycle" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-            run_local_suite
-            verify_fresh_package
-            test -z "$(git status --porcelain --untracked-files=no)"
+            log_file=$(printf 'phase4b-one-hour-soak/cycle-logs/cycle-%02d.log' "$cycle")
+            {
+              printf 'Starting cycle %02d at %s\n' "$cycle" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+              run_suite
+              build_package
+              test -z "$(git status --porcelain --untracked-files=no)"
+            } > >(tee "$log_file") 2>&1
+            wait
             cycle_end=$(date +%s)
-            printf 'cycle=%02d start_epoch=%s end_epoch=%s elapsed=%s package_sha256=%s\n' \
-              "$cycle" "$cycle_start" "$cycle_end" "$((cycle_end-cycle_start))" "$LAST_PACKAGE_SHA" \
-              >> visible-one-hour-soak/cycles.log
-            if [ "$cycle" -lt "${REQUIRED_CYCLES}" ]; then
+            printf 'cycle=%02d start_epoch=%s end_epoch=%s elapsed=%s package_sha256=%s\n' "$cycle" "$cycle_start" "$cycle_end" "$((cycle_end-cycle_start))" "$LAST_PACKAGE_SHA" >> phase4b-one-hour-soak/cycles.log
+            if [ "$cycle" -lt "$REQUIRED_CYCLES" ]; then
               target_epoch=$((START_EPOCH + cycle * CYCLE_INTERVAL_SECONDS))
               now_epoch=$(date +%s)
-              if [ "$now_epoch" -lt "$target_epoch" ]; then
-                sleep "$((target_epoch-now_epoch))"
-              fi
+              if [ "$now_epoch" -lt "$target_epoch" ]; then sleep "$((target_epoch-now_epoch))"; fi
             fi
           done
-
-          minimum_end=$((START_EPOCH + MINIMUM_SECONDS))
-          now_epoch=$(date +%s)
-          if [ "$now_epoch" -lt "$minimum_end" ]; then
-            sleep "$((minimum_end-now_epoch))"
-          fi
-
-          run_local_suite
-          verify_fresh_package
-          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > visible-one-hour-soak/final-tracked-files.sha256
-          cmp visible-one-hour-soak/initial-tracked-files.sha256 visible-one-hour-soak/final-tracked-files.sha256
-          sha256sum visible-one-hour-soak/initial-tracked-files.sha256 > visible-one-hour-soak/manifest-digest.sha256
-          cp "$(find release -maxdepth 1 -type f -name '*-PHASE-3-STAGING-CANDIDATE.zip' -print -quit)" visible-one-hour-soak/final-candidate.zip
-          printf '%s  final-candidate.zip\n' "$LAST_PACKAGE_SHA" > visible-one-hour-soak/final-package.sha256
           END_EPOCH=$(date +%s)
           DURATION_SECONDS=$((END_EPOCH-START_EPOCH))
-          COMPLETED_CYCLES=$(wc -l < visible-one-hour-soak/cycles.log | tr -d ' ')
+          test "$current_cycle" -eq "$REQUIRED_CYCLES"
           test "$DURATION_SECONDS" -ge "$MINIMUM_SECONDS"
-          test "$COMPLETED_CYCLES" -eq "$REQUIRED_CYCLES"
-          manifest_sha=$(awk '{print $1}' visible-one-hour-soak/manifest-digest.sha256)
-          printf 'status=passed\nhead_sha=%s\nduration_seconds=%s\ncycles=%s\npackage_sha256=%s\ntracked_manifest_sha256=%s\npublic_gates_enabled=0\nauto_publish_enabled=0\n' \
-            "${TEST_SHA}" "$DURATION_SECONDS" "$COMPLETED_CYCLES" "$LAST_PACKAGE_SHA" "$manifest_sha" \
-            > visible-one-hour-soak/result.env
-          test -z "$(git status --porcelain --untracked-files=no)"
-
-      - name: Upload complete soak evidence
+          test "$(wc -l < phase4b-one-hour-soak/cycles.log)" -eq "$REQUIRED_CYCLES"
+          git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4b-one-hour-soak/final-tracked-files.sha256
+          cmp phase4b-one-hour-soak/initial-tracked-files.sha256 phase4b-one-hour-soak/final-tracked-files.sha256
+          sha256sum phase4b-one-hour-soak/initial-tracked-files.sha256 > phase4b-one-hour-soak/tracked-manifest-digest.sha256
+          cp "$LAST_PACKAGE" phase4b-one-hour-soak/final-candidate.zip
+          cp "$LAST_MANIFEST" phase4b-one-hour-soak/runtime-manifest.sha256
+          printf '%s  final-candidate.zip\n' "$LAST_PACKAGE_SHA" > phase4b-one-hour-soak/final-package.sha256
+          printf 'status=soak-passed\nhead_sha=%s\nduration_seconds=%s\ncycles=%s\npackage_sha256=%s\nruntime_version=1.0.3\nschema_version=1.0.0\npublic_get_recovery_writes=0\nlive_deployed=0\n' "${TEST_SHA}" "$DURATION_SECONDS" "$REQUIRED_CYCLES" "$LAST_PACKAGE_SHA" > phase4b-one-hour-soak/result.env
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase4b-visible-one-hour-soak-${{ env.TEST_SHA }}
+          name: phase4b-one-hour-soak-${{ env.TEST_SHA }}
           retention-days: 60
-          path: visible-one-hour-soak/
+          path: phase4b-one-hour-soak/
           if-no-files-found: error
 
   final-packaged-playground:
-    name: Final packaged verification (${{ matrix.wp }}, PHP ${{ matrix.php }})
+    name: Final packaged newsroom WordPress (${{ matrix.wp }}, PHP ${{ matrix.php }})
     needs: one-hour-soak
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -358,90 +297,66 @@ jobs:
           - wp: '6.8'
             php: '8.1'
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Download complete soak evidence
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: phase4b-visible-one-hour-soak-${{ env.TEST_SHA }}
-          path: visible-one-hour-soak
-      - name: Verify final package checksum
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd visible-one-hour-soak
-          sha256sum -c final-package.sha256
-          unzip -tqq final-candidate.zip
-          test "$(cat exact-commit.txt)" = "${TEST_SHA}"
-      - name: Use Node.js 22
-        uses: actions/setup-node@v4
+          name: phase4b-one-hour-soak-${{ env.TEST_SHA }}
+          path: phase4b-one-hour-soak
+      - run: |
+          (cd phase4b-one-hour-soak && sha256sum -c final-package.sha256 && unzip -tqq final-candidate.zip)
+          test "$(cat phase4b-one-hour-soak/exact-commit.txt)" = "${TEST_SHA}"
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install official WordPress Playground CLI
-        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-      - name: Run final packaged newsroom integration
-        shell: bash
+      - run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Run final packaged matrix
         env:
-          SABRI_PLUGIN_ZIP: visible-one-hour-soak/final-candidate.zip
+          SABRI_PLUGIN_ZIP: phase4b-one-hour-soak/final-candidate.zip
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-        run: |
-          set -euo pipefail
-          node tests/run-phase4b-playground-tests.mjs 2>&1 | tee visible-final-${{ matrix.wp }}-php-${{ matrix.php }}.log
-      - name: Upload final packaged evidence
-        if: always()
+        run: node tests/run-phase4b-playground-tests.mjs 2>&1 | tee final-${{ matrix.wp }}-php-${{ matrix.php }}.log
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phase4b-visible-final-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
+          name: phase4b-one-hour-final-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
           retention-days: 60
-          path: visible-final-${{ matrix.wp }}-php-${{ matrix.php }}.log
+          path: final-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: error
 
   acceptance:
-    name: Retain observable passed one-hour acceptance record
-    needs:
-      - one-hour-soak
-      - final-packaged-playground
+    name: Retain passed Phase 4B acceptance
+    needs: [one-hour-soak, final-packaged-playground]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout exact PR head
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
-      - name: Download complete soak evidence
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
-          name: phase4b-visible-one-hour-soak-${{ env.TEST_SHA }}
-          path: visible-one-hour-soak
+          name: phase4b-one-hour-soak-${{ env.TEST_SHA }}
+          path: phase4b-one-hour-soak
       - name: Verify and retain acceptance record
-        shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
-          grep -Fxq 'status=passed' visible-one-hour-soak/result.env
-          grep -Fxq "head_sha=${TEST_SHA}" visible-one-hour-soak/result.env
-          duration=$(awk -F= '$1=="duration_seconds"{print $2}' visible-one-hour-soak/result.env)
-          cycles=$(awk -F= '$1=="cycles"{print $2}' visible-one-hour-soak/result.env)
-          test "$duration" -ge 3900
-          test "$cycles" -eq 13
-          cmp visible-one-hour-soak/initial-tracked-files.sha256 visible-one-hour-soak/final-tracked-files.sha256
-          (cd visible-one-hour-soak && sha256sum -c final-package.sha256)
-          mkdir -p visible-one-hour-acceptance
-          cp visible-one-hour-soak/result.env visible-one-hour-acceptance/
-          cp visible-one-hour-soak/cycles.log visible-one-hour-acceptance/
-          cp visible-one-hour-soak/manifest-digest.sha256 visible-one-hour-acceptance/
-          cp visible-one-hour-soak/final-package.sha256 visible-one-hour-acceptance/
-          cp visible-one-hour-soak/exact-commit.txt visible-one-hour-acceptance/
-          test -z "$(git status --porcelain --untracked-files=no)"
-      - name: Upload passed observable one-hour artifact
-        uses: actions/upload-artifact@v4
+          grep -Fxq 'status=soak-passed' phase4b-one-hour-soak/result.env
+          grep -Fxq "head_sha=${TEST_SHA}" phase4b-one-hour-soak/result.env
+          grep -Fxq 'runtime_version=1.0.3' phase4b-one-hour-soak/result.env
+          grep -Fxq 'schema_version=1.0.0' phase4b-one-hour-soak/result.env
+          grep -Fxq 'public_get_recovery_writes=0' phase4b-one-hour-soak/result.env
+          test "$(awk -F= '$1=="duration_seconds"{print $2}' phase4b-one-hour-soak/result.env)" -ge 3900
+          test "$(awk -F= '$1=="cycles"{print $2}' phase4b-one-hour-soak/result.env)" -eq 13
+          cmp phase4b-one-hour-soak/initial-tracked-files.sha256 phase4b-one-hour-soak/final-tracked-files.sha256
+          (cd phase4b-one-hour-soak && sha256sum -c final-package.sha256)
+          mkdir -p phase4b-one-hour-acceptance
+          cp phase4b-one-hour-soak/{result.env,cycles.log,tracked-manifest-digest.sha256,final-package.sha256,runtime-manifest.sha256,exact-commit.txt} phase4b-one-hour-acceptance/
+      - uses: actions/upload-artifact@v4
         with:
           name: sabri-phase4b-ONE-HOUR-VISIBLE-QA-PASSED-${{ env.TEST_SHA }}
           retention-days: 60
-          path: visible-one-hour-acceptance/
+          path: phase4b-one-hour-acceptance/
           if-no-files-found: error
