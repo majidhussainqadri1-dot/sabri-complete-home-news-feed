@@ -18,49 +18,66 @@ jobs:
         with:
           ref: fix/file-21-production-rejection-1.0.3
           fetch-depth: 0
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3'
-          coverage: none
-      - name: Synchronize only current-runtime test assertions
+      - name: Synchronize current-runtime and canonical-package assertions only
         shell: python
         run: |
           from pathlib import Path
           import re
 
-          targets = [Path('tools/run-tests.php'), Path('tests/run-phase4a-content-model-tests.php'), Path('tests/run-phase3-infrastructure-tests.php')]
+          roots = [Path('tests'), Path('tools'), Path('.github/workflows')]
+          files = []
+          for root in roots:
+              if not root.exists():
+                  continue
+              for path in root.rglob('*'):
+                  if path.is_file() and path.suffix.lower() in {'.php', '.mjs', '.js', '.yml', '.yaml', '.ps1', '.sh'}:
+                      files.append(path)
+
+          old_packages = [
+              '21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE',
+              '21-sabri-complete-home-news-feed-1.0.2-COMPATIBILITY-CANDIDATE',
+              '21-sabri-complete-home-news-feed-1.0.1-HARMONIZED-CANDIDATE',
+              '21-sabri-complete-home-news-feed-1.0.0-PHASE-3-STAGING-CANDIDATE',
+              '21-sabri-complete-home-news-feed-1.0.0-PHASE-2-STAGING-CANDIDATE',
+          ]
+          current_package = '21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE'
           changed = []
-          for path in targets:
+          for path in sorted(files):
+              if path.name == 'file21-1.0.3-test-sync.yml':
+                  continue
               text = path.read_text(encoding='utf-8')
               original = text
+
+              # Runtime identity only; schema and historical migration fixture versions stay untouched.
               text = re.sub(r"'1\.0\.2'(\s*===\s*\$identity\['version'\])", r"'1.0.3'\1", text)
+              text = re.sub(r"\$identity\['version'\](\s*===\s*)'1\.0\.2'", r"$identity['version']\1'1.0.3'", text)
+              text = re.sub(r"'1\.0\.2'(\s*===\s*SABRI_HNF_VERSION)", r"'1.0.3'\1", text)
+              text = re.sub(r"SABRI_HNF_VERSION(\s*===\s*)'1\.0\.2'", r"SABRI_HNF_VERSION\1'1.0.3'", text)
               text = text.replace('Plugin identity runtime version must be 1.0.2.', 'Plugin identity runtime version must be 1.0.3.')
               text = text.replace('runtime 1.0.2 while preserving schema 1.0.0', 'runtime 1.0.3 while preserving schema 1.0.0')
               text = text.replace('runtime 1.0.1 while preserving schema 1.0.0', 'runtime 1.0.3 while preserving schema 1.0.0')
-              text = text.replace("'1.0.2' === $identity['version']", "'1.0.3' === $identity['version']")
+              text = text.replace('Version: 1.0.2', 'Version: 1.0.3')
+              text = text.replace("SABRI_HNF_VERSION', '1.0.2", "SABRI_HNF_VERSION', '1.0.3")
+              text = text.replace('plugin_version=1.0.2', 'plugin_version=1.0.3')
+              text = text.replace('runtime_version=1.0.2', 'runtime_version=1.0.3')
+              text = text.replace('version=1.0.2', 'version=1.0.3')
+              for old in old_packages:
+                  text = text.replace(old, current_package)
+
               if text != original:
                   path.write_text(text, encoding='utf-8')
                   changed.append(str(path))
-          workflow = Path('.github/workflows/file21-1.0.3-test-sync.yml')
-          workflow.unlink()
-          print('Changed:', ', '.join(changed))
-      - name: Validate synchronized tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          php -l tools/run-tests.php
-          php -l tests/run-phase4a-content-model-tests.php
-          php -l tests/run-phase3-infrastructure-tests.php
-          php tools/run-tests.php
-          php tests/run-phase4a-content-model-tests.php
-          php tests/run-phase3-infrastructure-tests.php
-      - name: Commit exact synchronization and remove temporary workflow
+
+          Path('.github/workflows/file21-1.0.3-test-sync.yml').unlink()
+          print('Changed files:')
+          print('\n'.join(changed))
+      - name: Commit synchronization and remove temporary workflow
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tools/run-tests.php tests/run-phase4a-content-model-tests.php tests/run-phase3-infrastructure-tests.php .github/workflows/file21-1.0.3-test-sync.yml
+          git add tests tools .github/workflows
           git diff --cached --quiet && exit 1
-          git commit -m 'Synchronize File 21 current-runtime test assertions to 1.0.3'
+          git commit -m 'Synchronize File 21 1.0.3 runtime and canonical package assertions'
           git push origin HEAD:fix/file-21-production-rejection-1.0.3
