@@ -43,6 +43,12 @@ final class NewsComposerAccessRecovery {
 		if ( class_exists( __NAMESPACE__ . '\\NewsCapabilities' ) ) {
 			NewsCapabilities::apply_default_policy();
 		}
+		if ( function_exists( 'wp_get_current_user' ) ) {
+			$user = wp_get_current_user();
+			if ( is_object( $user ) && is_callable( array( $user, 'get_role_caps' ) ) ) {
+				$user->get_role_caps();
+			}
+		}
 		if ( function_exists( 'update_option' ) ) {
 			update_option( self::POLICY_VERSION_OPTION, self::POLICY_VERSION, false );
 		}
@@ -62,7 +68,7 @@ final class NewsComposerAccessRecovery {
 					$exists = true;
 					break;
 				}
-			}
+		}
 		}
 		if ( $exists ) {
 			return;
