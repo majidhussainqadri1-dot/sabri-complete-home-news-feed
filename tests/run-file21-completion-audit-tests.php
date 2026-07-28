@@ -23,10 +23,13 @@ function sabri_file21_completion_assert( $condition, $message ) {
 }
 
 $defaults = CorrectivePublicSettings::defaults();
-sabri_file21_completion_assert( 0 === $defaults['home_surface_enabled'], 'Corrective Home auto-mount must remain disabled until explicit wizard activation.' );
+sabri_file21_completion_assert( 1 === $defaults['home_surface_enabled'], 'The harmless read-only Home surface must be available without requiring a frontend write.' );
+sabri_file21_completion_assert( 1 === $defaults['profile_timeline_enabled'], 'The harmless read-only Profile Timeline must be available without requiring a frontend write.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_feed_guard'], 'Duplicate Feed protection must default on.' );
-sabri_file21_completion_assert( 0 === $defaults['replace_existing_feed_surface'], 'Existing Feed replacement must require explicit administrator selection.' );
+sabri_file21_completion_assert( 0 === $defaults['replace_existing_feed_surface'], 'Existing Feed replacement must require explicit administrator selection or bounded recovery.' );
 sabri_file21_completion_assert( 1 === $defaults['duplicate_navigation_guard'], 'Duplicate navigation diagnostics must default on.' );
+sabri_file21_completion_assert( 0 === $defaults['wizard_completed'], 'Read-only visibility must not falsely mark the Activation Wizard complete.' );
+sabri_file21_completion_assert( 0 === $defaults['read_only_surface_recovered'], 'Default visibility must not falsely claim that a database recovery already ran.' );
 
 $steps = CorrectiveActivationWizard::steps();
 foreach ( array( 'environment', 'identity-authority', 'existing-content', 'public-components', 'duplicate-protection', 'news-gates', 'preview-activate' ) as $step ) {
