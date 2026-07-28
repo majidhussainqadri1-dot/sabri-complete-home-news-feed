@@ -17,7 +17,7 @@ final class NewsRouting {
 
 	public static function register(){
 		if(!function_exists('add_action')||!function_exists('add_filter')){return;}
-		add_action('init',array(__CLASS__,'rewrite_rules'),12); add_action('template_redirect',array(__CLASS__,'prepare_request'),0);
+		add_action('init',array(__CLASS__,'rewrite_rules'),12); add_action('template_redirect',array(__CLASS__,'redirect_legacy_pages'),-1); add_action('template_redirect',array(__CLASS__,'prepare_request'),0);
 		add_filter('query_vars',array(__CLASS__,'query_vars')); add_filter('template_include',array(__CLASS__,'template_include'),99);
 		add_filter('redirect_canonical',array(__CLASS__,'redirect_canonical'),10,2); add_filter('document_title_parts',array(__CLASS__,'document_title_parts')); add_filter('wp_robots',array(__CLASS__,'robots'));
 	}
@@ -32,7 +32,7 @@ final class NewsRouting {
 	public static function query_vars($vars){$vars=is_array($vars)?$vars:array();foreach(array(self::Q_ARCHIVE,self::Q_SLUG,self::Q_TAXONOMY,self::Q_TERM)as$var){$vars[]=$var;}return array_values(array_unique($vars));}
 
 	public static function prepare_request(){
-		if(!self::is_news_request()){return;}
+		if(!self::is_public_news_request()){return;}
 		if(!NewsPolicy::public_reads_allowed()){self::mark_404();return;}
 		$slug=self::query_var(self::Q_SLUG);$native_id=self::native_single_id();
 		if(''!==$slug||$native_id>0){
@@ -69,12 +69,24 @@ final class NewsRouting {
 	public static function document_title_parts($parts){$parts=is_array($parts)?$parts:array();$c=NewsPublicRuntime::context();if(!empty($c['title'])){$parts['title']=$c['title'];}return$parts;}
 	public static function robots($robots){$robots=is_array($robots)?$robots:array();$c=NewsPublicRuntime::context();if(!empty($c['article']['projection'])&&'retraction'===$c['article']['projection']){$robots['noindex']=true;$robots['nofollow']=false;}return$robots;}
 
-	private static function is_news_request(){
+	/** Whether the current request belongs to canonical or accepted legacy News. */
+	public static function is_public_news_request(){
 		if('1'===(string)self::query_var(self::Q_ARCHIVE)||''!==self::query_var(self::Q_SLUG)){return true;}
 		if(function_exists('is_singular')&&is_singular(Phase4Contracts::POST_TYPE)){return true;}
 		if(function_exists('is_post_type_archive')&&is_post_type_archive(Phase4Contracts::POST_TYPE)){return true;}
 		if(function_exists('is_tax')){foreach(Phase4Contracts::taxonomies()as$taxonomy){if(is_tax($taxonomy)){return true;}}}
-		return false;
+		if(function_exists('is_page')&&is_page(array('news','sabri-news','blog'))){return true;}
+		$path=self::request_path();
+		return in_array($path,array('/news/','/sabri-news/','/blog/'),true);
+	}
+
+	/** Redirect retired public News pages only after Editorial News activation. */
+	public static function redirect_legacy_pages(){
+		if(!NewsPolicy::public_reads_allowed()||function_exists('is_admin')&&is_admin()){return;}
+		$path=self::request_path();
+		if(!in_array($path,array('/sabri-news/','/blog/'),true)){return;}
+		$target=function_exists('home_url')?home_url('/news/'):'/news/';
+		if(function_exists('wp_safe_redirect')){wp_safe_redirect($target,301);exit;}
 	}
 	private static function native_single_id(){return function_exists('is_singular')&&is_singular(Phase4Contracts::POST_TYPE)&&function_exists('get_queried_object_id')?max(0,(int)get_queried_object_id()):0;}
 	private static function native_taxonomy_context(){
@@ -95,6 +107,12 @@ final class NewsRouting {
 		return function_exists('apply_filters')?(bool)apply_filters('sabri_phase4c_test_term_exists',false,$taxonomy,$term):false;
 	}
 	private static function term_title($taxonomy,$term){if('sabri_news_section'===$taxonomy&&isset(Phase4Contracts::sections()[$term])){return Phase4Contracts::sections()[$term];}if('sabri_news_type'===$taxonomy&&isset(Phase4Contracts::article_types()[$term])){return Phase4Contracts::article_types()[$term];}if(function_exists('get_term_by')){$o=get_term_by('slug',$term,$taxonomy);if($o&&!is_wp_error($o)&&!empty($o->name)){return(string)$o->name;}}return ucwords(str_replace('-',' ',$term));}
+	private static function request_path(){
+		$uri=isset($_SERVER['REQUEST_URI'])&&is_scalar($_SERVER['REQUEST_URI'])?(string)$_SERVER['REQUEST_URI']:'';
+		$path=function_exists('wp_parse_url')?wp_parse_url($uri,PHP_URL_PATH):parse_url($uri,PHP_URL_PATH);
+		$path=is_string($path)?'/'.trim($path,'/').'/':'/';
+		return '//'===$path?'/':$path;
+	}
 	private static function query_var($key){return function_exists('get_query_var')?(string)get_query_var($key,''):(isset($GLOBALS['wp_query']->query_vars[$key])?(string)$GLOBALS['wp_query']->query_vars[$key]:'');}
 	private static function strict_slug($value){return is_string($value)&&strlen($value)<=120&&preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D',$value)?$value:'';}
 	private static function mark_404(){self::mark_status(404);if(function_exists('nocache_headers')){nocache_headers();}}
