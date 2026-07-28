@@ -2,37 +2,47 @@
 Contributors: sabri
 Tags: feed, news, social, moderation, homeopathy
 Requires at least: 6.0
-Tested up to: 6.6
+Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.0
+Stable tag: 1.0.2
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
-Phase 2 Home Feed and public Composer runtime for Sabri home feed, social news, publishing, safety, and data architecture.
+Complete Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and File 20 integration runtime for the Sabri Social Homeopathy Platform.
 
 == Description ==
 
-Sabri Complete Home and News Feed 1.0.0 provides the Phase 2 Home Feed and public Composer runtime on top of the Phase 1 safety foundation.
+Version 1.0.2 is the canonical corrective release line. It includes the Home Feed, controlled publishing, social interactions, Profile Timeline, Editorial News/Newsroom foundations, public News routing, corrections and Breaking News foundations, legacy migration safeguards, Safe Boot recovery, companion integrations, and identifiable public File 21 surfaces.
 
-Phase 2 includes real feed rendering from existing WordPress posts, accessible filter navigation, standard pagination, Load More enhancement, public composer shortcodes, capability enforcement, Clinical Case and Research structured metadata, media validation, visibility enforcement, REST feed/composer endpoints, tests, CI workflow, and release-builder tooling.
-
-Phase 2 does not complete likes, dislikes, comments, replies, saves, follows, reports, polls, full News workflows, moderation workflow UI, or analytics dashboards.
+File 20 owns the global application shell; File 21 owns Home and News content, queries, publishing policy, and News presentation. Editorial News and write-sensitive features remain controlled by explicit, reversible gates.
 
 == Installation ==
 
-1. Upload `sabri-complete-home-news-feed` to `wp-content/plugins/`.
-2. Activate the plugin on staging first.
-3. Open Home & News Feed in wp-admin.
-4. Review System Check, Integrations, Repair, Migration, and Rollback pages.
-5. Run GitHub Actions and Hostinger staging acceptance before production use.
+1. Back up the WordPress files and database.
+2. Install or update File 20 with the official Home and News rendering slots.
+3. Upload this plugin to `wp-content/plugins/sabri-complete-home-news-feed/` on staging.
+4. Remove or deactivate duplicate copies installed under other folder names.
+5. Activate the plugin and use **Retry Safe Boot** when a previous failure is recorded.
+6. Complete the Activation Wizard and verify System Check.
+7. Enable Editorial News gates only after staging acceptance, then flush rewrite rules.
+8. Verify `/news/`, all ten Home rows, pagination, single-post Read More, rollback, and cache clearing before production use.
 
 == Safety ==
 
-Activation, deactivation, repair, migration, rollback, and default uninstall behavior preserve WordPress content and companion-plugin data. No fake doctors, fake news, fake engagement, fake analytics, or placeholder production records are created.
+Public GET requests do not run recovery migrations. Recovery and post normalization run only from activation or an explicit authorized administrator action. No fake doctors, fake news, fake engagement, fake analytics, or placeholder production records are created.
 
 == Changelog ==
 
+= 1.0.2 =
+* Fixed recursive settings normalization and retained Safe Boot recovery.
+* Added truthful File 20 slot detection instead of unconditional Connected status.
+* Registered official Home and News Shell slots.
+* Preserved all ten mandatory Home rows with explicit empty/unavailable states.
+* Removed database recovery writes from public rendering and ordinary `init` requests.
+* Restricted Breaking News to the main Home/News loop with a render-once guard.
+* Enforced eligible public post metadata before list queries so pagination totals remain correct.
+* Added controlled replacement for legacy `/sabri-news/` Page content when Editorial News is enabled.
+* Aligned release metadata and builders on version 1.0.2.
+
 = 1.0.0 =
-* Added Phase 1 foundation architecture.
-* Added versioned settings, capabilities, schema, admin, safety, privacy, REST, repair, migration, rollback, tests, CI, and release-builder tooling.
-* Added Phase 2 Home Feed and public Composer runtime.
+* Added the safety foundation and Home Feed/Composer runtime.
