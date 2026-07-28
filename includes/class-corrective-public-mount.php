@@ -13,13 +13,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Makes File 21 public output observable without replacing the Unified Shell. */
 final class CorrectivePublicMount {
-	/** Whether this corrective surface rendered in the current request. */
 	private static $rendered = false;
 
 	/** Register native, content, loop, shortcode, and block mounting paths. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'the_content', array( __CLASS__, 'mount_on_front_page' ), 8 );
+			add_filter( 'the_content', array( __CLASS__, 'mount_on_news_page' ), 8 );
 			add_filter( 'pre_do_shortcode_tag', array( __CLASS__, 'intercept_feed_shortcode' ), 8, 4 );
 			add_filter( 'render_block', array( __CLASS__, 'intercept_shortcode_block' ), 8, 2 );
 			add_filter( 'body_class', array( __CLASS__, 'body_classes' ) );
@@ -65,7 +65,6 @@ final class CorrectivePublicMount {
 		} elseif ( ! $can_mount ) {
 			$reason = 'legacy_feed_blocked_by_duplicate_guard';
 		}
-
 		return array(
 			'front_page_id'               => $front_page_id,
 			'existing_feed_shortcode'     => $shortcode,
@@ -97,14 +96,12 @@ final class CorrectivePublicMount {
 		if ( function_exists( 'is_home' ) && is_home() ) { return $content; }
 		if ( function_exists( 'in_the_loop' ) && ! in_the_loop() ) { return $content; }
 		if ( function_exists( 'is_main_query' ) && ! is_main_query() ) { return $content; }
-
 		$raw_content = '';
-		$post_id     = function_exists( 'get_the_ID' ) ? (int) get_the_ID() : 0;
+		$post_id = function_exists( 'get_the_ID' ) ? (int) get_the_ID() : 0;
 		if ( $post_id > 0 && function_exists( 'get_post_field' ) ) { $raw_content = (string) get_post_field( 'post_content', $post_id ); }
 		$existing_shortcode = self::content_feed_shortcode( $raw_content );
-		$replacement        = CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' );
+		$replacement = CorrectivePublicSettings::enabled( 'replace_existing_feed_surface' );
 		if ( CorrectivePublicSettings::enabled( 'duplicate_feed_guard' ) && '' !== $existing_shortcode && ! $replacement ) { return $content; }
-
 		$surface = self::render_complete_surface( 'corrective_front_page_mount' );
 		if ( '' === $surface ) { return $content; }
 		if ( '' !== $existing_shortcode && $replacement ) {
@@ -112,6 +109,20 @@ final class CorrectivePublicMount {
 			return $replaced !== $content ? $replaced : $content . $surface;
 		}
 		return $content . $surface;
+	}
+
+	/** Replace a legacy News Page surface without mutating its saved content. */
+	public static function mount_on_news_page( $content ) {
+		if ( self::$rendered || ( function_exists( 'is_admin' ) && is_admin() ) || ! self::is_public_news_page_context() ) { return $content; }
+		if ( function_exists( 'in_the_loop' ) && ! in_the_loop() ) { return $content; }
+		if ( function_exists( 'is_main_query' ) && ! is_main_query() ) { return $content; }
+		$surface = self::render_news_surface( 'legacy_news_page' );
+		if ( '' === $surface ) { return $content; }
+		if ( '' !== self::content_feed_shortcode( $content ) ) {
+			$replaced = self::replace_known_feed_shortcodes( $content, $surface );
+			return $replaced !== $content ? $replaced : $surface;
+		}
+		return $surface;
 	}
 
 	/** Intercept direct legacy shortcode execution used by themes or builders. */
@@ -143,17 +154,38 @@ final class CorrectivePublicMount {
 
 	/** Build the complete identifiable Home surface for Shell or fallback callers. */
 	public static function render_complete_surface( $source = 'public' ) {
-		if ( self::$rendered ) { return ''; }
-		if ( ! self::public_mount_allowed() && class_exists( __NAMESPACE__ . '\\PublicSurfaceRecovery' ) ) {
-			PublicSurfaceRecovery::maybe_recover();
-		}
-		if ( ! self::public_mount_allowed() ) { return ''; }
+		if ( self::$rendered || ! self::public_mount_allowed() ) { return ''; }
 		$feed = HomeIntegration::render_feed_once( sanitize_key( $source ), array() );
 		if ( '' === $feed ) { return ''; }
 		$rows = class_exists( __NAMESPACE__ . '\\HomeCompositionRegistry' ) ? HomeCompositionRegistry::render_rows() : '';
 		self::$rendered = true;
 		self::enqueue_assets();
 		return self::surface( $feed, $rows, $source );
+	}
+
+	/** Build the identifiable Editorial News surface for the official Shell or legacy Page. */
+	public static function render_news_surface( $source = 'public_news' ) {
+		if ( self::$rendered || ! class_exists( __NAMESPACE__ . '\\NewsPolicy' ) || ! NewsPolicy::public_reads_allowed() ) { return ''; }
+		if ( ! class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) || ! class_exists( __NAMESPACE__ . '\\NewsQueryService' ) ) { return ''; }
+		$context = NewsPublicRuntime::context();
+		if ( empty( $context['route'] ) && self::is_public_news_page_context() ) {
+			$result = NewsQueryService::landing();
+			if ( empty( $result['success'] ) ) { return ''; }
+			$context = array(
+				'route' => 'landing',
+				'result' => $result,
+				'title' => __( 'News', 'sabri-complete-home-news-feed' ),
+				'description' => '',
+				'canonical_base' => function_exists( 'home_url' ) ? home_url( '/news/' ) : '/news/',
+			);
+			NewsPublicRuntime::set_context( $context );
+		}
+		if ( empty( $context['route'] ) ) { return ''; }
+		$body = 'single' === $context['route'] ? NewsPublicRuntime::render_single() : NewsPublicRuntime::render_archive();
+		if ( '' === $body ) { return ''; }
+		self::$rendered = true;
+		self::enqueue_assets();
+		return '<section class="sabri-hnf-corrective-surface sabri-hnf-news-surface" aria-label="' . esc_attr__( 'Sabri Editorial News', 'sabri-complete-home-news-feed' ) . '" data-sabri-hnf-surface="file-21-news" data-sabri-hnf-version="' . esc_attr( SABRI_HNF_VERSION ) . '" data-sabri-hnf-mount-source="' . esc_attr( sanitize_key( $source ) ) . '">' . $body . '</section>';
 	}
 
 	/** Replace the first known Feed shortcode with File 21 and remove duplicates. */
@@ -189,6 +221,8 @@ final class CorrectivePublicMount {
 		$classes = is_array( $classes ) ? $classes : array();
 		if ( CorrectivePublicSettings::enabled( 'home_surface_enabled' ) ) { $classes[] = 'sabri-hnf-corrective-public-enabled'; }
 		if ( self::public_mount_allowed() ) { $classes[] = 'sabri-hnf-public-surface-ready'; }
+		$news_context = class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) ? NewsPublicRuntime::context() : array();
+		if ( ! empty( $news_context['route'] ) || self::is_public_news_page_context() ) { $classes[] = 'sabri-hnf-news-surface-context'; }
 		return array_values( array_unique( $classes ) );
 	}
 
@@ -222,6 +256,7 @@ final class CorrectivePublicMount {
 		self::$rendered = false;
 		if ( class_exists( __NAMESPACE__ . '\\HomeIntegration' ) ) { HomeIntegration::reset_runtime_guards(); }
 		if ( class_exists( __NAMESPACE__ . '\\HomeCompositionRegistry' ) && method_exists( HomeCompositionRegistry::class, 'reset_runtime_guards' ) ) { HomeCompositionRegistry::reset_runtime_guards(); }
+		if ( class_exists( __NAMESPACE__ . '\\Phase5PublicRuntime' ) && method_exists( Phase5PublicRuntime::class, 'reset_runtime_guards' ) ) { Phase5PublicRuntime::reset_runtime_guards(); }
 	}
 
 	/** Build the identifiable File 21 surface. */
@@ -237,6 +272,16 @@ final class CorrectivePublicMount {
 		if ( function_exists( 'is_admin' ) && is_admin() ) { return false; }
 		if ( HomeIntegration::is_single_post_request() ) { return false; }
 		return function_exists( 'is_front_page' ) && is_front_page();
+	}
+
+	/** Determine whether the request is the canonical or legacy public News Page. */
+	private static function is_public_news_page_context() {
+		if ( function_exists( 'is_admin' ) && is_admin() ) { return false; }
+		if ( class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) ) {
+			$context = NewsPublicRuntime::context();
+			if ( ! empty( $context['route'] ) ) { return true; }
+		}
+		return function_exists( 'is_page' ) && ( is_page( 'news' ) || is_page( 'sabri-news' ) );
 	}
 
 	/** Detect duplicate enabled Shell destinations that resolve to the same URL/page. */
