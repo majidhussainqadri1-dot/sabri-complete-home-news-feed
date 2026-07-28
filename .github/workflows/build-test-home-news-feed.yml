@@ -6,213 +6,139 @@ on:
     branches:
       - main
       - build/**
+      - fix/**
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE
 
 jobs:
   build-test:
-    name: Build, test, and package
+    name: Exact-head build, regression, and canonical package
     runs-on: ubuntu-latest
-
+    timeout-minutes: 40
     steps:
-      - name: Checkout
+      - name: Checkout exact source head
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
 
-      - name: Show runtime versions
+      - name: Show and verify runtime versions
         run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           php -v
           node -v
           pwsh -v
+          test -z "$(git status --porcelain --untracked-files=no)"
 
       - name: PHP syntax lint
-        run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+        run: find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
 
-      - name: Complete PHP behavior test suite
+      - name: Complete PHP behavior and phase regression suite
         shell: bash
         run: |
-          set -o pipefail
-          php tools/run-tests.php 2>&1 | tee phase2-behavior-test.log
-
-      - name: Phase 3 checkpoint contract tests
-        run: php tests/run-phase3-contract-tests.php
-
-      - name: Phase 3A infrastructure tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3-infrastructure-tests.php 2>&1 | tee phase3a-test.log
-
-      - name: Phase 3B reactions and saves tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3b-reactions-saves-tests.php 2>&1 | tee phase3b-test.log
-
-      - name: Phase 3B race and Saved Posts tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3b-race-shortcode-tests.php 2>&1 | tee phase3b-race-test.log
-
-      - name: Phase 3C comments and replies tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3c-comments-tests.php 2>&1 | tee phase3c-test.log
-
-      - name: Phase 3D Follow and Following tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3d-follows-tests.php 2>&1 | tee phase3d-test.log
-
-      - name: Phase 3E reports and moderation tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3e-reports-tests.php 2>&1 | tee phase3e-test.log
-
-      - name: Phase 3F Polls tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3f-polls-tests.php 2>&1 | tee phase3f-test.log
-
-      - name: Phase 3G Notification Bridge and Views tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3g-notifications-views-tests.php 2>&1 | tee phase3g-test.log
-
-      - name: Phase 3H hardening and release-readiness tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3h-hardening-tests.php 2>&1 | tee phase3h-test.log
-
-      - name: Phase 3 Social Features and Share tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-phase3-social-features-share-tests.php 2>&1 | tee phase3-social-features-share-test.log
-
-      - name: Public Page and post query routing regression tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-public-query-routing-tests.php 2>&1 | tee public-query-routing-test.log
-
-      - name: WordPress dynamic option-filter compatibility tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-wordpress-option-filter-compatibility-tests.php 2>&1 | tee wordpress-option-filter-test.log
-
-      - name: Duplicate plugin-folder activation compatibility tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php tests/run-duplicate-plugin-compat-tests.php 2>&1 | tee duplicate-plugin-test.log
-
-      - name: Upload Phase 3 test logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phase3-test-logs
-          path: |
-            phase2-behavior-test.log
-            phase3a-test.log
-            phase3b-test.log
-            phase3b-race-test.log
-            phase3c-test.log
-            phase3d-test.log
-            phase3e-test.log
-            phase3f-test.log
-            phase3g-test.log
-            phase3h-test.log
-            phase3-social-features-share-test.log
-            public-query-routing-test.log
-            wordpress-option-filter-test.log
-            duplicate-plugin-test.log
-          if-no-files-found: warn
+          set -euo pipefail
+          tests=(
+            tests/run-phase3-contract-tests.php
+            tests/run-phase3-infrastructure-tests.php
+            tests/run-phase3b-reactions-saves-tests.php
+            tests/run-phase3b-race-shortcode-tests.php
+            tests/run-phase3c-comments-tests.php
+            tests/run-phase3d-follows-tests.php
+            tests/run-phase3e-reports-tests.php
+            tests/run-phase3f-polls-tests.php
+            tests/run-phase3g-notifications-views-tests.php
+            tests/run-phase3h-hardening-tests.php
+            tests/run-phase3-social-features-share-tests.php
+            tests/run-public-query-routing-tests.php
+            tests/run-wordpress-option-filter-compatibility-tests.php
+            tests/run-duplicate-plugin-compat-tests.php
+            tests/run-file21-settings-recursion-tests.php
+            tests/run-file21-production-rejection-tests.php
+            tests/run-file21-public-visibility-tests.php
+            tests/run-file21-harmonization-tests.php
+            tests/run-file21-harmonization-negative-tests.php
+            tests/run-file21-corrective-tests.php
+            tests/run-file21-completion-audit-tests.php
+            tests/run-file21-legacy-interaction-migration-tests.php
+          )
+          : > exact-head-regression.log
+          php tools/run-tests.php 2>&1 | tee -a exact-head-regression.log
+          for test in "${tests[@]}"; do
+            printf '\n=== %s ===\n' "$test" | tee -a exact-head-regression.log
+            FILE21_ROOT="$PWD" php "$test" 2>&1 | tee -a exact-head-regression.log
+          done
 
       - name: JavaScript syntax validation
         run: |
+          set -euo pipefail
           find assets/js -name '*.js' -print0 | xargs -0 -n1 node --check
-          node --check tests/run-playground-integration-tests.mjs
-          node --check tests/run-packaged-playground-integration-tests.mjs
-          node --check tests/run-date-permalink-playground-tests.mjs
+          for test in tests/*.mjs; do node --check "$test"; done
 
-      - name: CSS, JSON, security, and whitespace checks
+      - name: Static security and whitespace checks
         shell: pwsh
         run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
-      - name: Build Phase 3 staging candidate
+      - name: Build canonical corrective package
         shell: pwsh
         run: ./tools/build-release.ps1
 
-      - name: ZIP structure verification
-        shell: pwsh
+      - name: Verify canonical ZIP, checksum, manifest, and structure
+        shell: bash
         run: |
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $zip = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
-          if (-not $zip) {
-            throw 'Phase 3 staging candidate ZIP was not created.'
-          }
-          $archive = [System.IO.Compression.ZipFile]::OpenRead($zip.FullName)
-          try {
-            $entries = $archive.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }
-            $required = @(
-              'sabri-complete-home-news-feed/',
-              'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php',
-              'sabri-complete-home-news-feed/includes/class-poll-composer-integration.php',
-              'sabri-complete-home-news-feed/includes/class-public-query-guard.php',
-              'sabri-complete-home-news-feed/admin/views/social-features.php',
-              'sabri-complete-home-news-feed/assets/js/share.js'
-            )
-            foreach ($entry in $required) {
-              if (-not ($entries | Where-Object { $_ -eq $entry })) {
-                throw "Missing required package entry: $entry"
-              }
-            }
-            $bad = $entries | Where-Object {
-              $_ -match '^(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
-              $_ -match '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules|TASK_LOG\.md|\.gitignore)' -or
-              $_ -match '\.log$'
-            }
-            if ($bad) {
-              throw "Development files included in staging ZIP: $($bad -join ', ')"
-            }
-          } finally {
-            $archive.Dispose()
-          }
+          set -euo pipefail
+          package="release/${CANONICAL_BASE}.zip"
+          checksum="release/${CANONICAL_BASE}.sha256"
+          manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          report="release/${CANONICAL_BASE}-TEST-REPORT.md"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest" && test -f "$report"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          unzip -Z1 "$package" > package-entries.txt
+          for entry in \
+            sabri-complete-home-news-feed/ \
+            sabri-complete-home-news-feed/sabri-complete-home-news-feed.php \
+            sabri-complete-home-news-feed/includes/class-home-integration.php \
+            sabri-complete-home-news-feed/includes/class-public-query-guard.php \
+            sabri-complete-home-news-feed/includes/class-public-surface-recovery.php \
+            sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
+            sabri-complete-home-news-feed/includes/class-integrations.php \
+            sabri-complete-home-news-feed/public/class-news-public-runtime.php; do
+            grep -Fxq "$entry" package-entries.txt
+          done
+          if grep -Eq '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules)/' package-entries.txt; then
+            echo 'Development-only files are present in the package.'
+            exit 1
+          fi
+          test -z "$(git status --porcelain --untracked-files=no)"
 
-      - name: SHA-256 verification
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.zip | Select-Object -First 1
-          $sha = Get-ChildItem release/*-PHASE-3-STAGING-CANDIDATE.sha256 | Select-Object -First 1
-          if (-not $zip -or -not $sha) {
-            throw 'Staging ZIP or checksum file is missing.'
-          }
-          $expected = (Get-Content $sha.FullName -Raw).Split(' ')[0].Trim()
-          $actual = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($expected -ne $actual) {
-            throw 'SHA-256 mismatch.'
-          }
-
-      - name: Upload Phase 3 staging candidate
+      - name: Upload canonical package and evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sabri-home-news-feed-phase-3-staging-candidate
+          name: file21-canonical-candidate-${{ env.TEST_SHA }}
           path: |
-            release/*-PHASE-3-STAGING-CANDIDATE.zip
-            release/*-PHASE-3-STAGING-CANDIDATE.sha256
-            release/*-PHASE-3-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE-TEST-REPORT.md
+            exact-head-regression.log
+            package-entries.txt
+          if-no-files-found: warn
+          retention-days: 30
 
   playground-integration:
     name: Real Playground (${{ matrix.wp }}, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -221,32 +147,31 @@ jobs:
             php: '8.3'
           - wp: '6.8'
             php: '8.1'
-
     steps:
-      - name: Checkout
+      - name: Checkout exact source head
         uses: actions/checkout@v4
-
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
       - name: Use Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-
       - name: Install official WordPress Playground CLI
         run: npm install --no-save --no-package-lock @wp-playground/cli@latest
-
-      - name: Run activation, Pages, social action bar, comments, views, deactivate, and reactivate tests
+      - name: Run activation, Pages, social actions, deactivation, and reactivation
         shell: bash
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
         run: |
-          set -o pipefail
+          set -euo pipefail
           node tests/run-playground-integration-tests.mjs 2>&1 | tee playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
-
-      - name: Upload Playground integration log
+      - name: Upload Playground evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playground-${{ matrix.wp }}-php-${{ matrix.php }}-log
+          name: playground-${{ matrix.wp }}-php-${{ matrix.php }}-${{ env.TEST_SHA }}
           path: playground-${{ matrix.wp }}-php-${{ matrix.php }}.log
           if-no-files-found: warn
+          retention-days: 30
