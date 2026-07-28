@@ -18,18 +18,25 @@ final class PublicComposerSurface {
 	const REWRITE_POLICY_OPTION = 'sabri_hnf_public_composer_route_policy';
 	const REWRITE_POLICY_VERSION = '1.0.3-public-composer-route-v1';
 
+	/** @var bool Prevent duplicate CTA output across Shell and fallback mounts. */
+	private static $button_rendered = false;
+
 	/** Register route, public action, Shell URL and one-shot rewrite recovery. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'init', array( __CLASS__, 'register_route' ), 15 );
 			add_action( 'template_redirect', array( __CLASS__, 'render_route' ), 1 );
 			add_action( 'admin_init', array( __CLASS__, 'schedule_rewrite_recovery' ), 20 );
+			add_action( 'sabri_shell_home_before_main', array( __CLASS__, 'render_shell_home_button' ), 5 );
+			add_action( 'sabri_shell_news_main', array( __CLASS__, 'render_shell_news_button' ), 5 );
+			add_action( 'loop_start', array( __CLASS__, 'render_loop_button' ), 0 );
 		}
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'query_vars', array( __CLASS__, 'query_vars' ) );
 			add_filter( 'body_class', array( __CLASS__, 'body_classes' ) );
 			add_filter( 'document_title_parts', array( __CLASS__, 'document_title' ) );
 			add_filter( 'sabri_shell_create_url', array( __CLASS__, 'filter_shell_create_url' ), 30 );
+			add_filter( 'the_content', array( __CLASS__, 'inject_content_button' ), 9 );
 		}
 	}
 
@@ -88,7 +95,66 @@ final class PublicComposerSurface {
 			$label = __( 'Sign in to Post', 'sabri-complete-home-news-feed' );
 		}
 
-		return '<div class="sabri-hnf-public-composer-action" data-sabri-hnf-public-composer-action="1"><a class="' . esc_attr( $class ) . '" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a></div>';
+		self::enqueue_assets();
+		return '<div class="sabri-hnf-public-composer-action" data-sabri-hnf-public-composer-action="1"><a class="' . esc_attr( $class ) . '" href="' . esc_url( $url ) . '"><span aria-hidden="true">＋</span> ' . esc_html( $label ) . '</a></div>';
+	}
+
+	/** Render the CTA before the native Shell Home surface. */
+	public static function render_shell_home_button() {
+		self::echo_button_once( 'home' );
+	}
+
+	/** Render the CTA before the native Shell News surface. */
+	public static function render_shell_news_button() {
+		self::echo_button_once( 'news' );
+	}
+
+	/** Render before posts-index fallback output. */
+	public static function render_loop_button( $query ) {
+		if ( self::$button_rendered || self::is_route_request() || ( function_exists( 'is_admin' ) && is_admin() ) ) {
+			return;
+		}
+		if ( is_object( $query ) && method_exists( $query, 'is_main_query' ) && ! $query->is_main_query() ) {
+			return;
+		}
+		if ( class_exists( __NAMESPACE__ . '\CorrectivePublicMount' ) && CorrectivePublicMount::is_public_home_context() && function_exists( 'is_home' ) && is_home() ) {
+			self::echo_button_once( 'home' );
+		}
+	}
+
+	/** Inject the CTA on static public Home and News Pages only. */
+	public static function inject_content_button( $content ) {
+		if ( self::$button_rendered || self::is_route_request() || ( function_exists( 'is_admin' ) && is_admin() ) ) {
+			return $content;
+		}
+		if ( function_exists( 'in_the_loop' ) && ! in_the_loop() ) {
+			return $content;
+		}
+		if ( function_exists( 'is_main_query' ) && ! is_main_query() ) {
+			return $content;
+		}
+		$current_id = function_exists( 'get_the_ID' ) ? (int) get_the_ID() : 0;
+		$queried_id = function_exists( 'get_queried_object_id' ) ? (int) get_queried_object_id() : 0;
+		if ( $queried_id > 0 && $current_id !== $queried_id ) {
+			return $content;
+		}
+
+		$context = '';
+		if ( class_exists( __NAMESPACE__ . '\CorrectivePublicMount' ) && CorrectivePublicMount::is_public_home_context() ) {
+			$context = 'home';
+		} elseif ( class_exists( __NAMESPACE__ . '\CorrectivePublicMount' ) && CorrectivePublicMount::is_public_news_context() ) {
+			$context = 'news';
+		}
+		if ( '' === $context ) {
+			return $content;
+		}
+
+		$button = self::render_button( $context );
+		if ( '' === $button ) {
+			return $content;
+		}
+		self::$button_rendered = true;
+		return $button . $content;
 	}
 
 	/** Render the canonical public Composer page. */
@@ -114,6 +180,7 @@ final class PublicComposerSurface {
 			exit;
 		}
 
+		self::enqueue_assets();
 		if ( function_exists( 'get_header' ) ) {
 			get_header();
 		}
@@ -172,6 +239,26 @@ final class PublicComposerSurface {
 		}
 		update_option( self::REWRITE_POLICY_OPTION, self::REWRITE_POLICY_VERSION, false );
 		update_option( RewriteRules::FLUSH_OPTION, 1, false );
+	}
+
+	/** Output one escaped CTA and consume the request guard only on success. */
+	private static function echo_button_once( $context ) {
+		if ( self::$button_rendered ) {
+			return;
+		}
+		$button = self::render_button( $context );
+		if ( '' === $button ) {
+			return;
+		}
+		self::$button_rendered = true;
+		echo $button; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	/** Enqueue the route and CTA stylesheet. */
+	private static function enqueue_assets() {
+		if ( function_exists( 'wp_enqueue_style' ) ) {
+			wp_enqueue_style( 'sabri-hnf-public-composer-surface', SABRI_HNF_URL . 'assets/css/public-composer-surface.css', array(), SABRI_HNF_VERSION );
+		}
 	}
 
 	/** Whether the public social Composer is operational. */
