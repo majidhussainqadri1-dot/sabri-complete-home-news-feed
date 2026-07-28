@@ -17,9 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * when File 22 is absent, disabled, incompatible, or in Safe Mode.
  */
 final class UniversalComposerBridge {
-	const ADAPTER_API_VERSION          = '1.0.0';
-	const ADAPTER_KEY                  = 'social_publication';
-	const MINIMUM_SHELL_VERSION        = '1.0.1';
+	const ADAPTER_API_VERSION           = '1.0.0';
+	const ADAPTER_KEY                   = 'social_publication';
+	const MINIMUM_SHELL_VERSION         = '1.0.1';
 	const SHELL_CREATE_CONTRACT_VERSION = '1.0.0';
 
 	/** @var bool Prevent duplicate registration during the same request. */
@@ -75,9 +75,9 @@ final class UniversalComposerBridge {
 
 	/**
 	 * Remove File 21's Home/News fallback CTA only when File 20 and File 22 can
-	 * provide the complete global gateway and this exact native adapter is
-	 * registered and healthy. The native `/create-post/` route remains available
-	 * as the adapter destination.
+	 * provide the complete global gateway to the current authorized user and this
+	 * exact native adapter is registered and healthy. The native `/create-post/`
+	 * route remains available as the adapter destination.
 	 */
 	public static function harmonize_create_surfaces() {
 		if ( ! self::gateway_available() ) {
@@ -116,7 +116,9 @@ final class UniversalComposerBridge {
 		}
 
 		return function_exists( 'sabri_shell_create_contract_available' )
-			&& (bool) sabri_shell_create_contract_available();
+			&& function_exists( 'sabri_shell_create_visible_for_current_user' )
+			&& (bool) sabri_shell_create_contract_available()
+			&& (bool) sabri_shell_create_visible_for_current_user();
 	}
 
 	/**
