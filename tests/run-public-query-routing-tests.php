@@ -82,10 +82,12 @@ function sabri_public_routing_assert_filtered( array $vars, array $flags, $messa
 	$query = new Sabri_Public_Query_Routing_Fixture( $vars, $flags );
 	PublicQueryGuard::filter_public_queries( $query );
 	$filtered = $query->get( 'meta_query' );
-	sabri_public_routing_assert( is_array( $filtered ) && 3 === count( $filtered ), $message . ' Visibility clauses were not added exactly once.' );
+	sabri_public_routing_assert( is_array( $filtered ) && 4 === count( $filtered ), $message . ' Visibility clauses were not added exactly once.' );
+	sabri_public_routing_assert( isset( $filtered['relation'] ) && 'AND' === $filtered['relation'], $message . ' Meta-query relation must remain explicit.' );
+	sabri_public_routing_assert( isset( $filtered[0] ) && $sentinel === $filtered[0], $message . ' Existing metadata conditions were not preserved.' );
 	sabri_public_routing_assert( 1 === (int) $query->get( PublicQueryGuard::FILTER_MARKER ), $message . ' Guard marker is missing.' );
 	PublicQueryGuard::filter_public_queries( $query );
-	sabri_public_routing_assert( 3 === count( $query->get( 'meta_query' ) ), $message . ' Repeated execution duplicated metadata clauses.' );
+	sabri_public_routing_assert( 4 === count( $query->get( 'meta_query' ) ), $message . ' Repeated execution duplicated metadata clauses.' );
 }
 
 sabri_test_reset_state( true );
