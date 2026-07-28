@@ -13,25 +13,24 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Activates only read-only public surfaces while leaving publication, News, and
- * legacy migrations fail-closed. The recovery runs once per release and never
- * overrides an administrator-completed wizard decision.
+ * legacy migrations fail-closed. Recovery is invoked only by activation or an
+ * explicit administrator action and never by an ordinary public request.
  */
 final class PublicSurfaceRecovery {
-	const VERSION = '1.0.2';
+	const VERSION = SABRI_HNF_VERSION;
 	const VERSION_OPTION = 'sabri_hnf_public_surface_recovery_version';
 	const REPORT_OPTION = 'sabri_hnf_public_surface_recovery_report';
 	const NORMALIZATION_BATCH_SIZE = 200;
 
-	/** Register the one-time migration and an explicit administrator recovery action. */
+	/** Register only explicit administrator recovery and diagnostics. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
-			add_action( 'init', array( __CLASS__, 'maybe_recover' ), 1 );
 			add_action( 'admin_post_sabri_hnf_recover_public_surface', array( __CLASS__, 'recover_from_admin' ) );
 			add_action( 'admin_notices', array( __CLASS__, 'admin_notice' ) );
 		}
 	}
 
-	/** Run a bounded, non-destructive recovery until every eligible post is normalized. */
+	/** Run a bounded recovery when called by activation or an authorized admin action. */
 	public static function maybe_recover() {
 		if ( ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) ) {
 			return self::report( false, 'wordpress_options_unavailable', array() );
@@ -50,17 +49,14 @@ final class PublicSurfaceRecovery {
 		$diagnostics    = CorrectivePublicMount::diagnostics();
 		$normalized     = array();
 
-		/* A completed wizard is an explicit administrator decision. */
 		if ( ! $explicit ) {
 			$updated                = CorrectivePublicSettings::patch( self::safe_read_surface_patch( $diagnostics ) );
 			$normalized             = self::normalize_published_privileged_posts();
 			$normalization_complete = ! empty( $normalized['complete'] );
 			$changed                = $updated !== $current || ! empty( $normalized['updated'] );
-			if ( ! $normalization_complete ) {
-				$reason = 'safe_read_surfaces_recovery_continues';
-			} else {
-				$reason = $changed ? 'safe_read_surfaces_recovered' : 'safe_read_surfaces_already_ready';
-			}
+			$reason                 = ! $normalization_complete
+				? 'safe_read_surfaces_recovery_continues'
+				: ( $changed ? 'safe_read_surfaces_recovered' : 'safe_read_surfaces_already_ready' );
 		} else {
 			$updated                = $current;
 			$changed                = false;
