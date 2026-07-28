@@ -14,11 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Registers the native File 21 social-publication adapter only when the
  * versioned File 22 contract is present. File 21 remains fully operational
- * when File 22 is absent, disabled, or in Safe Mode.
+ * when File 22 is absent, disabled, incompatible, or in Safe Mode.
  */
 final class UniversalComposerBridge {
-	const ADAPTER_API_VERSION = '1.0.0';
-	const MINIMUM_SHELL_VERSION = '1.0.1';
+	const ADAPTER_API_VERSION          = '1.0.0';
+	const ADAPTER_KEY                  = 'social_publication';
+	const MINIMUM_SHELL_VERSION        = '1.0.1';
+	const SHELL_CREATE_CONTRACT_VERSION = '1.0.0';
 
 	/** @var bool Prevent duplicate registration during the same request. */
 	private static $registered = false;
@@ -49,8 +51,9 @@ final class UniversalComposerBridge {
 				return;
 			}
 
-			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) && 'supc_duplicate_key' === $result->get_error_code() ) {
-				self::$registered = true;
+			if ( function_exists( 'do_action' ) ) {
+				$code = function_exists( 'is_wp_error' ) && is_wp_error( $result ) ? $result->get_error_code() : 'registration_rejected';
+				do_action( 'sabri_hnf_file22_adapter_registration_error', $code );
 			}
 		} catch ( \Throwable $error ) {
 			if ( function_exists( 'do_action' ) ) {
@@ -65,15 +68,16 @@ final class UniversalComposerBridge {
 			return $url;
 		}
 
-		$resolver = array( '\\Sabri\\UniversalComposer\\Core\\Page_Resolver', 'url' );
+		$resolver      = array( '\\Sabri\\UniversalComposer\\Core\\Page_Resolver', 'url' );
 		$universal_url = is_callable( $resolver ) ? (string) call_user_func( $resolver ) : '';
 		return '' !== $universal_url ? $universal_url : $url;
 	}
 
 	/**
 	 * Remove File 21's Home/News fallback CTA only when File 20 and File 22 can
-	 * provide the complete global gateway. The native `/create-post/` route
-	 * remains available as the adapter destination.
+	 * provide the complete global gateway and this exact native adapter is
+	 * registered and healthy. The native `/create-post/` route remains available
+	 * as the adapter destination.
 	 */
 	public static function harmonize_create_surfaces() {
 		if ( ! self::gateway_available() ) {
@@ -91,31 +95,45 @@ final class UniversalComposerBridge {
 		}
 	}
 
-	/** Whether the exact File 22 base-adapter contract is available. */
+	/** Whether the exact File 22 base and diagnostic contracts are available. */
 	public static function file22_contract_available() {
 		return defined( 'SUPC_ADAPTER_API_VERSION' )
 			&& self::ADAPTER_API_VERSION === (string) SUPC_ADAPTER_API_VERSION
 			&& function_exists( 'supc_register_adapter' )
-			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' );
+			&& function_exists( 'supc_adapter_matches' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Diagnostic_Adapter' );
 	}
 
-	/**
-	 * Whether the complete universal Create gateway may replace File 21's
-	 * fallback Home/News CTA. Requiring the File 20 producer contract prevents
-	 * the fallback from disappearing before the global Create button can be
-	 * shown to approved doctors.
-	 */
-	public static function gateway_available() {
-		if ( ! self::file22_contract_available() ) {
-			return false;
-		}
-
+	/** Whether File 20 exposes the exact non-overridable Create producer contract. */
+	private static function shell_contract_available() {
 		if ( ! defined( 'SABRI_SHELL_VERSION' ) || version_compare( (string) SABRI_SHELL_VERSION, self::MINIMUM_SHELL_VERSION, '<' ) ) {
 			return false;
 		}
 
+		if ( ! defined( 'SABRI_SHELL_CREATE_CONTRACT_VERSION' ) || version_compare( (string) SABRI_SHELL_CREATE_CONTRACT_VERSION, self::SHELL_CREATE_CONTRACT_VERSION, '<' ) ) {
+			return false;
+		}
+
+		return function_exists( 'sabri_shell_create_contract_available' )
+			&& (bool) sabri_shell_create_contract_available();
+	}
+
+	/**
+	 * Whether the complete universal Create gateway may replace File 21's
+	 * fallback Home/News CTA.
+	 */
+	public static function gateway_available() {
+		if ( ! self::$registered || ! self::file22_contract_available() || ! self::shell_contract_available() ) {
+			return false;
+		}
+
+		if ( ! supc_adapter_matches( self::ADAPTER_KEY, SABRI_HNF_SLUG ) ) {
+			return false;
+		}
+
 		$page_resolver = array( '\\Sabri\\UniversalComposer\\Core\\Page_Resolver', 'is_ready' );
-		$safe_mode = array( '\\Sabri\\UniversalComposer\\Core\\Safe_Mode', 'disabled' );
+		$safe_mode     = array( '\\Sabri\\UniversalComposer\\Core\\Safe_Mode', 'disabled' );
 		if ( ! is_callable( $page_resolver ) || ! call_user_func( $page_resolver ) ) {
 			return false;
 		}
