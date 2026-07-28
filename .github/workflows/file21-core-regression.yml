@@ -39,15 +39,26 @@ jobs:
           php -l public/class-phase5-public-runtime.php
       - name: Focused public recovery contracts
         run: php tests/run-file21-public-visibility-tests.php
-      - name: Core regression with concise failure output
+      - name: Capture core regression output
+        id: core_regression
         shell: bash
         run: |
           set +e
-          php tools/run-tests.php > /tmp/file21-core.log 2>&1
+          php tools/run-tests.php > file21-core-regression.log 2>&1
           status=$?
-          if [ "$status" -ne 0 ]; then
-            echo '--- File 21 core regression failure output ---'
-            tail -n 120 /tmp/file21-core.log
-            exit "$status"
-          fi
-          cat /tmp/file21-core.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat file21-core-regression.log
+          exit 0
+      - name: Upload core regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-core-regression-log
+          path: file21-core-regression.log
+          if-no-files-found: error
+          retention-days: 7
+      - name: Enforce core regression result
+        if: steps.core_regression.outputs.status != '0'
+        run: |
+          echo 'File 21 core regression failed. Download the file21-core-regression-log artifact for exact failures.'
+          exit 1
