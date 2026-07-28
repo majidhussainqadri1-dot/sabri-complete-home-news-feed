@@ -1,0 +1,90 @@
+<?php
+/**
+ * File 22 Universal Post Composer integration bridge.
+ *
+ * @package SabriCompleteHomeNewsFeed
+ */
+
+namespace Sabri\HomeNewsFeed;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Registers the native File 21 social-publication adapter only when the
+ * versioned File 22 contract is present. File 21 remains fully operational
+ * when File 22 is absent, disabled, or in Safe Mode.
+ */
+final class UniversalComposerBridge {
+	const ADAPTER_API_VERSION = '1.0.0';
+	const MINIMUM_SHELL_VERSION = '1.0.1';
+
+	/** @var bool Prevent duplicate registration during the same request. */
+	private static $registered = false;
+
+	/** Attach both compatibility-event and late-registration paths. */
+	public static function register() {
+		if ( ! function_exists( 'add_action' ) ) {
+			return;
+		}
+
+		add_action( 'supc_registry_ready', array( __CLASS__, 'maybe_register_adapter' ), 5 );
+		add_action( 'init', array( __CLASS__, 'maybe_register_adapter' ), 25 );
+	}
+
+	/** Register the route-only native publication adapter. */
+	public static function maybe_register_adapter() {
+		if ( self::$registered || ! self::file22_contract_available() ) {
+			return;
+		}
+
+		try {
+			$result = supc_register_adapter( new UniversalComposerPublicationAdapter() );
+			if ( true === $result ) {
+				self::$registered = true;
+				return;
+			}
+
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) && 'supc_duplicate_key' === $result->get_error_code() ) {
+				self::$registered = true;
+			}
+		} catch ( \Throwable $error ) {
+			if ( function_exists( 'do_action' ) ) {
+				do_action( 'sabri_hnf_file22_adapter_registration_error', get_class( $error ) );
+			}
+		}
+	}
+
+	/** Whether the exact File 22 base-adapter contract is available. */
+	public static function file22_contract_available() {
+		return defined( 'SUPC_ADAPTER_API_VERSION' )
+			&& self::ADAPTER_API_VERSION === (string) SUPC_ADAPTER_API_VERSION
+			&& function_exists( 'supc_register_adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' );
+	}
+
+	/**
+	 * Whether the complete universal Create gateway may replace File 21's
+	 * fallback Home/News CTA. Requiring the File 20 producer contract prevents
+	 * the fallback from disappearing before the global Create button can be
+	 * shown to approved doctors.
+	 */
+	public static function gateway_available() {
+		if ( ! self::file22_contract_available() ) {
+			return false;
+		}
+
+		if ( ! defined( 'SABRI_SHELL_VERSION' ) || version_compare( (string) SABRI_SHELL_VERSION, self::MINIMUM_SHELL_VERSION, '<' ) ) {
+			return false;
+		}
+
+		$page_resolver = array( '\\Sabri\\UniversalComposer\\Core\\Page_Resolver', 'is_ready' );
+		$safe_mode = array( '\\Sabri\\UniversalComposer\\Core\\Safe_Mode', 'disabled' );
+		if ( ! is_callable( $page_resolver ) || ! call_user_func( $page_resolver ) ) {
+			return false;
+		}
+
+		return ! is_callable( $safe_mode ) || ! call_user_func( $safe_mode );
+	}
+}
