@@ -1,0 +1,53 @@
+name: File 21 Focused Core Regression
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'includes/**'
+      - 'public/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'sabri-complete-home-news-feed.php'
+      - '.github/workflows/file21-core-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: PHP syntax for changed production boundaries
+        run: |
+          set -euo pipefail
+          php -l includes/class-public-query-guard.php
+          php -l includes/class-public-surface-recovery.php
+          php -l includes/class-corrective-public-mount.php
+          php -l includes/class-home-composition-registry.php
+          php -l includes/class-integrations.php
+          php -l public/class-phase5-public-runtime.php
+      - name: Focused public recovery contracts
+        run: php tests/run-file21-public-visibility-tests.php
+      - name: Core regression with concise failure output
+        shell: bash
+        run: |
+          set +e
+          php tools/run-tests.php > /tmp/file21-core.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo '--- File 21 core regression failure output ---'
+            tail -n 120 /tmp/file21-core.log
+            exit "$status"
+          fi
+          cat /tmp/file21-core.log
