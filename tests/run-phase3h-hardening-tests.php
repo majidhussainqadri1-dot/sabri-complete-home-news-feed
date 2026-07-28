@@ -229,7 +229,7 @@ $contracts = Phase3Contracts::feature_flags();
 foreach ( array( 'comments_enabled', 'follows_enabled', 'followers_visibility_enabled', 'reports_enabled', 'polls_enabled', 'notification_bridge_enabled', 'view_logging_enabled' ) as $flag ) {
 	sabri_phase3h_assert( array_key_exists( $flag, $contracts ) && 0 === (int) $contracts[ $flag ], 'Frozen contract must default ' . $flag . ' to disabled.' );
 }
-sabri_phase3h_assert( '1.0.2' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION && '1.1.0' === Phase3Contracts::TARGET_VERSION, '3H must preserve runtime 1.0.1, schema 1.0.0, and the historical Phase 3 target 1.1.0.' );
+sabri_phase3h_assert( '1.0.3' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION && '1.1.0' === Phase3Contracts::TARGET_VERSION, '3H must preserve runtime 1.0.1, schema 1.0.0, and the historical Phase 3 target 1.1.0.' );
 
 if ( ! empty( $phase3h_failures ) ) {
 	fwrite( STDERR, "Phase 3H hardening tests failed:\n- " . implode( "\n- ", $phase3h_failures ) . "\n" );

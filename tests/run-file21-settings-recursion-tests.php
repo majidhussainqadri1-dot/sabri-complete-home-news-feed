@@ -9,7 +9,7 @@ namespace {
 		define( 'ABSPATH', __DIR__ . '/' );
 	}
 	if ( ! defined( 'SABRI_HNF_VERSION' ) ) {
-		define( 'SABRI_HNF_VERSION', '1.0.2' );
+		define( 'SABRI_HNF_VERSION', '1.0.3' );
 	}
 
 	/** The hotfix must never call WordPress' filterable sanitize_key(). */
