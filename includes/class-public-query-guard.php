@@ -28,12 +28,15 @@ final class PublicQueryGuard {
 		}
 	}
 
-	/** Apply SQL eligibility clauses to unambiguous public core-post lists. */
+	/** Apply SQL eligibility clauses to unambiguous public main core-post lists. */
 	public static function filter_public_queries( $query ) {
 		if ( function_exists( 'is_admin' ) && is_admin() ) {
 			return;
 		}
 		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
+			return;
+		}
+		if ( method_exists( $query, 'is_main_query' ) && ! $query->is_main_query() ) {
 			return;
 		}
 		if ( $query->get( self::FILTER_MARKER ) || ! self::targets_core_posts( $query ) ) {
@@ -94,7 +97,7 @@ final class PublicQueryGuard {
 		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) ) {
 			return false;
 		}
-		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 ) {
+		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 || self::positive_id( $query->get( 'p' ) ) > 0 ) {
 			return false;
 		}
 		foreach ( array( 'pagename', 'name', 'attachment', 'error' ) as $route_key ) {
@@ -103,7 +106,7 @@ final class PublicQueryGuard {
 				return false;
 			}
 		}
-		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404', 'is_singular' ) as $conditional ) {
+		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404', 'is_single', 'is_singular' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
 				return false;
 			}
@@ -117,9 +120,6 @@ final class PublicQueryGuard {
 		}
 		if ( is_scalar( $post_type ) && '' !== trim( (string) $post_type ) ) {
 			return 'post' === self::clean_key( $post_type );
-		}
-		if ( self::positive_id( $query->get( 'p' ) ) > 0 ) {
-			return false;
 		}
 		foreach ( array( 'is_home', 'is_category', 'is_tag', 'is_date', 'is_author', 'is_feed' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
