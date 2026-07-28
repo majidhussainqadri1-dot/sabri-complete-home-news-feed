@@ -67,7 +67,7 @@ $renderer = file_get_contents( $root . '/includes/class-feed-renderer.php' );
 $assert( false !== strpos( $renderer, 'HomeCompositionRegistry::render_control_bar' ), 'Feed renderer is not using the approved Home Control Bar.' );
 
 $query = file_get_contents( $root . '/includes/class-feed-query.php' );
-foreach ( array( "'has_password' => false", 'CanonicalIdentityAdapter::founder_ids()', "'founder-updates' === $mode", 'CanonicalIdentityAdapter::verified_doctor_ids()' ) as $needle ) {
+foreach ( array( "'has_password' => false", 'CanonicalIdentityAdapter::founder_ids()', '\'founder-updates\' === $mode', 'CanonicalIdentityAdapter::verified_doctor_ids()' ) as $needle ) {
 	$assert( false !== strpos( $query, $needle ), 'Feed visibility/authority contract missing: ' . $needle );
 }
 
