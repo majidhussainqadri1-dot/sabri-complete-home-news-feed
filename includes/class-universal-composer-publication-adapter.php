@@ -7,7 +7,7 @@
 
 namespace Sabri\HomeNewsFeed;
 
-use Sabri\UniversalComposer\Contracts\Adapter;
+use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -18,13 +18,13 @@ if ( ! defined( 'ABSPATH' ) ) {
  * records, drafts, validation, moderation, media, and publication states remain
  * owned by File 21; File 22 receives no duplicate content copy.
  */
-final class UniversalComposerPublicationAdapter implements Adapter {
+final class UniversalComposerPublicationAdapter implements Diagnostic_Adapter {
 	public function api_version(): string {
 		return UniversalComposerBridge::ADAPTER_API_VERSION;
 	}
 
 	public function key(): string {
-		return 'social_publication';
+		return UniversalComposerBridge::ADAPTER_KEY;
 	}
 
 	public function label(): string {
@@ -56,7 +56,7 @@ final class UniversalComposerPublicationAdapter implements Adapter {
 	}
 
 	public function required_capability(): string {
-		return 'read';
+		return 'sabri_feed_create_posts';
 	}
 
 	public function privacy_classification(): string {
@@ -74,7 +74,7 @@ final class UniversalComposerPublicationAdapter implements Adapter {
 
 		$settings = Settings::get();
 		return ! empty( $settings['composer']['public_composer_enabled'] )
-			&& ! SafeMode::public_features_disabled()
+			&& SafeMode::feature_enabled( 'composer' )
 			&& '' !== $this->native_url();
 	}
 
@@ -86,6 +86,28 @@ final class UniversalComposerPublicationAdapter implements Adapter {
 
 	public function start_url( int $user_id ): string {
 		return $this->can_create( $user_id ) ? $this->native_url() : '';
+	}
+
+	/**
+	 * Privacy-safe System Check data. No user, post, draft, or patient content is
+	 * included in this report.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function health_report(): array {
+		$settings = Settings::get();
+		return array(
+			'adapter_key'              => $this->key(),
+			'native_module'            => $this->native_module(),
+			'actual_native_version'    => defined( 'SABRI_HNF_VERSION' ) ? (string) SABRI_HNF_VERSION : '',
+			'minimum_native_version'   => $this->minimum_native_version(),
+			'required_capability'      => $this->required_capability(),
+			'privacy_classification'   => $this->privacy_classification(),
+			'composer_setting_enabled' => ! empty( $settings['composer']['public_composer_enabled'] ),
+			'composer_feature_enabled' => SafeMode::feature_enabled( 'composer' ),
+			'native_route_available'   => '' !== $this->native_url(),
+			'available'                => $this->is_available(),
+		);
 	}
 
 	/** Return File 21's canonical native route, never a File 22 override. */
