@@ -106,7 +106,7 @@ foreach ( array( '$breaking_rendered', 'is_main_home_or_news_context', "Phase5Fe
 }
 
 $integrations = file_get_contents( $root . '/includes/class-integrations.php' );
-foreach ( array( 'sabri_shell_rendering_slots', 'shell_slot_status', "'status' => $status", "'Incomplete'", "'missing'" ) as $needle ) {
+foreach ( array( 'sabri_shell_rendering_slots', 'shell_slot_status', "'status' => \$status", "'Incomplete'", "'missing'" ) as $needle ) {
 	$assert( false !== strpos( $integrations, $needle ), 'Truthful File 20 integration status missing: ' . $needle );
 }
 $assert( false === strpos( $integrations, "'status' => 'Connected'" ), 'System Check still hard-codes Connected.' );
