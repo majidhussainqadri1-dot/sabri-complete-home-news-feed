@@ -69,8 +69,11 @@ $publication_js = $read( 'assets/js/news-publication-controls.js' );
 $composer_recovery = $read( 'admin/class-news-composer-access-recovery.php' );
 $public_composer = $read( 'includes/class-public-composer-surface.php' );
 $public_composer_css = $read( 'assets/css/public-composer-surface.css' );
+$file22_bridge = $read( 'includes/class-universal-composer-bridge.php' );
+$file22_adapter = $read( 'includes/class-universal-composer-publication-adapter.php' );
 $assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), 'Editorial News publication bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'NewsComposerAccessRecovery::class' ), 'News Composer access recovery is not registered.' );
+$assert( false !== strpos( $plugin, 'UniversalComposerBridge::class' ), 'File 22 integration bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'PublicComposerSurface::class' ), 'Public Composer surface is not registered.' );
 foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . NewsroomAdmin::BULK_ACTION", 'check_admin_referer', "current_user_can( 'publish_editorial_news'", 'CanonicalIdentityAdapter::can_publish_immediately', "post_status' => 'publish'", "WORKFLOW_META_KEY, 'published'", 'NewsPublicSnapshot::capture', "editorial_news_enabled' => 1", 'NewsCache::purge_owned', 'publication_snapshot_failed' ) as $needle ) {
 	$assert( false !== strpos( $publication, $needle ), 'Editorial News publication contract missing: ' . $needle );
@@ -90,6 +93,15 @@ $header_pos = strpos( $public_composer, 'get_header();' );
 $assert( false !== $render_pos && false !== $header_pos && $render_pos < $header_pos, 'Composer assets must be enqueued before the theme header is printed.' );
 $assert( false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-cta' ) && false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-page' ), 'Public Composer CTA/page styles are missing.' );
 
+foreach ( array( "ADAPTER_API_VERSION = '1.0.0'", "MINIMUM_SHELL_VERSION = '1.0.1'", 'supc_register_adapter', "add_filter( 'sabri_shell_create_url'", 'prefer_universal_create_url', 'harmonize_create_surfaces', "remove_action( 'sabri_shell_home_before_main'", "remove_action( 'sabri_shell_news_main'", "remove_action( 'loop_start'", "remove_filter( 'the_content'" ) as $needle ) {
+	$assert( false !== strpos( $file22_bridge, $needle ), 'File 22 bridge contract missing: ' . $needle );
+}
+foreach ( array( 'implements Adapter', "return 'social_publication'", "return '1.0.3'", "return 'read'", 'ComposerPermissions::user_can_create', "home_url( '/create-post/' )", 'File 22 receives no duplicate content copy' ) as $needle ) {
+	$assert( false !== strpos( $file22_adapter, $needle ), 'File 22 publication adapter contract missing: ' . $needle );
+}
+$assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'File 22 adapter must not duplicate native File 21 records.' );
+$assert( false === strpos( $file22_adapter, 'update_post_meta' ), 'File 22 adapter must not duplicate native File 21 metadata.' );
+
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
 $assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
@@ -98,6 +110,7 @@ $assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Chan
 $assert( false !== strpos( $change, 'Integrations diagnostics Safe Boot fatal' ), 'Changelog lacks the Integrations Safe Boot correction.' );
 $assert( false !== strpos( $change, 'News Composer posting option' ), 'Changelog lacks the News Composer access correction.' );
 $assert( false !== strpos( $change, 'public **Create Post** action' ), 'Changelog lacks the public Composer action correction.' );
+$assert( false !== strpos( $change, 'Universal Post Composer' ), 'Changelog lacks File 22 adapter interoperability.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 echo "File 21 production-rejection corrective contracts passed.\n";
