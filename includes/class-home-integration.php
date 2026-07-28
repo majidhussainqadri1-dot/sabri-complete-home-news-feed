@@ -10,6 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /** Integrates without replacing Shell header, sidebar, or layout resolver. */
 final class HomeIntegration {
 	private static $feed_rendered = false;
+	private static $feed_rendering = false;
 	private static $single_context_rendered = array();
 
 	public static function register() {
@@ -30,13 +31,26 @@ final class HomeIntegration {
 		}
 	}
 
-	/** Render feed once per request; a blank renderer must not consume the guard. */
+	/**
+	 * Render the Feed once per request.
+	 *
+	 * WordPress applies `the_content` while Feed cards are being built. Without a
+	 * separate in-progress guard, the corrective front-page content filter can
+	 * re-enter this method before the completed guard is set and exhaust memory.
+	 * A blank or failed renderer does not consume the completed guard.
+	 */
 	public static function render_feed_once( $source, array $atts = array() ) {
 		unset( $source );
-		if ( self::is_single_post_request() || self::$feed_rendered ) { return ''; }
-		$html = FeedRenderer::render( $atts );
-		if ( '' !== $html ) { self::$feed_rendered = true; }
-		return $html;
+		if ( self::is_single_post_request() || self::$feed_rendered || self::$feed_rendering ) { return ''; }
+
+		self::$feed_rendering = true;
+		try {
+			$html = FeedRenderer::render( $atts );
+			if ( '' !== $html ) { self::$feed_rendered = true; }
+			return $html;
+		} finally {
+			self::$feed_rendering = false;
+		}
 	}
 
 	/** Determine whether the current request resolves to a single standard post. */
@@ -68,6 +82,7 @@ final class HomeIntegration {
 	/** Reset duplicate guards for tests. */
 	public static function reset_runtime_guards() {
 		self::$feed_rendered = false;
+		self::$feed_rendering = false;
 		self::$single_context_rendered = array();
 		if ( class_exists( __NAMESPACE__ . '\\Shortcodes' ) ) { Shortcodes::reset_runtime_guards(); }
 	}

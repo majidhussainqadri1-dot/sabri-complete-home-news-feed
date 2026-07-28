@@ -311,7 +311,7 @@ update_option( Phase3FeatureSettings::OPTION_NAME, $features, false );
 sabri_phase3e_assert( false === strpos( SocialRuntime::render_action_bar( $public_post ), 'data-sabri-report-form' ), 'Disabled report flag must remove the public report form.' );
 
 $identity = Plugin::identity();
-sabri_phase3e_assert( '1.0.2' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3E must preserve accepted plugin and schema version 1.0.0.' );
+sabri_phase3e_assert( '1.0.3' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3E must preserve accepted plugin and schema version 1.0.0.' );
 sabri_phase3e_assert( ! empty( $sabri_test_rows[ $audit_table ] ), 'Report creation and moderation must produce plugin-owned audit records.' );
 
 if ( $phase3e_failures ) {

@@ -167,7 +167,7 @@ add_action( 'wp', static function () {
 	assert(setup.active, 'Plugin was not active after Blueprint activation.');
 	assert(setup.legacy_pre_query === false, `Legacy pre_get_posts hook remains: ${JSON.stringify(setup)}`);
 	assert(setup.followers_pre_query === false, `Followers pre_get_posts hook remains: ${JSON.stringify(setup)}`);
-	assert(setup.public_pre_query === false, `Replacement pre_get_posts hook remains: ${JSON.stringify(setup)}`);
+	assert(setup.public_pre_query !== false, `Pre-pagination public eligibility hook missing: ${JSON.stringify(setup)}`);
 	assert(setup.result_filter !== false, `Resolved-result filter missing: ${JSON.stringify(setup)}`);
 	assert(setup.rewrite_repair !== false, `Late-init rewrite repair hook missing: ${JSON.stringify(setup)}`);
 

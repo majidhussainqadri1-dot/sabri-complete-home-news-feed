@@ -9,7 +9,7 @@ namespace {
 		define( 'ABSPATH', __DIR__ . '/' );
 	}
 	if ( ! defined( 'SABRI_HNF_VERSION' ) ) {
-		define( 'SABRI_HNF_VERSION', '1.0.2' );
+		define( 'SABRI_HNF_VERSION', '1.0.3' );
 	}
 
 	/** The hotfix must never call WordPress' filterable sanitize_key(). */
@@ -84,7 +84,7 @@ namespace Sabri\HomeNewsFeed {
 	$result = HarmonizedSettings::normalize( $input );
 
 	$failures = array();
-	if ( '1.0.2' !== $result['version'] ) {
+	if ( '1.0.3' !== $result['version'] ) {
 		$failures[] = 'Runtime version was not normalized.';
 	}
 	if ( ! in_array( 'founder', $result['capabilities']['founder_roles'], true ) || ! in_array( 'sabri_founder', $result['capabilities']['founder_roles'], true ) ) {
@@ -108,7 +108,7 @@ namespace Sabri\HomeNewsFeed {
 
 	// A second complete call proves the try/finally guard was released.
 	$second = HarmonizedSettings::normalize( array() );
-	if ( '1.0.2' !== $second['version'] || empty( $second['feed']['enabled_filters'] ) ) {
+	if ( '1.0.3' !== $second['version'] || empty( $second['feed']['enabled_filters'] ) ) {
 		$failures[] = 'The re-entry guard did not reset after normalization.';
 	}
 

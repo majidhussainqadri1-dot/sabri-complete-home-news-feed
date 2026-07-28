@@ -79,7 +79,7 @@ final class CorrectiveActivationWizard {
 			'environment' => array(
 				'wordpress' => function_exists( 'get_bloginfo' ) ? get_bloginfo( 'version' ) : '', 'php' => PHP_VERSION,
 				'plugin_version' => SABRI_HNF_VERSION, 'schema_version' => SABRI_HNF_SCHEMA_VERSION,
-				'version_consistent' => '1.0.2' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION,
+				'version_consistent' => '1.0.3' === SABRI_HNF_VERSION && '1.0.0' === SABRI_HNF_SCHEMA_VERSION,
 				'membership_core' => isset( $integrations['membership']['status'] ) ? $integrations['membership']['status'] : 'Missing',
 				'unified_shell' => isset( $integrations['shell']['status'] ) ? $integrations['shell']['status'] : 'Missing',
 				'notifications' => isset( $integrations['notifications']['status'] ) ? $integrations['notifications']['status'] : 'Missing',

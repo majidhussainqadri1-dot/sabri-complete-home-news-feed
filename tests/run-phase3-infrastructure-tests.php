@@ -208,7 +208,7 @@ foreach ( array_keys( $sabri_test_rest_routes ) as $route ) {
 }
 
 $identity = Plugin::identity();
-sabri_phase3a_assert( '1.0.2' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3A must remain compatible with runtime 1.0.1 while preserving schema 1.0.0.' );
+sabri_phase3a_assert( '1.0.3' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3A must remain compatible with runtime 1.0.3 while preserving schema 1.0.0.' );
 
 if ( $phase3a_failures ) {
 	echo "FAILED\n";

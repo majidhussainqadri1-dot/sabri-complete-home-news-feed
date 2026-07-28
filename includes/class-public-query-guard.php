@@ -11,47 +11,62 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Preserves WordPress routing and filters core-post results after resolution.
- */
+/** Enforces visibility before list queries while retaining a singular fallback. */
 final class PublicQueryGuard {
 	const FILTER_MARKER = 'sabri_hnf_public_query_filtered';
 
-	/**
-	 * Remove the unsafe main-query mutation and enforce visibility on results.
-	 *
-	 * @return void
-	 */
+	/** Register query-time enforcement and a narrow object-level safety net. */
 	public static function register() {
 		if ( function_exists( 'remove_action' ) ) {
 			remove_action( 'pre_get_posts', array( PostMetadata::class, 'filter_public_queries' ), 10 );
 		}
-
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'pre_get_posts', array( __CLASS__, 'filter_public_queries' ), 20 );
+		}
 		if ( function_exists( 'add_filter' ) ) {
-			add_filter( 'the_posts', array( __CLASS__, 'filter_public_post_results' ), 10, 2 );
+			add_filter( 'the_posts', array( __CLASS__, 'filter_public_post_results' ), 20, 2 );
 		}
 	}
 
+	/** Apply SQL eligibility clauses to unambiguous public main core-post lists. */
+	public static function filter_public_queries( $query ) {
+		if ( ! self::public_query_allowed() ) {
+			return;
+		}
+		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
+			return;
+		}
+		if ( method_exists( $query, 'is_main_query' ) && ! $query->is_main_query() ) {
+			return;
+		}
+		if ( $query->get( self::FILTER_MARKER ) || ! self::targets_core_posts( $query ) ) {
+			return;
+		}
+
+		$existing = $query->get( 'meta_query' );
+		$existing = is_array( $existing ) ? $existing : array();
+		$clauses = array( 'relation' => 'AND' );
+		if ( ! empty( $existing ) ) {
+			$clauses[] = $existing;
+		}
+		$clauses[] = PostMetadata::visibility_meta_clause();
+		$clauses[] = PostMetadata::review_state_meta_clause();
+		$query->set( 'meta_query', $clauses );
+		$query->set( self::FILTER_MARKER, 1 );
+	}
+
 	/**
-	 * Filter core-post objects only after WordPress has resolved the request.
-	 *
-	 * Mutating unresolved pre_get_posts queries is unsafe because Pages, missing
-	 * pretty permalinks, and single Posts can share the same early query shape.
-	 * Filtering the resolved result set preserves HTTP routing while preventing
-	 * unauthorized core posts from reaching themes, REST-derived loops, widgets,
-	 * archives, or direct-post rendering.
-	 *
-	 * @param mixed $posts Resolved posts.
-	 * @param mixed $query WP_Query-like object.
-	 * @return mixed
+	 * Object-level fallback for singular or ambiguous queries only.
+	 * Queries marked above must not be shortened after pagination calculation.
 	 */
 	public static function filter_public_post_results( $posts, $query ) {
-		unset( $query );
-
-		if ( function_exists( 'is_admin' ) && is_admin() ) {
+		if ( ! self::public_query_allowed() ) {
 			return $posts;
 		}
-		if ( ! is_array( $posts ) || empty( $posts ) ) {
+		if ( ! is_array( $posts ) || empty( $posts ) || ! is_object( $query ) ) {
+			return $posts;
+		}
+		if ( method_exists( $query, 'get' ) && $query->get( self::FILTER_MARKER ) ) {
 			return $posts;
 		}
 
@@ -62,48 +77,28 @@ final class PublicQueryGuard {
 				$visible[] = $post;
 				continue;
 			}
-
 			$post_type = isset( $post->post_type ) ? self::clean_key( $post->post_type ) : '';
 			if ( 'post' !== $post_type || PostMetadata::user_can_view( (int) $post->ID, $user_id ) ) {
 				$visible[] = $post;
 			}
 		}
 
-		return array_values( $visible );
+		$visible = array_values( $visible );
+		if ( property_exists( $query, 'posts' ) ) {
+			$query->posts = $visible;
+		}
+		if ( property_exists( $query, 'post_count' ) ) {
+			$query->post_count = count( $visible );
+		}
+		return $visible;
 	}
 
-	/**
-	 * Compatibility method retained for direct callers; no longer registered.
-	 *
-	 * @param mixed $query WP_Query-like object.
-	 * @return void
-	 */
-	public static function filter_public_queries( $query ) {
-		if ( function_exists( 'is_admin' ) && is_admin() ) {
-			return;
-		}
-		if ( ! is_object( $query ) || ! method_exists( $query, 'is_main_query' ) || ! $query->is_main_query() || ! method_exists( $query, 'get' ) || ! method_exists( $query, 'set' ) ) {
-			return;
-		}
-		if ( $query->get( self::FILTER_MARKER ) || ! self::targets_core_posts( $query ) ) {
-			return;
-		}
-
-		$meta_query   = $query->get( 'meta_query' );
-		$meta_query   = is_array( $meta_query ) ? $meta_query : array();
-		$meta_query[] = PostMetadata::visibility_meta_clause();
-		$meta_query[] = PostMetadata::review_state_meta_clause();
-		$query->set( 'meta_query', $meta_query );
-		$query->set( self::FILTER_MARKER, 1 );
-	}
-
-	/** Determine whether a query is unambiguously a core-post list/query. */
+	/** Determine whether a query is unambiguously a core-post list. */
 	public static function targets_core_posts( $query ) {
 		if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) ) {
 			return false;
 		}
-
-		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 ) {
+		if ( self::positive_id( $query->get( 'page_id' ) ) > 0 || self::positive_id( $query->get( 'p' ) ) > 0 ) {
 			return false;
 		}
 		foreach ( array( 'pagename', 'name', 'attachment', 'error' ) as $route_key ) {
@@ -112,7 +107,7 @@ final class PublicQueryGuard {
 				return false;
 			}
 		}
-		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404' ) as $conditional ) {
+		foreach ( array( 'is_page', 'is_attachment', 'is_search', 'is_404', 'is_single', 'is_singular' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
 				return false;
 			}
@@ -121,13 +116,11 @@ final class PublicQueryGuard {
 		$post_type = $query->get( 'post_type' );
 		if ( is_array( $post_type ) ) {
 			$post_types = array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $post_type ) ) ) );
+			sort( $post_types );
 			return array( 'post' ) === $post_types;
 		}
 		if ( is_scalar( $post_type ) && '' !== trim( (string) $post_type ) ) {
 			return 'post' === self::clean_key( $post_type );
-		}
-		if ( self::positive_id( $query->get( 'p' ) ) > 0 ) {
-			return true;
 		}
 		foreach ( array( 'is_home', 'is_category', 'is_tag', 'is_date', 'is_author', 'is_feed' ) as $conditional ) {
 			if ( method_exists( $query, $conditional ) && $query->{$conditional}() ) {
@@ -137,13 +130,24 @@ final class PublicQueryGuard {
 		return false;
 	}
 
-	/** Clean a query key in WordPress and lean test environments. */
+	/** Public request safety boundary. */
+	private static function public_query_allowed() {
+		if ( function_exists( 'is_admin' ) && is_admin() ) { return false; }
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) { return false; }
+		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) { return false; }
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) { return false; }
+		return true;
+	}
+
+	/** Pure controlled-key sanitizer; no filterable WordPress callbacks. */
 	public static function clean_key( $value ) {
-		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		$value = strtolower( (string) $value );
+		$value = preg_replace( '/[^a-z0-9_\-]/', '', $value );
+		return is_string( $value ) ? $value : '';
 	}
 
 	/** Strict positive query ID. */
 	private static function positive_id( $value ) {
-		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/', (string) $value ) ? (int) $value : 0;
+		return is_scalar( $value ) && preg_match( '/^[1-9][0-9]*$/D', (string) $value ) ? (int) $value : 0;
 	}
 }

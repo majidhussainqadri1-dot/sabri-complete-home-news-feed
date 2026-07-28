@@ -327,7 +327,7 @@ $erased = ! empty( $erased_rows ) ? end( $erased_rows ) : array();
 sabri_phase3f_assert( isset( $erased['user_id'], $erased['status'], $erased['anonymous_hash'] ) && 0 === (int) $erased['user_id'] && 'removed' === $erased['status'] && 64 === strlen( $erased['anonymous_hash'] ), 'Account erasure must remove active Poll identity and retain only a bounded hash.' );
 
 $identity = Plugin::identity();
-sabri_phase3f_assert( '1.0.2' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3F must preserve accepted plugin and schema version 1.0.0.' );
+sabri_phase3f_assert( '1.0.3' === $identity['version'] && '1.0.0' === $identity['schema_version'], 'Checkpoint 3F must preserve accepted plugin and schema version 1.0.0.' );
 
 if ( $phase3f_failures ) {
 	echo "FAILED\n";

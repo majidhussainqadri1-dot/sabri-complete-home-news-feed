@@ -1,12 +1,18 @@
 # Sabri Complete Home and News Feed
 
-Version: 1.0.2
+Version: 1.0.3
 
 Plugin slug: `sabri-complete-home-news-feed`
 
 Text domain: `sabri-complete-home-news-feed`
 
 Sabri Complete Home and News Feed is the canonical public Home, social Feed, Profile Timeline, Editorial News, Newsroom, publishing, interaction, migration, diagnostics, and distribution module for the Sabri Social Homeopathy Platform.
+
+## Production-Rejection Corrective Release in 1.0.3
+
+Version 1.0.3 closes the live-deployment defects found after 1.0.2: public GET requests no longer write recovery metadata; File 21 registers and renders the native News slot; canonical and legacy News pages are routed or redirected safely after explicit gate activation; all ten Home rows remain observable with honest unavailable states; Breaking News is main-loop/context/render-once guarded; core-post visibility is applied before pagination; recursive Home Feed rendering is blocked while WordPress applies `the_content`; Shell diagnostics no longer claim Connected without all five native slots; Safe Boot keeps authenticated status/schema diagnostics available; and duplicate plugin copies resolve to the highest canonical version with one controlled administrator reload.
+
+Editorial News gates remain fail-closed until the Activation Wizard is completed on staging. File 20 native-slot availability remains an external dependency and is reported truthfully; File 21 compatibility mounts do not modify File 20.
 
 ## Public Visibility Recovery in 1.0.2
 
@@ -17,10 +23,10 @@ The recovery is deliberately bounded:
 - the read-only Home surface and Profile Timeline become observable when no completed administrator Wizard decision exists;
 - a detected legacy Feed shortcode is replaced only at render time, without changing saved Page content;
 - native File 20 slots are preferred when available;
-- static front-page content, posts-index loop, and a guarded last-resort public fallback keep File 21 observable when the current Shell/theme does not expose the preferred slot;
-- only one complete File 21 surface may render per request;
+- static front-page content and posts-index loop keep File 21 observable when the current Shell/theme does not expose the preferred slot;
+- only one complete File 21 Home surface and one News surface may render per request;
 - Founder posts are queried by canonical Founder identity;
-- already-published privileged posts with blank File 21 metadata receive only missing public visibility and review metadata;
+- already-published privileged posts with blank File 21 metadata are normalized only through the explicit administrator recovery action;
 - password-protected posts remain excluded;
 - Editorial News gates, automatic publication, and File 04 migration remain closed.
 
@@ -45,14 +51,14 @@ The Home surface includes the exact fourteen approved controls:
 
 It also provides ten bounded Home rows: Most Viral Now, Latest News, From the Founder, From Verified Doctors, Learn Sabri Classical Homeopathy, Videos, Reels, PDF Books, Worldwide Clinics, and Marketplace.
 
-Companion modules keep ownership of their data. When no item provider is available, File 21 may show only an honest landing destination; it does not fabricate items or metrics.
+Companion modules keep ownership of their data. When no item provider is available, File 21 renders an honest unavailable state; it does not fabricate items or metrics.
 
 ## Safety Boundaries
 
 - Existing WordPress posts, pages, users, comments, media, URLs, and companion-plugin data are preserved.
 - Activation, repair, migration, rollback, deactivation, and default uninstall behavior are non-destructive.
 - No fake doctors, fake news, fake engagement, fake analytics, or placeholder production records are created.
-- Public-surface recovery does not publish drafts, enable News gates, or run legacy migration.
+- Public page rendering performs no recovery database writes.
 - File 04 migration is selected, bounded, source-preserving, audited, and reversible.
 - File 20 remains the owner of the global header, navigation, sidebars, mobile navigation, and layout resolver.
 - No production-complete claim is made until controlled WordPress/Hostinger installation, visual acceptance, rollback evidence, monitoring, and Founder sign-off are complete.
@@ -71,15 +77,15 @@ Social data WordPress core does not model safely is stored in seven plugin-owned
 - `wp_sabri_feed_poll_votes`
 - `wp_sabri_feed_audit_log`
 
-Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit, and audit-integrity tables. The schema remains version `1.0.0`; runtime version `1.0.2` is an additive corrective release.
+Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit, and audit-integrity tables. The schema remains version `1.0.0`; runtime version `1.0.3` is an additive corrective release.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), [CAPABILITIES.md](CAPABILITIES.md), [FILE-21-HARMONIZATION-COMPLETION-PLAN.md](FILE-21-HARMONIZATION-COMPLETION-PLAN.md), and [FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md](FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), [CAPABILITIES.md](CAPABILITIES.md), [FILE-21-HARMONIZATION-COMPLETION-PLAN.md](FILE-21-HARMONIZATION-COMPLETION-PLAN.md), [FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md](FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md), and [FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md](FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md).
 
 ## Administration
 
 The **Home & News Feed** administration area includes settings, Composer policy, roles and capabilities, integrations, System Check, Repair, Migration, Rollback, Staging Preview, Newsroom, Release Readiness, and the comprehensive Activation Wizard.
 
-When File 21 is active but not publicly observable, administrators receive an explicit **Recover File 21 Public Surface** action. The report confirms that News gates, automatic publication, and legacy migration were unchanged.
+Read-only Home and Profile Timeline compatibility defaults do not activate Editorial News. The administrator must use the Activation Wizard, flush rewrite rules, and run staging acceptance before `/news/`, Breaking News, corrections, RSS, schema, sitemap, notifications, or submissions are declared operational.
 
 ## Public Runtime
 
@@ -91,21 +97,21 @@ When File 21 is active but not publicly observable, administrators receive an ex
 - Preferred File 20 Home slot: `sabri_shell_home_main`
 - Preferred File 20 News slot: `sabri_shell_news_main`
 
-The complete surface carries `data-sabri-hnf-surface="file-21-corrective"`, the active runtime version, and the mount source so staging and production screenshots can prove which renderer is active.
+The complete surfaces carry `data-sabri-hnf-surface`, the active runtime version, and the mount source so staging and production screenshots can prove which renderer is active.
 
 ## Release Artifact
 
-The canonical 1.0.2 release builder creates:
+The canonical 1.0.3 release builders create one candidate identity:
 
-```powershell
-.\tools\build-release.ps1
-```
-
-Canonical candidate:
-
-- `21-sabri-complete-home-news-feed-1.0.2-PUBLIC-VISIBILITY-CANDIDATE.zip`
+- `21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE.zip`
 - matching `.sha256`
 - runtime manifest
 - exact test report
 
-All source, packaged WordPress, security, migration, public visibility, Phase 4A/4B/4C, harmonization, corrective, and continuous QA gates must succeed on one unchanged exact head before merge.
+Historical misleading aliases are not generated.
+
+## QA Policy
+
+The repository owner explicitly disabled the three former one-hour/3,900-second soak jobs. Their workflow files now execute only fast disabled-state confirmation and must not be cited as long-duration evidence.
+
+All required short source, packaged WordPress, PHP 8.1/8.3, security, migration, public visibility, routing, pagination, Phase 4A/4B/4C, harmonization, corrective, UI, and WordPress Playground gates must succeed on one unchanged exact head before merge.

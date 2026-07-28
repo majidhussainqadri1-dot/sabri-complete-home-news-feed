@@ -15,7 +15,7 @@ $phase3_failures = array();
 function sabri_phase3_assert( $condition, $message ) { global $phase3_failures; if ( ! $condition ) { $phase3_failures[] = $message; } }
 
 $identity = Plugin::identity();
-sabri_phase3_assert( '1.0.2' === $identity['version'], 'Phase 3 contracts must remain compatible with the harmonized File 21 runtime version.' );
+sabri_phase3_assert( '1.0.3' === $identity['version'], 'Phase 3 contracts must remain compatible with the harmonized File 21 runtime version.' );
 sabri_phase3_assert( '1.0.0' === $identity['schema_version'], 'Checkpoint 3.0 must not advance the schema version.' );
 sabri_phase3_assert( '1.1.0' === Phase3Contracts::TARGET_VERSION, 'Phase 3 target version must be frozen at 1.1.0.' );
 sabri_phase3_assert( '3.0' === Phase3Contracts::CHECKPOINT, 'Contract checkpoint must be 3.0.' );
