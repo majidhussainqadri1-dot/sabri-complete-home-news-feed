@@ -27,12 +27,13 @@ concurrency:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE_BASE: 21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE
 
 jobs:
   preflight:
     name: Exact-head contracts, regressions, and immutable package
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - name: Checkout exact PR head
         uses: actions/checkout@v4
@@ -43,16 +44,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify exact head and frozen boundaries
+      - name: Verify exact head and release boundaries
         shell: bash
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "${TEST_SHA}"
           test -z "$(git status --porcelain --untracked-files=no)"
-          grep -Fq 'Version: 1.0.2' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.2' );" sabri-complete-home-news-feed.php
+          grep -Fq 'Version: 1.0.3' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.3' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );" sabri-complete-home-news-feed.php
           grep -Fq "const CHECKPOINT = '4A';" includes/class-phase4-contracts.php
+          grep -Fq "add_action( 'sabri_shell_news_main'" includes/class-home-composition-registry.php
+          ! grep -Fq "add_action( 'init', array( __CLASS__, 'maybe_recover'" includes/class-public-surface-recovery.php
       - name: Lint complete public News and corrective surface
         shell: bash
         run: |
@@ -63,10 +66,12 @@ jobs:
           node --check assets/js/phase5-public.js
           node --check assets/js/phase5-admin.js
           node --check tests/run-phase4c-playground-tests.mjs
-      - name: Run File 21 visibility and harmonization contracts
+      - name: Run File 21 production-rejection and harmonization contracts
         shell: bash
         run: |
           set -euo pipefail
+          FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+          php tests/run-file21-settings-recursion-tests.php
           php tests/run-file21-public-visibility-tests.php
           php tests/run-file21-harmonization-tests.php
           php tests/run-file21-harmonization-negative-tests.php
@@ -96,10 +101,10 @@ jobs:
           set -euo pipefail
           rm -rf release phase4c-package phase4c-preflight
           pwsh -NoProfile -File ./tools/build-release.ps1
-          package=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.zip' -print -quit)
-          checksum=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE.sha256' ! -name '*-MANIFEST.sha256' -print -quit)
-          manifest=$(find release -maxdepth 1 -type f -name '*-PUBLIC-VISIBILITY-CANDIDATE-MANIFEST.sha256' -print -quit)
-          test -n "$package" && test -n "$checksum" && test -n "$manifest"
+          package="release/${PACKAGE_BASE}.zip"
+          checksum="release/${PACKAGE_BASE}.sha256"
+          manifest="release/${PACKAGE_BASE}-MANIFEST.sha256"
+          test -f "$package" && test -f "$checksum" && test -f "$manifest"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
           test "$expected" = "$actual"
@@ -111,26 +116,22 @@ jobs:
           cp "$manifest" phase4c-package/runtime-manifest.sha256
           unzip -Z1 "$package" > phase4c-package/package-entries.txt
           for entry in \
+            sabri-complete-home-news-feed/sabri-complete-home-news-feed.php \
             sabri-complete-home-news-feed/includes/class-public-surface-recovery.php \
-            sabri-complete-home-news-feed/includes/class-news-public-snapshot.php \
-            sabri-complete-home-news-feed/includes/class-news-cache.php \
-            sabri-complete-home-news-feed/includes/class-news-public-projector.php \
-            sabri-complete-home-news-feed/includes/class-news-query-service.php \
-            sabri-complete-home-news-feed/includes/class-news-feed-integration.php \
-            sabri-complete-home-news-feed/includes/class-rest-news.php \
-            sabri-complete-home-news-feed/public/class-news-public-runtime.php \
+            sabri-complete-home-news-feed/includes/class-corrective-public-mount.php \
+            sabri-complete-home-news-feed/includes/class-public-query-guard.php \
+            sabri-complete-home-news-feed/includes/class-integrations.php \
+            sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
+            sabri-complete-home-news-feed/includes/class-rest-foundation.php \
             sabri-complete-home-news-feed/public/class-news-routing.php \
-            sabri-complete-home-news-feed/templates/news-home.php \
-            sabri-complete-home-news-feed/templates/news-single.php \
-            sabri-complete-home-news-feed/templates/news-correction-notice.php \
-            sabri-complete-home-news-feed/assets/css/news.css \
-            sabri-complete-home-news-feed/assets/js/news.js; do
+            sabri-complete-home-news-feed/public/class-phase5-public-runtime.php \
+            sabri-complete-home-news-feed/FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md; do
             grep -Fxq "$entry" phase4c-package/package-entries.txt
           done
           git rev-parse HEAD > phase4c-preflight/exact-commit.txt
           git ls-files -z | LC_ALL=C sort -z | xargs -0 sha256sum > phase4c-preflight/tracked-files.sha256
           sha256sum phase4c-preflight/tracked-files.sha256 > phase4c-preflight/tracked-manifest-digest.sha256
-          printf 'package_sha256=%s\nruntime_version=1.0.2\nschema_version=1.0.0\n' "$actual" > phase4c-preflight/package.env
+          printf 'package_sha256=%s\nruntime_version=1.0.3\nschema_version=1.0.0\npublic_get_recovery_writes=0\nnews_slot_registered=1\n' "$actual" > phase4c-preflight/package.env
           test -z "$(git status --porcelain --untracked-files=no)"
       - name: Upload immutable package
         uses: actions/upload-artifact@v4
@@ -179,9 +180,7 @@ jobs:
         env:
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-        run: |
-          set -euo pipefail
-          node tests/run-phase4c-playground-tests.mjs 2>&1 | tee source-${{ matrix.wp }}-php-${{ matrix.php }}.log
+        run: node tests/run-phase4c-playground-tests.mjs 2>&1 | tee source-${{ matrix.wp }}-php-${{ matrix.php }}.log
       - name: Upload source evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -193,9 +192,7 @@ jobs:
 
   packaged-playground:
     name: Packaged WordPress (${{ matrix.wp }}, PHP ${{ matrix.php }})
-    needs:
-      - preflight
-      - source-playground
+    needs: [preflight, source-playground]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
@@ -237,9 +234,7 @@ jobs:
           SABRI_PLUGIN_ZIP: phase4c-package/candidate.zip
           SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
           SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
-        run: |
-          set -euo pipefail
-          node tests/run-phase4c-playground-tests.mjs 2>&1 | tee packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
+        run: node tests/run-phase4c-playground-tests.mjs 2>&1 | tee packaged-${{ matrix.wp }}-php-${{ matrix.php }}.log
       - name: Upload packaged evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -251,10 +246,7 @@ jobs:
 
   acceptance:
     name: Retain Phase 4C exact-head acceptance
-    needs:
-      - preflight
-      - source-playground
-      - packaged-playground
+    needs: [preflight, source-playground, packaged-playground]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -276,7 +268,7 @@ jobs:
           test "$(cat phase4c-preflight/exact-commit.txt)" = "${TEST_SHA}"
           mkdir -p phase4c-acceptance
           cp phase4c-preflight/* phase4c-acceptance/
-          printf 'status=passed\nhead_sha=%s\nsource_matrices=2\npackaged_matrices=2\nruntime_version=1.0.2\nschema_version=1.0.0\npublic_gates_enabled=0\nauto_publish_enabled=0\n' "${TEST_SHA}" > phase4c-acceptance/result.env
+          printf 'status=passed\nhead_sha=%s\nsource_matrices=2\npackaged_matrices=2\nruntime_version=1.0.3\nschema_version=1.0.0\npublic_gates_enabled=0\nauto_publish_enabled=0\npublic_get_recovery_writes=0\nnews_slot_registered=1\nlive_deployed=0\n' "${TEST_SHA}" > phase4c-acceptance/result.env
           test -z "$(git status --porcelain --untracked-files=no)"
       - name: Upload passed Phase 4C artifact
         uses: actions/upload-artifact@v4
