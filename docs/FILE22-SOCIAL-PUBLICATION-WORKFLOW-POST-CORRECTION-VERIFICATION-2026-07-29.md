@@ -1,55 +1,30 @@
-# File 21 → File 22 Workflow Adapter Post-Correction Verification — 2026-07-29
+# File 21 → File 22 First Post-Correction Verification — Historical Evidence — 2026-07-29
 
-## Verification purpose
+> **Superseded:** A later independent review found pending-state regression, unenforced preview expiry, incomplete idempotency recovery and retention, concurrency, integration-evidence, and branch-governance defects. The earlier no-blocker conclusion below is withdrawn. Current corrective evidence is recorded in `FILE22-WORKFLOW-SECOND-REVIEW-CORRECTIONS-2026-07-29.md` and Draft PR #21.
 
-This verification was performed after the separate post-implementation review and after every recorded correction was applied. It verifies the corrected File 21 native `Workflow_Adapter`; it does not replace cross-plugin staging acceptance.
+## Historical verification purpose
 
-## Exact corrected runtime head
+This record documents the first verification cycle only. It must not be cited as current release, merge, staging, or production evidence.
+
+## Historical corrected runtime head
 
 `fc6c2777c18b79b28ae380cf58210306f7c20335`
 
-## Verified corrections
+## Findings that were considered verified in that cycle
 
-- File 21 implements File 22 Workflow API `1.0.0` and Diagnostic Adapter API `1.0.0` on the existing `social_publication` adapter.
-- File 21 remains the only post, draft, metadata, moderation, status, and canonical-record writer.
-- Direct schema choices are the intersection of the approved text-first allowlist and current File 21 Composer settings.
-- Structured Clinical Case, Research, Poll, upload, Video, and PDF workflows are not advertised or accepted by this direct adapter.
-- Founder Update and Platform News direct submissions require File 21 Founder or Administrator identity.
-- Native draft mutation accepts only owned/editable `draft` or `pending` posts; a published or scheduled post cannot be reopened through this Create workflow.
-- Preview requires an existing mutable native draft and the native `previews_enabled` setting.
-- Submission performs side-effect-free native validation before acquiring an idempotency record.
-- Raw idempotency keys and normalized payload bodies are not stored; only hashes, controlled state, native reference, and status metadata are retained.
-- Exact replay returns the existing native reference and current native status without another Composer write.
-- Same-key conflicting payload fails with `conflict`.
-- Completion-persistence failure preserves the processing lock and a retry cannot create a second native record.
-- Status requires File 21 edit/moderation authority.
-- Canonical URL requires a published native post and File 21 visibility for the authenticated subject.
-- Registration exception diagnostics use a fixed code and do not expose exception class names.
-- File 21's `/create-post/` route and fallback CTA remain available when File 20 or File 22 is absent, incomplete, incompatible, in Safe Mode, or rolled back.
+- File 21 implemented File 22 Workflow API `1.0.0` and Diagnostic Adapter API `1.0.0` on the existing `social_publication` adapter.
+- File 21 remained the native post, draft, metadata, moderation, status, and canonical-record writer.
+- Direct schema choices intersected the approved text-first allowlist and File 21 Composer settings.
+- Structured Clinical Case, Research, Poll, upload, Video, and PDF workflows were not advertised by the direct adapter.
+- Founder Update and Platform News submissions had a server-side Founder or Administrator restriction.
+- Submission performed native validation before acquiring an idempotency record.
+- Raw idempotency keys and normalized payload bodies were not stored in the option record.
+- Status required native edit/moderation authority.
+- Canonical URL required a published post and File 21 visibility.
+- Registration diagnostics did not expose exception class names.
+- `/create-post/` remained the fallback route.
 
-## Focused runtime evidence
-
-`tests/run-file21-file22-workflow-adapter-tests.php` verifies:
-
-- exact adapter and workflow versions;
-- strict schema and direct-workflow exclusions;
-- disabled feed-type omission;
-- native draft creation and short-lived preview;
-- institutional type denial for a non-institutional account;
-- side-effect-free validation;
-- idempotent submission and no duplicate Composer call;
-- conflicting payload rejection;
-- refusal to reopen a published post as a draft;
-- cross-user status denial;
-- public canonical visibility and private canonical denial;
-- fail-closed completion-persistence behavior;
-- privacy-safe health output.
-
-The focused runtime test is included from `tests/run-file21-production-rejection-tests.php`, which itself remains part of the complete File 21 regression suite. It does not invoke forbidden process-execution functions.
-
-## Automated evidence
-
-GitHub Actions run:
+## Historical automated evidence
 
 - workflow: `Build and Test Home News Feed`;
 - run number: `1510`;
@@ -57,14 +32,8 @@ GitHub Actions run:
 - exact head: `fc6c2777c18b79b28ae380cf58210306f7c20335`;
 - conclusion: `success`.
 
-Successful jobs:
+The historical jobs covered the complete File 21 regression suite, JavaScript and static checks, package/checksum/manifest checks, and WordPress Playground activation on PHP 8.3 and PHP 8.1.
 
-1. Exact-head build, complete PHP behavior and phase regression suite, JavaScript syntax, static security and whitespace checks, canonical package build, checksum, manifest, and structure verification.
-2. Real WordPress Playground activation/deactivation/reactivation on the latest WordPress runtime with PHP 8.3.
-3. Real WordPress Playground activation/deactivation/reactivation on WordPress 6.8 with PHP 8.1.
+## Withdrawn conclusion
 
-## Verification conclusion
-
-No additional known code-level blocker remains within this direct File 21 workflow-adapter scope at the reviewed runtime head.
-
-This conclusion does **not** authorize merge, production packaging, or live deployment. PR #20 must remain Draft and unmerged until File 21 PR #19 and File 22's stacked phases pass their merge order, Files 00/20/21/22 are installed together on staging, the full role and ownership matrix passes, browser/accessibility/RTL/mobile acceptance passes, and the Founder gives explicit authorization.
+The former statement that no additional code-level blocker remained is withdrawn. The old text also incorrectly described PR #20 as Draft and unmerged after its state changed. Only the second-review correction line in Draft PR #21 may be used for current assessment, and it still requires fresh exact-head verification and staging acceptance.
