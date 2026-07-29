@@ -9,13 +9,14 @@ namespace {
 	define( 'SABRI_HNF_SLUG', 'sabri-complete-home-news-feed' );
 	define( 'AUTH_SALT', 'file21-test-auth-salt' );
 
-	$GLOBALS['file21_test_options']        = array();
-	$GLOBALS['file21_test_posts']          = array();
-	$GLOBALS['file21_test_post_meta']      = array();
-	$GLOBALS['file21_test_next_post_id']   = 100;
-	$GLOBALS['file21_test_current_user']   = 1;
-	$GLOBALS['file21_test_composer_calls'] = 0;
-	$GLOBALS['file21_test_update_fail']    = false;
+	$GLOBALS['file21_test_options']             = array();
+	$GLOBALS['file21_test_posts']               = array();
+	$GLOBALS['file21_test_post_meta']           = array();
+	$GLOBALS['file21_test_next_post_id']        = 100;
+	$GLOBALS['file21_test_current_user']        = 1;
+	$GLOBALS['file21_test_composer_calls']      = 0;
+	$GLOBALS['file21_test_update_call_count']   = 0;
+	$GLOBALS['file21_test_fail_update_on_call'] = 0;
 
 	final class WP_Error {
 		public function __construct( private string $code = '', private string $message = '' ) {}
@@ -38,7 +39,13 @@ namespace {
 	function add_query_arg( array $args, string $url ): string { return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . http_build_query( $args ); }
 	function get_option( string $key, mixed $default = false ): mixed { return $GLOBALS['file21_test_options'][ $key ] ?? $default; }
 	function add_option( string $key, mixed $value, string $deprecated = '', bool|string $autoload = true ): bool { unset( $deprecated, $autoload ); if ( array_key_exists( $key, $GLOBALS['file21_test_options'] ) ) { return false; } $GLOBALS['file21_test_options'][ $key ] = $value; return true; }
-	function update_option( string $key, mixed $value, bool $autoload = true ): bool { unset( $autoload ); if ( $GLOBALS['file21_test_update_fail'] ) { return false; } $GLOBALS['file21_test_options'][ $key ] = $value; return true; }
+	function update_option( string $key, mixed $value, bool $autoload = true ): bool {
+		unset( $autoload );
+		++$GLOBALS['file21_test_update_call_count'];
+		if ( $GLOBALS['file21_test_fail_update_on_call'] > 0 && $GLOBALS['file21_test_update_call_count'] === $GLOBALS['file21_test_fail_update_on_call'] ) { return false; }
+		$GLOBALS['file21_test_options'][ $key ] = $value;
+		return true;
+	}
 	function delete_option( string $key ): bool { if ( ! array_key_exists( $key, $GLOBALS['file21_test_options'] ) ) { return false; } unset( $GLOBALS['file21_test_options'][ $key ] ); return true; }
 	function get_post_type( int $post_id ): string|false { return $GLOBALS['file21_test_posts'][ $post_id ]['type'] ?? false; }
 	function get_post_status( int $post_id ): string|false { return $GLOBALS['file21_test_posts'][ $post_id ]['status'] ?? false; }
@@ -77,7 +84,7 @@ namespace Sabri\HomeNewsFeed {
 	final class CanonicalIdentityAdapter { public static function is_founder( int $user_id ): bool { return 1 === $user_id; } public static function is_administrator( int $user_id ): bool { return 99 === $user_id; } }
 	final class FeedContext { public static function allowed_composer_visibility( ?array $settings = null, bool $include_private = true ): array { unset( $settings ); return $include_private ? array( 'public', 'members', 'private' ) : array( 'public', 'members' ); } }
 	final class ComposerPermissions { public static function user_can_create( int $user_id, ?array $settings = null ): bool { unset( $settings ); return in_array( $user_id, array( 1, 2, 99 ), true ); } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return 99 === $user_id || (int) ( $GLOBALS['file21_test_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
-	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $errors = array(); if ( ! in_array( (string) ( $input['feed_type'] ?? '' ), array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ), true ) ) { $errors[] = array( 'code' => 'invalid_feed_type' ); } if ( 'draft' !== (string) ( $input['composer_action'] ?? '' ) && '' === trim( (string) ( $input['content'] ?? '' ) ) ) { $errors[] = array( 'code' => 'content_required' ); } return array( 'valid' => array() === $errors, 'errors' => $errors, 'data' => $input ); } }
+	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $errors = array(); if ( ! in_array( (string) ( $input['feed_type'] ?? '' ), array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ), true ) ) { $errors[] = array( 'code' => 'invalid_feed_type' ); } if ( 'draft' !== (string) ( $input['composer_action'] ?? '' ) && '' === trim( (string) ( $input['content'] ?? '' ) ) { $errors[] = array( 'code' => 'content_required' ); } return array( 'valid' => array() === $errors, 'errors' => $errors, 'data' => $input ); } }
 	final class Composer {
 		public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array {
 			unset( $files ); ++$GLOBALS['file21_test_composer_calls']; $validation = ComposerValidation::validate( $input, $user_id, Settings::get() ); if ( empty( $validation['valid'] ) ) { return array( 'ok' => false, 'code' => 'validation_failed' ); }
@@ -129,9 +136,9 @@ namespace Sabri\HomeNewsFeed {
 	$GLOBALS['file21_test_posts'][ $post_id ]['status'] = 'draft';
 
 	$before_submit = (int) $GLOBALS['file21_test_composer_calls'];
-	$GLOBALS['file21_test_update_fail'] = true;
+	$GLOBALS['file21_test_fail_update_on_call'] = (int) $GLOBALS['file21_test_update_call_count'] + 2;
 	$assert( 'temporarily_unavailable' === $error_code( $adapter->submit( 1, $key, $submit_payload ) ), 'Completion persistence failure did not fail closed.' );
-	$GLOBALS['file21_test_update_fail'] = false;
+	$GLOBALS['file21_test_fail_update_on_call'] = 0;
 	$recovered = $adapter->submit( 1, $key, $submit_payload );
 	$assert( is_array( $recovered ) && 'published' === ( $recovered['status'] ?? '' ), 'Retry did not reconcile the native publication.' );
 	$assert( $before_submit + 1 === (int) $GLOBALS['file21_test_composer_calls'], 'Recovery retry repeated the native mutation.' );
