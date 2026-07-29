@@ -12,16 +12,17 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Preserves the registered class name and serializes final native mutation so
- * concurrent retries cannot repeat Composer side effects on the same draft.
+ * Preserves the registered class name and requires final submission to update
+ * an already-known File 21 draft. This removes the post-create/pre-marker crash
+ * window that would otherwise make durable native reconciliation impossible.
  */
 final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflowAdapter {
-	private const IDEMPOTENCY_PATTERN           = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
-	private const EXECUTION_LOCK_PREFIX         = 'sabri_hnf_file22_exec_';
-	private const EXECUTION_LOCK_TTL            = 120;
-	private const SUPPORTED_ACTIONS             = array( 'submit', 'publish', 'schedule' );
-	private const INSTITUTIONAL_FEED_TYPES      = array( 'founder-update', 'platform-news' );
-	private const SUPPORTED_FEED_TYPES          = array(
+	private const IDEMPOTENCY_PATTERN      = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
+	private const EXECUTION_LOCK_PREFIX    = 'sabri_hnf_file22_exec_';
+	private const EXECUTION_LOCK_TTL       = 120;
+	private const SUPPORTED_ACTIONS        = array( 'submit', 'publish', 'schedule' );
+	private const INSTITUTIONAL_FEED_TYPES = array( 'founder-update', 'platform-news' );
+	private const SUPPORTED_FEED_TYPES     = array(
 		'standard-post',
 		'founder-update',
 		'classical-homeopathy',
@@ -42,7 +43,8 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 	);
 
 	/**
-	 * Idempotent submission with an atomic per-key execution lease.
+	 * Final submission is idempotent only after File 22 has obtained an opaque
+	 * draft reference from `create_draft()`.
 	 *
 	 * @param array<string,mixed> $payload Final File 22 payload.
 	 * @return array<string,mixed>|\WP_Error
@@ -55,19 +57,17 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 			return $this->error_result( 'invalid_reference' );
 		}
 
-		$requested_post_id = 0;
-		if ( isset( $payload['native_reference'] ) && is_scalar( $payload['native_reference'] ) && '' !== (string) $payload['native_reference'] ) {
-			$requested_post_id = UniversalComposerWorkflowStore::post_id_from_reference( (string) $payload['native_reference'] );
-			if ( $requested_post_id <= 0 ) {
-				return $this->error_result( 'invalid_reference' );
-			}
-			if ( ! $this->can_mutate_draft( $user_id, $requested_post_id ) ) {
-				return $this->error_result( 'conflict' );
-			}
+		$reference = isset( $payload['native_reference'] ) && is_scalar( $payload['native_reference'] ) ? (string) $payload['native_reference'] : '';
+		$post_id   = UniversalComposerWorkflowStore::post_id_from_reference( $reference );
+		if ( $post_id <= 0 ) {
+			return $this->error_result( 'invalid_reference' );
+		}
+		if ( ! $this->can_mutate_draft( $user_id, $post_id ) ) {
+			return $this->error_result( 'conflict' );
 		}
 
 		$action = $this->requested_action( $payload );
-		$input  = $this->normalized_input( $payload, $action, $requested_post_id, $user_id );
+		$input  = $this->normalized_input( $payload, $action, $post_id, $user_id );
 		if ( $input instanceof \WP_Error ) {
 			return $input;
 		}
@@ -84,43 +84,17 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		}
 
 		$record          = UniversalComposerWorkflowStore::load_record( $option_key );
-		$post_id         = $requested_post_id;
 		$record_acquired = false;
 		if ( is_array( $record ) ) {
-			$resolved = $this->resolve_existing_record( $record, $option_key, $user_id, $key_hash, $fingerprint, $post_id );
-			if ( $resolved instanceof \WP_Error || is_array( $resolved ) ) {
-				return $resolved;
+			$existing = $this->existing_record_result( $record, $option_key, $user_id, $post_id, $key_hash, $fingerprint );
+			if ( $existing instanceof \WP_Error || is_array( $existing ) ) {
+				return $existing;
 			}
-			$post_id = (int) $resolved;
-			if ( $post_id <= 0 && UniversalComposerWorkflowStore::record_is_expired( $record ) ) {
-				UniversalComposerWorkflowStore::delete_record( $option_key );
-				$record = null;
-			}
-		}
-
-		if ( ! is_array( $record ) ) {
+		} else {
 			$marked_post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
-			if ( $marked_post_id > 0 ) {
-				if ( $post_id > 0 && $post_id !== $marked_post_id ) {
-					return $this->error_result( 'conflict' );
-				}
-				$post_id = $marked_post_id;
-				$current = $this->current_status( $post_id );
-				if ( $this->is_final_status( $current ) ) {
-					if ( ! UniversalComposerWorkflowStore::acquire_record( $option_key, $user_id, $key_hash, $fingerprint ) ) {
-						return $this->error_result( 'temporarily_unavailable' );
-					}
-					$record = UniversalComposerWorkflowStore::load_record( $option_key );
-					if ( ! is_array( $record ) || ! UniversalComposerWorkflowStore::complete_record( $option_key, $record, $post_id, $current ) ) {
-						return $this->error_result( 'temporarily_unavailable' );
-					}
-					return $this->result_envelope( $post_id, $current, $user_id );
-				}
-				if ( 'draft' !== $current || ! $this->can_mutate_draft( $user_id, $post_id ) ) {
-					return $this->error_result( 'temporarily_unavailable' );
-				}
+			if ( $marked_post_id > 0 && $marked_post_id !== $post_id ) {
+				return $this->error_result( 'conflict' );
 			}
-
 			if ( ! UniversalComposerWorkflowStore::acquire_record( $option_key, $user_id, $key_hash, $fingerprint ) ) {
 				return $this->error_result( 'temporarily_unavailable' );
 			}
@@ -131,8 +105,6 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		if ( ! is_array( $record ) ) {
 			return $this->error_result( 'temporarily_unavailable' );
 		}
-
-		/* An existing active lease belongs to another request. */
 		$state = sanitize_key( (string) ( $record['state'] ?? '' ) );
 		if ( ! $record_acquired && 'processing' === $state && ! UniversalComposerWorkflowStore::record_is_expired( $record ) ) {
 			return $this->error_result( 'temporarily_unavailable' );
@@ -148,71 +120,56 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		}
 
 		try {
-			/* Recheck after acquiring the atomic lease. */
 			$record = UniversalComposerWorkflowStore::load_record( $option_key );
 			if ( ! is_array( $record ) || empty( $record['fingerprint'] ) || ! hash_equals( (string) $record['fingerprint'], $fingerprint ) ) {
 				return $this->error_result( 'conflict' );
 			}
-			$resolved_post_id = UniversalComposerWorkflowStore::post_id_from_reference( (string) ( $record['native_reference'] ?? '' ) );
-			if ( $resolved_post_id <= 0 ) {
-				$resolved_post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
+			$record_post_id = UniversalComposerWorkflowStore::post_id_from_reference( (string) ( $record['native_reference'] ?? '' ) );
+			if ( $record_post_id <= 0 ) {
+				$record_post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
 			}
-			if ( $post_id > 0 && $resolved_post_id > 0 && $post_id !== $resolved_post_id ) {
+			if ( $record_post_id > 0 && $record_post_id !== $post_id ) {
 				return $this->error_result( 'conflict' );
 			}
-			$post_id = $resolved_post_id > 0 ? $resolved_post_id : $post_id;
-			if ( $post_id > 0 ) {
-				$current = $this->current_status( $post_id );
-				if ( $this->is_final_status( $current ) ) {
-					if ( ! UniversalComposerWorkflowStore::complete_record( $option_key, $record, $post_id, $current ) ) {
-						return $this->error_result( 'temporarily_unavailable' );
-					}
-					return $this->result_envelope( $post_id, $current, $user_id );
-				}
-				if ( 'draft' !== $current || ! $this->can_mutate_draft( $user_id, $post_id ) ) {
+
+			$current = $this->current_status( $post_id );
+			if ( $this->is_final_status( $current ) ) {
+				if ( ! UniversalComposerWorkflowStore::complete_record( $option_key, $record, $post_id, $current ) ) {
 					return $this->error_result( 'temporarily_unavailable' );
 				}
+				return $this->result_envelope( $post_id, $current, $user_id );
+			}
+			if ( 'draft' !== $current || ! $this->can_mutate_draft( $user_id, $post_id ) ) {
+				return $this->error_result( 'temporarily_unavailable' );
 			}
 
-			$was_new = $post_id <= 0;
-			if ( $post_id > 0 ) {
-				if ( ! UniversalComposerWorkflowStore::attach_native_marker( $post_id, $user_id, $key_hash, $fingerprint ) || ! UniversalComposerWorkflowStore::persist_processing_reference( $option_key, $record, $post_id ) ) {
-					return $this->error_result( 'temporarily_unavailable' );
-				}
-				$record           = UniversalComposerWorkflowStore::load_record( $option_key );
-				$input['post_id'] = $post_id;
+			/* Recovery identity is durable before the native status mutation. */
+			if ( ! UniversalComposerWorkflowStore::attach_native_marker( $post_id, $user_id, $key_hash, $fingerprint ) || ! UniversalComposerWorkflowStore::persist_processing_reference( $option_key, $record, $post_id ) ) {
+				return $this->error_result( 'temporarily_unavailable' );
+			}
+			$record           = UniversalComposerWorkflowStore::load_record( $option_key );
+			$input['post_id'] = $post_id;
+			if ( ! is_array( $record ) ) {
+				return $this->error_result( 'temporarily_unavailable' );
 			}
 
 			$result = Composer::create_or_update_from_request( $input, array(), $user_id );
 			if ( empty( $result['ok'] ) ) {
 				UniversalComposerWorkflowStore::delete_record( $option_key );
-				if ( $post_id > 0 ) {
-					UniversalComposerWorkflowStore::remove_native_marker( $post_id, $key_hash, $fingerprint );
-				}
+				UniversalComposerWorkflowStore::remove_native_marker( $post_id, $key_hash, $fingerprint );
 				return $this->native_error( $result );
 			}
 
 			$created_id = isset( $result['post_id'] ) ? (int) $result['post_id'] : 0;
 			$status     = UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? '' ) );
-			if ( $created_id <= 0 || '' === $status ) {
-				return $this->error_result( 'temporarily_unavailable' );
-			}
-			if ( ! UniversalComposerWorkflowStore::attach_native_marker( $created_id, $user_id, $key_hash, $fingerprint ) ) {
-				if ( $was_new && function_exists( 'wp_delete_post' ) ) {
-					wp_delete_post( $created_id, true );
-				}
-				UniversalComposerWorkflowStore::delete_record( $option_key );
+			if ( $created_id !== $post_id || ! $this->is_final_status( $status ) ) {
 				return $this->error_result( 'temporarily_unavailable' );
 			}
 			$record = UniversalComposerWorkflowStore::load_record( $option_key );
-			if ( ! is_array( $record ) || ! UniversalComposerWorkflowStore::persist_processing_reference( $option_key, $record, $created_id ) ) {
+			if ( ! is_array( $record ) || ! UniversalComposerWorkflowStore::complete_record( $option_key, $record, $post_id, $status ) ) {
 				return $this->error_result( 'temporarily_unavailable' );
 			}
-			$record = UniversalComposerWorkflowStore::load_record( $option_key );
-			if ( ! is_array( $record ) || ! UniversalComposerWorkflowStore::complete_record( $option_key, $record, $created_id, $status ) ) {
-				return $this->error_result( 'temporarily_unavailable' );
-			}
-			return $this->result_envelope( $created_id, $status, $user_id );
+			return $this->result_envelope( $post_id, $status, $user_id );
 		} finally {
 			$this->release_execution_lock( $lock_key, $token );
 		}
@@ -220,22 +177,18 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 
 	/**
 	 * @param array<string,mixed> $record Existing option record.
-	 * @return int|array<string,mixed>|\WP_Error
+	 * @return true|array<string,mixed>|\WP_Error
 	 */
-	private function resolve_existing_record( array $record, string $option_key, int $user_id, string $key_hash, string $fingerprint, int $requested_post_id ) {
+	private function existing_record_result( array $record, string $option_key, int $user_id, int $post_id, string $key_hash, string $fingerprint ) {
 		if ( empty( $record['fingerprint'] ) || ! hash_equals( (string) $record['fingerprint'], $fingerprint ) ) {
 			return $this->error_result( 'conflict' );
 		}
-		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( (string) ( $record['native_reference'] ?? '' ) );
-		if ( $post_id <= 0 ) {
-			$post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
+		$record_post_id = UniversalComposerWorkflowStore::post_id_from_reference( (string) ( $record['native_reference'] ?? '' ) );
+		if ( $record_post_id <= 0 ) {
+			$record_post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
 		}
-		if ( $requested_post_id > 0 && $post_id > 0 && $requested_post_id !== $post_id ) {
+		if ( $record_post_id > 0 && $record_post_id !== $post_id ) {
 			return $this->error_result( 'conflict' );
-		}
-		$post_id = $post_id > 0 ? $post_id : $requested_post_id;
-		if ( $post_id <= 0 ) {
-			return UniversalComposerWorkflowStore::record_is_expired( $record ) ? 0 : $this->error_result( 'temporarily_unavailable' );
 		}
 		$current = $this->current_status( $post_id );
 		if ( $this->is_final_status( $current ) ) {
@@ -247,15 +200,15 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		if ( 'draft' !== $current || ! $this->can_mutate_draft( $user_id, $post_id ) ) {
 			return $this->error_result( 'temporarily_unavailable' );
 		}
-		return $post_id;
+		return true;
 	}
 
-	/** Acquire an atomic short execution lease, reclaiming only an expired lease. */
+	/** Acquire a short atomic execution lease; reclaim only an expired lease. */
 	private function acquire_execution_lock( string $lock_key ): string {
-		if ( ! function_exists( 'add_option' ) || ! function_exists( 'get_option' ) || ! function_exists( 'delete_option' ) ) {
+		if ( ! function_exists( 'add_option' ) || ! function_exists( 'get_option' ) || ! function_exists( 'delete_option' ) || ! function_exists( 'wp_generate_uuid4' ) ) {
 			return '';
 		}
-		$token = function_exists( 'wp_generate_uuid4' ) ? wp_generate_uuid4() : hash( 'sha256', uniqid( '', true ) );
+		$token = wp_generate_uuid4();
 		$value = array( 'token' => $token, 'expires_at' => time() + self::EXECUTION_LOCK_TTL );
 		if ( add_option( $lock_key, $value, '', false ) ) {
 			return $token;
