@@ -30,6 +30,7 @@ final class UniversalComposerBridge {
 	public static function register() {
 		UniversalComposerWorkflowStore::register();
 		UniversalComposerWorkflowMaintenance::register();
+		UniversalComposerExecutionLockMaintenance::register();
 
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'supc_registry_ready', array( __CLASS__, 'maybe_register_adapter' ), 5 );
