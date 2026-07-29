@@ -98,14 +98,20 @@ namespace Sabri\HomeNewsFeed {
 				'composer' => array(
 					'public_composer_enabled' => 1,
 					'drafts_enabled' => 1,
+					'previews_enabled' => 1,
 					'scheduling_enabled' => 1,
 					'comments_metadata_enabled' => 1,
+					'allowed_feed_types' => array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ),
 				),
 			);
 		}
 	}
 	final class SafeMode { public static function feature_enabled( string $feature ): bool { return 'composer' === $feature; } }
 	final class PublicComposerSurface {}
+	final class CanonicalIdentityAdapter {
+		public static function is_founder( int $user_id ): bool { return 1 === $user_id; }
+		public static function is_administrator( int $user_id ): bool { return 99 === $user_id; }
+	}
 	final class FeedContext {
 		public static function allowed_composer_visibility( ?array $settings = null, bool $include_private = true ): array {
 			unset( $settings );
@@ -123,7 +129,7 @@ namespace Sabri\HomeNewsFeed {
 		public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array {
 			unset( $user_id, $settings );
 			$errors = array();
-			if ( ! in_array( (string) ( $input['feed_type'] ?? '' ), array( 'standard-post', 'founder-update', 'nutrition' ), true ) ) {
+			if ( ! in_array( (string) ( $input['feed_type'] ?? '' ), array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ), true ) ) {
 				$errors[] = array( 'code' => 'invalid_feed_type' );
 			}
 			if ( 'draft' !== (string) ( $input['composer_action'] ?? '' ) && '' === trim( (string) ( $input['content'] ?? '' ) ) ) {
@@ -137,13 +143,9 @@ namespace Sabri\HomeNewsFeed {
 			unset( $files );
 			++$GLOBALS['file21_test_composer_calls'];
 			$validation = ComposerValidation::validate( $input, $user_id, Settings::get() );
-			if ( empty( $validation['valid'] ) ) {
-				return array( 'ok' => false, 'code' => 'validation_failed' );
-			}
+			if ( empty( $validation['valid'] ) ) { return array( 'ok' => false, 'code' => 'validation_failed' ); }
 			$post_id = (int) ( $input['post_id'] ?? 0 );
-			if ( $post_id > 0 && ! ComposerPermissions::user_can_edit_post( $post_id, $user_id ) ) {
-				return array( 'ok' => false, 'code' => 'edit_denied' );
-			}
+			if ( $post_id > 0 && ! ComposerPermissions::user_can_edit_post( $post_id, $user_id ) ) { return array( 'ok' => false, 'code' => 'edit_denied' ); }
 			if ( $post_id <= 0 ) { $post_id = ++$GLOBALS['file21_test_next_post_id']; }
 			$action = (string) ( $input['composer_action'] ?? 'submit' );
 			$status = array( 'draft' => 'draft', 'publish' => 'publish', 'schedule' => 'future', 'submit' => 'pending' )[ $action ] ?? 'pending';
@@ -169,9 +171,7 @@ namespace Sabri\HomeNewsFeed {
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-publication-adapter.php';
 
 	$failures = array();
-	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void {
-		if ( ! $condition ) { $failures[] = $message; }
-	};
+	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
 	$error_code = static function ( mixed $result ): string { return $result instanceof \WP_Error ? $result->get_error_code() : ''; };
 	$uuid_key = '00000000-0000-4000-8000-000000000001:00000000-0000-4000-8000-000000000002';
 	$adapter = new UniversalComposerPublicationAdapter();
@@ -185,6 +185,7 @@ namespace Sabri\HomeNewsFeed {
 	$assert( ! isset( $schema['fields']['feed_type']['choices']['clinical_case'] ), 'Structured Clinical Case must remain on the native route.' );
 	$assert( ! isset( $schema['fields']['feed_type']['choices']['research'] ), 'Structured Research must remain on the native route.' );
 	$assert( ! isset( $schema['fields']['feed_type']['choices']['poll'] ), 'Poll must remain on the native route.' );
+	$assert( ! isset( $schema['fields']['feed_type']['choices']['event'] ), 'Disabled feed types must not be advertised.' );
 
 	$base_payload = array(
 		'title' => 'Test',
@@ -204,16 +205,20 @@ namespace Sabri\HomeNewsFeed {
 	$assert( is_array( $validation ) && true === ( $validation['valid'] ?? false ), 'Valid payload was rejected.' );
 	$invalid_validation = $adapter->validate( 1, array_merge( $base_payload, array( 'feed_type' => 'clinical_case' ) ) );
 	$assert( is_array( $invalid_validation ) && false === ( $invalid_validation['valid'] ?? true ), 'Unsupported structured workflow was accepted.' );
+	$institutional_denial = $adapter->validate( 2, array_merge( $base_payload, array( 'feed_type' => 'founder_update' ) ) );
+	$assert( is_array( $institutional_denial ) && false === ( $institutional_denial['valid'] ?? true ), 'Non-institutional account received Founder Update authority.' );
 
 	$before_submit = (int) $GLOBALS['file21_test_composer_calls'];
 	$submitted = $adapter->submit( 1, $uuid_key, $base_payload );
 	$assert( is_array( $submitted ) && 'published' === ( $submitted['status'] ?? '' ), 'Publication submission failed.' );
 	$submitted_reference = is_array( $submitted ) ? (string) ( $submitted['native_reference'] ?? '' ) : '';
 	$replayed = $adapter->submit( 1, $uuid_key, $base_payload );
-	$assert( $submitted === $replayed, 'Idempotent replay did not return the existing native result.' );
+	$assert( $submitted === $replayed, 'Idempotent replay did not return the current native result.' );
 	$assert( $before_submit + 1 === (int) $GLOBALS['file21_test_composer_calls'], 'Idempotent replay created another native record.' );
 	$conflict = $adapter->submit( 1, $uuid_key, array_merge( $base_payload, array( 'content' => 'Conflicting content' ) ) );
 	$assert( 'conflict' === $error_code( $conflict ), 'Conflicting idempotency payload did not fail closed.' );
+	$reopen_published = $adapter->create_draft( 1, $submitted_reference, $base_payload );
+	$assert( 'conflict' === $error_code( $reopen_published ), 'Published post was reopened as a draft.' );
 
 	$status = $adapter->status( 1, $submitted_reference );
 	$assert( is_array( $status ) && 'published' === ( $status['status'] ?? '' ), 'Owner status lookup failed.' );
