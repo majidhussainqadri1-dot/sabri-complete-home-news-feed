@@ -17,12 +17,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * when File 22 is absent, disabled, incompatible, or in Safe Mode.
  */
 final class UniversalComposerBridge {
-	const ADAPTER_API_VERSION           = '1.0.0';
-	const WORKFLOW_API_VERSION          = '1.0.0';
-	const ADAPTER_KEY                   = 'social_publication';
-	const MINIMUM_SHELL_VERSION         = '1.0.1';
-	const SHELL_CREATE_CONTRACT_VERSION = '1.0.1';
-	const SHELL_CREATE_CONTRACT_OWNER   = 'sabri-unified-application-shell';
+	const ADAPTER_API_VERSION            = '1.0.0';
+	const WORKFLOW_API_VERSION           = '1.0.0';
+	const SUBJECT_SCHEMA_API_VERSION     = '1.0.0';
+	const PUBLIC_API_VERSION             = '1.0.0';
+	const PUBLIC_API_OWNER               = 'sabri-universal-post-composer';
+	const ADAPTER_KEY                    = 'social_publication';
+	const MINIMUM_SHELL_VERSION          = '1.0.1';
+	const SHELL_CREATE_CONTRACT_VERSION  = '1.0.1';
+	const SHELL_CREATE_CONTRACT_OWNER    = 'sabri-unified-application-shell';
 
 	/** @var bool Prevent duplicate registration during the same request. */
 	private static $registered = false;
@@ -51,7 +54,7 @@ final class UniversalComposerBridge {
 		}
 
 		try {
-			$result = supc_register_adapter( new UniversalComposerPublicationAdapter() );
+			$result = supc_register_adapter( new UniversalComposerSubjectSchemaAdapter() );
 			if ( true === $result ) {
 				self::$registered = true;
 				return;
@@ -107,7 +110,7 @@ final class UniversalComposerBridge {
 		}
 	}
 
-	/** Whether the exact File 22 base, workflow, and diagnostic contracts exist. */
+	/** Whether the exact File 22 base, workflow, diagnostic, and public APIs exist. */
 	public static function file22_contract_available() {
 		$workflow_functions = array(
 			'supc_workflow_schema',
@@ -129,6 +132,14 @@ final class UniversalComposerBridge {
 			&& self::ADAPTER_API_VERSION === (string) SUPC_ADAPTER_API_VERSION
 			&& defined( 'SUPC_WORKFLOW_API_VERSION' )
 			&& self::WORKFLOW_API_VERSION === (string) SUPC_WORKFLOW_API_VERSION
+			&& defined( 'SUPC_SUBJECT_SCHEMA_API_VERSION' )
+			&& self::SUBJECT_SCHEMA_API_VERSION === (string) SUPC_SUBJECT_SCHEMA_API_VERSION
+			&& defined( 'SUPC_PUBLIC_API_VERSION' )
+			&& self::PUBLIC_API_VERSION === (string) SUPC_PUBLIC_API_VERSION
+			&& defined( 'SUPC_PUBLIC_API_OWNER' )
+			&& self::PUBLIC_API_OWNER === (string) SUPC_PUBLIC_API_OWNER
+			&& defined( 'SUPC_PUBLIC_API_FUNCTIONS_OWNED' )
+			&& true === SUPC_PUBLIC_API_FUNCTIONS_OWNED
 			&& function_exists( 'supc_register_adapter' )
 			&& function_exists( 'supc_adapter_matches' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' )
