@@ -26,8 +26,10 @@ final class UniversalComposerBridge {
 	/** @var bool Prevent duplicate registration during the same request. */
 	private static $registered = false;
 
-	/** Attach compatibility, late-registration, and surface-harmonization paths. */
+	/** Attach compatibility, recovery, and surface-harmonization paths. */
 	public static function register() {
+		UniversalComposerWorkflowStore::register();
+
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'supc_registry_ready', array( __CLASS__, 'maybe_register_adapter' ), 5 );
 			add_action( 'init', array( __CLASS__, 'maybe_register_adapter' ), 25 );
@@ -39,7 +41,7 @@ final class UniversalComposerBridge {
 		}
 	}
 
-	/** Register the native route and direct workflow adapter. */
+	/** Register the corrected native route and direct workflow adapter. */
 	public static function maybe_register_adapter() {
 		if ( self::$registered || ! self::file22_contract_available() ) {
 			return;
@@ -147,10 +149,7 @@ final class UniversalComposerBridge {
 			&& (bool) sabri_shell_create_visible_for_current_user();
 	}
 
-	/**
-	 * Whether the complete universal Create gateway may replace File 21's
-	 * fallback Home/News CTA.
-	 */
+	/** Whether the complete universal Create gateway may replace the fallback. */
 	public static function gateway_available() {
 		if ( ! self::$registered || ! self::file22_contract_available() || ! self::shell_contract_available() ) {
 			return false;
