@@ -1,28 +1,14 @@
 <?php
-/**
- * Loads the real File 22 interfaces and Workflow Coordinator against File 21.
- */
+/** Loads the real File 22 interfaces and Workflow Coordinator against File 21. */
 
 declare(strict_types=1);
 
 namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
-	if ( ! is_string( $file22_root ) || '' === $file22_root ) {
-		fwrite( STDERR, "FILE22_ROOT is required.\n" );
-		exit( 1 );
-	}
+	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	$required = array(
-		'includes/contracts/interface-adapter.php',
-		'includes/contracts/interface-diagnostic-adapter.php',
-		'includes/contracts/interface-workflow-adapter.php',
-		'includes/core/class-workflow-coordinator.php',
-	);
-	foreach ( $required as $relative ) {
-		if ( ! is_file( $file22_root . '/' . $relative ) ) {
-			fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL );
-			exit( 1 );
-		}
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
 	define( 'ABSPATH', __DIR__ . '/' );
@@ -30,11 +16,7 @@ namespace {
 	define( 'SABRI_HNF_SLUG', 'sabri-complete-home-news-feed' );
 	define( 'SUPC_WORKFLOW_API_VERSION', '1.0.0' );
 	define( 'AUTH_SALT', 'real-contract-test-salt' );
-	$GLOBALS['real_options'] = array();
-	$GLOBALS['real_posts'] = array();
-	$GLOBALS['real_meta'] = array();
-	$GLOBALS['real_next_id'] = 400;
-	$GLOBALS['real_current_user'] = 1;
+	$GLOBALS['real_options'] = array(); $GLOBALS['real_posts'] = array(); $GLOBALS['real_meta'] = array(); $GLOBALS['real_next_id'] = 400; $GLOBALS['real_current_user'] = 1;
 
 	final class WP_Error {
 		public function __construct( private string $code = '', private string $message = '', private mixed $data = null ) {}
@@ -42,7 +24,6 @@ namespace {
 		public function get_error_message(): string { return $this->message; }
 		public function get_error_data(): mixed { return $this->data; }
 	}
-
 	function __( string $text, string $domain = '' ): string { unset( $domain ); return $text; }
 	function sanitize_key( string $key ): string { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) ) ?? ''; }
 	function wp_json_encode( mixed $value ): string|false { return json_encode( $value ); }
@@ -76,10 +57,7 @@ namespace Sabri\UniversalComposer\Core {
 		public function get( string $key ): ?object { return 'social_publication' === $key ? $this->adapter : null; }
 		public function workflow_contract( string $key ): ?array { return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true ) : null; }
 	}
-	final class Permission_Resolver {
-		public function account_is_eligible( int $user_id ): bool { return $user_id > 0; }
-		public function can_use_capability( int $user_id, string $capability ): bool { return $user_id > 0 && 'sabri_feed_create_posts' === $capability; }
-	}
+	final class Permission_Resolver { public function account_is_eligible( int $user_id ): bool { return $user_id > 0; } public function can_use_capability( int $user_id, string $capability ): bool { return $user_id > 0 && 'sabri_feed_create_posts' === $capability; } }
 	final class Safe_Mode { public static function disabled(): bool { return false; } }
 }
 
@@ -90,16 +68,9 @@ namespace Sabri\HomeNewsFeed {
 	final class PublicComposerSurface {}
 	final class CanonicalIdentityAdapter { public static function is_founder( int $id ): bool { return 1 === $id; } public static function is_administrator( int $id ): bool { return 99 === $id; } }
 	final class FeedContext { public static function allowed_composer_visibility( ?array $settings = null, bool $private = true ): array { unset( $settings ); return $private ? array( 'public', 'private' ) : array( 'public' ); } }
-	final class ComposerPermissions {
-		public static function user_can_create( int $id, ?array $settings = null ): bool { unset( $settings ); return $id > 0; }
-		public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return (int) ( $GLOBALS['real_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; }
-	}
-	final class ComposerValidation {
-		public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $valid = '' !== trim( (string) ( $input['content'] ?? '' ) ); return array( 'valid' => $valid, 'errors' => $valid ? array() : array( array( 'code' => 'content_required' ) ), 'data' => $input ); }
-	}
-	final class Composer {
-		public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array { unset( $files ); $id = (int) ( $input['post_id'] ?? 0 ); if ( $id <= 0 ) { $id = ++$GLOBALS['real_next_id']; } $action = (string) ( $input['composer_action'] ?? 'submit' ); $status = array( 'draft' => 'draft', 'submit' => 'pending', 'publish' => 'publish', 'schedule' => 'future' )[ $action ] ?? 'pending'; $GLOBALS['real_posts'][ $id ] = array( 'type' => 'post', 'status' => $status, 'author' => $user_id, 'visibility' => (string) ( $input['visibility'] ?? 'public' ), 'url' => 'https://example.test/post/' . $id . '/' ); return array( 'ok' => true, 'post_id' => $id, 'status' => $status ); }
-	}
+	final class ComposerPermissions { public static function user_can_create( int $id, ?array $settings = null ): bool { unset( $settings ); return $id > 0; } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return (int) ( $GLOBALS['real_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
+	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $valid = '' !== trim( (string) ( $input['content'] ?? '' ) ); return array( 'valid' => $valid, 'errors' => $valid ? array() : array( array( 'code' => 'content_required' ) ), 'data' => $input ); } }
+	final class Composer { public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array { unset( $files ); $id = (int) ( $input['post_id'] ?? 0 ); if ( $id <= 0 ) { $id = ++$GLOBALS['real_next_id']; } $action = (string) ( $input['composer_action'] ?? 'submit' ); $status = array( 'draft' => 'draft', 'submit' => 'pending', 'publish' => 'publish', 'schedule' => 'future' )[ $action ] ?? 'pending'; $GLOBALS['real_posts'][ $id ] = array( 'type' => 'post', 'status' => $status, 'author' => $user_id, 'visibility' => (string) ( $input['visibility'] ?? 'public' ), 'url' => 'https://example.test/post/' . $id . '/' ); return array( 'ok' => true, 'post_id' => $id, 'status' => $status ); } }
 	final class PostMetadata { public static function user_can_view( int $post_id, int $user_id = 0 ): bool { $post = $GLOBALS['real_posts'][ $post_id ] ?? array(); return 'publish' === ( $post['status'] ?? '' ) && ( 'private' !== ( $post['visibility'] ?? 'public' ) || (int) ( $post['author'] ?? 0 ) === $user_id ); } }
 }
 
@@ -113,9 +84,7 @@ namespace {
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-publication-adapter.php';
 
 	$adapter = new \Sabri\HomeNewsFeed\UniversalComposerPublicationAdapter();
-	$registry = new \Sabri\UniversalComposer\Core\Registry( $adapter );
-	$permissions = new \Sabri\UniversalComposer\Core\Permission_Resolver();
-	$coordinator = new \Sabri\UniversalComposer\Core\Workflow_Coordinator( $registry, $permissions );
+	$coordinator = new \Sabri\UniversalComposer\Core\Workflow_Coordinator( new \Sabri\UniversalComposer\Core\Registry( $adapter ), new \Sabri\UniversalComposer\Core\Permission_Resolver() );
 	$failures = array();
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
 	$payload = array( 'content' => 'Actual coordinator integration', 'feed_type' => 'standard_post', 'visibility' => 'public', 'publication_action' => 'publish' );
@@ -124,11 +93,12 @@ namespace {
 	$draft = $coordinator->create_draft( 1, 'social_publication', null, $payload );
 	$assert( is_array( $draft ) && 'draft' === ( $draft['status'] ?? '' ), 'Real File 22 coordinator rejected draft creation.' );
 	$reference = is_array( $draft ) ? (string) ( $draft['native_reference'] ?? '' ) : '';
-	$preview = $coordinator->preview( 1, 'social_publication', array_merge( $payload, array( 'native_reference' => $reference ) ) );
+	$workflow_payload = array_merge( $payload, array( 'native_reference' => $reference ) );
+	$preview = $coordinator->preview( 1, 'social_publication', $workflow_payload );
 	$assert( is_array( $preview ) && str_contains( (string) ( $preview['preview_url'] ?? '' ), 'sabri_file22_signature=' ), 'Real File 22 coordinator rejected the signed preview.' );
 	$key = $coordinator->generate_idempotency_key();
-	$submitted = $coordinator->submit( 1, 'social_publication', $key, $payload );
-	$assert( is_array( $submitted ) && 'published' === ( $submitted['status'] ?? '' ), 'Real File 22 coordinator rejected submission.' );
+	$submitted = $coordinator->submit( 1, 'social_publication', $key, $workflow_payload );
+	$assert( is_array( $submitted ) && 'published' === ( $submitted['status'] ?? '' ), 'Real File 22 coordinator rejected draft-referenced submission.' );
 	$submitted_ref = is_array( $submitted ) ? (string) ( $submitted['native_reference'] ?? '' ) : '';
 	$status = $coordinator->status( 1, 'social_publication', $submitted_ref );
 	$assert( is_array( $status ) && 'published' === ( $status['status'] ?? '' ), 'Real File 22 coordinator rejected status.' );
