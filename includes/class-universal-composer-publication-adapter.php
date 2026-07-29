@@ -21,13 +21,15 @@ if ( ! defined( 'ABSPATH' ) ) {
  * content copy.
  */
 final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Diagnostic_Adapter {
-	private const SCHEMA_VERSION              = '1.0.0';
-	private const PREVIEW_TTL                 = 600;
-	private const IDEMPOTENCY_PREFIX          = 'sabri_hnf_file22_idem_';
-	private const IDEMPOTENCY_PATTERN         = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
-	private const NATIVE_REFERENCE_PATTERN    = '/^post-([1-9][0-9]*)$/';
-	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
-	private const SUPPORTED_FEED_TYPES        = array(
+	private const SCHEMA_VERSION                = '1.0.0';
+	private const PREVIEW_TTL                   = 600;
+	private const IDEMPOTENCY_PREFIX            = 'sabri_hnf_file22_idem_';
+	private const IDEMPOTENCY_PATTERN           = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
+	private const NATIVE_REFERENCE_PATTERN      = '/^post-([1-9][0-9]*)$/';
+	private const MUTABLE_DRAFT_STATUSES         = array( 'draft', 'pending' );
+	private const SUPPORTED_PUBLICATION_ACTIONS  = array( 'submit', 'publish', 'schedule' );
+	private const INSTITUTIONAL_FEED_TYPES       = array( 'founder-update', 'platform-news' );
+	private const SUPPORTED_FEED_TYPES           = array(
 		'standard-post',
 		'founder-update',
 		'classical-homeopathy',
@@ -108,7 +110,18 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			return false;
 		}
 
-		foreach ( array( 'PublicComposerSurface', 'ComposerPermissions', 'ComposerValidation', 'Composer', 'PostMetadata' ) as $class_name ) {
+		$required_classes = array(
+			'PublicComposerSurface',
+			'ComposerPermissions',
+			'ComposerValidation',
+			'Composer',
+			'PostMetadata',
+			'Settings',
+			'SafeMode',
+			'FeedContext',
+			'CanonicalIdentityAdapter',
+		);
+		foreach ( $required_classes as $class_name ) {
 			if ( ! class_exists( __NAMESPACE__ . '\\' . $class_name ) ) {
 				return false;
 			}
@@ -245,12 +258,12 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			if ( $post_id <= 0 ) {
 				return $this->error( 'invalid_reference' );
 			}
-			if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
-				return $this->error( 'permission_denied' );
+			if ( ! $this->user_can_manage_mutable_draft( $user_id, $post_id ) ) {
+				return $this->error( 'conflict' );
 			}
 		}
 
-		$input = $this->normalize_payload( $payload, 'draft', $post_id );
+		$input = $this->normalize_payload( $payload, 'draft', $post_id, $user_id );
 		if ( $input instanceof \WP_Error ) {
 			return $input;
 		}
@@ -280,7 +293,7 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			return $this->error( 'permission_denied' );
 		}
 
-		$input = $this->normalize_payload( $payload, $this->publication_action( $payload ) );
+		$input = $this->normalize_payload( $payload, $this->publication_action( $payload ), 0, $user_id );
 		if ( $input instanceof \WP_Error ) {
 			return array( 'valid' => false, 'errors' => array( $input->get_error_code() ), 'warnings' => array() );
 		}
@@ -301,17 +314,21 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 		if ( ! $this->can_create( $user_id ) ) {
 			return $this->error( 'permission_denied' );
 		}
+		$settings = Settings::get();
+		if ( empty( $settings['composer']['previews_enabled'] ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
 
 		$reference = isset( $payload['native_reference'] ) && is_scalar( $payload['native_reference'] ) ? (string) $payload['native_reference'] : '';
 		$post_id   = $this->post_id_from_reference( $reference );
 		if ( $post_id <= 0 ) {
 			return $this->error( 'invalid_reference' );
 		}
-		if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
-			return $this->error( 'permission_denied' );
+		if ( ! $this->user_can_manage_mutable_draft( $user_id, $post_id ) ) {
+			return $this->error( 'conflict' );
 		}
 
-		$input = $this->normalize_payload( $payload, 'draft', $post_id );
+		$input = $this->normalize_payload( $payload, 'draft', $post_id, $user_id );
 		if ( $input instanceof \WP_Error ) {
 			return $input;
 		}
@@ -349,15 +366,19 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			if ( $post_id <= 0 ) {
 				return $this->error( 'invalid_reference' );
 			}
-			if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
-				return $this->error( 'permission_denied' );
+			if ( ! $this->user_can_manage_mutable_draft( $user_id, $post_id ) ) {
+				return $this->error( 'conflict' );
 			}
 		}
 
 		$action = $this->publication_action( $payload );
-		$input  = $this->normalize_payload( $payload, $action, $post_id );
+		$input  = $this->normalize_payload( $payload, $action, $post_id, $user_id );
 		if ( $input instanceof \WP_Error ) {
 			return $input;
+		}
+		$validation = ComposerValidation::validate( $input, $user_id, Settings::get() );
+		if ( empty( $validation['valid'] ) ) {
+			return $this->error( 'validation_failed' );
 		}
 
 		$fingerprint = $this->payload_fingerprint( $input );
@@ -381,7 +402,7 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			'created_at'  => time(),
 		);
 		if ( ! add_option( $option_key, $processing, '', false ) ) {
-			$existing = function_exists( 'get_option' ) ? get_option( $option_key, null ) : null;
+			$existing   = function_exists( 'get_option' ) ? get_option( $option_key, null ) : null;
 			$reconciled = $this->reconcile_idempotency_record( $existing, $fingerprint, $user_id );
 			return null !== $reconciled ? $reconciled : $this->error( 'conflict' );
 		}
@@ -440,7 +461,7 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 	/** Resolve a canonical URL only after native ownership/visibility checks. */
 	public function canonical_url( int $user_id, string $native_reference ): string {
 		$post_id = $this->post_id_from_reference( $native_reference );
-		if ( $user_id <= 0 || $post_id <= 0 || ! $this->is_native_post( $post_id ) ) {
+		if ( ! $this->can_create( $user_id ) || $post_id <= 0 || ! $this->is_native_post( $post_id ) ) {
 			return '';
 		}
 		if ( 'publish' !== (string) get_post_status( $post_id ) || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
@@ -459,29 +480,34 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 		$settings  = Settings::get();
 		$available = $this->is_available();
 		return array(
-			'status'                     => $available ? 'pass' : 'warning',
-			'codes'                      => $available ? array() : array( 'native_unavailable' ),
-			'adapter_key'                => $this->key(),
-			'native_module'              => $this->native_module(),
-			'actual_native_version'      => defined( 'SABRI_HNF_VERSION' ) ? (string) SABRI_HNF_VERSION : '',
-			'minimum_native_version'     => $this->minimum_native_version(),
-			'required_capability'        => $this->required_capability(),
-			'privacy_classification'     => $this->privacy_classification(),
-			'workflow_api_version'       => $this->workflow_api_version(),
-			'schema_version'             => $this->schema_version(),
-			'supports_native_drafts'     => $this->supports_native_drafts(),
-			'idempotency_storage_ready'  => function_exists( 'add_option' ) && function_exists( 'update_option' ) && function_exists( 'get_option' ),
-			'composer_setting_enabled'   => ! empty( $settings['composer']['public_composer_enabled'] ),
-			'composer_feature_enabled'   => SafeMode::feature_enabled( 'composer' ),
-			'native_route_available'     => '' !== $this->native_url(),
-			'available'                  => $available,
+			'status'                    => $available ? 'pass' : 'warning',
+			'codes'                     => $available ? array() : array( 'native_unavailable' ),
+			'adapter_key'               => $this->key(),
+			'native_module'             => $this->native_module(),
+			'actual_native_version'     => defined( 'SABRI_HNF_VERSION' ) ? (string) SABRI_HNF_VERSION : '',
+			'minimum_native_version'    => $this->minimum_native_version(),
+			'required_capability'       => $this->required_capability(),
+			'privacy_classification'    => $this->privacy_classification(),
+			'workflow_api_version'      => $this->workflow_api_version(),
+			'schema_version'            => $this->schema_version(),
+			'supports_native_drafts'    => $this->supports_native_drafts(),
+			'idempotency_storage_ready' => function_exists( 'add_option' ) && function_exists( 'update_option' ) && function_exists( 'get_option' ) && function_exists( 'delete_option' ),
+			'composer_setting_enabled'  => ! empty( $settings['composer']['public_composer_enabled'] ),
+			'composer_feature_enabled'  => SafeMode::feature_enabled( 'composer' ),
+			'native_route_available'    => '' !== $this->native_url(),
+			'available'                 => $available,
 		);
 	}
 
 	/** @return array<string,string> */
 	private function feed_type_choices(): array {
-		$choices = array();
+		$settings = Settings::get();
+		$allowed  = isset( $settings['composer']['allowed_feed_types'] ) && is_array( $settings['composer']['allowed_feed_types'] ) ? array_map( 'sanitize_key', $settings['composer']['allowed_feed_types'] ) : array();
+		$choices  = array();
 		foreach ( self::SUPPORTED_FEED_TYPES as $slug ) {
+			if ( ! in_array( $slug, $allowed, true ) ) {
+				continue;
+			}
 			$key = str_replace( '-', '_', $slug );
 			$choices[ $key ] = 'feed_type_' . $key;
 		}
@@ -506,11 +532,14 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 	 * @param array<string,mixed> $payload File 22 payload.
 	 * @return array<string,mixed>|\WP_Error
 	 */
-	private function normalize_payload( array $payload, string $action, int $post_id = 0 ) {
+	private function normalize_payload( array $payload, string $action, int $post_id, int $user_id ) {
 		$feed_key  = isset( $payload['feed_type'] ) && is_scalar( $payload['feed_type'] ) ? sanitize_key( (string) $payload['feed_type'] ) : 'standard_post';
 		$feed_type = str_replace( '_', '-', $feed_key );
-		if ( ! in_array( $feed_type, self::SUPPORTED_FEED_TYPES, true ) ) {
+		if ( ! in_array( $feed_type, self::SUPPORTED_FEED_TYPES, true ) || ! isset( $this->feed_type_choices()[ $feed_key ] ) ) {
 			return $this->error( 'validation_failed' );
+		}
+		if ( in_array( $feed_type, self::INSTITUTIONAL_FEED_TYPES, true ) && ! $this->user_can_publish_institutional_type( $user_id ) ) {
+			return $this->error( 'permission_denied' );
 		}
 
 		$visibility = isset( $payload['visibility'] ) && is_scalar( $payload['visibility'] ) ? sanitize_key( (string) $payload['visibility'] ) : 'public';
@@ -521,7 +550,7 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			return $this->error( 'validation_failed' );
 		}
 
-		$input = array(
+		return array(
 			'post_id'                       => $post_id,
 			'composer_action'               => $action,
 			'title'                         => $this->scalar( $payload, 'title' ),
@@ -540,8 +569,6 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 			'clinical_case'                 => array(),
 			'research'                      => array(),
 		);
-
-		return $input;
 	}
 
 	/** @param array<string,mixed> $payload */
@@ -603,11 +630,11 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 		}
 
 		$post_id = $this->post_id_from_reference( (string) ( $record['native_reference'] ?? '' ) );
-		$status  = sanitize_key( (string) ( $record['status'] ?? '' ) );
-		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) || ! in_array( $status, array( 'draft', 'pending_review', 'scheduled', 'published', 'rejected', 'failed' ), true ) ) {
+		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error( 'temporarily_unavailable' );
 		}
-		return $this->status_envelope( $post_id, $status );
+		$current_status = function_exists( 'get_post_status' ) ? $this->normalize_status( (string) get_post_status( $post_id ) ) : '';
+		return '' !== $current_status ? $this->status_envelope( $post_id, $current_status ) : $this->error( 'temporarily_unavailable' );
 	}
 
 	/** @param array<string,mixed> $input */
@@ -644,6 +671,17 @@ final class UniversalComposerPublicationAdapter implements Workflow_Adapter, Dia
 
 	private function user_can_manage_reference( int $user_id, int $post_id ): bool {
 		return $this->is_native_post( $post_id ) && ComposerPermissions::user_can_edit_post( $post_id, $user_id );
+	}
+
+	private function user_can_manage_mutable_draft( int $user_id, int $post_id ): bool {
+		if ( ! $this->user_can_manage_reference( $user_id, $post_id ) || ! function_exists( 'get_post_status' ) ) {
+			return false;
+		}
+		return in_array( (string) get_post_status( $post_id ), self::MUTABLE_DRAFT_STATUSES, true );
+	}
+
+	private function user_can_publish_institutional_type( int $user_id ): bool {
+		return CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id );
 	}
 
 	private function is_native_post( int $post_id ): bool {
