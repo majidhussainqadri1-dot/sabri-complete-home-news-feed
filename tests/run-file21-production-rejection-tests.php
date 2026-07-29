@@ -110,9 +110,10 @@ $assert( false === strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must remain
 $workflow_test = $root . '/tests/run-file21-file22-workflow-adapter-tests.php';
 $assert( is_file( $workflow_test ), 'File 21/File 22 runtime workflow test is missing.' );
 if ( is_file( $workflow_test ) ) {
-	$command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( $workflow_test );
-	passthru( $command, $workflow_exit );
-	$assert( 0 === $workflow_exit, 'File 21/File 22 runtime workflow contracts failed.' );
+	$workflow_runner = static function ( $test_file ) {
+		require $test_file;
+	};
+	$workflow_runner( $workflow_test );
 }
 
 $readme = $read( 'readme.txt' );
