@@ -62,7 +62,8 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		if ( $post_id <= 0 ) {
 			return $this->error_result( 'invalid_reference' );
 		}
-		if ( ! $this->can_mutate_draft( $user_id, $post_id ) ) {
+		/* A final replay may no longer be a draft, but it must remain manageable. */
+		if ( ! $this->can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error_result( 'conflict' );
 		}
 
@@ -93,6 +94,10 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		} else {
 			$marked_post_id = (int) UniversalComposerWorkflowStore::find_native_post( $user_id, $key_hash, $fingerprint );
 			if ( $marked_post_id > 0 && $marked_post_id !== $post_id ) {
+				return $this->error_result( 'conflict' );
+			}
+			/* A new idempotency key may transition only a mutable draft. */
+			if ( $marked_post_id <= 0 && ! $this->can_mutate_draft( $user_id, $post_id ) ) {
 				return $this->error_result( 'conflict' );
 			}
 			if ( ! UniversalComposerWorkflowStore::acquire_record( $option_key, $user_id, $key_hash, $fingerprint ) ) {
@@ -297,8 +302,12 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		return $choices;
 	}
 
+	private function can_manage_reference( int $user_id, int $post_id ): bool {
+		return $post_id > 0 && function_exists( 'get_post_type' ) && 'post' === get_post_type( $post_id ) && ComposerPermissions::user_can_edit_post( $post_id, $user_id );
+	}
+
 	private function can_mutate_draft( int $user_id, int $post_id ): bool {
-		return $post_id > 0 && function_exists( 'get_post_type' ) && 'post' === get_post_type( $post_id ) && function_exists( 'get_post_status' ) && 'draft' === get_post_status( $post_id ) && ComposerPermissions::user_can_edit_post( $post_id, $user_id );
+		return $this->can_manage_reference( $user_id, $post_id ) && function_exists( 'get_post_status' ) && 'draft' === get_post_status( $post_id );
 	}
 
 	private function institutional_user( int $user_id ): bool {
