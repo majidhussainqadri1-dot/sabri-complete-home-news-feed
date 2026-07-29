@@ -98,14 +98,14 @@ foreach ( array( 'const ADAPTER_API_VERSION', 'const WORKFLOW_API_VERSION', 'con
 }
 $assert( false === strpos( $file22_bridge, "'supc_duplicate_key' ===" ), 'A duplicate adapter key must not be treated as successful File 21 registration.' );
 $assert( false === strpos( $file22_bridge, 'get_class( $error )' ), 'Adapter registration diagnostics must not expose exception class names.' );
-foreach ( array( 'implements Workflow_Adapter, Diagnostic_Adapter', 'workflow_api_version', 'supports_native_drafts', 'schema_version', 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', 'UniversalComposerBridge::ADAPTER_KEY', "return '1.0.3'", "return 'sabri_feed_create_posts'", "SafeMode::feature_enabled( 'composer' )", 'ComposerPermissions::user_can_create', 'health_report', 'actual_native_version', 'IDEMPOTENCY_PREFIX', 'add_option', 'payload_fingerprint', "home_url( '/create-post/' )", 'File 22 receives no duplicate' ) as $needle ) {
+foreach ( array( 'implements Workflow_Adapter, Diagnostic_Adapter', 'workflow_api_version', 'supports_native_drafts', 'schema_version', 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', 'UniversalComposerBridge::ADAPTER_KEY', "return '1.0.3'", "return 'sabri_feed_create_posts'", "SafeMode::feature_enabled( 'composer' )", 'ComposerPermissions::user_can_create', 'health_report', 'actual_native_version', 'IDEMPOTENCY_PREFIX', 'add_option', 'payload_fingerprint', 'MUTABLE_DRAFT_STATUSES', 'INSTITUTIONAL_FEED_TYPES', 'user_can_publish_institutional_type', "home_url( '/create-post/' )", 'File 22 receives no duplicate' ) as $needle ) {
 	$assert( false !== strpos( $file22_adapter, $needle ), 'File 22 workflow publication adapter contract missing: ' . $needle );
 }
 $assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'File 22 adapter must use File 21 Composer rather than duplicate native writes.' );
 $assert( false === strpos( $file22_adapter, 'update_post_meta' ), 'File 22 adapter must not duplicate native File 21 metadata.' );
-$assert( false === strpos( $file22_adapter, "'clinical-case'" ), 'Structured Clinical Case must remain on its native File 21 Composer route in this phase.' );
-$assert( false === strpos( $file22_adapter, "'research'" ), 'Structured Research must remain on its native File 21 Composer route in this phase.' );
-$assert( false === strpos( $file22_adapter, "'poll'" ), 'Poll must remain on its native File 21 Composer route in this phase.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'clinical-case'," ), 'Structured Clinical Case must remain on its native File 21 Composer route in this phase.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'research'," ), 'Structured Research must remain on its native File 21 Composer route in this phase.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must remain on its native File 21 Composer route in this phase.' );
 
 $workflow_test = $root . '/tests/run-file21-file22-workflow-adapter-tests.php';
 $assert( is_file( $workflow_test ), 'File 21/File 22 runtime workflow test is missing.' );
