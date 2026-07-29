@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE22_RUNTIME_SHA: d286125e921e3a46f3272071b99eb3f9a874f0b4
+
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -21,17 +25,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out File 21 corrective branch
+      - name: Check out exact File 21 corrective head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
           path: file21
           persist-credentials: false
 
-      - name: Check out exact reviewed File 22 Phase 22E source
+      - name: Check out exact corrected File 22 runtime source
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           repository: majidhussainqadri1-dot/sabri-universal-post-composer
-          ref: 9aed674344c33b8756b65e7bc58c223ac6ffc4ae
+          ref: ${{ env.FILE22_RUNTIME_SHA }}
           path: file22
           persist-credentials: false
 
@@ -39,13 +44,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C file22 rev-parse HEAD)" = "9aed674344c33b8756b65e7bc58c223ac6ffc4ae"
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test "$(git -C file22 rev-parse HEAD)" = "${FILE22_RUNTIME_SHA}"
           php -v
           php -l file21/includes/class-universal-composer-workflow-store.php
           php -l file21/includes/class-universal-composer-workflow-maintenance.php
           php -l file21/includes/class-universal-composer-execution-lock-maintenance.php
           php -l file21/includes/class-universal-composer-workflow-adapter.php
           php -l file21/includes/class-universal-composer-publication-adapter.php
+          php -l file21/includes/class-universal-composer-subject-schema-adapter.php
           php -l file21/tests/run-file21-file22-real-contract-tests.php
           php -l file21/tests/run-file21-file22-maintenance-tests.php
           php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
