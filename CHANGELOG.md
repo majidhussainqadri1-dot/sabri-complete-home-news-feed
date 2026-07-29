@@ -2,6 +2,7 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Extended Sabri Universal Post Composer interoperability with a guarded File 22 `Workflow_Adapter`: File 21 now owns direct native draft creation, validation, short-lived preview, idempotent submission, status, and subject-aware canonical URL resolution without creating any File 22 shadow record. The direct schema is deliberately text-first; structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes.
 - Added fail-soft Sabri Universal Post Composer interoperability: File 21 registers a versioned `social_publication` adapter, retains permanent ownership and native permissions, prefers the universal Create page when the complete File 20/File 22 gateway is available, and preserves its existing `/create-post/` fallback when that gateway is absent.
 - Restored the public **Create Post** action on Home and News, supplied the Unified Shell Create destination, and added the canonical `/create-post/` public Composer route with login, permission, duplicate-render and one-shot rewrite safeguards.
 - Restored the News Composer posting option after ZIP replacement by reconciling plugin-owned Administrator/Founder Editorial News capabilities on `admin_init`, preserving the canonical submenu, and adding a prominent **Create Editorial News** action on the Newsroom screen.
