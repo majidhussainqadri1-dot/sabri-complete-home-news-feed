@@ -42,9 +42,11 @@ jobs:
           test "$(git -C file22 rev-parse HEAD)" = "9aed674344c33b8756b65e7bc58c223ac6ffc4ae"
           php -v
           php -l file21/includes/class-universal-composer-workflow-store.php
+          php -l file21/includes/class-universal-composer-workflow-maintenance.php
           php -l file21/includes/class-universal-composer-workflow-adapter.php
           php -l file21/includes/class-universal-composer-publication-adapter.php
           php -l file21/tests/run-file21-file22-real-contract-tests.php
+          php -l file21/tests/run-file21-file22-maintenance-tests.php
 
       - name: Run actual File 22 Coordinator with File 21 adapter
         shell: bash
@@ -53,3 +55,9 @@ jobs:
         run: |
           set -euo pipefail
           php file21/tests/run-file21-file22-real-contract-tests.php
+
+      - name: Run bounded retention and maintenance tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php file21/tests/run-file21-file22-maintenance-tests.php
