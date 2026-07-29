@@ -21,7 +21,8 @@ final class UniversalComposerBridge {
 	const WORKFLOW_API_VERSION          = '1.0.0';
 	const ADAPTER_KEY                   = 'social_publication';
 	const MINIMUM_SHELL_VERSION         = '1.0.1';
-	const SHELL_CREATE_CONTRACT_VERSION = '1.0.0';
+	const SHELL_CREATE_CONTRACT_VERSION = '1.0.1';
+	const SHELL_CREATE_CONTRACT_OWNER   = 'sabri-unified-application-shell';
 
 	/** @var bool Prevent duplicate registration during the same request. */
 	private static $registered = false;
@@ -141,7 +142,15 @@ final class UniversalComposerBridge {
 			return false;
 		}
 
-		if ( ! defined( 'SABRI_SHELL_CREATE_CONTRACT_VERSION' ) || version_compare( (string) SABRI_SHELL_CREATE_CONTRACT_VERSION, self::SHELL_CREATE_CONTRACT_VERSION, '<' ) ) {
+		if ( ! defined( 'SABRI_SHELL_CREATE_CONTRACT_VERSION' ) || self::SHELL_CREATE_CONTRACT_VERSION !== (string) SABRI_SHELL_CREATE_CONTRACT_VERSION ) {
+			return false;
+		}
+
+		if ( ! defined( 'SABRI_SHELL_CREATE_CONTRACT_OWNER' ) || self::SHELL_CREATE_CONTRACT_OWNER !== (string) SABRI_SHELL_CREATE_CONTRACT_OWNER ) {
+			return false;
+		}
+
+		if ( ! defined( 'SABRI_SHELL_CREATE_FUNCTIONS_OWNED' ) || true !== SABRI_SHELL_CREATE_FUNCTIONS_OWNED ) {
 			return false;
 		}
 
