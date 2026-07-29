@@ -24,15 +24,15 @@ The previous result returned `expires_at`, but the ordinary WordPress preview UR
 
 ### 3. A successful native write could be stranded after option persistence failure
 
-The previous processing record did not reliably retain or rediscover the newly-created native post after the post existed but completion persistence failed.
+The previous processing record did not reliably retain or rediscover the native post after it reached a final state but completion persistence failed.
 
-**Correction:** File 21 stores only one-way hashes as native post markers, can rediscover exactly one matching native post, persists the opaque native reference as soon as possible, and reconciles a final native status on retry without another Composer call. Raw idempotency keys and payload bodies are never stored.
+**Correction:** File 21 stores only one-way hashes as native post markers, persists the opaque reference before final status mutation, and reconciles the final native status on retry without another Composer call. Raw idempotency keys and payload bodies are never stored.
 
 ### 4. Idempotency records had no bounded retention
 
 Completed and stale records could remain in `wp_options` indefinitely.
 
-**Correction:** processing leases expire after 15 minutes, completed records after 30 days, and recoverable drafts after one seven-day recovery interval. A bounded daily batch and an explicit Administrator repair reconcile or delete records. The report contains aggregate counts only.
+**Correction:** processing leases expire after 15 minutes, completed records after 30 days, and recoverable drafts after one seven-day recovery interval. A bounded daily batch and explicit Administrator repair reconcile or delete records. The report contains aggregate counts only.
 
 ### 5. First-pass maintenance renewed expired records forever
 
@@ -44,7 +44,7 @@ A post-correction review found that the first maintenance implementation called 
 
 A post-correction review found that an active processing record with a known draft reference could be accepted by another request before the first request completed.
 
-**Correction:** an atomic per-user/per-key execution option serializes native mutation. Active processing records and active execution locks return `temporarily_unavailable`; only an expired/recoverable lease may retry. The owner token is checked before release. Crash-left execution locks have a short expiry and a separate bounded cleanup callback.
+**Correction:** an atomic per-user/per-key execution option serializes native mutation. Active processing records and active execution locks return `temporarily_unavailable`; only an expired or recoverable lease may retry. The owner token is checked before release. Crash-left execution locks have a short expiry and separate bounded cleanup.
 
 ### 7. Crash-left execution locks could accumulate
 
@@ -56,19 +56,31 @@ The atomic lock corrected concurrency but introduced a new retention surface if 
 
 The global schema could advertise Founder Update or Platform News before rejecting the user on validation.
 
-**Correction:** schema choices now use the current authenticated subject and omit these types unless File 21 identifies the subject as Founder or Administrator. Server-side authorization remains enforced independently.
+**Correction:** schema choices now use the current authenticated subject and omit these types unless File 21 identifies the subject as Founder or Administrator. Server-side authorization remains independently enforced.
 
 ### 9. Integration evidence used only local contract stubs
 
 The first focused test did not load the actual File 22 Workflow Coordinator.
 
-**Correction:** a dedicated GitHub Actions workflow checks out the exact reviewed File 22 Phase 22E SHA and loads its real Adapter interfaces and real Workflow Coordinator. The test runs schema, draft, signed preview, submit, status, and canonical-URL operations against the File 21 adapter. WordPress runtime collaborators remain controlled test doubles; the File 22 contract and coordinator are actual source.
+**Correction:** a dedicated GitHub Actions workflow checks out exact reviewed File 22 Phase 22E source and loads its real Adapter interfaces and Workflow Coordinator. The test runs schema, draft, signed preview, draft-referenced submit, status, and canonical-URL operations against File 21. WordPress runtime collaborators remain controlled test doubles; the File 22 contract and coordinator are actual source.
 
 ### 10. Branch and merge state was inaccurate
 
 PR #19 and PR #20 were described as Draft/unmerged after they had already merged, and PR #20 had not landed in `main`.
 
 **Correction:** PR #21 targets `main` from the final workflow feature head and contains the direct adapter plus all corrections in one Draft, unmerged review line. No new merge or deployment was performed.
+
+### 11. New-post submission still contained a process-termination recovery gap
+
+The first corrective adapter created a new post during final `submit()` when no draft reference was supplied, then attached the recovery marker after the Composer returned. A process termination inside that narrow interval could still leave an unmarked final post.
+
+**Correction:** final File 22 submission now requires the opaque native draft reference returned by `create_draft()`. File 21 attaches the one-way recovery marker and persists the native reference before changing that draft to pending, scheduled, or published. Reference-less final submission fails before the Composer is called. This removes the post-create/pre-marker crash window from the final workflow.
+
+### 12. Static release assertions interpolated variables
+
+A CI syntax failure exposed double-quoted test literals containing array access and PHP variables.
+
+**Correction:** release assertions now use literal-safe search strings. The failed CI run is retained as evidence that syntax checks caught the defect before acceptance.
 
 ## Privacy and ownership boundaries after correction
 
@@ -78,6 +90,7 @@ PR #19 and PR #20 were described as Draft/unmerged after they had already merged
 - Administrator recovery output contains no post ID, user ID, native reference, raw key, payload, or content.
 - Native marker deletion requires the expected hashes.
 - Preview signatures bind to the authenticated subject and expire at request time.
+- Final submission cannot create an unreferenced native post; it must transition an already-owned File 21 draft.
 
 ## Remaining acceptance gates
 
