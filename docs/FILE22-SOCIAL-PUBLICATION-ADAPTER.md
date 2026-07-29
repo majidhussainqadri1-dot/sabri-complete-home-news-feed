@@ -2,7 +2,7 @@
 
 ## Purpose
 
-File 21 exposes its existing public social Composer to File 22 as the `social_publication` adapter. File 22 provides the universal content-type gateway and a guarded server-side orchestration boundary; File 21 remains the canonical owner of every resulting social publication.
+File 21 exposes its native social Composer to File 22 as `social_publication`. File 22 provides the universal gateway and guarded orchestration boundary; File 21 remains the canonical owner of every post, draft, moderation state, native marker, and canonical URL.
 
 ## Ownership
 
@@ -10,13 +10,13 @@ File 21 continues to own:
 
 - `/create-post/` and the complete native Composer UI;
 - `ComposerPermissions` authorization policy;
-- native draft and publication records;
-- validation, moderation, media, review, scheduling, and publication states;
+- native drafts and publications;
+- validation, media, review, scheduling, and moderation states;
 - Home, News, profile-timeline, search, and canonical post projections;
-- durable idempotency reconciliation for direct File 22 submission;
+- hashed native idempotency markers, reconciliation, retention, and repair;
 - native-reference ownership and visibility decisions.
 
-File 22 receives only approved adapter metadata, strict schema metadata, opaque native references, controlled status codes, safe internal URLs, and privacy-safe diagnostics. It does not create a duplicate post, metadata record, media copy, moderation queue, patient record, or canonical URL.
+File 22 receives approved adapter metadata, strict schema metadata, opaque native references, controlled status codes, same-origin URLs, and privacy-safe diagnostics. It does not create a duplicate post, body, media copy, patient record, moderation record, or canonical record.
 
 ## Adapter identity
 
@@ -25,8 +25,8 @@ File 22 receives only approved adapter metadata, strict schema metadata, opaque 
 | Adapter key | `social_publication` |
 | Adapter API | `1.0.0` |
 | Workflow API | `1.0.0` |
-| Schema version | `1.0.0` |
-| Minimum and actual File 21 version | `1.0.3` or later |
+| Schema version | `1.0.1` |
+| Minimum File 21 version | `1.0.3` |
 | Central capability | `sabri_feed_create_posts` |
 | Contract types | `Workflow_Adapter`, `Diagnostic_Adapter` |
 | Group | `publishing` |
@@ -36,76 +36,90 @@ File 22 receives only approved adapter metadata, strict schema metadata, opaque 
 
 ## Authorization sequence
 
-1. File 22 binds the request to the currently authenticated subject.
-2. File 22 applies Membership Core status and the canonical `sabri_feed_create_posts` capability.
+1. File 22 binds the operation to the authenticated subject.
+2. File 22 applies Membership Core account eligibility and `sabri_feed_create_posts`.
 3. File 21 applies `ComposerPermissions::user_can_create()`.
-4. Reference-sensitive operations recheck File 21 ownership, edit authority, or publication visibility.
-5. Founder, Administrator, verified doctor, and policy-permitted unverified doctor decisions remain native to File 21.
+4. Reference-sensitive operations recheck File 21 post type, exact status, ownership, edit authority, or visibility.
+5. Founder Update and Platform News are omitted from the schema and rejected server-side unless File 21 identifies the subject as Founder or Administrator.
 6. Student, patient, suspended, rejected, expired-document, logged-out, and Safe Mode denials remain controlling.
 
-An adapter may restrict the central decision; it never expands it.
+An adapter may narrow the central decision; it never expands it.
 
 ## Direct workflow scope
 
-The approved direct File 22 workflow is deliberately text-first. It supports:
+The direct File 22 workflow is deliberately text-first. It supports:
 
-- create or resume a File 21 draft;
+- create or resume an actual File 21 draft;
 - side-effect-free validation;
-- update an existing native draft and return a short-lived WordPress preview URL;
+- update an existing draft and return a signed private preview URL;
 - idempotent submit, publish, or schedule;
 - owner/moderator status retrieval;
-- canonical URL retrieval after File 21 ownership or visibility checks.
+- canonical URL retrieval after File 21 visibility checks.
 
-The strict schema exposes only approved scalar fields:
-
-- native reference;
-- title and content;
-- supported social Feed type;
-- topic;
-- visibility;
-- language and country/region;
-- comments flag;
-- medical disclaimer and patient-privacy confirmations;
-- scheduled date;
-- publication action.
+The strict schema exposes only approved scalar fields: native reference, title, content, approved Feed type, topic, visibility, language, country/region, comments flag, disclaimer/privacy confirmations, scheduled date, and publication action.
 
 ### Native-route-only workflows
 
-The direct workflow intentionally excludes:
+The direct workflow excludes structured Clinical and Patient Case payloads, structured Research, Poll definitions, file/media uploads, Video, and PDF workflows. These remain on File 21's complete route or their dedicated native owner. Protected structures are not flattened into a generic File 22 payload.
 
-- structured Clinical and Patient Case payloads;
-- structured Research payloads;
-- Poll definitions;
-- file and media uploads;
-- Video and PDF native-owner workflows.
+## Draft and moderation-state rules
 
-These remain available through File 21's complete `/create-post/` route or their dedicated native modules. File 22 must not flatten structured or protected data into a generic payload merely to force direct orchestration.
+- A native reference uses `post-<positive-id>`.
+- Only a WordPress post of type `post` with exact status `draft` is mutable through `create_draft`, `preview`, or a reference-bearing final submission.
+- `pending`, `future`, `publish`, `trash`, missing, foreign, and non-post references are not draft-resume targets.
+- A pending moderation item therefore cannot be demoted to draft by preview or resume.
+- Status lookup remains available only to the native owner or moderator after File 21 authorization.
 
-## Native draft and preview rules
+## Signed preview rules
 
-- A draft reference uses the opaque form `post-<positive-id>`.
-- Resuming or previewing requires File 21 edit authority for that native post.
-- Preview updates the existing File 21 draft rather than creating an invisible File 22 copy.
-- File 21 returns a same-origin WordPress preview URL with a ten-minute orchestration lifetime.
-- File 22 stores no preview HTML and no protected content body.
+File 21 returns a same-origin preview URL containing:
 
-## Idempotent submission
+- a File 22 preview marker;
+- an absolute ten-minute expiry;
+- an HMAC signature over post ID, authenticated user ID, and expiry.
+
+A high-priority request-time guard verifies the signature, expiry, authenticated subject, exact draft status, and native edit authority. Forged, expired, cross-user, non-draft, and unauthorized preview requests receive a no-cache 403 response. File 22 stores no preview HTML or protected content body.
+
+## Idempotent submission and recovery
 
 File 22 supplies a two-UUID-v4 idempotency key. File 21:
 
-- hashes the key before storage;
-- hashes the normalized payload before storage;
-- stores no raw key, post body, patient narrative, or form payload in its idempotency record;
-- creates an atomic `processing` record before invoking the native Composer;
-- returns the previous completed native result for an exact replay;
+- stores only a SHA-256 key hash and normalized-payload fingerprint;
+- never stores the raw key, post body, patient narrative, or complete form payload in the option record;
+- acquires an atomic processing record before native mutation;
+- serializes Composer mutation with a separate atomic per-user/per-key execution lease;
+- returns `temporarily_unavailable` while another active request owns the lease;
+- attaches matching one-way native post markers;
+- persists the opaque native reference as soon as it can be proven;
+- reconciles a final native post after option-persistence failure without another Composer call;
+- returns the existing result for exact replay;
 - rejects the same key with a different payload as `conflict`;
-- preserves a processing lock when completion persistence cannot be proven, preventing a blind retry from creating a second post.
+- removes a newly-created post if both recovery-marker persistence and safe reconciliation fail, avoiding a knowingly untraceable duplicate candidate.
 
-The native Composer remains the only writer of the post and plugin-owned metadata.
+The native Composer remains the only writer of the post and File 21 content metadata. Idempotency marker metadata is owned by File 21 solely for recovery.
+
+## Concurrency
+
+- `add_option()` provides the atomic processing-record boundary.
+- A separate execution lock prevents concurrent retries from invoking the Composer twice on the same mutable draft.
+- Lock release verifies the request's owner token.
+- A crashed lock expires after two minutes, is reclaimable by a later request, and is removed by bounded maintenance.
+- Active locks are never removed by maintenance.
+
+## Retention and repair
+
+- processing lease: 15 minutes;
+- completed record: 30 days;
+- recoverable draft: one seven-day recovery interval;
+- execution lock: two minutes.
+
+Daily bounded maintenance processes at most 100 oldest records per callback. An expired processing record may be reconciled to the current final native status or receive one recoverable-draft interval. Expired completed and already-recoverable records are deleted rather than renewed. Matching native markers are removed when retention ends.
+
+Administrators have `Tools → File 22 Workflow Recovery`. The action is capability- and nonce-protected and reports aggregate counts only. It does not display post IDs, user IDs, native references, raw keys, content, or patient data.
+
+The uninstall boundary clears the scheduled hook. Workflow options, execution locks, and native markers are removed only when the plugin's existing explicit destructive data-retention policy authorizes deletion.
 
 ## Status and canonical URL
-
-WordPress statuses are normalized as follows:
 
 | WordPress | File 22 |
 |---|---|
@@ -115,68 +129,34 @@ WordPress statuses are normalized as follows:
 | `publish` | `published` |
 | `trash` | `rejected` |
 
-Status retrieval requires File 21 ownership or edit/moderation authority. A canonical URL is returned only for a published native post after `PostMetadata::user_can_view()` confirms visibility for the authenticated subject.
+A canonical URL is returned only for a published native post after `PostMetadata::user_can_view()` confirms visibility for the authenticated subject.
 
-## Controlled native errors
+## Controlled errors
 
-File 21 returns only File 22-approved native codes:
-
-- `permission_denied`;
-- `validation_failed`;
-- `conflict`;
-- `rate_limited`;
-- `temporarily_unavailable`;
-- `not_found`;
-- `invalid_reference`.
-
-Raw Composer messages, validation narratives, payload values, filesystem paths, stack traces, exception classes, idempotency keys, and native option names are not returned through the File 22 boundary.
+File 21 returns only File 22-approved codes such as `permission_denied`, `validation_failed`, `conflict`, `rate_limited`, `temporarily_unavailable`, `not_found`, and `invalid_reference`. Raw Composer messages, validation narratives, stack traces, exception classes, option names, keys, and payload values are not returned through the File 22 boundary.
 
 ## Fail-soft behavior
 
-If File 22 is absent, incompatible, disabled, or lacks Workflow API `1.0.0`, File 21 continues to use its existing public `/create-post/` route and Home/News fallback CTA.
+If File 22 is absent, incompatible, disabled, or lacks Workflow API `1.0.0`, File 21 continues to use `/create-post/` and its Home/News fallback CTA. The fallback is removed only when the exact File 21 adapter registered successfully, File 22's Create page and Safe Mode state are acceptable, `supc_adapter_matches()` confirms current ownership/availability, and File 20 confirms its versioned Create producer contract and current-user visibility.
 
-The fallback CTA is removed only when all of the following are true:
-
-- File 22 Adapter API `1.0.0`, Workflow API `1.0.0`, Workflow Adapter, and Diagnostic Adapter contracts are available;
-- all approved File 22 workflow PHP functions are present;
-- this exact File 21 adapter registered successfully;
-- `supc_adapter_matches()` confirms `social_publication` belongs to File 21 and is currently available;
-- the File 22 Create page is ready;
-- File 22 is not in Safe Mode;
-- File 20 is version `1.0.1` or later;
-- File 20 declares Create contract version `1.0.0` or later;
-- File 20 confirms that its producer contract is active;
-- File 20 confirms that Create is visible for the current authorized user.
-
-A File 20 or File 22 version string by itself is not sufficient. A duplicate or foreign adapter key is not treated as successful File 21 registration. During partial rollout, collision, incompatible upgrade, Safe Mode, or rollback, the File 21 fallback remains available.
+A duplicate or foreign adapter key is not successful File 21 registration. During partial rollout, collision, incompatible upgrade, Safe Mode, or rollback, the native fallback remains available.
 
 ## Diagnostics
 
-The adapter provides only privacy-safe operational data:
+The privacy-safe health report includes adapter/native identity, versions, capability, privacy class, Workflow/schema versions, native-draft support, preview-expiry enforcement, recovery API readiness, retention days, feature settings, native-route availability, and current availability. It includes no user, post, draft, reference, key, media, patient, or unpublished content.
 
-- adapter and native-module identity;
-- declared minimum and actual runtime version;
-- central capability and privacy classification;
-- Workflow API and schema versions;
-- native-draft declaration;
-- idempotency API readiness;
-- Composer setting and feature-gate state;
-- native-route availability;
-- current adapter availability.
+## Automated evidence boundary
 
-No user, patient, post, draft, native reference, idempotency key, media, or unpublished content is included.
+The focused runtime tests cover pending-state immutability, signed expiry, persistence-failure reconciliation, replay, conflicts, visibility, and privacy-safe health. Separate maintenance tests cover one-way retention and stale execution-lock cleanup.
 
-## Acceptance requirements
+A dedicated workflow checks out exact File 22 Phase 22E source `9aed674344c33b8756b65e7bc58c223ac6ffc4ae`, loads its real interfaces and Workflow Coordinator, and runs File 21 schema, draft, signed preview, submission, status, and canonical-URL operations through that coordinator. This is contract integration evidence, not a substitute for WordPress staging with Files 00, 20, 21, and 22.
 
-- one successful File 21 adapter registration per request;
-- duplicate or foreign adapter collision does not remove the fallback;
-- one native File 21 record per successful idempotent submission;
-- same-key, same-payload replay returns the existing native result;
-- same-key, different-payload replay fails with `conflict`;
-- failed completion persistence cannot trigger a duplicate retry;
-- no File 22 duplicate content storage;
-- no loss of File 21 fallback when File 20 or File 22 is incomplete;
-- Founder, Administrator, verified-doctor, policy-permitted unverified-doctor, student, patient, suspended-user, rejected-user, expired-document, and logged-out matrix tested on staging;
-- cross-user native-reference and private canonical-URL denial tested on staging;
-- desktop and mobile Shell outputs agree;
-- rollback by deactivating File 22 restores File 21 fallback behavior without content migration.
+## Remaining acceptance
+
+- full Founder, Administrator, verified-doctor, permitted unverified-doctor, student, patient, suspended, rejected, expired-document, and logged-out staging matrix;
+- cross-user reference and private canonical-URL checks;
+- desktop/mobile Shell agreement;
+- browser, keyboard, zoom, screen-reader, RTL, reduced-motion, and forced-colors acceptance;
+- backup and rollback proof;
+- File 22 dependency merge order;
+- explicit Founder merge authorization.
