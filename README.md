@@ -14,6 +14,21 @@ Version 1.0.3 closes the live-deployment defects found after 1.0.2: public GET r
 
 Editorial News gates remain fail-closed until the Activation Wizard is completed on staging. File 20 native-slot availability remains an external dependency and is reported truthfully; File 21 compatibility mounts do not modify File 20.
 
+## Corrected File 22 Workflow Boundary
+
+The `social_publication` adapter keeps File 21 as the only native post owner while allowing File 22 Workflow API `1.0.0` to coordinate a deliberately text-first workflow.
+
+- Only exact WordPress drafts are mutable; pending-review, scheduled, published, rejected, foreign, and non-post references fail closed.
+- Preview URLs are HMAC-signed for the authenticated subject and receive request-time ten-minute expiry enforcement.
+- Raw idempotency keys and payload bodies are not stored. File 21 keeps one-way hashes, bounded leases, and opaque native references for reconciliation.
+- Atomic processing records and execution locks prevent duplicate native mutation and repeated Composer side effects.
+- Completed records expire after 30 days; a stranded draft receives one seven-day recovery interval; stale locks expire after two minutes.
+- Daily bounded maintenance and `Tools → File 22 Workflow Recovery` provide privacy-safe reconciliation with aggregate-only output.
+- Founder Update and Platform News are hidden from and rejected for non-Founder/non-Administrator subjects.
+- Actual contract CI loads the exact reviewed File 22 Phase 22E Workflow Coordinator rather than replacing that coordinator with a local stub.
+
+Structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes. The direct adapter does not flatten protected structures into a generic File 22 payload.
+
 ## Public Visibility Recovery in 1.0.2
 
 Version 1.0.2 fixes the production-blocking condition in which File 21 could be installed and active while the public website continued to show only a legacy Feed.
@@ -79,11 +94,11 @@ Social data WordPress core does not model safely is stored in seven plugin-owned
 
 Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit, and audit-integrity tables. The schema remains version `1.0.0`; runtime version `1.0.3` is an additive corrective release.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), [CAPABILITIES.md](CAPABILITIES.md), [FILE-21-HARMONIZATION-COMPLETION-PLAN.md](FILE-21-HARMONIZATION-COMPLETION-PLAN.md), [FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md](FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md), and [FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md](FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md).
+See [ARCHITECTURE.md](ARCHITECTURE.md), [DATABASE-SCHEMA.md](DATABASE-SCHEMA.md), [CAPABILITIES.md](CAPABILITIES.md), [FILE-21-HARMONIZATION-COMPLETION-PLAN.md](FILE-21-HARMONIZATION-COMPLETION-PLAN.md), [FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md](FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md), [FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md](FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md), and [docs/FILE22-SOCIAL-PUBLICATION-ADAPTER.md](docs/FILE22-SOCIAL-PUBLICATION-ADAPTER.md).
 
 ## Administration
 
-The **Home & News Feed** administration area includes settings, Composer policy, roles and capabilities, integrations, System Check, Repair, Migration, Rollback, Staging Preview, Newsroom, Release Readiness, and the comprehensive Activation Wizard.
+The **Home & News Feed** administration area includes settings, Composer policy, roles and capabilities, integrations, System Check, Repair, Migration, Rollback, Staging Preview, Newsroom, Release Readiness, and the comprehensive Activation Wizard. Workflow recovery is available under **Tools → File 22 Workflow Recovery**.
 
 Read-only Home and Profile Timeline compatibility defaults do not activate Editorial News. The administrator must use the Activation Wizard, flush rewrite rules, and run staging acceptance before `/news/`, Breaking News, corrections, RSS, schema, sitemap, notifications, or submissions are declared operational.
 
@@ -114,4 +129,4 @@ Historical misleading aliases are not generated.
 
 The repository owner explicitly disabled the three former one-hour/3,900-second soak jobs. Their workflow files now execute only fast disabled-state confirmation and must not be cited as long-duration evidence.
 
-All required short source, packaged WordPress, PHP 8.1/8.3, security, migration, public visibility, routing, pagination, Phase 4A/4B/4C, harmonization, corrective, UI, and WordPress Playground gates must succeed on one unchanged exact head before merge.
+All required short source, packaged WordPress, PHP 8.1/8.3, security, migration, public visibility, routing, pagination, Phase 4A/4B/4C, harmonization, corrective, UI, File 22 real-contract, and WordPress Playground gates must succeed on one unchanged exact head before merge.
