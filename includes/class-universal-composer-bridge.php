@@ -13,11 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Registers the native File 21 social-publication adapter only when the
- * versioned File 22 contract is present. File 21 remains fully operational
+ * versioned File 22 contracts are present. File 21 remains fully operational
  * when File 22 is absent, disabled, incompatible, or in Safe Mode.
  */
 final class UniversalComposerBridge {
 	const ADAPTER_API_VERSION           = '1.0.0';
+	const WORKFLOW_API_VERSION          = '1.0.0';
 	const ADAPTER_KEY                   = 'social_publication';
 	const MINIMUM_SHELL_VERSION         = '1.0.1';
 	const SHELL_CREATE_CONTRACT_VERSION = '1.0.0';
@@ -38,7 +39,7 @@ final class UniversalComposerBridge {
 		}
 	}
 
-	/** Register the route-only native publication adapter. */
+	/** Register the native route and direct workflow adapter. */
 	public static function maybe_register_adapter() {
 		if ( self::$registered || ! self::file22_contract_available() ) {
 			return;
@@ -52,12 +53,18 @@ final class UniversalComposerBridge {
 			}
 
 			if ( function_exists( 'do_action' ) ) {
-				$code = function_exists( 'is_wp_error' ) && is_wp_error( $result ) ? $result->get_error_code() : 'registration_rejected';
+				$code = 'registration_rejected';
+				if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
+					$native_code = sanitize_key( (string) $result->get_error_code() );
+					$allowed     = array( 'supc_duplicate_key', 'supc_api_mismatch', 'supc_invalid_key', 'supc_registration_exception' );
+					$code        = in_array( $native_code, $allowed, true ) ? $native_code : $code;
+				}
 				do_action( 'sabri_hnf_file22_adapter_registration_error', $code );
 			}
 		} catch ( \Throwable $error ) {
+			unset( $error );
 			if ( function_exists( 'do_action' ) ) {
-				do_action( 'sabri_hnf_file22_adapter_registration_error', get_class( $error ) );
+				do_action( 'sabri_hnf_file22_adapter_registration_error', 'adapter_exception' );
 			}
 		}
 	}
@@ -77,7 +84,7 @@ final class UniversalComposerBridge {
 	 * Remove File 21's Home/News fallback CTA only when File 20 and File 22 can
 	 * provide the complete global gateway to the current authorized user and this
 	 * exact native adapter is registered and healthy. The native `/create-post/`
-	 * route remains available as the adapter destination.
+	 * route remains available as the adapter destination and rollback surface.
 	 */
 	public static function harmonize_create_surfaces() {
 		if ( ! self::gateway_available() ) {
@@ -95,13 +102,32 @@ final class UniversalComposerBridge {
 		}
 	}
 
-	/** Whether the exact File 22 base and diagnostic contracts are available. */
+	/** Whether the exact File 22 base, workflow, and diagnostic contracts exist. */
 	public static function file22_contract_available() {
+		$workflow_functions = array(
+			'supc_workflow_schema',
+			'supc_workflow_create_draft',
+			'supc_workflow_validate',
+			'supc_workflow_preview',
+			'supc_workflow_submit',
+			'supc_workflow_status',
+			'supc_workflow_canonical_url',
+			'supc_generate_idempotency_key',
+		);
+		foreach ( $workflow_functions as $function_name ) {
+			if ( ! function_exists( $function_name ) ) {
+				return false;
+			}
+		}
+
 		return defined( 'SUPC_ADAPTER_API_VERSION' )
 			&& self::ADAPTER_API_VERSION === (string) SUPC_ADAPTER_API_VERSION
+			&& defined( 'SUPC_WORKFLOW_API_VERSION' )
+			&& self::WORKFLOW_API_VERSION === (string) SUPC_WORKFLOW_API_VERSION
 			&& function_exists( 'supc_register_adapter' )
 			&& function_exists( 'supc_adapter_matches' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Workflow_Adapter' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Diagnostic_Adapter' );
 	}
 
