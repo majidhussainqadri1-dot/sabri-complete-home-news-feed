@@ -82,14 +82,25 @@ namespace {
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-publication-adapter.php';
+	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-subject-schema-adapter.php';
 
-	$adapter = new \Sabri\HomeNewsFeed\UniversalComposerPublicationAdapter();
+	$adapter = new \Sabri\HomeNewsFeed\UniversalComposerSubjectSchemaAdapter();
 	$coordinator = new \Sabri\UniversalComposer\Core\Workflow_Coordinator( new \Sabri\UniversalComposer\Core\Registry( $adapter ), new \Sabri\UniversalComposer\Core\Permission_Resolver() );
 	$failures = array();
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
+
+	$health = $coordinator->contract_health( 'social_publication' );
+	$assert( 'pass' === ( $health['status'] ?? '' ) && 'yes' === ( $health['subject_schema_extension'] ?? '' ), 'Static File 21 schema contract was not role-neutral and subject-aware.' );
+	$GLOBALS['real_current_user'] = 2;
+	$doctor_schema = $coordinator->schema( 2, 'social_publication' );
+	$doctor_choices = is_array( $doctor_schema ) ? (array) ( $doctor_schema['fields']['feed_type']['choices'] ?? array() ) : array();
+	$assert( ! isset( $doctor_choices['founder_update'] ), 'Doctor schema exposed Founder-only feed type.' );
+	$GLOBALS['real_current_user'] = 1;
+	$founder_schema = $coordinator->schema( 1, 'social_publication' );
+	$founder_choices = is_array( $founder_schema ) ? (array) ( $founder_schema['fields']['feed_type']['choices'] ?? array() ) : array();
+	$assert( isset( $founder_choices['founder_update'] ), 'Founder schema omitted authorized institutional feed type.' );
+
 	$payload = array( 'content' => 'Actual coordinator integration', 'feed_type' => 'standard_post', 'visibility' => 'public', 'publication_action' => 'publish' );
-	$schema = $coordinator->schema( 1, 'social_publication' );
-	$assert( is_array( $schema ) && '1.0.1' === ( $schema['version'] ?? '' ), 'Real File 22 coordinator rejected the File 21 schema.' );
 	$draft = $coordinator->create_draft( 1, 'social_publication', null, $payload );
 	$assert( is_array( $draft ) && 'draft' === ( $draft['status'] ?? '' ), 'Real File 22 coordinator rejected draft creation.' );
 	$reference = is_array( $draft ) ? (string) ( $draft['native_reference'] ?? '' ) : '';
@@ -106,5 +117,5 @@ namespace {
 	$assert( is_string( $url ) && str_starts_with( $url, 'https://example.test/' ), 'Real File 22 coordinator rejected canonical URL.' );
 
 	if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
-	echo "Actual File 22 Coordinator and File 21 adapter contracts passed.\n";
+	echo "Actual File 22 Coordinator and File 21 subject-aware adapter contracts passed.\n";
 }
