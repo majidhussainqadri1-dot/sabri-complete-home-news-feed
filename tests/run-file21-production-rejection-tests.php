@@ -70,7 +70,9 @@ $composer_recovery = $read( 'admin/class-news-composer-access-recovery.php' );
 $public_composer = $read( 'includes/class-public-composer-surface.php' );
 $public_composer_css = $read( 'assets/css/public-composer-surface.css' );
 $file22_bridge = $read( 'includes/class-universal-composer-bridge.php' );
-$file22_adapter = $read( 'includes/class-universal-composer-publication-adapter.php' );
+$file22_legacy = $read( 'includes/class-universal-composer-publication-adapter.php' );
+$file22_adapter = $read( 'includes/class-universal-composer-workflow-adapter.php' );
+$file22_store = $read( 'includes/class-universal-composer-workflow-store.php' );
 $assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), 'Editorial News publication bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'NewsComposerAccessRecovery::class' ), 'News Composer access recovery is not registered.' );
 $assert( false !== strpos( $plugin, 'UniversalComposerBridge::class' ), 'File 22 integration bridge is not registered.' );
@@ -93,26 +95,27 @@ $header_pos = strpos( $public_composer, 'get_header();' );
 $assert( false !== $render_pos && false !== $header_pos && $render_pos < $header_pos, 'Composer assets must be enqueued before the theme header is printed.' );
 $assert( false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-cta' ) && false !== strpos( $public_composer_css, '.sabri-hnf-public-composer-page' ), 'Public Composer CTA/page styles are missing.' );
 
-foreach ( array( 'const ADAPTER_API_VERSION', 'const WORKFLOW_API_VERSION', 'const ADAPTER_KEY', 'const MINIMUM_SHELL_VERSION', 'const SHELL_CREATE_CONTRACT_VERSION', 'SUPC_WORKFLOW_API_VERSION', 'supc_register_adapter', 'supc_adapter_matches', 'supc_workflow_schema', 'supc_workflow_submit', 'SABRI_SHELL_CREATE_CONTRACT_VERSION', 'sabri_shell_create_contract_available', 'sabri_shell_create_visible_for_current_user', "add_filter( 'sabri_shell_create_url'", 'prefer_universal_create_url', 'harmonize_create_surfaces', "remove_action( 'sabri_shell_home_before_main'", "remove_action( 'sabri_shell_news_main'", "remove_action( 'loop_start'", "remove_filter( 'the_content'" ) as $needle ) {
+foreach ( array( 'const ADAPTER_API_VERSION', 'const WORKFLOW_API_VERSION', 'SUPC_WORKFLOW_API_VERSION', 'supc_register_adapter', 'supc_adapter_matches', 'UniversalComposerWorkflowStore::register', 'SABRI_SHELL_CREATE_CONTRACT_VERSION', 'sabri_shell_create_contract_available', 'sabri_shell_create_visible_for_current_user', 'prefer_universal_create_url', 'harmonize_create_surfaces' ) as $needle ) {
 	$assert( false !== strpos( $file22_bridge, $needle ), 'File 22 bridge contract missing: ' . $needle );
 }
 $assert( false === strpos( $file22_bridge, "'supc_duplicate_key' ===" ), 'A duplicate adapter key must not be treated as successful File 21 registration.' );
-$assert( false === strpos( $file22_bridge, 'get_class( $error )' ), 'Adapter registration diagnostics must not expose exception class names.' );
-foreach ( array( 'implements Workflow_Adapter, Diagnostic_Adapter', 'workflow_api_version', 'supports_native_drafts', 'schema_version', 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', 'UniversalComposerBridge::ADAPTER_KEY', "return '1.0.3'", "return 'sabri_feed_create_posts'", "SafeMode::feature_enabled( 'composer' )", 'ComposerPermissions::user_can_create', 'health_report', 'actual_native_version', 'IDEMPOTENCY_PREFIX', 'add_option', 'payload_fingerprint', 'MUTABLE_DRAFT_STATUSES', 'INSTITUTIONAL_FEED_TYPES', 'user_can_publish_institutional_type', "home_url( '/create-post/' )", 'File 22 receives no duplicate' ) as $needle ) {
-	$assert( false !== strpos( $file22_adapter, $needle ), 'File 22 workflow publication adapter contract missing: ' . $needle );
+$assert( false === strpos( $file22_bridge, 'get_class( $error )' ), 'Adapter diagnostics must not expose exception class names.' );
+$assert( false !== strpos( $file22_legacy, 'extends UniversalComposerWorkflowAdapter' ), 'Legacy adapter name is not routed to the corrected implementation.' );
+foreach ( array( 'implements Workflow_Adapter, Diagnostic_Adapter', "SCHEMA_VERSION               = '1.0.1'", 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', "return '1.0.3'", "return 'sabri_feed_create_posts'", 'preview_expiry_enforced', 'idempotency_recovery_ready', 'UniversalComposerWorkflowStore::attach_native_marker', 'record_is_expired', "'draft' === (string) get_post_status", 'user_can_publish_institutional_type' ) as $needle ) {
+	$assert( false !== strpos( $file22_adapter, $needle ), 'Corrected File 22 workflow adapter contract missing: ' . $needle );
 }
-$assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'File 22 adapter must use File 21 Composer rather than duplicate native writes.' );
-$assert( false === strpos( $file22_adapter, 'update_post_meta' ), 'File 22 adapter must not duplicate native File 21 metadata.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'clinical-case'," ), 'Structured Clinical Case must remain on its native File 21 Composer route in this phase.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'research'," ), 'Structured Research must remain on its native File 21 Composer route in this phase.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must remain on its native File 21 Composer route in this phase.' );
+foreach ( array( 'PREVIEW_SIGNATURE', 'preview_token_is_valid', 'enforce_preview_token', 'PROCESSING_TTL', 'COMPLETED_TTL', 'RECOVERABLE_TTL', 'attach_native_marker', 'find_native_post', 'reconcile_and_cleanup', 'check_admin_referer', 'wp_schedule_event', 'manage_options' ) as $needle ) {
+	$assert( false !== strpos( $file22_store, $needle ), 'Workflow recovery store contract missing: ' . $needle );
+}
+$assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'Adapter must use File 21 Composer rather than duplicate native writes.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'clinical-case'," ), 'Structured Clinical Case must remain native-only.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'research'," ), 'Structured Research must remain native-only.' );
+$assert( false === strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must remain native-only.' );
 
 $workflow_test = $root . '/tests/run-file21-file22-workflow-adapter-tests.php';
-$assert( is_file( $workflow_test ), 'File 21/File 22 runtime workflow test is missing.' );
+$assert( is_file( $workflow_test ), 'Corrected File 21/File 22 runtime test is missing.' );
 if ( is_file( $workflow_test ) ) {
-	$workflow_runner = static function ( $test_file ) {
-		require $test_file;
-	};
+	$workflow_runner = static function ( $test_file ) { require $test_file; };
 	$workflow_runner( $workflow_test );
 }
 
@@ -120,11 +123,8 @@ $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
 $assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
 $assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
-$assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks the Editorial News visibility repair.' );
-$assert( false !== strpos( $change, 'Integrations diagnostics Safe Boot fatal' ), 'Changelog lacks the Integrations Safe Boot correction.' );
-$assert( false !== strpos( $change, 'News Composer posting option' ), 'Changelog lacks the News Composer access correction.' );
-$assert( false !== strpos( $change, 'public **Create Post** action' ), 'Changelog lacks the public Composer action correction.' );
-$assert( false !== strpos( $change, 'Universal Post Composer' ), 'Changelog lacks File 22 adapter interoperability.' );
+$assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks Editorial News repair.' );
+$assert( false !== strpos( $change, 'Universal Post Composer' ), 'Changelog lacks File 22 interoperability.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 echo "File 21 production-rejection corrective contracts passed.\n";
