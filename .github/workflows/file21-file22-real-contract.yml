@@ -1,0 +1,73 @@
+name: File 21 File 22 Real Contract
+
+on:
+  pull_request:
+    paths:
+      - 'includes/class-universal-composer-*.php'
+      - 'tests/run-file21-file22-*.php'
+      - '.github/workflows/file21-file22-real-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE22_RUNTIME_SHA: 4d4f17ff11810d3048c7f6d5c8fd10a5ac506385
+
+concurrency:
+  group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-contract:
+    name: Actual File 22 coordinator contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out exact File 21 corrective head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          path: file21
+          persist-credentials: false
+
+      - name: Check out exact corrected File 22 runtime source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: majidhussainqadri1-dot/sabri-universal-post-composer
+          ref: ${{ env.FILE22_RUNTIME_SHA }}
+          path: file22
+          persist-credentials: false
+
+      - name: Verify source pins and PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test "$(git -C file22 rev-parse HEAD)" = "${FILE22_RUNTIME_SHA}"
+          php -v
+          php -l file21/includes/class-universal-composer-workflow-store.php
+          php -l file21/includes/class-universal-composer-workflow-maintenance.php
+          php -l file21/includes/class-universal-composer-execution-lock-maintenance.php
+          php -l file21/includes/class-universal-composer-workflow-adapter.php
+          php -l file21/includes/class-universal-composer-publication-adapter.php
+          php -l file21/includes/class-universal-composer-subject-schema-adapter.php
+          php -l file21/tests/run-file21-file22-real-contract-tests.php
+          php -l file21/tests/run-file21-file22-maintenance-tests.php
+          php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
+
+      - name: Run actual File 22 Coordinator with File 21 adapter
+        shell: bash
+        env:
+          FILE22_ROOT: ${{ github.workspace }}/file22
+        run: |
+          set -euo pipefail
+          php file21/tests/run-file21-file22-real-contract-tests.php
+
+      - name: Run bounded retention and maintenance tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          php file21/tests/run-file21-file22-maintenance-tests.php
+          php file21/tests/run-file21-file22-lock-maintenance-tests.php

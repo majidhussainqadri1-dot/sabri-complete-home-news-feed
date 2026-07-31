@@ -49,7 +49,6 @@ if ( function_exists( 'wp_roles' ) && function_exists( 'get_role' ) ) {
 			if ( ! $role || ! method_exists( $role, 'remove_cap' ) ) {
 				continue;
 			}
-
 			foreach ( $sabri_hnf_capabilities as $capability ) {
 				$role->remove_cap( $capability );
 			}
@@ -57,13 +56,16 @@ if ( function_exists( 'wp_roles' ) && function_exists( 'get_role' ) ) {
 	}
 }
 
+/* Scheduled code must never survive plugin removal, even when data is retained. */
+if ( function_exists( 'wp_clear_scheduled_hook' ) ) {
+	wp_clear_scheduled_hook( 'sabri_hnf_file22_idempotency_cleanup' );
+}
+
 $settings = function_exists( 'get_option' ) ? get_option( 'sabri_feed_settings', array() ) : array();
 $retain   = true;
-
 if ( is_array( $settings ) && isset( $settings['privacy']['retain_data_on_uninstall'] ) ) {
 	$retain = ! empty( $settings['privacy']['retain_data_on_uninstall'] );
 }
-
 if ( $retain ) {
 	return;
 }
@@ -95,8 +97,8 @@ $options = array(
 	'sabri_feed_phase5_schema_install_result',
 	'sabri_feed_phase5_capability_mutations',
 	'sabri_feed_phase5_destructive_uninstall_confirmation',
+	'sabri_hnf_file22_recovery_last_report',
 );
-
 foreach ( $options as $option ) {
 	if ( function_exists( 'delete_option' ) ) {
 		delete_option( $option );
@@ -124,8 +126,15 @@ if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'query' ) ) {
 		$prefix . 'sabri_news_rate_limits',
 		$prefix . 'sabri_news_audit_integrity',
 	);
-
 	foreach ( $tables as $table ) {
-		$wpdb->query( 'DROP TABLE IF EXISTS `' . str_replace( '`', '', $table ) . '`' );
+		$wpdb->query( 'DROP TABLE IF EXISTS `' . str_replace( '`', '', $table ) . '`' ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange
+	}
+
+	if ( method_exists( $wpdb, 'prepare' ) && method_exists( $wpdb, 'esc_like' ) ) {
+		$idempotency_like = $wpdb->esc_like( 'sabri_hnf_file22_idem_' ) . '%';
+		$execution_like   = $wpdb->esc_like( 'sabri_hnf_file22_exec_' ) . '%';
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $idempotency_like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $execution_like ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->postmeta} WHERE meta_key IN (%s, %s)", '_sabri_hnf_file22_idempotency_hash', '_sabri_hnf_file22_payload_fingerprint' ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 	}
 }

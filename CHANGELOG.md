@@ -2,6 +2,15 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Corrected File 22 workflow safety: only exact native drafts are mutable, so pending-review, scheduled, published, and rejected posts cannot be demoted by resume or preview.
+- Added HMAC-signed, subject-bound preview URLs with request-time ten-minute expiry enforcement and no-cache 403 denial.
+- Added recoverable native idempotency markers, atomic per-key execution locks, option-persistence reconciliation, bounded 15-minute processing leases, 30-day completed retention, one seven-day recoverable interval, daily cleanup, and nonce-protected aggregate-only Administrator repair controls.
+- Added stale execution-lock cleanup and destructive-uninstall cleanup for workflow records and markers under the existing explicit retention policy.
+- Added `UniversalComposerSubjectSchemaAdapter`: static `schema()` is role-neutral, while interactive `schema_for_user()` removes Founder Update and Platform News for non-Founder/non-Administrator subjects.
+- Updated the bridge to require exact File 22 Adapter, Workflow, Subject Schema, and public API owner/function-ownership contracts before registration or fallback removal.
+- Added real File 22 Coordinator tests for role-neutral health, Doctor/Founder schema separation, schema-bound draft/preview/submit/status/canonical URL, and bounded maintenance.
+- Added capability-aware File 22 schema choices and actual integration testing against the exact corrected File 22 runtime.
+- Extended Sabri Universal Post Composer interoperability with a guarded File 22 `Workflow_Adapter`: File 21 owns direct native draft creation, validation, signed preview, idempotent submission, status, and subject-aware canonical URL resolution without creating any File 22 shadow record. The direct schema is deliberately text-first; structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes.
 - Added fail-soft Sabri Universal Post Composer interoperability: File 21 registers a versioned `social_publication` adapter, retains permanent ownership and native permissions, prefers the universal Create page when the complete File 20/File 22 gateway is available, and preserves its existing `/create-post/` fallback when that gateway is absent.
 - Restored the public **Create Post** action on Home and News, supplied the Unified Shell Create destination, and added the canonical `/create-post/` public Composer route with login, permission, duplicate-render and one-shot rewrite safeguards.
 - Restored the News Composer posting option after ZIP replacement by reconciling plugin-owned Administrator/Founder Editorial News capabilities on `admin_init`, preserving the canonical submenu, and adding a prominent **Create Editorial News** action on the Newsroom screen.
