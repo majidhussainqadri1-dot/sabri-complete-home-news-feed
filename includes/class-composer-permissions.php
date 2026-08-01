@@ -44,25 +44,41 @@ final class ComposerPermissions {
 	public static function user_can_create( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || ! SafeMode::feature_enabled( 'composer' ) || self::is_student_or_patient( $user_id, $settings ) ) {
+		if ( $user_id <= 0 || ! SafeMode::feature_enabled( 'composer' ) ) {
 			return false;
 		}
+
+		/*
+		 * Role precedence is intentional. A legacy institutional account may carry
+		 * an additional Subscriber/Patient role from an earlier membership flow.
+		 * That lower-authority role must not cancel an explicit Founder,
+		 * Administrator, Doctor, or plugin-owned capability grant.
+		 */
 		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) ) ) {
 			return true;
 		}
-		// Editorial roles belong to the institutional Newsroom. They do not receive
-		// social-Feed authorship merely because they can edit Editorial News.
-		return CanonicalIdentityAdapter::is_founder( $user_id )
+		if (
+			CanonicalIdentityAdapter::is_founder( $user_id )
 			|| CanonicalIdentityAdapter::is_administrator( $user_id )
 			|| CanonicalIdentityAdapter::is_verified_doctor( $user_id )
-			|| CanonicalIdentityAdapter::is_unverified_doctor( $user_id );
+			|| CanonicalIdentityAdapter::is_unverified_doctor( $user_id )
+		) {
+			return true;
+		}
+		if ( self::is_student_or_patient( $user_id, $settings ) ) {
+			return false;
+		}
+
+		// Editorial roles belong to the institutional Newsroom. They do not receive
+		// social-Feed authorship merely because they can edit Editorial News.
+		return false;
 	}
 
 	/** Whether the current user may publish immediately. */
 	public static function user_can_publish( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || self::is_student_or_patient( $user_id, $settings ) || SafeMode::public_features_disabled() ) {
+		if ( $user_id <= 0 || SafeMode::public_features_disabled() ) {
 			return false;
 		}
 		if ( CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings ) ) {
@@ -70,6 +86,9 @@ final class ComposerPermissions {
 		}
 		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) ) ) {
 			return true;
+		}
+		if ( self::is_student_or_patient( $user_id, $settings ) ) {
+			return false;
 		}
 		foreach ( self::user_role_slugs( $user_id ) as $role_slug ) {
 			if ( Capabilities::role_can_publish( $role_slug, $settings ) ) {
@@ -83,13 +102,19 @@ final class ComposerPermissions {
 	public static function user_can_submit_for_review( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || self::is_student_or_patient( $user_id, $settings ) || SafeMode::public_features_disabled() || self::user_can_publish( $user_id, $settings ) ) {
+		if ( $user_id <= 0 || SafeMode::public_features_disabled() || self::user_can_publish( $user_id, $settings ) ) {
 			return false;
 		}
 		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_submit_for_review' ) ) ) {
 			return true;
 		}
-		return CanonicalIdentityAdapter::is_verified_doctor( $user_id ) || CanonicalIdentityAdapter::is_unverified_doctor( $user_id );
+		if ( CanonicalIdentityAdapter::is_verified_doctor( $user_id ) || CanonicalIdentityAdapter::is_unverified_doctor( $user_id ) ) {
+			return true;
+		}
+		if ( self::is_student_or_patient( $user_id, $settings ) ) {
+			return false;
+		}
+		return false;
 	}
 
 	/** Whether a user may edit a post. */

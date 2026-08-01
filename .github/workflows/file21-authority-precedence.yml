@@ -1,0 +1,114 @@
+name: File 21 Authority Precedence 1.0.3.1
+
+on:
+  pull_request:
+    paths:
+      - 'sabri-complete-home-news-feed.php'
+      - 'includes/class-composer-permissions.php'
+      - 'tests/run-composer-authority-precedence-tests.php'
+      - 'tests/run-file21-production-rejection-tests.php'
+      - 'tools/build-release.php'
+      - 'tools/build-release.ps1'
+      - 'readme.txt'
+      - 'CHANGELOG.md'
+      - 'FILE-21-MIXED-ROLE-AUTHORITY-HOTFIX-1.0.3.1.md'
+      - '.github/workflows/file21-authority-precedence.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'sabri-complete-home-news-feed.php'
+      - 'includes/class-composer-permissions.php'
+      - 'tests/run-composer-authority-precedence-tests.php'
+      - 'tests/run-file21-production-rejection-tests.php'
+      - 'tools/build-release.php'
+      - 'tools/build-release.ps1'
+      - 'readme.txt'
+      - 'CHANGELOG.md'
+      - 'FILE-21-MIXED-ROLE-AUTHORITY-HOTFIX-1.0.3.1.md'
+      - '.github/workflows/file21-authority-precedence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-precedence:
+    name: Mixed-role authorization and hotfix package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Verify package and runtime identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'Version: 1.0.3.1' sabri-complete-home-news-feed.php
+          grep -F "SABRI_HNF_VERSION', '1.0.3" sabri-complete-home-news-feed.php
+          grep -F 'Stable tag: 1.0.3' readme.txt
+
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Mixed-role authority regression
+        shell: bash
+        run: php tests/run-composer-authority-precedence-tests.php
+
+      - name: Existing corrective regression
+        shell: bash
+        run: FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+
+      - name: Build canonical compatible runtime package
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Promote exact ZIP to 1.0.3.1 hotfix identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_base='21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE'
+          hotfix_base='21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX'
+          cp "release/${source_base}.zip" "release/${hotfix_base}.zip"
+          cp "release/${source_base}-MANIFEST.sha256" "release/${hotfix_base}-MANIFEST.sha256"
+          (cd release && sha256sum "${hotfix_base}.zip" > "${hotfix_base}.sha256")
+          cat > "release/${hotfix_base}-TEST-REPORT.md" <<REPORT
+          # File 21 1.0.3.1 Mixed-Role Authority Hotfix
+
+          - WordPress package version: 1.0.3.1
+          - File 21 runtime/API compatibility: 1.0.3
+          - Schema: 1.0.0
+          - Mixed-role authority regression: PASS
+          - Student/Patient/Subscriber-only denial: preserved
+          - Emergency Disable: preserved
+          - Public GET recovery writes: disabled
+          - Live deployed: 0
+          REPORT
+
+      - name: Verify hotfix package and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX'
+          test -f "release/${base}.zip"
+          test -f "release/${base}.sha256"
+          (cd release && sha256sum -c "${base}.sha256")
+          unzip -l "release/${base}.zip" | grep -F 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' | grep -F 'Version: 1.0.3.1'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/includes/class-composer-permissions.php' | grep -F 'Role precedence is intentional'
+
+      - name: Upload verified 1.0.3.1 hotfix
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-1.0.3.1-mixed-role-hotfix-${{ github.sha }}
+          retention-days: 60
+          if-no-files-found: error
+          path: |
+            release/21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX.zip
+            release/21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3.1-MIXED-ROLE-AUTHORITY-HOTFIX-TEST-REPORT.md

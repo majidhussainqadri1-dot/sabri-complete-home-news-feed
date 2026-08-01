@@ -11,7 +11,7 @@ $read = static function ( $relative ) use ( $root, &$failures ) {
 $assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) { $failures[] = $message; } };
 
 $main = $read( 'sabri-complete-home-news-feed.php' );
-$assert( false !== strpos( $main, 'Version: 1.0.3' ), 'Plugin header is not 1.0.3.' );
+$assert( false !== strpos( $main, 'Version: 1.0.3' ), 'Plugin header is not compatible with 1.0.3.' );
 $assert( false !== strpos( $main, "SABRI_HNF_VERSION', '1.0.3" ), 'Runtime constant is not 1.0.3.' );
 $assert( false !== strpos( $main, "SABRI_HNF_SCHEMA_VERSION', '1.0.0" ), 'Schema must remain 1.0.0.' );
 $assert( false !== strpos( $main, 'sabri_hnf_duplicate_resolved=1' ), 'Duplicate-copy controlled reload is missing.' );
@@ -64,6 +64,7 @@ foreach ( array( 'register_safe_boot_routes', 'safe_boot_status', 'safe_boot_sch
 }
 
 $plugin = $read( 'includes/class-plugin.php' );
+$permissions = $read( 'includes/class-composer-permissions.php' );
 $publication = $read( 'admin/class-editorial-news-publication-bridge.php' );
 $publication_js = $read( 'assets/js/news-publication-controls.js' );
 $composer_recovery = $read( 'admin/class-news-composer-access-recovery.php' );
@@ -80,16 +81,19 @@ $assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), '
 $assert( false !== strpos( $plugin, 'NewsComposerAccessRecovery::class' ), 'News Composer access recovery is not registered.' );
 $assert( false !== strpos( $plugin, 'UniversalComposerBridge::class' ), 'File 22 integration bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'PublicComposerSurface::class' ), 'Public Composer surface is not registered.' );
+foreach ( array( 'Role precedence is intentional', "current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) )", 'CanonicalIdentityAdapter::is_founder', 'CanonicalIdentityAdapter::is_administrator', 'CanonicalIdentityAdapter::is_verified_doctor', 'CanonicalIdentityAdapter::is_unverified_doctor' ) as $needle ) {
+	$assert( false !== strpos( $permissions, $needle ), 'Authority-precedence contract missing: ' . $needle );
+}
 foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . NewsroomAdmin::BULK_ACTION", 'check_admin_referer', "current_user_can( 'publish_editorial_news'", 'CanonicalIdentityAdapter::can_publish_immediately', "post_status' => 'publish'", "WORKFLOW_META_KEY, 'published'", 'NewsPublicSnapshot::capture', "editorial_news_enabled' => 1", 'NewsCache::purge_owned', 'publication_snapshot_failed' ) as $needle ) {
 	$assert( false !== strpos( $publication, $needle ), 'Editorial News publication contract missing: ' . $needle );
 }
 $assert( false === strpos( $publication, "add_action( 'init'" ), 'Editorial News publication must not mutate from public init.' );
 $assert( false !== strpos( $publication_js, "option.value = 'published'" ) && false !== strpos( $publication_js, 'document.createElement' ), 'Trusted publication controls are missing.' );
 $assert( false === strpos( $publication_js, 'innerHTML' ) && false === strpos( $publication_js, 'ev' . 'al(' ), 'Publication controls must not inject arbitrary HTML or dynamic code.' );
-foreach ( array( "add_action( 'admin_init'", 'NewsCapabilities::apply_default_policy()', 'NewsroomAdmin::COMPOSER_PAGE', 'Create Editorial News', "current_user_can( 'manage_options'" ) as $needle ) {
-	$assert( false !== strpos( $composer_recovery, $needle ), 'News Composer access recovery contract missing: ' . $needle );
+foreach ( array( "add_action( 'admin_init'", 'Capabilities::apply_default_policy()', 'NewsCapabilities::apply_default_policy()', 'sabri_feed_create_posts', 'NewsroomAdmin::COMPOSER_PAGE', 'Create Editorial News', "current_user_can( 'manage_options'" ) as $needle ) {
+	$assert( false !== strpos( $composer_recovery, $needle ), 'News/Social Composer access recovery contract missing: ' . $needle );
 }
-$assert( false === strpos( $composer_recovery, "add_action( 'init'" ), 'News Composer access recovery must remain administration-only.' );
+$assert( false === strpos( $composer_recovery, "add_action( 'init'" ), 'Composer access recovery must remain administration-only.' );
 foreach ( array( 'create-post', "add_filter( 'sabri_shell_create_url'", "add_filter( 'the_content'", "add_action( 'sabri_shell_home_before_main'", "add_action( 'sabri_shell_news_main'", 'data-sabri-hnf-public-composer-action', 'ComposerPermissions::user_can_create', 'wp_login_url', 'REWRITE_POLICY_VERSION', 'public-composer-surface.css' ) as $needle ) {
 	$assert( false !== strpos( $public_composer, $needle ), 'Public Composer surface contract missing: ' . $needle );
 }
@@ -129,6 +133,12 @@ $assert( is_file( $workflow_test ), 'Corrected File 21/File 22 runtime test is m
 if ( is_file( $workflow_test ) ) {
 	$workflow_runner = static function ( $test_file ) { require $test_file; };
 	$workflow_runner( $workflow_test );
+}
+$authority_test = $root . '/tests/run-composer-authority-precedence-tests.php';
+$assert( is_file( $authority_test ), 'Authority-precedence behavior test is missing.' );
+if ( is_file( $authority_test ) ) {
+	$authority_runner = static function ( $test_file ) { require $test_file; };
+	$authority_runner( $authority_test );
 }
 foreach ( array( 'tests/run-file21-file22-real-contract-tests.php', 'tests/run-file21-file22-maintenance-tests.php', 'tests/run-file21-file22-lock-maintenance-tests.php' ) as $test_file ) {
 	$assert( is_file( $root . '/' . $test_file ), 'Missing File 22 corrective test: ' . $test_file );
