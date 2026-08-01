@@ -30,6 +30,12 @@ namespace {
     function get_post_meta($post_id, $key, $single = true) { return $GLOBALS['hnf_meta'][(int)$post_id][$key] ?? ''; }
     function get_post($post_id) { return $GLOBALS['hnf_posts'][(int)$post_id] ?? null; }
     function get_option($key, $default = false) { return 'default_category' === $key ? $GLOBALS['hnf_default_category'] : $default; }
+    function get_the_terms($post_id, $taxonomy) {
+        if (42 === (int)$post_id && 'sabri_feed_topic' === $taxonomy) {
+            return [(object)['term_id' => 101, 'name' => 'Platform Testing']];
+        }
+        return [];
+    }
     function strip_shortcodes($text) { return preg_replace('/\[[^\]]+\]/', '', (string)$text); }
     function wp_strip_all_tags($text, $remove_breaks = false) { $value = strip_tags((string)$text); return $remove_breaks ? preg_replace('/[\r\n\t ]+/', ' ', $value) : $value; }
     function wp_trim_words($text, $num_words = 55, $more = null) { $words = preg_split('/\s+/', trim((string)$text)); return count($words) > $num_words ? implode(' ', array_slice($words, 0, $num_words)) . ($more ?? '…') : implode(' ', $words); }
@@ -63,18 +69,23 @@ namespace Sabri\HomeNewsFeed {
     $excerpt = PublicContentIntegrity::canonical_excerpt($wrong_global, $GLOBALS['hnf_posts'][42]);
     $assert(str_contains($excerpt, 'controlled canonical body'), 'Excerpt must use the explicitly requested canonical post body.');
     $assert(!str_contains($excerpt, 'Global Cloud Clinic'), 'Excerpt must reject unrelated global-loop content.');
+    $assert(!str_contains($excerpt, '**') && !str_contains($excerpt, '##'), 'Excerpt must not expose raw Markdown markers.');
 
     $ordinary = PublicContentIntegrity::canonical_excerpt('Ordinary original excerpt', $GLOBALS['hnf_posts'][43]);
     $assert('Ordinary original excerpt' === $ordinary, 'Ordinary WordPress posts must remain untouched.');
 
-    $terms = [
+    $default_only = [(object)['term_id' => 9, 'name' => 'Successful case with homeopathic medicine']];
+    $filtered = PublicContentIntegrity::filter_automatic_default_category($default_only, 42, 'category');
+    $assert([] === $filtered, 'Sole automatic default category must not be projected when an explicit File 21 topic exists.');
+
+    $mixed_terms = [
         (object)['term_id' => 9, 'name' => 'Successful case with homeopathic medicine'],
-        (object)['term_id' => 10, 'name' => 'Platform Testing'],
+        (object)['term_id' => 10, 'name' => 'Explicit Category'],
     ];
-    $filtered = PublicContentIntegrity::filter_automatic_default_category($terms, 42, 'category');
-    $assert(1 === count($filtered) && 10 === (int)$filtered[0]->term_id, 'Automatic default category must not be projected as author taxonomy.');
-    $unchanged_terms = PublicContentIntegrity::filter_automatic_default_category($terms, 43, 'category');
-    $assert(2 === count($unchanged_terms), 'Ordinary post categories must remain untouched.');
+    $mixed = PublicContentIntegrity::filter_automatic_default_category($mixed_terms, 42, 'category');
+    $assert(2 === count($mixed), 'Mixed or explicit Category sets must remain unchanged.');
+    $unchanged_terms = PublicContentIntegrity::filter_automatic_default_category($default_only, 43, 'category');
+    $assert(1 === count($unchanged_terms), 'Ordinary post categories must remain untouched.');
 
     $source = '<p>## Sluggish Liver</p><figure class="wp-block-embed"><iframe src="https://example.test/embed"></iframe></figure><p>**Cellular Inflammation** remains important.</p>';
     $formatted = PublicContentIntegrity::format_single_content($source);
