@@ -83,6 +83,9 @@ final class PublicContentIntegrity {
 			$source = strip_shortcodes( $source );
 		}
 		$plain = function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( $source, true ) : strip_tags( $source );
+		$plain = preg_replace( '/(^|\s)#{1,6}\s+/u', '$1', (string) $plain );
+		$plain = preg_replace( '/\*\*([^*\r\n]{1,1000})\*\*/u', '$1', (string) $plain );
+		$plain = preg_replace( '/__([^_\r\n]{1,1000})__/u', '$1', (string) $plain );
 		$plain = preg_replace( '/\s+/u', ' ', trim( (string) $plain ) );
 		if ( function_exists( 'wp_trim_words' ) ) {
 			return wp_trim_words( $plain, 45, '…' );
@@ -91,26 +94,36 @@ final class PublicContentIntegrity {
 	}
 
 	/**
-	 * Do not present WordPress's automatic default Category as author taxonomy.
-	 * The File 21 Composer has no core Category selector; its explicit Topic is
-	 * stored in sabri_feed_topic and remains untouched.
+	 * Hide only an unambiguous automatic default Category projection.
+	 *
+	 * The correction applies when the default Category is the post's sole core
+	 * Category and at least one explicit File 21 Topic exists. Mixed or explicit
+	 * Category sets remain unchanged so future/admin taxonomy choices are not
+	 * silently suppressed.
 	 */
 	public static function filter_automatic_default_category( $terms, $post_id, $taxonomy ) {
-		if ( 'category' !== $taxonomy || ! is_array( $terms ) || ! self::is_managed_post( $post_id ) || ! function_exists( 'get_option' ) ) {
+		if (
+			'category' !== $taxonomy ||
+			! is_array( $terms ) ||
+			1 !== count( $terms ) ||
+			! self::is_managed_post( $post_id ) ||
+			! function_exists( 'get_option' ) ||
+			! function_exists( 'get_the_terms' )
+		) {
 			return $terms;
 		}
 		$default_category = (int) get_option( 'default_category', 0 );
-		if ( $default_category <= 0 ) {
+		$only_term = reset( $terms );
+		if (
+			$default_category <= 0 ||
+			! is_object( $only_term ) ||
+			! isset( $only_term->term_id ) ||
+			$default_category !== (int) $only_term->term_id
+		) {
 			return $terms;
 		}
-		return array_values(
-			array_filter(
-				$terms,
-				static function ( $term ) use ( $default_category ) {
-					return ! is_object( $term ) || ! isset( $term->term_id ) || $default_category !== (int) $term->term_id;
-				}
-			)
-		);
+		$topics = get_the_terms( (int) $post_id, 'sabri_feed_topic' );
+		return is_array( $topics ) && array() !== $topics ? array() : $terms;
 	}
 
 	/**
