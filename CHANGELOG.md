@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.4 - Authority-Precedence Corrective Release
+
+- Corrected the public Social Composer authorization order so an explicit Founder, Administrator, verified Doctor, unverified Doctor, or plugin-owned `sabri_feed_create_posts` grant is evaluated before legacy Student/Patient/Subscriber-role denial.
+- Preserved Safe Mode and Emergency Disable as absolute creation gates.
+- Preserved denial for Student-only, Patient-only, Subscriber-only, and unrelated Editorial-only accounts.
+- Corrected immediate-publish precedence for Founder/Administrator accounts carrying a lower-authority legacy role.
+- Corrected review-submission precedence for verified or unverified Doctors carrying a legacy Subscriber/Patient role.
+- Added exact mixed-role regressions for Create, publish, submit-for-review, and emergency disable.
+- Retained the administration-only File 21 capability reconciliation introduced for in-place ZIP replacement.
+
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
 - Reconciled the File 21-owned `sabri_feed_create_posts` capability on administrator-only `admin_init` after in-place ZIP replacement, so File 22 can expose the Social Publication Create card without weakening the native capability boundary.
