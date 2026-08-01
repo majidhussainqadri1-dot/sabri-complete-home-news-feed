@@ -1,6 +1,6 @@
 <?php
 /**
- * Administrator-safe recovery for the Editorial News Composer entry point.
+ * Administrator-safe recovery for the Editorial News and Social Composer entry points.
  *
  * @package SabriCompleteHomeNewsFeed
  */
@@ -12,12 +12,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Reconciles plugin-owned Editorial News capabilities after a ZIP replacement
- * and keeps an explicit Composer entry point visible to the site administrator.
+ * Reconciles plugin-owned Composer capabilities after a ZIP replacement and
+ * keeps an explicit Editorial News Composer entry point visible to the site
+ * administrator.
  */
 final class NewsComposerAccessRecovery {
 	const POLICY_VERSION_OPTION = 'sabri_hnf_news_composer_access_policy';
-	const POLICY_VERSION = '1.0.3-news-composer-access-v1';
+	const POLICY_VERSION = '1.0.3-news-and-social-composer-access-v2';
 
 	/** Register administration-only recovery hooks. */
 	public static function register() {
@@ -29,27 +30,50 @@ final class NewsComposerAccessRecovery {
 		add_action( 'admin_notices', array( __CLASS__, 'render_newsroom_create_action' ), 20 );
 	}
 
-	/** Reapply only plugin-owned role capabilities after replacement/update. */
+	/**
+	 * Reapply only File 21-owned role capabilities after replacement/update.
+	 *
+	 * WordPress does not run activation hooks when plugin files are replaced in
+	 * place. The bounded policy checkpoint therefore repairs both the Editorial
+	 * News capabilities and the native Social Composer capability required by
+	 * File 22. Public requests remain read-only because this hook is registered
+	 * only on admin_init and is restricted to a site administrator.
+	 */
 	public static function maybe_reconcile_capabilities() {
 		if ( ! self::is_site_administrator() || ! function_exists( 'get_option' ) ) {
 			return;
 		}
-		$current = (string) get_option( self::POLICY_VERSION_OPTION, '' );
-		$has_create = function_exists( 'current_user_can' ) && current_user_can( 'create_editorial_news' );
-		$has_read = function_exists( 'current_user_can' ) && current_user_can( 'read_editorial_news' );
-		if ( self::POLICY_VERSION === $current && $has_create && $has_read ) {
+
+		$current         = (string) get_option( self::POLICY_VERSION_OPTION, '' );
+		$has_news_create = function_exists( 'current_user_can' ) && current_user_can( 'create_editorial_news' );
+		$has_news_read   = function_exists( 'current_user_can' ) && current_user_can( 'read_editorial_news' );
+		$has_feed_create = function_exists( 'current_user_can' ) && current_user_can( 'sabri_feed_create_posts' );
+
+		if ( self::POLICY_VERSION === $current && $has_news_create && $has_news_read && $has_feed_create ) {
 			return;
+		}
+
+		if ( class_exists( __NAMESPACE__ . '\\Capabilities' ) ) {
+			Capabilities::apply_default_policy();
 		}
 		if ( class_exists( __NAMESPACE__ . '\\NewsCapabilities' ) ) {
 			NewsCapabilities::apply_default_policy();
 		}
+
+		/* Refresh the current user's effective role capabilities in this request. */
 		if ( function_exists( 'wp_get_current_user' ) ) {
 			$user = wp_get_current_user();
 			if ( is_object( $user ) && is_callable( array( $user, 'get_role_caps' ) ) ) {
 				$user->get_role_caps();
 			}
 		}
-		if ( function_exists( 'update_option' ) ) {
+
+		$reconciled = function_exists( 'current_user_can' )
+			&& current_user_can( 'create_editorial_news' )
+			&& current_user_can( 'read_editorial_news' )
+			&& current_user_can( 'sabri_feed_create_posts' );
+
+		if ( $reconciled && function_exists( 'update_option' ) ) {
 			update_option( self::POLICY_VERSION_OPTION, self::POLICY_VERSION, false );
 		}
 	}
@@ -68,7 +92,7 @@ final class NewsComposerAccessRecovery {
 					$exists = true;
 					break;
 				}
-		}
+			}
 		}
 		if ( $exists ) {
 			return;

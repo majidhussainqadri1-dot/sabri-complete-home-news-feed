@@ -2,6 +2,7 @@
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
 
+- Reconciled the File 21-owned `sabri_feed_create_posts` capability on administrator-only `admin_init` after in-place ZIP replacement, so File 22 can expose the Social Publication Create card without weakening the native capability boundary.
 - Corrected File 22 workflow safety: only exact native drafts are mutable, so pending-review, scheduled, published, and rejected posts cannot be demoted by resume or preview.
 - Added HMAC-signed, subject-bound preview URLs with request-time ten-minute expiry enforcement and no-cache 403 denial.
 - Added recoverable native idempotency markers, atomic per-key execution locks, option-persistence reconciliation, bounded 15-minute processing leases, 30-day completed retention, one seven-day recoverable interval, daily cleanup, and nonce-protected aggregate-only Administrator repair controls.
