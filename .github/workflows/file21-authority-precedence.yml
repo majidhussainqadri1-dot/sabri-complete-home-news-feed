@@ -11,7 +11,7 @@ on:
       - 'tools/build-release.ps1'
       - 'readme.txt'
       - 'CHANGELOG.md'
-      - 'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md'
+      - 'FILE-21-MIXED-ROLE-AUTHORITY-HOTFIX-1.0.3.1.md'
       - '.github/workflows/file21-authority-precedence.yml'
   push:
     branches:
@@ -25,7 +25,7 @@ on:
       - 'tools/build-release.ps1'
       - 'readme.txt'
       - 'CHANGELOG.md'
-      - 'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md'
+      - 'FILE-21-MIXED-ROLE-AUTHORITY-HOTFIX-1.0.3.1.md'
       - '.github/workflows/file21-authority-precedence.yml'
   workflow_dispatch:
 
