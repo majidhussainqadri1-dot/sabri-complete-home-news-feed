@@ -1,13 +1,14 @@
 # Changelog
 
-## 1.0.4 - Authority-Precedence Corrective Release
+## 1.0.3.1 - Mixed-Role Authority Hotfix
 
 - Corrected the public Social Composer authorization order so an explicit Founder, Administrator, verified Doctor, unverified Doctor, or plugin-owned `sabri_feed_create_posts` grant is evaluated before legacy Student/Patient/Subscriber-role denial.
+- Preserved File 21 runtime and cross-plugin API compatibility at `1.0.3`; WordPress package identity is `1.0.3.1` for safe replacement and rollback recognition.
 - Preserved Safe Mode and Emergency Disable as absolute creation gates.
 - Preserved denial for Student-only, Patient-only, Subscriber-only, and unrelated Editorial-only accounts.
 - Corrected immediate-publish precedence for Founder/Administrator accounts carrying a lower-authority legacy role.
 - Corrected review-submission precedence for verified or unverified Doctors carrying a legacy Subscriber/Patient role.
-- Added exact mixed-role regressions for Create, publish, submit-for-review, and emergency disable.
+- Added exact mixed-role regressions for Create, publish, submit-for-review, and Emergency Disable.
 - Retained the administration-only File 21 capability reconciliation introduced for in-place ZIP replacement.
 
 ## 1.0.3 - Production-Rejection Corrective Candidate
