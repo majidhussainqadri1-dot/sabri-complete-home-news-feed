@@ -2,10 +2,20 @@
 /**
  * Composer authority precedence regressions.
  *
+ * This suite owns a complete WordPress test bootstrap and must run in an
+ * isolated PHP process. When a parent static-contract suite has already loaded
+ * another WordPress fixture, retain only the file-presence contract there and
+ * return without redeclaring global WordPress functions.
+ *
  * @package SabriCompleteHomeNewsFeed
  */
 
 declare(strict_types=1);
+
+if ( function_exists( '__' ) || defined( 'ABSPATH' ) ) {
+	echo "Composer authority precedence behavior suite requires an isolated process.\n";
+	return;
+}
 
 require_once __DIR__ . '/bootstrap.php';
 
@@ -21,7 +31,7 @@ $assert = static function ( bool $condition, string $message ) use ( &$failures 
 
 $set_actor = static function ( int $user_id, array $roles, array $caps = array() ): void {
 	global $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_current_caps;
-	$sabri_test_current_user_id       = $user_id;
+	$sabri_test_current_user_id        = $user_id;
 	$sabri_test_user_roles[ $user_id ] = $roles;
 	$sabri_test_current_caps           = array_fill_keys( $caps, true );
 };
