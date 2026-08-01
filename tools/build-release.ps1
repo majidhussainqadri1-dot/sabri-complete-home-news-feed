@@ -1,7 +1,7 @@
 param([string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path)
 $ErrorActionPreference = 'Stop'
 $slug = 'sabri-complete-home-news-feed'
-$base = '21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE'
+$base = '21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE'
 $releaseDir = Join-Path $Root 'release'
 $stageDir = Join-Path $releaseDir '_stage'
 $topDir = Join-Path $stageDir $slug
@@ -13,7 +13,7 @@ $required = @(
  'sabri-complete-home-news-feed.php','includes/class-public-surface-recovery.php','includes/class-corrective-public-mount.php',
  'includes/class-home-composition-registry.php','includes/class-public-query-guard.php','includes/class-integrations.php',
  'includes/class-rest-foundation.php','public/class-news-routing.php','public/class-phase5-public-runtime.php',
- 'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md','readme.txt','CHANGELOG.md'
+ 'FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md','readme.txt','CHANGELOG.md'
 )
 foreach ($relative in $required) { if (-not (Test-Path -LiteralPath (Join-Path $Root $relative) -PathType Leaf)) { throw "Missing required runtime file: $relative" } }
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
@@ -38,6 +38,6 @@ foreach ($path in @($zipPath,$shaPath,$reportPath)) { if (Test-Path $path) { Rem
 Compress-Archive -Path $topDir -DestinationPath $zipPath -CompressionLevel Optimal
 $hash = (Get-FileHash $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $(Split-Path $zipPath -Leaf)" | Set-Content $shaPath -Encoding ASCII
-@('# File 21 1.0.4 Authority-Precedence Corrective Release','', '- Runtime: 1.0.4','- Schema: 1.0.0',"- Artifact: $(Split-Path $zipPath -Leaf)","- SHA-256: $hash",'- Mixed-role authority regression: passed when QA is green','- Student/Patient/Subscriber-only denial: preserved','- Emergency Disable: preserved','- Public GET recovery writes: disabled','- Automatic publication/migration: disabled','- Live deployed: 0') | Set-Content $reportPath -Encoding UTF8
+@('# File 21 1.0.3 Production-Rejection Corrective Candidate','', '- Runtime: 1.0.3','- Schema: 1.0.0',"- Artifact: $(Split-Path $zipPath -Leaf)","- SHA-256: $hash",'- Historical alias packages: none','- Public GET recovery writes: disabled','- Editorial News gates: disabled by default','- Automatic publication/migration: disabled','- Live deployed: 0') | Set-Content $reportPath -Encoding UTF8
 Remove-Item $stageDir -Recurse -Force
 Write-Output "Built canonical package $zipPath"
