@@ -37,7 +37,7 @@ function get_option($key, $default = false) { return 'default_category' === $key
 function strip_shortcodes($text) { return preg_replace('/\[[^\]]+\]/', '', (string)$text); }
 function wp_strip_all_tags($text, $remove_breaks = false) { $value = strip_tags((string)$text); return $remove_breaks ? preg_replace('/[\r\n\t ]+/', ' ', $value) : $value; }
 function wp_trim_words($text, $num_words = 55, $more = null) { $words = preg_split('/\s+/', trim((string)$text)); return count($words) > $num_words ? implode(' ', array_slice($words, 0, $num_words)) . ($more ?? '…') : implode(' ', $words); }
-function wp_kses_post($html) { return strip_tags((string)$html, '<p><strong><em><h2><h3><h4><ul><ol><li><a><br><blockquote><div>'); }
+function wp_kses_post($html) { throw new \RuntimeException('Whole rendered content must not be re-sanitized.'); }
 function in_the_loop() { return true; }
 function is_main_query() { return true; }
 function get_the_ID() { return (int)$GLOBALS['hnf_queried_id']; }
@@ -78,10 +78,12 @@ $assert(1 === count($filtered) && 10 === (int)$filtered[0]->term_id, 'Automatic 
 $unchanged_terms = PublicContentIntegrity::filter_automatic_default_category($terms, 43, 'category');
 $assert(2 === count($unchanged_terms), 'Ordinary post categories must remain untouched.');
 
-$formatted = PublicContentIntegrity::format_single_content('<p>## Sluggish Liver</p><p>**Cellular Inflammation** remains important.</p>');
+$source = '<p>## Sluggish Liver</p><figure class="wp-block-embed"><iframe src="https://example.test/embed"></iframe></figure><p>**Cellular Inflammation** remains important.</p>';
+$formatted = PublicContentIntegrity::format_single_content($source);
 $assert(str_contains($formatted, '<h3>Sluggish Liver</h3>'), 'Markdown heading must become semantic heading.');
 $assert(str_contains($formatted, '<strong>Cellular Inflammation</strong>'), 'Markdown bold must become strong text.');
 $assert(!str_contains($formatted, '**'), 'Raw Markdown bold markers must not remain.');
+$assert(str_contains($formatted, '<figure class="wp-block-embed">') && str_contains($formatted, '<iframe'), 'Existing block and embed output must be preserved.');
 
 $wrapped = PublicContentIntegrity::wrap_single_content($formatted);
 $assert(str_contains($wrapped, 'sabri-hnf-single-content'), 'Managed single content must receive containment wrapper.');
