@@ -44,10 +44,10 @@ final class NewsComposerAccessRecovery {
 			return;
 		}
 
-		$current          = (string) get_option( self::POLICY_VERSION_OPTION, '' );
-		$has_news_create  = function_exists( 'current_user_can' ) && current_user_can( 'create_editorial_news' );
-		$has_news_read    = function_exists( 'current_user_can' ) && current_user_can( 'read_editorial_news' );
-		$has_feed_create  = function_exists( 'current_user_can' ) && current_user_can( 'sabri_feed_create_posts' );
+		$current         = (string) get_option( self::POLICY_VERSION_OPTION, '' );
+		$has_news_create = function_exists( 'current_user_can' ) && current_user_can( 'create_editorial_news' );
+		$has_news_read   = function_exists( 'current_user_can' ) && current_user_can( 'read_editorial_news' );
+		$has_feed_create = function_exists( 'current_user_can' ) && current_user_can( 'sabri_feed_create_posts' );
 
 		if ( self::POLICY_VERSION === $current && $has_news_create && $has_news_read && $has_feed_create ) {
 			return;
@@ -92,6 +92,7 @@ final class NewsComposerAccessRecovery {
 					$exists = true;
 					break;
 				}
+			}
 		}
 		if ( $exists ) {
 			return;
