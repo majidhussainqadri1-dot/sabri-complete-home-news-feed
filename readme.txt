@@ -4,7 +4,7 @@ Tags: home feed, editorial news, profile timeline, moderation, homeopathy
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.4
+Stable tag: 1.0.3
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
@@ -12,9 +12,9 @@ Canonical public Home, social Feed, Profile Timeline, Editorial News, publishing
 
 == Description ==
 
-Version 1.0.4 corrects mixed-role authority precedence in the public Social Composer. A legacy Founder, Administrator, verified Doctor, or unverified Doctor may also carry an older Subscriber/Patient role; that lower-authority role no longer cancels the explicit institutional or professional creation grant. Student-only, Patient-only, and Subscriber-only accounts remain denied, and Safe Mode/Emergency Disable remain controlling.
+Package hotfix 1.0.3.1 corrects mixed-role authority precedence in the public Social Composer while preserving File 21 runtime/API compatibility at 1.0.3. A legacy Founder, Administrator, verified Doctor, or unverified Doctor may also carry an older Subscriber/Patient role; that lower-authority role no longer cancels the explicit institutional or professional creation grant. Student-only, Patient-only, and Subscriber-only accounts remain denied, and Safe Mode/Emergency Disable remain controlling.
 
-Version 1.0.3 remains the production-rejection corrective foundation. It removes front-end database recovery writes, adds native News-slot rendering and legacy News-page handling, keeps exactly ten Home rows observable, guards Breaking News to the main Home/News loop, applies public-post eligibility before pagination, reports File 20 native-slot readiness truthfully, exposes authenticated Safe Boot diagnostics, and resolves duplicate File 21 folders through a controlled administrator reload.
+Version 1.0.3 remains the production-rejection corrective runtime foundation. It removes front-end database recovery writes, adds native News-slot rendering and legacy News-page handling, keeps exactly ten Home rows observable, guards Breaking News to the main Home/News loop, applies public-post eligibility before pagination, reports File 20 native-slot readiness truthfully, exposes authenticated Safe Boot diagnostics, and resolves duplicate File 21 folders through a controlled administrator reload.
 
 The File 22 `social_publication` workflow keeps File 21 as the only native post owner. Only exact drafts are mutable; previews are HMAC-signed and expire at request time; idempotency uses hashed markers, atomic processing and execution leases, bounded retention, automatic reconciliation, and aggregate-only Administrator repair. Structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes.
 
@@ -24,7 +24,7 @@ Editorial News gates remain disabled until an authorized administrator completes
 
 1. Take a verified files-and-database backup.
 2. Install on Hostinger staging first.
-3. Replace the existing plugin with the exact 1.0.4 ZIP and confirm that WordPress displays Version 1.0.4.
+3. Replace the existing plugin with the exact 1.0.3.1 hotfix ZIP and confirm that WordPress displays Version 1.0.3.1.
 4. If Safe Boot is recorded, select Retry Safe Boot after replacement.
 5. Visit one WordPress administration page so the bounded File 21 capability reconciliation runs.
 6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, and File 22 workflow health.
@@ -38,7 +38,7 @@ Public GET requests do not perform recovery migrations or post-meta normalizatio
 
 == Changelog ==
 
-= 1.0.4 =
+= 1.0.3.1 =
 * Corrected Social Composer role precedence so Founder, Administrator, verified Doctor, and unverified Doctor authority is not cancelled by a legacy Subscriber/Patient role.
 * Preserved Student-only, Patient-only, Subscriber-only, Safe Mode, and Emergency Disable denials.
 * Added mixed-role Create, publish, and review regression tests.
