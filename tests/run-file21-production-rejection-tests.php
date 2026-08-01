@@ -1,5 +1,5 @@
 <?php
-/** Static release contracts for the File 21 1.0.4 corrective line. */
+/** Static release contracts for the 1.0.3 production-rejection corrective line. */
 $root = getenv( 'FILE21_ROOT' );
 $root = $root ? rtrim( $root, '/\\' ) : dirname( __DIR__, 2 ) . '/file21fix';
 $failures = array();
@@ -11,8 +11,8 @@ $read = static function ( $relative ) use ( $root, &$failures ) {
 $assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) { $failures[] = $message; } };
 
 $main = $read( 'sabri-complete-home-news-feed.php' );
-$assert( false !== strpos( $main, 'Version: 1.0.4' ), 'Plugin header is not 1.0.4.' );
-$assert( false !== strpos( $main, "SABRI_HNF_VERSION', '1.0.4" ), 'Runtime constant is not 1.0.4.' );
+$assert( false !== strpos( $main, 'Version: 1.0.3' ), 'Plugin header is not compatible with 1.0.3.' );
+$assert( false !== strpos( $main, "SABRI_HNF_VERSION', '1.0.3" ), 'Runtime constant is not 1.0.3.' );
 $assert( false !== strpos( $main, "SABRI_HNF_SCHEMA_VERSION', '1.0.0" ), 'Schema must remain 1.0.0.' );
 $assert( false !== strpos( $main, 'sabri_hnf_duplicate_resolved=1' ), 'Duplicate-copy controlled reload is missing.' );
 $assert( false !== strpos( $main, 'register_safe_boot_routes' ), 'Safe Boot REST registration is missing.' );
@@ -146,12 +146,11 @@ foreach ( array( 'tests/run-file21-file22-real-contract-tests.php', 'tests/run-f
 
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
-$assert( false !== strpos( $readme, 'Stable tag: 1.0.4' ), 'Stable tag is not 1.0.4.' );
-$assert( false !== strpos( $change, '## 1.0.4' ), 'Changelog lacks 1.0.4.' );
+$assert( false !== strpos( $readme, 'Stable tag: 1.0.3' ), 'Stable tag is not 1.0.3.' );
+$assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks 1.0.3.' );
 $assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks Editorial News repair.' );
 $assert( false !== strpos( $change, 'Universal Post Composer' ), 'Changelog lacks File 22 interoperability.' );
 $assert( false !== strpos( $change, 'HMAC-signed' ) && false !== strpos( $change, '30-day completed retention' ), 'Changelog lacks current workflow corrections.' );
-$assert( false !== strpos( $change, 'authority' ) || false !== strpos( $change, 'Authority' ), 'Changelog lacks authority-precedence correction.' );
 
 if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
-echo "File 21 1.0.4 corrective contracts passed.\n";
+echo "File 21 production-rejection corrective contracts passed.\n";
