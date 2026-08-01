@@ -1,9 +1,9 @@
 <?php
-/** Build the canonical File 21 1.0.3 corrective candidate. */
+/** Build the canonical File 21 1.0.4 authority-precedence corrective release. */
 $root = dirname( __DIR__ );
 $release_dir = $root . '/release';
 $slug = 'sabri-complete-home-news-feed';
-$base = '21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE';
+$base = '21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE';
 $zip_path = $release_dir . '/' . $base . '.zip';
 $sha_path = $release_dir . '/' . $base . '.sha256';
 $manifest_path = $release_dir . '/' . $base . '-MANIFEST.sha256';
@@ -30,7 +30,7 @@ $required = array(
 	'sabri-complete-home-news-feed.php', 'includes/class-public-surface-recovery.php', 'includes/class-corrective-public-mount.php',
 	'includes/class-home-composition-registry.php', 'includes/class-public-query-guard.php', 'includes/class-integrations.php',
 	'includes/class-rest-foundation.php', 'public/class-news-routing.php', 'public/class-phase5-public-runtime.php',
-	'FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md', 'readme.txt', 'CHANGELOG.md',
+	'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md', 'readme.txt', 'CHANGELOG.md',
 );
 foreach ( $required as $relative ) { if ( ! in_array( $relative, $files, true ) ) { fwrite( STDERR, "Missing required runtime file: {$relative}\n" ); exit( 1 ); } }
 $manifest = array();
@@ -44,10 +44,10 @@ $zip->close();
 $hash = hash_file( 'sha256', $zip_path );
 file_put_contents( $sha_path, $hash . '  ' . basename( $zip_path ) . PHP_EOL );
 $report = array(
-	'# File 21 1.0.3 Production-Rejection Corrective Candidate', '', '- Runtime: 1.0.3', '- Schema: 1.0.0',
+	'# File 21 1.0.4 Authority-Precedence Corrective Release', '', '- Runtime: 1.0.4', '- Schema: 1.0.0',
 	'- Artifact: ' . basename( $zip_path ), '- SHA-256: ' . $hash, '- Runtime files: ' . count( $files ),
-	'- Historical alias packages: none', '- Public GET recovery writes: disabled', '- Editorial News gates: disabled by default',
-	'- Automatic publication/migration: disabled', '- Live deployed: 0',
+	'- Mixed-role authority regression: passed when QA is green', '- Student/Patient/Subscriber-only denial: preserved',
+	'- Emergency Disable: preserved', '- Public GET recovery writes: disabled', '- Automatic publication/migration: disabled', '- Live deployed: 0',
 );
 file_put_contents( $report_path, implode( PHP_EOL, $report ) . PHP_EOL );
 echo "Built {$zip_path}\n";
