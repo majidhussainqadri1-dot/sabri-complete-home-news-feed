@@ -147,8 +147,11 @@ final class PublicContentIntegrity {
 					$parts[ $index ] = $part;
 				}
 			}
-			$content = implode( '', $parts );
-			return function_exists( 'wp_kses_post' ) ? wp_kses_post( $content ) : $content;
+			// The normal WordPress content pipeline already enforces the post's
+			// authoring/KSES boundary. Re-sanitizing the complete rendered HTML here
+			// would remove legitimate block, embed, and shortcode output. Only fixed
+			// semantic tags are introduced above, so preserve the remaining output.
+			return implode( '', $parts );
 		} finally {
 			self::$formatting = false;
 		}
