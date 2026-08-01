@@ -22,6 +22,8 @@ final class PublicContentIntegrity {
 	/** Register public safeguards. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
+			add_filter( 'get_the_excerpt', array( __CLASS__, 'canonical_excerpt' ), PHP_INT_MAX, 2 );
+			add_filter( 'get_the_terms', array( __CLASS__, 'filter_automatic_default_category' ), PHP_INT_MAX, 3 );
 			add_filter( 'the_content', array( __CLASS__, 'format_single_content' ), 12 );
 			add_filter( 'the_content', array( __CLASS__, 'wrap_single_content' ), 18 );
 			add_filter( 'body_class', array( __CLASS__, 'body_classes' ) );
@@ -29,6 +31,13 @@ final class PublicContentIntegrity {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_single_assets' ), 30 );
 		}
+	}
+
+	/** Whether a specific post is owned by File 21 public publishing metadata. */
+	private static function is_managed_post( $post_id ) {
+		return (int) $post_id > 0
+			&& function_exists( 'get_post_meta' )
+			&& '' !== trim( (string) get_post_meta( (int) $post_id, PostMetadata::META_TYPE, true ) );
 	}
 
 	/** Resolve the managed post for content filters or request-level assets. */
@@ -48,10 +57,60 @@ final class PublicContentIntegrity {
 		if ( $post_id <= 0 && function_exists( 'get_queried_object_id' ) ) {
 			$post_id = (int) get_queried_object_id();
 		}
-		if ( $post_id <= 0 || ! function_exists( 'get_post_meta' ) ) {
-			return 0;
+		return self::is_managed_post( $post_id ) ? $post_id : 0;
+	}
+
+	/**
+	 * Force excerpt projection to the explicitly requested canonical post.
+	 *
+	 * Some themes/plugins ignore the post argument and read the global loop,
+	 * which paired the acceptance-test title with unrelated Global Clinic text.
+	 */
+	public static function canonical_excerpt( $excerpt, $post = null ) {
+		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : ( is_numeric( $post ) ? (int) $post : 0 );
+		if ( $post_id <= 0 || ! self::is_managed_post( $post_id ) || ! function_exists( 'get_post' ) ) {
+			return $excerpt;
 		}
-		return '' !== trim( (string) get_post_meta( $post_id, PostMetadata::META_TYPE, true ) ) ? $post_id : 0;
+		$canonical = get_post( $post_id );
+		if ( ! is_object( $canonical ) || ! isset( $canonical->ID ) || (int) $canonical->ID !== $post_id ) {
+			return '';
+		}
+		$source = isset( $canonical->post_excerpt ) ? trim( (string) $canonical->post_excerpt ) : '';
+		if ( '' === $source ) {
+			$source = isset( $canonical->post_content ) ? (string) $canonical->post_content : '';
+		}
+		if ( function_exists( 'strip_shortcodes' ) ) {
+			$source = strip_shortcodes( $source );
+		}
+		$plain = function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( $source, true ) : strip_tags( $source );
+		$plain = preg_replace( '/\s+/u', ' ', trim( (string) $plain ) );
+		if ( function_exists( 'wp_trim_words' ) ) {
+			return wp_trim_words( $plain, 45, '…' );
+		}
+		return function_exists( 'mb_substr' ) ? mb_substr( $plain, 0, 280 ) : substr( $plain, 0, 280 );
+	}
+
+	/**
+	 * Do not present WordPress's automatic default Category as author taxonomy.
+	 * The File 21 Composer has no core Category selector; its explicit Topic is
+	 * stored in sabri_feed_topic and remains untouched.
+	 */
+	public static function filter_automatic_default_category( $terms, $post_id, $taxonomy ) {
+		if ( 'category' !== $taxonomy || ! is_array( $terms ) || ! self::is_managed_post( $post_id ) || ! function_exists( 'get_option' ) ) {
+			return $terms;
+		}
+		$default_category = (int) get_option( 'default_category', 0 );
+		if ( $default_category <= 0 ) {
+			return $terms;
+		}
+		return array_values(
+			array_filter(
+				$terms,
+				static function ( $term ) use ( $default_category ) {
+					return ! is_object( $term ) || ! isset( $term->term_id ) || $default_category !== (int) $term->term_id;
+				}
+			)
+		);
 	}
 
 	/**
