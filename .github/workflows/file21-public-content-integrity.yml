@@ -1,0 +1,113 @@
+name: File 21 Public Content Integrity R2
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'includes/class-public-content-integrity.php'
+      - 'includes/class-plugin.php'
+      - 'assets/css/public-content-integrity.css'
+      - 'tests/run-public-content-integrity-tests.php'
+      - 'FILE-21-PUBLIC-CONTENT-INTEGRITY-CORRECTION-1.0.3.1-R2.md'
+      - '.github/workflows/file21-public-content-integrity.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'includes/class-public-content-integrity.php'
+      - 'includes/class-plugin.php'
+      - 'assets/css/public-content-integrity.css'
+      - 'tests/run-public-content-integrity-tests.php'
+      - 'FILE-21-PUBLIC-CONTENT-INTEGRITY-CORRECTION-1.0.3.1-R2.md'
+      - '.github/workflows/file21-public-content-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Canonical excerpt, taxonomy, Markdown, and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          extensions: zip
+
+      - name: Syntax-check corrected runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-public-content-integrity.php
+          php -l includes/class-plugin.php
+          php -l tests/run-public-content-integrity-tests.php
+
+      - name: Run public content integrity regression
+        shell: bash
+        run: php tests/run-public-content-integrity-tests.php
+
+      - name: Run existing production-rejection regression
+        shell: bash
+        run: FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+
+      - name: Build canonical runtime package
+        shell: bash
+        run: php tools/build-release.php
+
+      - name: Promote exact package to R2 identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_base='21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE'
+          target_base='21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2'
+          cp "release/${source_base}.zip" "release/${target_base}.zip"
+          cp "release/${source_base}-MANIFEST.sha256" "release/${target_base}-MANIFEST.sha256"
+          (cd release && sha256sum "${target_base}.zip" > "${target_base}.sha256")
+          cat > "release/${target_base}-TEST-REPORT.md" <<REPORT
+          # File 21 Public Content Integrity R2
+
+          - WordPress package identity: 1.0.3.1
+          - Corrective build: 1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2
+          - Runtime/API compatibility: 1.0.3
+          - Schema: 1.0.0
+          - Canonical excerpt regression: PASS
+          - Default-category projection regression: PASS
+          - Markdown compatibility regression: PASS
+          - Single-post containment contract: PASS
+          - Live deployed: 0
+          REPORT
+
+      - name: Verify R2 package contents and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2'
+          test -f "release/${base}.zip"
+          test -f "release/${base}.sha256"
+          (cd release && sha256sum -c "${base}.sha256")
+          unzip -t "release/${base}.zip"
+          unzip -l "release/${base}.zip" | grep -F 'sabri-complete-home-news-feed/includes/class-public-content-integrity.php'
+          unzip -l "release/${base}.zip" | grep -F 'sabri-complete-home-news-feed/assets/css/public-content-integrity.css'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/includes/class-plugin.php' | grep -F 'PublicContentIntegrity::class'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/includes/class-public-content-integrity.php' | grep -F 'canonical_excerpt'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/assets/css/public-content-integrity.css' | grep -F 'overflow-wrap: anywhere'
+
+      - name: Upload exact R2 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-public-content-integrity-r2-${{ github.sha }}
+          retention-days: 60
+          if-no-files-found: error
+          path: |
+            release/21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2.zip
+            release/21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3.1-PUBLIC-CONTENT-INTEGRITY-R2-TEST-REPORT.md
