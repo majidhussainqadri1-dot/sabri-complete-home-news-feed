@@ -15,7 +15,8 @@ This corrective build:
 - leaves ordinary WordPress posts unchanged;
 - suppresses only the automatically assigned WordPress default Category on File 21 managed posts while preserving explicit File 21 topics and all non-default categories;
 - converts a conservative legacy/plain-text Markdown subset (`#` headings, `**bold**`, and `__bold__`) only on File 21 managed single-post output;
-- processes text nodes rather than HTML attributes and finishes through `wp_kses_post`;
+- processes text nodes rather than HTML attributes and introduces only fixed semantic heading/strong tags;
+- preserves legitimate WordPress block, embed, and shortcode output rather than re-sanitizing the entire rendered document;
 - adds one idempotent content wrapper and a stable body class for File 20/File 25 integration;
 - constrains managed single-post content, action rows, comments, media, tables, and long words to the available content column;
 - introduces no database migration, no public GET write, no post mutation, no taxonomy deletion, and no duplicate content record.
