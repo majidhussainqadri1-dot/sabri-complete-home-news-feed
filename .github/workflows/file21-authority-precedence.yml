@@ -1,0 +1,89 @@
+name: File 21 Authority Precedence 1.0.4
+
+on:
+  pull_request:
+    paths:
+      - 'sabri-complete-home-news-feed.php'
+      - 'includes/class-composer-permissions.php'
+      - 'tests/run-composer-authority-precedence-tests.php'
+      - 'tools/build-release.php'
+      - 'tools/build-release.ps1'
+      - 'readme.txt'
+      - 'CHANGELOG.md'
+      - 'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md'
+      - '.github/workflows/file21-authority-precedence.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'sabri-complete-home-news-feed.php'
+      - 'includes/class-composer-permissions.php'
+      - 'tests/run-composer-authority-precedence-tests.php'
+      - 'tools/build-release.php'
+      - 'tools/build-release.ps1'
+      - 'readme.txt'
+      - 'CHANGELOG.md'
+      - 'FILE-21-AUTHORITY-PRECEDENCE-CORRECTIVE-1.0.4.md'
+      - '.github/workflows/file21-authority-precedence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-precedence:
+    name: Mixed-role authorization and package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Verify runtime identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'Version: 1.0.4' sabri-complete-home-news-feed.php
+          grep -F "SABRI_HNF_VERSION', '1.0.4" sabri-complete-home-news-feed.php
+          grep -F 'Stable tag: 1.0.4' readme.txt
+
+      - name: PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -name '*.php' -not -path './release/*' -not -path './vendor/*' -not -path './node_modules/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Mixed-role authority regression
+        shell: bash
+        run: php tests/run-composer-authority-precedence-tests.php
+
+      - name: Existing corrective regression
+        shell: bash
+        run: FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+
+      - name: Build canonical 1.0.4 package
+        shell: pwsh
+        run: ./tools/build-release.ps1
+
+      - name: Verify package and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE'
+          test -f "release/${base}.zip"
+          test -f "release/${base}.sha256"
+          (cd release && sha256sum -c "${base}.sha256")
+          unzip -l "release/${base}.zip" | grep -F 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php'
+          unzip -p "release/${base}.zip" 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' | grep -F 'Version: 1.0.4'
+
+      - name: Upload verified 1.0.4 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: file21-1.0.4-authority-precedence-${{ github.sha }}
+          retention-days: 60
+          if-no-files-found: error
+          path: |
+            release/21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE.zip
+            release/21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.4-AUTHORITY-PRECEDENCE-CORRECTIVE-TEST-REPORT.md
