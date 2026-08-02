@@ -202,7 +202,8 @@ final class LegacyFounderPostMigration {
 			return false;
 		}
 
-		return current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' );
+		return CanonicalIdentityAdapter::current_action_ready( $actor_id )
+			&& ( current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' ) );
 	}
 
 	/**
