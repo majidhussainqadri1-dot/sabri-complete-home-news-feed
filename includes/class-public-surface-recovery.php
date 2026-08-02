@@ -42,7 +42,8 @@ final class PublicSurfaceRecovery {
 
 	/** Administrator-requested recovery. */
 	public static function recover_from_admin() {
-		if ( ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sabri_feed_manage_settings' ) ) ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) || ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sabri_feed_manage_settings' ) ) ) {
 			if ( function_exists( 'wp_die' ) ) { wp_die( esc_html__( 'You do not have permission to recover File 21 public surfaces.', 'sabri-complete-home-news-feed' ) ); }
 			return;
 		}
@@ -84,7 +85,8 @@ final class PublicSurfaceRecovery {
 
 	/** Show an administrator notice while explicit normalization is pending. */
 	public static function admin_notice() {
-		if ( ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sabri_feed_manage_settings' ) ) ) { return; }
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) || ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_options' ) && ! current_user_can( 'sabri_feed_manage_settings' ) ) ) { return; }
 		$completed_version = function_exists( 'get_option' ) ? (string) get_option( self::VERSION_OPTION, '' ) : '';
 		if ( '' !== $completed_version && version_compare( $completed_version, self::VERSION, '>=' ) ) { return; }
 		$url = function_exists( 'admin_url' ) ? admin_url( 'admin-post.php?action=sabri_hnf_recover_public_surface' ) : '';
