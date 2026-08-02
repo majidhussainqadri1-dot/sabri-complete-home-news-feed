@@ -156,7 +156,7 @@ final class LegacyFounderPostMigration {
 		}
 
 		$author_id = isset( $post->post_author ) ? (int) $post->post_author : 0;
-		if ( ! ComposerPermissions::user_is_privileged_publisher( $author_id ) ) {
+		if ( ! ComposerPermissions::subject_is_institutional_publisher( $author_id ) ) {
 			return false;
 		}
 

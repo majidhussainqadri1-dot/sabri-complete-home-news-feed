@@ -43,6 +43,29 @@ final class ComposerPermissions {
 			&& self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) );
 	}
 
+	/**
+	 * Whether a subject currently has policy-level immediate-publishing authority.
+	 *
+	 * This deliberately does not borrow the current actor's capabilities and must
+	 * not be used to authorize a request. It is for post-author state sync and
+	 * other bounded, already-authorized maintenance paths.
+	 */
+	public static function subject_can_publish_immediately( $user_id = 0, $settings = null ) {
+		$settings = null === $settings ? Settings::get() : $settings;
+		$user_id = $user_id ? (int) $user_id : self::current_user_id();
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::subject_is_active( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings );
+	}
+
+	/** Whether a subject is an active institutional Founder or Administrator. */
+	public static function subject_is_institutional_publisher( $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : self::current_user_id();
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::subject_is_active( $user_id )
+			&& ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
+	}
+
 	/** Whether the current user can use the public social Composer. */
 	public static function user_can_create( $user_id = 0, $settings = null ) {
 		unset( $settings );
