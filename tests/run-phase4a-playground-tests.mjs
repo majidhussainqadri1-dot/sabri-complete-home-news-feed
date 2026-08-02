@@ -77,6 +77,9 @@ try {
 	// String.raw preserves PHP namespace separators inside the JavaScript template.
 	const result = JSON.parse(await php(String.raw`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		if ( ! class_exists( 'SMC_Contracts' ) ) {
+			eval( 'class SMC_Contracts { public static function assertions( $user_id ) { return array( "contract_version" => "1.1.2", "user_id" => (int) $user_id, "status" => "approved", "approved" => true, "eligible" => true, "guardian_verified" => true, "two_factor_ready" => true, "session_two_factor" => true, "account_class" => "member", "membership_type" => "member", "professional_verified" => false, "public_profile_allowed" => true, "suspended" => false ); } }' );
+		}
 		$user_specs = array(
 			'owner' => array( 'phase4_owner', 'phase4-owner@example.test' ),
 			'other' => array( 'phase4_other', 'phase4-other@example.test' ),
