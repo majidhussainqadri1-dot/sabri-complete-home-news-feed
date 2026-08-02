@@ -401,12 +401,13 @@ final class UniversalComposerWorkflowStore {
 	/** Return a bounded prepared option query. */
 	private static function option_rows( int $limit ): array {
 		global $wpdb;
+		/** @var \wpdb $wpdb */
 		if ( ! isset( $wpdb ) || ! is_object( $wpdb ) || ! method_exists( $wpdb, 'get_results' ) || ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'esc_like' ) ) {
 			return array();
 		}
 		$like = $wpdb->esc_like( self::OPTION_PREFIX ) . '%';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
-		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC LIMIT %d", $like, $limit ), ARRAY_A );
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT option_name, option_value FROM {$wpdb->options} WHERE option_name LIKE %s ORDER BY option_id ASC LIMIT %d", $like, $limit ), 'ARRAY_A' );
 		return is_array( $rows ) ? $rows : array();
 	}
 
