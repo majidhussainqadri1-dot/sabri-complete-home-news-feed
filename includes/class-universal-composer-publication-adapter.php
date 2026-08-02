@@ -223,7 +223,12 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 			return '';
 		}
 		delete_option( $lock_key );
-		return add_option( $lock_key, $value, '', false ) ? $token : '';
+		return $this->create_execution_lock_option( $lock_key, $value ) ? $token : '';
+	}
+
+	/** Create one non-autoloaded lock option through an impure boundary. */
+	private function create_execution_lock_option( string $lock_key, array $value ): bool {
+		return (bool) add_option( $lock_key, $value, '', false );
 	}
 
 	/** Release only the lease owned by this request. */
