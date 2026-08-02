@@ -1,0 +1,39 @@
+name: Apply File 21 Round Three
+
+on:
+  push:
+    branches:
+      - fix/file21-zero-known-defects-1.0.3.2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/file21-zero-known-defects-1.0.3.2
+          fetch-depth: 0
+      - name: Apply installed-capability fixture correction when pending
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test ! -f tools/file21-round3-test-fixture.patch.gz.b64; then
+            echo 'Round-three patch is already applied.'
+            exit 0
+          fi
+          base64 --decode tools/file21-round3-test-fixture.patch.gz.b64 | gzip -dc > /tmp/file21-round3.patch
+          git apply --check /tmp/file21-round3.patch
+          git apply /tmp/file21-round3.patch
+          rm -f tools/file21-round3-test-fixture.patch.gz.b64
+          rmdir tools 2>/dev/null || true
+          php -l tests/run-tests.php
+          php tools/run-tests.php
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add --all
+          git commit -m 'test: model installed File 21 scoped capabilities'
+          git push origin HEAD:fix/file21-zero-known-defects-1.0.3.2
