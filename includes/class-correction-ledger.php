@@ -62,7 +62,7 @@ final class CorrectionLedger {
 			if ( class_exists(__NAMESPACE__.'\\NewsPublicSnapshot') ) { NewsPublicSnapshot::capture($article_id,true); }
 		}
 		if ( ! Phase5Repository::update('corrections',$id,array('state'=>'published','published_at'=>gmdate('Y-m-d H:i:s'),'updated_at'=>gmdate('Y-m-d H:i:s'))) ) return self::error('phase5_query_failed',500);
-		if ( class_exists(__NAMESPACE__.'\\NewsCache') ) { NewsCache::invalidate_all('phase5-correction'); }
+		if ( class_exists(__NAMESPACE__.'\\NewsCache') ) { NewsCache::purge_owned(); }
 		PreviewTokenService::revoke_article($article_id);
 		Phase5AuditIntegrity::record('correction-published','correction',$id,array('correction_class'=>$class,'state'=>'published'));
 		return array('success'=>true,'status'=>200);
