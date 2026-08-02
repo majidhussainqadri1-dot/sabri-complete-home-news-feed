@@ -20,37 +20,45 @@ jobs:
         with:
           ref: fix/file21-zero-known-defects-1.0.3.2
           fetch-depth: 0
-      - name: Apply installed-capability fixture correction when pending
+      - name: Model installed scoped capabilities without mutating activation state
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('tests/run-tests.php')
+          path = Path('tests/wp-stubs.php')
           text = path.read_text(encoding='utf-8')
-          old = """function sabri_reset_options() {
-          \tsabri_test_reset_state( true );
-          \tsabri_reset_roles();
-          }
-          """
-          new = """function sabri_reset_options() {
-          \tsabri_test_reset_state( true );
-          \tsabri_reset_roles();
-          \t// A fresh installed File 21 assigns its scoped capabilities during
-          \t// activation. Behavioral tests must model that installed state before
-          \t// exercising Composer, media, REST, moderation, and author-edit policies.
-          \tCapabilities::apply_default_policy();
-          }
-          """
+          old = "function current_user_can( $capability ) { global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles; if ( (int) $sabri_test_current_user_id <= 0 ) { return false; } if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) { return true; } foreach ( isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array() as $role_slug ) { if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) { return true; } } return false; }"
+          new = """function current_user_can( $capability ) {
+          \tglobal $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles;
+          \tif ( (int) $sabri_test_current_user_id <= 0 ) {
+          \t\treturn false;
+          \t}
+          \tif ( ! empty( $sabri_test_current_caps[ $capability ] ) ) {
+          \t\treturn true;
+          \t}
+          \t$roles = isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array();
+          \t$default_map = class_exists( '\\Sabri\\HomeNewsFeed\\Capabilities' )
+          \t\t? \\Sabri\\HomeNewsFeed\\Capabilities::default_role_map()
+          \t\t: array();
+          \tforeach ( $roles as $role_slug ) {
+          \t\tif ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) {
+          \t\t\treturn true;
+          \t\t}
+          \t\tif ( ! empty( $default_map[ $role_slug ] ) && in_array( $capability, $default_map[ $role_slug ], true ) ) {
+          \t\t\treturn true;
+          \t\t}
+          \t}
+          \treturn false;
+          }"""
           if new not in text:
               if old not in text:
-                  raise SystemExit('Expected File 21 reset helper not found.')
-              text = text.replace(old, new, 1)
-              path.write_text(text, encoding='utf-8')
+                  raise SystemExit('Expected current_user_can test stub not found.')
+              path.write_text(text.replace(old, new, 1), encoding='utf-8')
           PY
           rm -f tools/file21-round3-test-fixture.patch.gz.b64
           rmdir tools 2>/dev/null || true
-          php -l tests/run-tests.php
+          php -l tests/wp-stubs.php
           php tools/run-tests.php
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
