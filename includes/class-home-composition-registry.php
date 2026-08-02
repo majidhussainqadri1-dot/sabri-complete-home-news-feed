@@ -13,7 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Keeps File 21 as the Home/News content engine without copying companion data. */
 final class HomeCompositionRegistry {
-	private static $rows_rendered = false;
+	/** @var string|null Request-local deterministic rows markup. */
+	private static $rows_html = null;
 
 	/** Register native Shell slots and fallback content mounting. */
 	public static function register() {
@@ -83,8 +84,7 @@ final class HomeCompositionRegistry {
 
 	/** Render all ten rows; unavailable providers produce an explicit empty state. */
 	public static function render_rows() {
-		if ( self::$rows_rendered ) { return ''; }
-		self::$rows_rendered = true;
+		if ( is_string( self::$rows_html ) ) { return self::$rows_html; }
 		$html = '<div class="sabri-hnf-home-rows" data-sabri-home-rows data-sabri-home-row-count="10">';
 		foreach ( self::rows() as $key => $row ) {
 			$items = self::row_items( $key, $row );
@@ -99,7 +99,8 @@ final class HomeCompositionRegistry {
 			}
 			$html .= '</section>';
 		}
-		return $html . '</div>';
+		self::$rows_html = $html . '</div>';
+		return self::$rows_html;
 	}
 
 	/** Render the official Shell Home slot. */
@@ -175,6 +176,6 @@ final class HomeCompositionRegistry {
 		return is_scalar( $url ) ? (string) $url : '';
 	}
 
-	/** Reset request-level row guard for tests. */
-	public static function reset_runtime_guards() { self::$rows_rendered = false; }
+	/** Reset request-local rows markup for tests. */
+	public static function reset_runtime_guards() { self::$rows_html = null; }
 }
