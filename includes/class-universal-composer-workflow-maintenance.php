@@ -57,7 +57,8 @@ final class UniversalComposerWorkflowMaintenance {
 
 	/** Render no record identifiers, post identifiers, keys, or content. */
 	public static function render_recovery_page() {
-		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
 		$report = function_exists( 'get_option' ) ? get_option( self::LAST_REPORT_OPTION, array() ) : array();
@@ -85,7 +86,8 @@ final class UniversalComposerWorkflowMaintenance {
 
 	/** Handle explicit administrator reconciliation. */
 	public static function handle_manual_reconciliation() {
-		if ( ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You are not authorized to run this repair.', 'sabri-complete-home-news-feed' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( self::ADMIN_ACTION );
