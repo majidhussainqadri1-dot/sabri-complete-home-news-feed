@@ -50,7 +50,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout exact source head
-        uses: actions/checkout/v4
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.TEST_SHA }}
           fetch-depth: 1
