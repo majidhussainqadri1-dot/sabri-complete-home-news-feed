@@ -126,7 +126,7 @@ if ( ! function_exists( 'sabri_hnf_wp_supported' ) ) {
 if ( ! function_exists( 'sabri_hnf_php_notice' ) ) {
 	function sabri_hnf_php_notice() {
 		$message = sprintf( __( 'Sabri Complete Home and News Feed requires PHP %1$s or higher. Current PHP version: %2$s.', 'sabri-complete-home-news-feed' ), SABRI_HNF_MINIMUM_PHP, PHP_VERSION );
-		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+		echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p></div>';
 	}
 }
 
@@ -135,7 +135,7 @@ if ( ! function_exists( 'sabri_hnf_wp_notice' ) ) {
 	function sabri_hnf_wp_notice() {
 		global $wp_version;
 		$message = sprintf( __( 'Sabri Complete Home and News Feed requires WordPress %1$s or higher. Current WordPress version: %2$s.', 'sabri-complete-home-news-feed' ), SABRI_HNF_MINIMUM_WP, $wp_version ? $wp_version : __( 'unknown', 'sabri-complete-home-news-feed' ) );
-		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+		echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p></div>';
 	}
 }
 
