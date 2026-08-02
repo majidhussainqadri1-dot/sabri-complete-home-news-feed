@@ -214,7 +214,8 @@ if ( ! function_exists( 'sabri_hnf_bootstrap' ) ) {
 			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) { sabri_hnf_register_safe_boot_notice(); return; }
 			if ( function_exists( 'load_plugin_textdomain' ) ) { load_plugin_textdomain( SABRI_HNF_TEXT_DOMAIN, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' ); }
 			\Sabri\HomeNewsFeed\Plugin::instance()->register();
-			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) { sabri_hnf_register_safe_boot_notice(); }
+			$blocked_after_register = \Sabri\HomeNewsFeed\SafeBoot::state();
+			if ( ! empty( $blocked_after_register['active'] ) ) { sabri_hnf_register_safe_boot_notice(); }
 		} catch ( \Throwable $error ) {
 			\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'bootstrap', $error );
 			sabri_hnf_register_safe_boot_notice();
