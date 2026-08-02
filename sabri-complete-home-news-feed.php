@@ -89,6 +89,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
  * cross-plugin API contract at 1.0.3. WordPress uses the plugin header above
  * to distinguish the corrected package during replacement and rollback.
  */
+define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.2' );
 define( 'SABRI_HNF_VERSION', '1.0.3' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );

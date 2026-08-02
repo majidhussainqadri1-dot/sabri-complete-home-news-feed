@@ -181,7 +181,7 @@ final class CanonicalIdentityAdapter {
 		$assertions = self::membership_assertions( $user_id );
 		if ( ! self::assertions_are_active( $assertions ) ) { return false; }
 		if ( in_array( $assertions['account_class'] ?? '', array( 'founder', 'administrator' ), true ) ) { return true; }
-		return 'doctor' === ( $assertions['membership_type'] ?? '' ) && ! empty( $assertions['professional_verified'] );
+		return 'doctor' === ( $assertions['membership_type'] ?? '' );
 	}
 
 	public static function public_projection( $user_id ) {
