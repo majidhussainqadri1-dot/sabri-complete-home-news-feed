@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+8ruleset name="File 21 critical release and authorization surface">
+  <description>Official WordPress Coding Standards gate for File 21 release, authorization, migration, and integration paths.</description>
+  <arg name="basepath" value="."/>
+  <arg name="extensions" value="php"/>
+  <arg name="parallel" value="4"/>
+  <arg name="cache" value=".phpcs-cache"/>
+  <config name="minimum_supported_wp_version" value="6.0"/>
+  <rule ref="WordPress-Core"/>
+  <rule ref="WordPress-Docs"/>
+  <file>sabri-complete-home-news-feed.php</file>
+  <file>includes/class-canonical-identity-adapter.php</file>
+  <file>includes/class-composer-permissions.php</file>
+  <file>includes/class-privileged-publishing-policy.php</file>
+  <file>includes/class-legacy-founder-post-migration.php</file>
+  <file>includes/class-integrations.php</file>
+  <file>includes/class-universal-composer-workflow-store.php</file>
+  <file>includes/class-universal-composer-workflow-adapter.php</file>
+  <file>includes/class-universal-composer-publication-adapter.php</file>
+  <file>includes/class-universal-composer-subject-schema-adapter.php</file>
+</ruleset>
