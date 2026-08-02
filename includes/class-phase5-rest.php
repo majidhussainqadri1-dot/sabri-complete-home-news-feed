@@ -219,34 +219,39 @@ final class Phase5Rest {
 		return true;
 	}
 	public static function can_authenticated_write( $request ) {
-		return self::logged_in() && self::nonce( $request );
+		return self::current_actor_ready() && self::nonce( $request );
 	}
 	public static function can_manage_sources( $request ) {
-		return self::logged_in() && current_user_can( 'manage_news_sources' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'manage_news_sources' ) && self::nonce( $request );
 	}
 	public static function can_verify_sources( $request ) {
-		return self::logged_in() && current_user_can( 'verify_news_sources' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'verify_news_sources' ) && self::nonce( $request );
 	}
 	public static function can_assign_reviews( $request ) {
-		return self::logged_in() && current_user_can( 'review_editorial_news' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'review_editorial_news' ) && self::nonce( $request );
 	}
 	public static function can_submit( $request ) {
-		return self::logged_in() && current_user_can( 'submit_editorial_news' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'submit_editorial_news' ) && self::nonce( $request );
 	}
 	public static function can_manage_submissions( $request ) {
-		return self::logged_in() && current_user_can( 'manage_news_submissions' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'manage_news_submissions' ) && self::nonce( $request );
 	}
 	public static function can_manage_breaking( $request ) {
-		return self::logged_in() && current_user_can( 'manage_breaking_news' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'manage_breaking_news' ) && self::nonce( $request );
 	}
 	public static function can_manage_corrections( $request ) {
-		return self::logged_in() && current_user_can( 'manage_news_corrections' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'manage_news_corrections' ) && self::nonce( $request );
 	}
 	public static function can_translate( $request ) {
-		return self::logged_in() && current_user_can( 'translate_editorial_news' ) && self::nonce( $request );
+		return self::current_actor_ready() && current_user_can( 'translate_editorial_news' ) && self::nonce( $request );
 	}
 	public static function can_diagnostics() {
-		return self::logged_in() && current_user_can( 'view_news_diagnostics' );
+		return self::current_actor_ready() && current_user_can( 'view_news_diagnostics' );
+	}
+
+	private static function current_actor_ready() {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		return self::logged_in() && $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id );
 	}
 
 	private static function nonce( $request ) {

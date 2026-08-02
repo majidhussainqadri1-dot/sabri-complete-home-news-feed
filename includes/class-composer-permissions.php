@@ -37,84 +37,46 @@ final class ComposerPermissions {
 	public static function user_is_privileged_publisher( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		return CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings );
+		return self::current_actor_matches( $user_id )
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings )
+			&& self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) );
 	}
 
 	/** Whether the current user can use the public social Composer. */
 	public static function user_can_create( $user_id = 0, $settings = null ) {
-		$settings = null === $settings ? Settings::get() : $settings;
+		unset( $settings );
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || ! SafeMode::feature_enabled( 'composer' ) ) {
+		if ( $user_id <= 0 || ! SafeMode::feature_enabled( 'composer' ) || ! self::current_actor_matches( $user_id ) ) {
 			return false;
 		}
-
-		/*
-		 * Role precedence is intentional. A legacy institutional account may carry
-		 * an additional Subscriber/Patient role from an earlier membership flow.
-		 * That lower-authority role must not cancel an explicit Founder,
-		 * Administrator, Doctor, or plugin-owned capability grant.
-		 */
-		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) ) ) {
-			return true;
-		}
-		if (
-			CanonicalIdentityAdapter::is_founder( $user_id )
-			|| CanonicalIdentityAdapter::is_administrator( $user_id )
-			|| CanonicalIdentityAdapter::is_verified_doctor( $user_id )
-			|| CanonicalIdentityAdapter::is_unverified_doctor( $user_id )
-		) {
-			return true;
-		}
-		if ( self::is_student_or_patient( $user_id, $settings ) ) {
-			return false;
-		}
-
-		// Editorial roles belong to the institutional Newsroom. They do not receive
-		// social-Feed authorship merely because they can edit Editorial News.
-		return false;
+		return CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_create_social_content( $user_id )
+			&& self::current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) );
 	}
 
 	/** Whether the current user may publish immediately. */
 	public static function user_can_publish( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || SafeMode::public_features_disabled() ) {
+		if ( $user_id <= 0 || SafeMode::public_features_disabled() || ! self::current_actor_matches( $user_id ) ) {
 			return false;
 		}
-		if ( CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings ) ) {
-			return true;
-		}
-		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) ) ) {
-			return true;
-		}
-		if ( self::is_student_or_patient( $user_id, $settings ) ) {
-			return false;
-		}
-		foreach ( self::user_role_slugs( $user_id ) as $role_slug ) {
-			if ( Capabilities::role_can_publish( $role_slug, $settings ) ) {
-				return true;
-			}
-		}
-		return false;
+		return CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings )
+			&& self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) );
 	}
 
 	/** Whether the current user may submit social posts for review. */
 	public static function user_can_submit_for_review( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
-		if ( $user_id <= 0 || SafeMode::public_features_disabled() || self::user_can_publish( $user_id, $settings ) ) {
+		if ( $user_id <= 0 || SafeMode::public_features_disabled() || ! self::current_actor_matches( $user_id ) || self::user_can_publish( $user_id, $settings ) ) {
 			return false;
 		}
-		if ( self::current_actor_matches( $user_id ) && self::current_user_can_any( array( 'sabri_feed_submit_for_review' ) ) ) {
-			return true;
-		}
-		if ( CanonicalIdentityAdapter::is_verified_doctor( $user_id ) || CanonicalIdentityAdapter::is_unverified_doctor( $user_id ) ) {
-			return true;
-		}
-		if ( self::is_student_or_patient( $user_id, $settings ) ) {
-			return false;
-		}
-		return false;
+		return CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_create_social_content( $user_id )
+			&& self::current_user_can_any( array( 'sabri_feed_submit_for_review' ) );
 	}
 
 	/** Whether a user may edit a post. */
@@ -133,7 +95,10 @@ final class ComposerPermissions {
 
 	/** Whether the current user may moderate. */
 	public static function user_can_moderate() {
-		return self::current_user_can_any( array( 'sabri_feed_moderate_posts', 'edit_others_posts', 'manage_options' ) );
+		$user_id = self::current_user_id();
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& self::current_user_can_any( array( 'sabri_feed_moderate_posts', 'edit_others_posts', 'manage_options' ) );
 	}
 
 	/** Resolve a requested Composer action to an allowed WordPress status. */

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.0.3.2 - File 00 Authorization and Public Projection Integrity
+
+### File 00 authority hardening
+- Requires subject-bound File 00 contract 1.1.2 for all privileged and private writes.
+- Denies stale File 21 capabilities, suspended identities, missing current-session 2FA, cross-subject assertions, and untrusted public projection fields.
+- Applies the same fail-closed identity gate to social interactions, Newsroom, Phase 5 REST, diagnostics, migration, repair, rollback, and administrator capability recovery.
+
+- Replaced legacy role/meta publishing trust with subject-bound File 00 `SMC_Contracts::assertions()` contract `1.1.2` or later.
+- Made File 00 denial, suspension, expired evidence, appeal review, erasure, invalid application, missing 2FA setup, and missing current-session challenge fail closed.
+- Required the exact current actor and matching File 21 capability for create, publish, submit-for-review, moderation, and institutional content-type access.
+- Prevented File 22, a role slug, or a stale capability from elevating a principal denied by File 00.
+- Removed raw Membership and legacy verification metadata from public author projections; only File 03 approved fields may populate professional data.
+- Revalidated Founder and verified-Doctor query candidates through current canonical contracts.
+- Preserved runtime/API `1.0.3` and schema `1.0.0`; this is a package-level corrective release with no database migration.
+
 ## 1.0.3.1 - Mixed-Role Authority Hotfix
 
 - Corrected the public Social Composer authorization order so an explicit Founder, Administrator, verified Doctor, unverified Doctor, or plugin-owned `sabri_feed_create_posts` grant is evaluated before legacy Student/Patient/Subscriber-role denial.

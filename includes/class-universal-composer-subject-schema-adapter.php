@@ -113,6 +113,7 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 			? array_map( 'sanitize_key', $settings['composer']['allowed_feed_types'] )
 			: array();
 		$institutional = $subject_aware && $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
 			&& ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
 		$choices = array();
 		foreach ( self::SUPPORTED_FEED_TYPES as $slug ) {

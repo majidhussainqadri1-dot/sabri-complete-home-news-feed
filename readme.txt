@@ -12,7 +12,7 @@ Canonical public Home, social Feed, Profile Timeline, Editorial News, publishing
 
 == Description ==
 
-Package hotfix 1.0.3.1 corrects mixed-role authority precedence in the public Social Composer while preserving File 21 runtime/API compatibility at 1.0.3. A legacy Founder, Administrator, verified Doctor, or unverified Doctor may also carry an older Subscriber/Patient role; that lower-authority role no longer cancels the explicit institutional or professional creation grant. Student-only, Patient-only, and Subscriber-only accounts remain denied, and Safe Mode/Emergency Disable remain controlling.
+Package 1.0.3.2 replaces role/meta-based publishing trust with the subject-bound File 00 contract 1.1.2 or later. Create, publish, submit-for-review, moderation, and institutional content choices now require an active approved identity, current two-factor session assurance, the exact current actor, and the matching File 21 capability. File 22 and role metadata may narrow access but cannot elevate a File 00 denial. Public author cards use only File 03 approved projections and never raw Membership or legacy verification metadata.
 
 Version 1.0.3 remains the production-rejection corrective runtime foundation. It removes front-end database recovery writes, adds native News-slot rendering and legacy News-page handling, keeps exactly ten Home rows observable, guards Breaking News to the main Home/News loop, applies public-post eligibility before pagination, reports File 20 native-slot readiness truthfully, exposes authenticated Safe Boot diagnostics, and resolves duplicate File 21 folders through a controlled administrator reload.
 
@@ -24,7 +24,7 @@ Editorial News gates remain disabled until an authorized administrator completes
 
 1. Take a verified files-and-database backup.
 2. Install on Hostinger staging first.
-3. Replace the existing plugin with the exact 1.0.3.1 hotfix ZIP and confirm that WordPress displays Version 1.0.3.1.
+3. Replace the existing plugin with the exact 1.0.3.2 authorization-integrity ZIP and confirm that WordPress displays Version 1.0.3.2.
 4. If Safe Boot is recorded, select Retry Safe Boot after replacement.
 5. Visit one WordPress administration page so the bounded File 21 capability reconciliation runs.
 6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, and File 22 workflow health.
@@ -37,6 +37,13 @@ Editorial News gates remain disabled until an authorized administrator completes
 Public GET requests do not perform recovery migrations or post-meta normalization. Explicit recovery is capability-checked, nonce-protected, bounded, audited, and repeatable. No draft, pending, private, password-protected, rejected, removed, or archived post is automatically published. File 22 workflow recovery output contains no raw key, native reference, post content, or patient data.
 
 == Changelog ==
+
+= 1.0.3.2 =
+* Required subject-bound File 00 contract 1.1.2+ assertions for every privileged File 21 social publishing action.
+* Required current-session two-factor assurance and exact current-actor capability checks for create, publish, review submission, moderation, and institutional content choices.
+* Removed stale role, verification-meta, trusted-publisher-meta, and raw profile-data fallbacks from canonical authority and public author projections.
+* Revalidated Founder and verified-Doctor query IDs through current File 00/File 03 truth instead of legacy role/meta discovery.
+* Kept File 21 runtime/API compatibility at 1.0.3 and schema at 1.0.0; no database migration.
 
 = 1.0.3.1 =
 * Corrected Social Composer role precedence so Founder, Administrator, verified Doctor, and unverified Doctor authority is not cancelled by a legacy Subscriber/Patient role.

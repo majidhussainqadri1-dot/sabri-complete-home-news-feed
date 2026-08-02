@@ -574,7 +574,9 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 	}
 
 	private function user_can_publish_institutional_type( int $user_id ): bool {
-		return $user_id > 0 && ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
 	}
 
 	private function is_native_post( int $post_id ): bool {

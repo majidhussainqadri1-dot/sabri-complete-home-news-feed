@@ -100,7 +100,7 @@ final class Admin {
 
 	/** Render the administrator-only staging preview. */
 	public static function render_staging_preview() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::current_actor_ready() || ! current_user_can( 'manage_options' ) ) {
 			wp_die( esc_html__( 'You do not have permission to access the staging preview.', 'sabri-complete-home-news-feed' ) );
 		}
 		self::render( 'staging-preview' );
@@ -179,7 +179,7 @@ final class Admin {
 
 	/** Render a view. */
 	private static function render( $view ) {
-		if ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::current_actor_ready() || ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) ) {
 			wp_die( esc_html__( 'You do not have permission to access this page.', 'sabri-complete-home-news-feed' ) );
 		}
 
@@ -209,7 +209,7 @@ final class Admin {
 
 	/** Require capability and nonce. */
 	private static function require_admin_action( $action ) {
-		if ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::current_actor_ready() || ( ! current_user_can( self::capability() ) && ! current_user_can( 'manage_options' ) ) ) {
 			wp_die( esc_html__( 'You do not have permission to perform this action.', 'sabri-complete-home-news-feed' ) );
 		}
 		check_admin_referer( $action );
@@ -236,6 +236,11 @@ final class Admin {
 			'advanced'     => 'overview',
 		);
 		return isset( $map[ $tab ] ) ? $map[ $tab ] : 'overview';
+	}
+
+	private static function current_actor_ready() {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id );
 	}
 
 	/** Admin capability. */

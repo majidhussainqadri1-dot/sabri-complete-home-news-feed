@@ -240,7 +240,9 @@ final class EditorialNewsPublicationBridge {
 	/** Whether the current account has canonical immediate-publication authority. */
 	private static function current_actor_is_immediate_publisher() {
 		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
-		return $user_id > 0 && CanonicalIdentityAdapter::can_publish_immediately( $user_id );
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id );
 	}
 
 	/** Store the operation result in the Newsroom's existing bounded notice channel. */

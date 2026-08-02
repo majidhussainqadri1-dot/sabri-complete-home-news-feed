@@ -311,7 +311,9 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 	}
 
 	private function institutional_user( int $user_id ): bool {
-		return $user_id > 0 && ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
 	}
 
 	private function current_status( int $post_id ): string {

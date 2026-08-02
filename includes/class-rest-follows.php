@@ -83,6 +83,7 @@ final class RestFollows {
 		return Phase3FeatureSettings::enabled( 'follows_enabled' )
 			&& function_exists( 'is_user_logged_in' )
 			&& is_user_logged_in()
+			&& CanonicalIdentityAdapter::current_action_ready( (int) get_current_user_id() )
 			&& InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
 	}
 

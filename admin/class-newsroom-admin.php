@@ -92,6 +92,7 @@ final class NewsroomAdmin {
 
 	/** Render one isolated queue without leaking inaccessible counts. */
 	public static function render_newsroom() {
+		self::require_current_identity();
 		self::require_capability( 'read_editorial_news' );
 		$queue = isset( $_GET['queue'] ) ? self::strict_slug( wp_unslash( $_GET['queue'] ) ) : 'own-drafts';
 		$page = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
@@ -136,6 +137,7 @@ final class NewsroomAdmin {
 
 	/** Render the secure composer or a capability-safe private preview. */
 	public static function render_composer() {
+		self::require_current_identity();
 		$post_id = isset( $_GET['post_id'] ) ? absint( $_GET['post_id'] ) : 0;
 		$is_preview = $post_id && ! empty( $_GET['preview'] );
 		if ( $is_preview ) {
@@ -390,9 +392,17 @@ final class NewsroomAdmin {
 
 	/** Require one exact primitive or object capability. */
 	private static function require_capability( $capability, $post_id = 0 ) {
+		self::require_current_identity();
 		$allowed = $post_id ? current_user_can( $capability, $post_id ) : current_user_can( $capability );
 		if ( ! $allowed ) {
 			wp_die( esc_html__( 'You do not have permission to access this newsroom operation.', 'sabri-complete-home-news-feed' ) );
+		}
+	}
+
+	private static function require_current_identity() {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) {
+			wp_die( esc_html__( 'Current membership and two-factor assurance are required.', 'sabri-complete-home-news-feed' ) );
 		}
 	}
 
