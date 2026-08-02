@@ -1,0 +1,52 @@
+name: Apply File 21 corrective payload
+
+on:
+  push:
+    branches:
+      - fix/file21-zero-known-defects-1.0.3.2
+    paths:
+      - '.file21-correction/files.tar.gz'
+      - '.github/workflows/apply-file21-correction.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Verify and apply exact corrective payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '933a4390a67f06b988092db1dfc039131a8260181f8489a3f58c886f790b4a1d  .file21-correction/files.tar.gz' | sha256sum -c -
+          tar -xzf .file21-correction/files.tar.gz -C .
+          python3 -m py_compile tools/build-release.py
+          node --check tests/run-phase4a-playground-tests.mjs
+          find . -type f -name '*.php' -not -path './vendor/*' -not -path './release/*' -print0 | xargs -0 -n1 php -l >/tmp/file21-php-lint.log
+          php tests/run-file21-harmonization-tests.php
+          php tests/run-file21-harmonization-negative-tests.php
+          php tests/run-composer-authority-precedence-tests.php
+          php tests/run-file00-authorization-integrity.php
+          FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
+          php tests/run-public-content-integrity-tests.php
+          php tools/run-tests.php
+          python3 tools/build-release.py --source-sha "${GITHUB_SHA}"
+          rm -rf release .file21-correction
+          rm -f .github/workflows/apply-file21-correction.yml
+      - name: Commit corrected source and QA definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'fix: harmonize File 21 package and QA gates'
+          git push origin "HEAD:${GITHUB_REF_NAME}"
