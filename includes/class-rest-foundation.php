@@ -67,7 +67,9 @@ final class RestFoundation {
 	/** REST permission callback. */
 	public static function permission_callback() {
 		if ( ! function_exists( 'is_user_logged_in' ) || ! is_user_logged_in() ) { return false; }
-		return function_exists( 'current_user_can' ) && ( current_user_can( 'sabri_feed_manage_settings' ) || current_user_can( 'manage_options' ) );
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& function_exists( 'current_user_can' ) && ( current_user_can( 'sabri_feed_manage_settings' ) || current_user_can( 'manage_options' ) );
 	}
 
 	/** Full-runtime status response. */

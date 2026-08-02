@@ -34,6 +34,28 @@ try {
 		assert(!installed.error && installed.active, `Packaged activation failed: ${JSON.stringify(installed)}`);
 	}
 	const result = JSON.parse(await php(String.raw`
+		if ( ! class_exists( 'SMC_Contracts' ) ) {
+			class SMC_Contracts {
+				public static function assertions( $user_id ) {
+					return array(
+						'contract_version' => '1.1.2',
+						'user_id' => (int) $user_id,
+						'status' => 'approved',
+						'approved' => true,
+						'eligible' => true,
+						'guardian_verified' => true,
+						'two_factor_ready' => true,
+						'session_two_factor' => true,
+						'account_class' => 'administrator',
+						'membership_type' => 'doctor',
+						'professional_verified' => true,
+						'public_profile_allowed' => true,
+						'can_publish' => true,
+						'suspended' => false,
+					);
+				}
+			}
+		}
 		$admin_id = username_exists('phase5admin');
 		if (!$admin_id) { $admin_id = wp_create_user('phase5admin','Phase5-Strong-Pass-123!','phase5admin@example.test'); $user = new WP_User($admin_id); $user->set_role('administrator'); }
 		wp_set_current_user($admin_id);
@@ -71,7 +93,7 @@ try {
 		$before=get_post($article_id)?1:0; deactivate_plugins('${pluginPath}',true); $after=get_post($article_id)?1:0; $reactivation=activate_plugin('${pluginPath}','','',false); $after_reactivation=get_post($article_id)?1:0;
 		echo wp_json_encode(array('migration'=>$migration,'source'=>$source,'source_verify'=>$source_verify,'editorial_decision'=>$editorial_decision,'fact_decision'=>$fact_decision,'eligible'=>$eligible,'submission'=>$submission,'converted'=>$converted,'breaking'=>$breaking,'breaking_public_count'=>count($breaking_public),'published_correction'=>$published,'history_count'=>count($history),'translation'=>$translation,'preview_valid'=>$preview_valid,'has_feed'=>isset($rules['^news/feed/?$']),'has_section_feed'=>isset($rules['^news/section/([a-z0-9]+(?:-[a-z0-9]+)*)/feed/?$']),'has_sitemap'=>isset($rules['^news-sitemap\.xml$']),'diagnostics'=>$diagnostics,'before'=>$before,'after'=>$after,'after_reactivation'=>$after_reactivation,'reactivation_error'=>is_wp_error($reactivation)?$reactivation->get_error_message():'','version'=>SABRI_HNF_VERSION,'schema'=>SABRI_HNF_SCHEMA_VERSION,'checkpoint'=>\Sabri\HomeNewsFeed\Phase4Contracts::CHECKPOINT));
 	`));
-	assert(result.version === '1.0.0' && result.schema === '1.0.0' && result.checkpoint === '4A', 'Frozen versions/checkpoint changed.');
+	assert(result.version === '1.0.3' && result.schema === '1.0.0' && result.checkpoint === '4A', 'Frozen versions/checkpoint changed.');
 	assert(result.migration.success, 'Phase 5 migration failed.');
 	assert(result.source.success && result.source_verify.success, 'Source registry lifecycle failed.');
 	assert(result.editorial_decision.success && result.fact_decision.success && result.eligible === true, 'Review/publication prerequisite lifecycle failed.');

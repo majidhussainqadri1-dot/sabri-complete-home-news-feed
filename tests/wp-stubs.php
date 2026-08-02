@@ -162,7 +162,52 @@ function register_deactivation_hook() {}
 function is_admin() { global $sabri_test_is_admin; return isset( $sabri_test_is_admin ) ? (bool) $sabri_test_is_admin : true; }
 function is_front_page() { global $sabri_test_is_front_page; return (bool) $sabri_test_is_front_page; }
 function is_home() { global $sabri_test_is_home; return (bool) $sabri_test_is_home; }
-function current_user_can( $capability ) { global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles; if ( (int) $sabri_test_current_user_id <= 0 ) { return false; } if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) { return true; } foreach ( isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array() as $role_slug ) { if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) { return true; } } return false; }
+function current_user_can( $capability ) {
+	global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles;
+	if ( (int) $sabri_test_current_user_id <= 0 ) {
+		return false;
+	}
+	if ( ! empty( $sabri_test_current_caps[ $capability ] ) ) {
+		return true;
+	}
+	$roles = isset( $sabri_test_user_roles[ $sabri_test_current_user_id ] ) ? $sabri_test_user_roles[ $sabri_test_current_user_id ] : array();
+	$default_map = class_exists( '\Sabri\HomeNewsFeed\Capabilities' )
+		? \Sabri\HomeNewsFeed\Capabilities::default_role_map()
+		: array();
+	foreach ( $roles as $role_slug ) {
+		if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) {
+			return true;
+		}
+		if ( ! empty( $default_map[ $role_slug ] ) && in_array( $capability, $default_map[ $role_slug ], true ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function user_can( $user_id, $capability ) {
+	global $sabri_test_current_caps, $sabri_test_current_user_id, $sabri_test_user_roles, $sabri_test_roles;
+	$user_id = (int) $user_id;
+	if ( $user_id <= 0 ) {
+		return false;
+	}
+	if ( $user_id === (int) $sabri_test_current_user_id && ! empty( $sabri_test_current_caps[ $capability ] ) ) {
+		return true;
+	}
+	$roles = isset( $sabri_test_user_roles[ $user_id ] ) ? $sabri_test_user_roles[ $user_id ] : array();
+	$default_map = class_exists( '\Sabri\HomeNewsFeed\Capabilities' )
+		? \Sabri\HomeNewsFeed\Capabilities::default_role_map()
+		: array();
+	foreach ( $roles as $role_slug ) {
+		if ( ! empty( $sabri_test_roles[ $role_slug ]->capabilities[ $capability ] ) ) {
+			return true;
+		}
+		if ( ! empty( $default_map[ $role_slug ] ) && in_array( $capability, $default_map[ $role_slug ], true ) ) {
+			return true;
+		}
+	}
+	return false;
+}
 function get_current_user_id() { global $sabri_test_current_user_id; return (int) $sabri_test_current_user_id; }
 function is_user_logged_in() { return get_current_user_id() > 0; }
 function wp_get_current_user() { return get_userdata( get_current_user_id() ); }

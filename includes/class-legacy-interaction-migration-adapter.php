@@ -172,6 +172,7 @@ final class LegacyInteractionMigrationAdapter {
 		return $actor_id > 0
 			&& function_exists( 'get_current_user_id' )
 			&& (int) get_current_user_id() === $actor_id
+			&& CanonicalIdentityAdapter::current_action_ready( $actor_id )
 			&& function_exists( 'current_user_can' )
 			&& ( current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' ) );
 	}

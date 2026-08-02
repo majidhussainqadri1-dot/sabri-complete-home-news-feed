@@ -1,0 +1,43 @@
+name: Export File 21 Exact Source
+
+on:
+  push:
+    branches:
+      - fix/file21-zero-known-defects-1.0.3.2
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Archive exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          git archive --format=zip --output=file21-exact-source.zip "${TEST_SHA}"
+          sha256sum file21-exact-source.zip > file21-exact-source.zip.sha256
+          printf '%s\n' "${TEST_SHA}" > file21-exact-source.commit
+      - uses: actions/upload-artifact@v4
+        with:
+          name: file21-exact-source-${{ env.TEST_SHA }}
+          retention-days: 7
+          if-no-files-found: error
+          path: |
+            file21-exact-source.zip
+            file21-exact-source.zip.sha256
+            file21-exact-source.commit

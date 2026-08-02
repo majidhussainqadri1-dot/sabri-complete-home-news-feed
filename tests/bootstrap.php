@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/wp-stubs.php';
+require_once __DIR__ . '/file00-contract-stubs.php';
 
 // Keep the fixture email index aligned with the fixture user records so
 // WordPress-style privacy exporters and erasers can resolve every test user.

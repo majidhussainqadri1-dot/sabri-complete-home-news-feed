@@ -59,6 +59,7 @@ final class InteractionPermissions {
 	public static function authorize_post_write( $post_id, $nonce = '', $user_id = 0 ) {
 		$user_id = self::authenticated_user_id( $user_id );
 		if ( $user_id <= 0 ) { return InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 ); }
+		if ( ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) { return InteractionResult::error( 'identity_assurance_required', 'Current membership and two-factor assurance are required.', array(), 403 ); }
 		if ( ! self::nonce_valid( $nonce ) ) { return InteractionResult::error( 'invalid_nonce', 'The security token is missing or invalid.', array(), 403 ); }
 		if ( ! self::can_interact_with_post( $post_id, $user_id ) ) { return InteractionResult::error( 'post_unavailable', 'The requested post is unavailable.', array(), 404 ); }
 		return InteractionResult::success( 'authorized', array( 'user_id' => $user_id, 'post_id' => self::positive_id( $post_id ) ), 'Authorized.', 200 );
@@ -66,7 +67,7 @@ final class InteractionPermissions {
 
 	public static function can_manage_reports( $user_id = 0 ) {
 		$user_id = self::authenticated_user_id( $user_id );
-		return $user_id > 0 && function_exists( 'current_user_can' ) && ( current_user_can( 'sabri_feed_manage_reports' ) || current_user_can( 'manage_options' ) );
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id ) && function_exists( 'current_user_can' ) && ( current_user_can( 'sabri_feed_manage_reports' ) || current_user_can( 'manage_options' ) );
 	}
 
 	public static function owns_private_resource( $owner_user_id, $request_user_id = 0 ) {

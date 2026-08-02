@@ -81,8 +81,15 @@ $assert( false !== strpos( $plugin, 'EditorialNewsPublicationBridge::class' ), '
 $assert( false !== strpos( $plugin, 'NewsComposerAccessRecovery::class' ), 'News Composer access recovery is not registered.' );
 $assert( false !== strpos( $plugin, 'UniversalComposerBridge::class' ), 'File 22 integration bridge is not registered.' );
 $assert( false !== strpos( $plugin, 'PublicComposerSurface::class' ), 'Public Composer surface is not registered.' );
-foreach ( array( 'Role precedence is intentional', "current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) )", 'CanonicalIdentityAdapter::is_founder', 'CanonicalIdentityAdapter::is_administrator', 'CanonicalIdentityAdapter::is_verified_doctor', 'CanonicalIdentityAdapter::is_unverified_doctor' ) as $needle ) {
-	$assert( false !== strpos( $permissions, $needle ), 'Authority-precedence contract missing: ' . $needle );
+foreach ( array(
+	'CanonicalIdentityAdapter::current_action_ready',
+	'CanonicalIdentityAdapter::can_create_social_content',
+	'CanonicalIdentityAdapter::can_publish_immediately',
+	"current_user_can_any( array( 'sabri_feed_create_posts', 'manage_options' ) )",
+	"current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) )",
+	'self::current_actor_matches',
+) as $needle ) {
+	$assert( false !== strpos( $permissions, $needle ), 'Subject-bound File 00 authority contract missing: ' . $needle );
 }
 foreach ( array( "admin_post_' . NewsroomAdmin::SAVE_ACTION", "admin_post_' . NewsroomAdmin::BULK_ACTION", 'check_admin_referer', "current_user_can( 'publish_editorial_news'", 'CanonicalIdentityAdapter::can_publish_immediately', "post_status' => 'publish'", "WORKFLOW_META_KEY, 'published'", 'NewsPublicSnapshot::capture', "editorial_news_enabled' => 1", 'NewsCache::purge_owned', 'publication_snapshot_failed' ) as $needle ) {
 	$assert( false !== strpos( $publication, $needle ), 'Editorial News publication contract missing: ' . $needle );
@@ -136,10 +143,9 @@ if ( is_file( $workflow_test ) ) {
 }
 $authority_test = $root . '/tests/run-composer-authority-precedence-tests.php';
 $assert( is_file( $authority_test ), 'Authority-precedence behavior test is missing.' );
-if ( is_file( $authority_test ) ) {
-	$authority_runner = static function ( $test_file ) { require $test_file; };
-	$authority_runner( $authority_test );
-}
+// This behavior suite owns global test symbols and is intentionally executed
+// as a separate process by the exact-head workflow. Requiring it here would
+// create a false collision rather than test production behavior.
 foreach ( array( 'tests/run-file21-file22-real-contract-tests.php', 'tests/run-file21-file22-maintenance-tests.php', 'tests/run-file21-file22-lock-maintenance-tests.php' ) as $test_file ) {
 	$assert( is_file( $root . '/' . $test_file ), 'Missing File 22 corrective test: ' . $test_file );
 }

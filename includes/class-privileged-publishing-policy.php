@@ -96,7 +96,7 @@ final class PrivilegedPublishingPolicy {
 		$status  = is_object( $post ) && isset( $post->post_status ) ? (string) $post->post_status : ( function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '' );
 		$author  = is_object( $post ) && isset( $post->post_author ) ? (int) $post->post_author : ( function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0 );
 
-		if ( $post_id <= 0 || 'publish' !== $status || ! ComposerPermissions::user_is_privileged_publisher( $author ) || ! function_exists( 'update_post_meta' ) ) {
+		if ( $post_id <= 0 || 'publish' !== $status || ! ComposerPermissions::subject_can_publish_immediately( $author ) || ! function_exists( 'update_post_meta' ) ) {
 			return;
 		}
 

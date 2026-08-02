@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ruleset name="File 21 critical WordPress runtime safety surface">
+  <description>Official WPCS security, database, WordPress API, internationalization, and production-safety gate for File 21 critical release paths. Formatting and documentation conformance are maintained separately from this release-blocking safety gate.</description>
+  <arg name="basepath" value="."/>
+  <arg name="extensions" value="php"/>
+  <arg name="parallel" value="4"/>
+  <arg name="cache" value=".phpcs-cache"/>
+  <config name="minimum_supported_wp_version" value="6.0"/>
+  <rule ref="WordPress.Security"/>
+  <rule ref="WordPress.DB"/>
+  <rule ref="WordPress.WP.GlobalVariablesOverride"/>
+  <rule ref="WordPress.PHP.DevelopmentFunctions"/>
+  <rule ref="WordPress.PHP.DiscouragedPHPFunctions"/>
+  <rule ref="WordPress.WP.DeprecatedFunctions"/>
+  <rule ref="WordPress.WP.AlternativeFunctions"/>
+  <rule ref="WordPress.WP.I18n"/>
+  <rule ref="WordPress.WP.EnqueuedResources"/>
+  <file>sabri-complete-home-news-feed.php</file>
+  <file>includes/class-canonical-identity-adapter.php</file>
+  <file>includes/class-composer-permissions.php</file>
+  <file>includes/class-privileged-publishing-policy.php</file>
+  <file>includes/class-legacy-founder-post-migration.php</file>
+  <file>includes/class-integrations.php</file>
+  <file>includes/class-universal-composer-workflow-store.php</file>
+  <file>includes/class-universal-composer-workflow-adapter.php</file>
+  <file>includes/class-universal-composer-publication-adapter.php</file>
+  <file>includes/class-universal-composer-subject-schema-adapter.php</file>
+</ruleset>

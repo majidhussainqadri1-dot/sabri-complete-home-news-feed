@@ -67,6 +67,28 @@ try {
 
 	const result = JSON.parse(await php(String.raw`
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		if ( ! class_exists( 'SMC_Contracts' ) ) {
+			class SMC_Contracts {
+				public static function assertions( $user_id ) {
+					return array(
+						'contract_version' => '1.1.2',
+						'user_id' => (int) $user_id,
+						'status' => 'approved',
+						'approved' => true,
+						'eligible' => true,
+						'guardian_verified' => true,
+						'two_factor_ready' => true,
+						'session_two_factor' => true,
+						'account_class' => 'administrator',
+						'membership_type' => 'doctor',
+						'professional_verified' => true,
+						'public_profile_allowed' => true,
+						'can_publish' => true,
+						'suspended' => false,
+					);
+				}
+			}
+		}
 		$editor_id = wp_create_user( 'phase4b_editor', wp_generate_password( 24 ), 'phase4b-editor@example.test' );
 		if ( is_wp_error( $editor_id ) ) { echo wp_json_encode( array( 'error'=>$editor_id->get_error_message() ) ); return; }
 		$editor = new WP_User( $editor_id );

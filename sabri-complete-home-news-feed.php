@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Complete Home and News Feed
  * Plugin URI: https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed
  * Description: Complete public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.
- * Version: 1.0.3.1
+ * Version: 1.0.3.2
  * Author: Dr. Allamah Majid Hussain Sabri Muhaddith Mursheed
  * Text Domain: sabri-complete-home-news-feed
  * Domain Path: /languages
@@ -52,7 +52,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
 		}
 		foreach ( array_filter( array( $current_basename, $loaded_basename ) ) as $basename ) {
 			if ( ! isset( $candidates[ $basename ] ) ) {
-				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.3.1' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
+				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.3.2' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
 			}
 		}
 		if ( empty( $candidates ) ) { return; }
@@ -85,10 +85,11 @@ if ( $sabri_hnf_duplicate_loaded ) {
 }
 
 /*
- * Public package hotfix 1.0.3.1 preserves the established File 21 runtime and
+ * Public package hotfix 1.0.3.2 preserves the established File 21 runtime and
  * cross-plugin API contract at 1.0.3. WordPress uses the plugin header above
  * to distinguish the corrected package during replacement and rollback.
  */
+define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.2' );
 define( 'SABRI_HNF_VERSION', '1.0.3' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
@@ -125,7 +126,7 @@ if ( ! function_exists( 'sabri_hnf_wp_supported' ) ) {
 if ( ! function_exists( 'sabri_hnf_php_notice' ) ) {
 	function sabri_hnf_php_notice() {
 		$message = sprintf( __( 'Sabri Complete Home and News Feed requires PHP %1$s or higher. Current PHP version: %2$s.', 'sabri-complete-home-news-feed' ), SABRI_HNF_MINIMUM_PHP, PHP_VERSION );
-		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+		echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p></div>';
 	}
 }
 
@@ -134,7 +135,7 @@ if ( ! function_exists( 'sabri_hnf_wp_notice' ) ) {
 	function sabri_hnf_wp_notice() {
 		global $wp_version;
 		$message = sprintf( __( 'Sabri Complete Home and News Feed requires WordPress %1$s or higher. Current WordPress version: %2$s.', 'sabri-complete-home-news-feed' ), SABRI_HNF_MINIMUM_WP, $wp_version ? $wp_version : __( 'unknown', 'sabri-complete-home-news-feed' ) );
-		echo '<div class="notice notice-error"><p>' . sabri_hnf_escape_html( $message ) . '</p></div>';
+		echo '<div class="notice notice-error"><p>' . esc_html( $message ) . '</p></div>';
 	}
 }
 
@@ -213,7 +214,8 @@ if ( ! function_exists( 'sabri_hnf_bootstrap' ) ) {
 			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) { sabri_hnf_register_safe_boot_notice(); return; }
 			if ( function_exists( 'load_plugin_textdomain' ) ) { load_plugin_textdomain( SABRI_HNF_TEXT_DOMAIN, false, dirname( plugin_basename( __FILE__ ) ) . '/languages' ); }
 			\Sabri\HomeNewsFeed\Plugin::instance()->register();
-			if ( \Sabri\HomeNewsFeed\SafeBoot::is_blocked() ) { sabri_hnf_register_safe_boot_notice(); }
+			$blocked_after_register = \Sabri\HomeNewsFeed\SafeBoot::state();
+			if ( ! empty( $blocked_after_register['active'] ) ) { sabri_hnf_register_safe_boot_notice(); }
 		} catch ( \Throwable $error ) {
 			\Sabri\HomeNewsFeed\SafeBoot::record_exception( 'bootstrap', $error );
 			sabri_hnf_register_safe_boot_notice();

@@ -115,11 +115,12 @@ final class CorrectiveAdmin {
 	}
 
 	private static function capability() { return 'sabri_feed_manage_settings'; }
-	private static function can_manage() { return function_exists( 'current_user_can' ) && ( current_user_can( self::capability() ) || current_user_can( 'manage_options' ) ); }
+	private static function can_manage() { $user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0; return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id ) && function_exists( 'current_user_can' ) && ( current_user_can( self::capability() ) || current_user_can( 'manage_options' ) ); }
 	private static function require_capability() { if ( ! self::can_manage() ) { wp_die( esc_html__( 'You do not have permission to manage File 21.', 'sabri-complete-home-news-feed' ) ); } }
 	private static function require_action( $action ) { self::require_capability(); if ( function_exists( 'check_admin_referer' ) ) { check_admin_referer( $action ); } }
 	private static function require_migration_action( $action ) {
-		$can = function_exists( 'current_user_can' ) && ( current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' ) );
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		$can = $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id ) && function_exists( 'current_user_can' ) && ( current_user_can( 'manage_options' ) || current_user_can( 'sabri_feed_run_migrations' ) );
 		if ( ! $can ) { wp_die( esc_html__( 'You do not have permission to run migrations.', 'sabri-complete-home-news-feed' ) ); }
 		if ( function_exists( 'check_admin_referer' ) ) { check_admin_referer( $action ); }
 	}

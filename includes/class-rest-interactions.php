@@ -126,7 +126,9 @@ final class RestInteractions {
 	 * @return bool
 	 */
 	public static function private_permission( $request ) {
-		return function_exists( 'is_user_logged_in' ) && is_user_logged_in() && InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
+		return function_exists( 'is_user_logged_in' ) && is_user_logged_in()
+			&& CanonicalIdentityAdapter::current_action_ready( (int) get_current_user_id() )
+			&& InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
 	}
 
 	/**

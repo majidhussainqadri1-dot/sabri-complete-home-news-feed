@@ -12,7 +12,12 @@ $assert( false === strpos( $permissions, "|| self::user_has_role_group( \$user_i
 
 $identity = file_get_contents( $root . '/includes/class-canonical-identity-adapter.php' );
 $assert( false !== strpos( $identity, "'trusted'" ), 'Trusted verified-doctor policy is missing.' );
-$assert( false !== strpos( $identity, '_smc_trusted_publisher' ), 'Membership Core trust marker is ignored.' );
+foreach ( array( 'MINIMUM_CONTRACT_VERSION', 'SMC_Contracts::assertions', 'current_action_ready', 'guard_file21_capabilities' ) as $needle ) {
+	$assert( false !== strpos( $identity, $needle ), 'Canonical File 00 authority boundary missing: ' . $needle );
+}
+foreach ( array( '_smc_trusted_publisher', '_sabri_trusted_publisher', '_smc_doctor_verified', '_sabri_doctor_verified', 'smc_assertions_v1', 'first_public_meta' ) as $needle ) {
+	$assert( false === strpos( $identity, $needle ), 'Legacy identity elevation fallback remains: ' . $needle );
+}
 
 $feed = file_get_contents( $root . '/includes/class-feed-query.php' );
 foreach ( array( 'MAX_RANK_SCAN', 'PostMetadata::review_state_meta_clause', 'PostMetadata::META_VISIBILITY', 'author__in', 'total_is_complete', '$query_count' ) as $needle ) {

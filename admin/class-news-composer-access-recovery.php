@@ -131,7 +131,9 @@ final class NewsComposerAccessRecovery {
 	}
 
 	private static function is_site_administrator() {
-		return function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
 	}
 
 	private static function clean_slug( $value ) {

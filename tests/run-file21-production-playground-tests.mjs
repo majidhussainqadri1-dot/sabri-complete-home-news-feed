@@ -81,10 +81,12 @@ try {
 		update_post_meta( $private, \Sabri\HomeNewsFeed\PostMetadata::META_REVIEW_STATE, 'approved' );
 		update_post_meta( $private, \Sabri\HomeNewsFeed\PostMetadata::META_VISIBILITY, 'private' );
 
-		$query_args = array(
-			'post_type'=>'post', 'post_status'=>'publish', 'posts_per_page'=>2,
-			'orderby'=>'ID', 'order'=>'ASC', 'fields'=>'ids', 'ignore_sticky_posts'=>true,
+		$query_args = \Sabri\HomeNewsFeed\FeedQuery::wp_query_args(
+			'latest', 1, 2, 0, \Sabri\HomeNewsFeed\Settings::get()
 		);
+		$query_args['orderby'] = 'ID';
+		$query_args['order'] = 'ASC';
+		$query_args['fields'] = 'ids';
 		$page1 = new WP_Query( array_merge( $query_args, array( 'paged'=>1 ) ) );
 		$page2 = new WP_Query( array_merge( $query_args, array( 'paged'=>2 ) ) );
 
@@ -134,7 +136,7 @@ try {
 	assert(setup.page2_found === 3 && setup.page2_pages === 2 && setup.page2_ids.length === 1, `Page 2 pagination mismatch: ${JSON.stringify(setup)}`);
 	assert(!setup.page1_ids.includes(setup.pending) && !setup.page1_ids.includes(setup.private), 'Hidden posts leaked into page 1.');
 	assert(!setup.page2_ids.includes(setup.pending) && !setup.page2_ids.includes(setup.private), 'Hidden posts leaked into page 2.');
-	assert(setup.safe_status === 200 && setup.safe_schema === 200, `Authenticated Safe Boot diagnostics failed: ${JSON.stringify(setup)}`);
+	assert(setup.safe_status === 403 && setup.safe_schema === 403, `Safe Boot diagnostics did not fail closed without File 00 assurance: ${JSON.stringify(setup)}`);
 
 	const home = await rawGet('/');
 	assert(home.status === 200, `Home returned ${home.status}.`);

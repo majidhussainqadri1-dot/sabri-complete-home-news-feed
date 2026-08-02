@@ -42,8 +42,11 @@ foreach ( array(
 }
 
 $identity = file_get_contents( $root . '/includes/class-canonical-identity-adapter.php' );
-foreach ( array( 'sabri_verified_doctor', 'sabri_doctor_pending', '_smc_doctor_verified', '_smc_trusted_publisher', '_spd_verification_status', 'verified_doctor_ids', 'public_projection' ) as $needle ) {
-	$assert( false !== strpos( $identity, $needle ), 'Canonical identity contract missing: ' . $needle );
+foreach ( array( 'MINIMUM_CONTRACT_VERSION', 'SMC_Contracts::assertions', 'current_action_ready', 'guard_file21_capabilities', 'verified_doctor_ids', 'public_projection', 'SPD_Verification_Adapter::approved_fields', 'array_intersect_key' ) as $needle ) {
+	$assert( false !== strpos( $identity, $needle ), 'Canonical File 00/File 03 identity contract missing: ' . $needle );
+}
+foreach ( array( 'smc_assertions_v1', '_smc_doctor_verified', '_sabri_doctor_verified', '_smc_trusted_publisher', '_sabri_trusted_publisher', 'first_public_meta' ) as $legacy_needle ) {
+	$assert( false === strpos( $identity, $legacy_needle ), 'Legacy identity or raw public-meta fallback remains: ' . $legacy_needle );
 }
 
 $context = file_get_contents( $root . '/includes/class-feed-context.php' );
@@ -83,7 +86,7 @@ foreach ( array( 'rollback_selected', "'post_status' => 'private'", "'status'] =
 	$assert( false !== strpos( $rollback, $needle ), 'Non-destructive rollback contract missing: ' . $needle );
 }
 
-$registry = file_get_contents( $root . '/includes/class-companion-integration-registry.php' );
+$registry = file_get_contents( $root  . '/includes/class-companion-integration-registry.php' );
 foreach ( array( 'sabri_network', 'swc_request_appointment', 'sabri_marketplace', 'sun_notify', 'snp_publication', 'slc_learning_home', 'svw_video_wall', 'srl_reels', 'spl_library' ) as $needle ) {
 	$assert( false !== strpos( $registry, $needle ), 'Actual companion contract missing: ' . $needle );
 }

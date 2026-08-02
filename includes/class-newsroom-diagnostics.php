@@ -20,7 +20,8 @@ final class NewsroomDiagnostics {
 
 	/** Return a bounded capability-protected health report. */
 	public static function report() {
-		if ( ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_news_settings' ) && ! current_user_can( 'manage_options' ) ) ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0;
+		if ( $user_id <= 0 || ! CanonicalIdentityAdapter::current_action_ready( $user_id ) || ! function_exists( 'current_user_can' ) || ( ! current_user_can( 'manage_news_settings' ) && ! current_user_can( 'manage_options' ) ) ) {
 			return array( 'success' => false, 'code' => 'diagnostics_access_denied', 'checks' => array() );
 		}
 		$required_classes = array(
