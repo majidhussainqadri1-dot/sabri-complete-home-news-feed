@@ -86,8 +86,8 @@ jobs:
         run: ./tools/run-local-static-checks.ps1 -SkipPhpLint -SkipPhpTests
 
       - name: Build canonical corrective package
-        shell: pwsh
-        run: ./tools/build-release.ps1
+        shell: bash
+        run: python3 tools/build-release.py --source-sha "${TEST_SHA}"
 
       - name: Verify canonical ZIP, checksum, manifest, and structure
         shell: bash
@@ -98,6 +98,7 @@ jobs:
           manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
           report="release/${CANONICAL_BASE}-TEST-REPORT.md"
           test -f "$package" && test -f "$checksum" && test -f "$manifest" && test -f "$report"
+          grep -Fq -- "- Exact source commit: ${TEST_SHA}" "$report"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
           test "$expected" = "$actual"

@@ -58,7 +58,7 @@ def sha256_file(path: Path) -> str:
 def source_sha(root: Path, explicit: str | None) -> str:
     if explicit:
         return explicit
-    for key in ("GITHUB_SHA", "SOURCE_COMMIT"):
+    for key in ("TEST_SHA", "GITHUB_HEAD_SHA", "GITHUB_SHA", "SOURCE_COMMIT"):
         value = os.environ.get(key, "").strip()
         if value:
             return value
