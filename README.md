@@ -118,7 +118,7 @@ The complete surfaces carry `data-sabri-hnf-surface`, the active runtime version
 
 The canonical 1.0.3 release builders create one candidate identity:
 
-- `21-sabri-complete-home-news-feed-1.0.3-PRODUCTION-REJECTION-CORRECTIVE-CANDIDATE.zip`
+- `21-sabri-complete-home-news-feed-1.0.3.2-CONTROLLED-STAGING-CANDIDATE.zip`
 - matching `.sha256`
 - runtime manifest
 - exact test report
