@@ -33,7 +33,7 @@ final class CanonicalIdentityAdapter {
 	public static function roles( $user_id ) {
 		$user_id = self::positive_id( $user_id );
 		$user = $user_id > 0 && function_exists( 'get_userdata' ) ? get_userdata( $user_id ) : false;
-		$roles = $user && isset( $user->roles ) && is_array( $user->roles ) ? $user->roles : array();
+		$roles = $user && is_array( $user->roles ) ? $user->roles : array();
 		return array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $roles ) ) ) );
 	}
 
