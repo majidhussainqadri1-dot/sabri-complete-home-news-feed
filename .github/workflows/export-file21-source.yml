@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/file21-zero-known-defects-1.0.3.2
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
