@@ -50,3 +50,4 @@ jobs:
           git diff --cached --check
           git commit -m 'fix: harmonize File 21 package and QA gates'
           git push origin "HEAD:${GITHUB_REF_NAME}"
+# Triggered after the payload and workflow were already present on the branch.
