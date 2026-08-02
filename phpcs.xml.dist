@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-8ruleset name="File 21 critical release and authorization surface">
+<ruleset name="File 21 critical release and authorization surface">
   <description>Official WordPress Coding Standards gate for File 21 release, authorization, migration, and integration paths.</description>
   <arg name="basepath" value="."/>
   <arg name="extensions" value="php"/>
