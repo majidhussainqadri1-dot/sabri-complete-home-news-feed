@@ -27,6 +27,9 @@ jobs:
           set -euo pipefail
           echo '933a4390a67f06b988092db1dfc039131a8260181f8489a3f58c886f790b4a1d  .file21-correction/files.tar.gz' | sha256sum -c -
           tar -xzf .file21-correction/files.tar.gz -C .
+          # Workflow definitions are committed separately by the authenticated owner;
+          # the repository token must not rewrite workflow files.
+          git checkout -- .github/workflows
           python3 -m py_compile tools/build-release.py
           node --check tests/run-phase4a-playground-tests.mjs
           find . -type f -name '*.php' -not -path './vendor/*' -not -path './release/*' -print0 | xargs -0 -n1 php -l >/tmp/file21-php-lint.log
@@ -39,15 +42,13 @@ jobs:
           php tools/run-tests.php
           python3 tools/build-release.py --source-sha "${GITHUB_SHA}"
           rm -rf release .file21-correction
-          rm -f .github/workflows/apply-file21-correction.yml
-      - name: Commit corrected source and QA definitions
+      - name: Commit corrected non-workflow source and tests
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A
+          git add -A -- ':!.github/workflows'
           git diff --cached --check
-          git commit -m 'fix: harmonize File 21 package and QA gates'
+          git commit -m 'fix: harmonize File 21 source package and tests'
           git push origin "HEAD:${GITHUB_REF_NAME}"
-# Triggered after the payload and workflow were already present on the branch.
