@@ -74,22 +74,45 @@ try {
 		$phase4['editorial_news_enabled']=1;
 		update_option(\Sabri\HomeNewsFeed\NewsFeatureSettings::OPTION_NAME,$phase4,false);
 		$start=microtime(true);
+
+		$seed_ids=array();
+		for($i=0;$i<24;$i++){
+			$id=wp_insert_post(array(
+				'post_type'=>\Sabri\HomeNewsFeed\Phase4Contracts::POST_TYPE,
+				'post_status'=>'publish',
+				'post_author'=>$admin,
+				'post_title'=>'Phase 5 Load Seed Story '.$i,
+				'post_name'=>'phase5-load-seed-'.$i,
+				'post_excerpt'=>'Load summary',
+				'post_content'=>'Load body',
+			));
+			if(is_wp_error($id)){echo wp_json_encode(array('error'=>$id->get_error_message()));return;}
+			update_post_meta($id,\Sabri\HomeNewsFeed\Phase4Contracts::WORKFLOW_META_KEY,'published');
+			$seed_ids[]=(int)$id;
+		}
+
 		$values=array();
-		for($i=0;$i<10000;$i++){
-			$slug='phase5-load-'.$i;
+		for($i=24;$i<10000;$i++){
+			$slug='phase5-load-bulk-'.$i;
 			$title='Phase 5 Load Story '.$i;
-			$values[]=$wpdb->prepare("('publish','sabri_editorial_news',%s,%s,%s,%s,%s,%s)",$title,$slug,'Load summary','Load body',gmdate('Y-m-d H:i:s'),gmdate('Y-m-d H:i:s'));
+			$now=gmdate('Y-m-d H:i:s',time()-DAY_IN_SECONDS);
+			$values[]=$wpdb->prepare("(%d,'publish','sabri_editorial_news',%s,%s,%s,%s,%s,%s,%s,%s)",$admin,$title,$slug,'Load summary','Load body',$now,$now,$now,$now);
 			if(count($values)===250){
-				$wpdb->query("INSERT INTO {$wpdb->posts} (post_status,post_type,post_title,post_name,post_excerpt,post_content,post_date_gmt,post_modified_gmt) VALUES ".implode(',',$values));
+				$wpdb->query("INSERT INTO {$wpdb->posts} (post_author,post_status,post_type,post_title,post_name,post_excerpt,post_content,post_date,post_date_gmt,post_modified,post_modified_gmt) VALUES ".implode(',',$values));
 				$values=array();
 			}
 		}
-		$ids=$wpdb->get_col("SELECT ID FROM {$wpdb->posts} WHERE post_name LIKE 'phase5-load-%'");
-		foreach(array_chunk($ids,250)as$chunk){
+		if($values){
+			$wpdb->query("INSERT INTO {$wpdb->posts} (post_author,post_status,post_type,post_title,post_name,post_excerpt,post_content,post_date,post_date_gmt,post_modified,post_modified_gmt) VALUES ".implode(',',$values));
+		}
+		$bulk_ids=$wpdb->get_col("SELECT ID FROM {$wpdb->posts} WHERE post_name LIKE 'phase5-load-bulk-%'");
+		foreach(array_chunk($bulk_ids,250)as$chunk){
 			$meta=array();
 			foreach($chunk as$id){$meta[]=$wpdb->prepare('(%d,%s,%s)',$id,\Sabri\HomeNewsFeed\Phase4Contracts::WORKFLOW_META_KEY,'published');}
 			$wpdb->query("INSERT INTO {$wpdb->postmeta} (post_id,meta_key,meta_value) VALUES ".implode(',',$meta));
 		}
+		$ids=array_merge($seed_ids,array_map('intval',$bulk_ids));
+		clean_post_cache($seed_ids[0]);
 		$insert_ms=(int)round((microtime(true)-$start)*1000);
 		$query_start=microtime(true);
 		$result=\Sabri\HomeNewsFeed\NewsQueryService::query(array('per_page'=>24,'page'=>1));
@@ -103,12 +126,22 @@ try {
 				$wpdb->query("DELETE FROM {$wpdb->posts} WHERE ID IN ($safe_ids)");
 			}
 		}
-		echo wp_json_encode(array('count'=>$count,'insert_ms'=>$insert_ms,'query_ms'=>$query_ms,'query_success'=>$result['success'],'items'=>!empty($result['data']['items'])?count($result['data']['items']):0,'audit'=>$audit));
+		echo wp_json_encode(array(
+			'count'=>$count,
+			'insert_ms'=>$insert_ms,
+			'query_ms'=>$query_ms,
+			'query_success'=>!empty($result['success']),
+			'query_code'=>isset($result['code'])?$result['code']:'',
+			'items'=>!empty($result['data']['items'])?count($result['data']['items']):0,
+			'total'=>isset($result['data']['total'])?(int)$result['data']['total']:0,
+			'audit'=>$audit,
+		));
 	`));
+	if(result.error)throw new Error(result.error);
 	if(result.count!==10000)throw new Error(`Expected 10000 records, got ${result.count}`);
-	if(!result.query_success||result.items!==24)throw new Error('Bounded public query failed under load.');
+	if(!result.query_success||result.items!==24)throw new Error(`Bounded public query failed under load: ${JSON.stringify(result)}`);
 	if(result.query_ms>5000)throw new Error(`Public query exceeded 5000ms: ${result.query_ms}`);
-	if(!result.audit.success)throw new Error('Performance/schema audit failed.');
+	if(!result.audit.success)throw new Error(`Performance/schema audit failed: ${JSON.stringify(result.audit)}`);
 	console.log(`Phase 5 10,000-record performance test passed: insert ${result.insert_ms}ms, query ${result.query_ms}ms.`);
 } finally {
 	if(server&&typeof server[Symbol.asyncDispose]==='function')await server[Symbol.asyncDispose]();
