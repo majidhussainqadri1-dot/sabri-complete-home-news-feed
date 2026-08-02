@@ -44,7 +44,7 @@ final class LegacyFounderPostMigration {
 			);
 
 			foreach ( (array) $query->posts as $post ) {
-				$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
+				$post_id = is_object( $post ) ? (int) $post->ID : (int) $post;
 				if ( self::is_candidate( $post_id ) ) {
 					$candidates[] = self::candidate_summary( $post_id );
 				}
@@ -151,11 +151,11 @@ final class LegacyFounderPostMigration {
 	public static function is_candidate( $post_id ) {
 		$post_id = (int) $post_id;
 		$post    = $post_id > 0 && function_exists( 'get_post' ) ? get_post( $post_id ) : null;
-		if ( ! is_object( $post ) || 'post' !== ( isset( $post->post_type ) ? (string) $post->post_type : '' ) || 'pending' !== ( isset( $post->post_status ) ? (string) $post->post_status : '' ) ) {
+		if ( ! is_object( $post ) || 'post' !== (string) $post->post_type || 'pending' !== (string) $post->post_status ) {
 			return false;
 		}
 
-		$author_id = isset( $post->post_author ) ? (int) $post->post_author : 0;
+		$author_id = (int) $post->post_author;
 		if ( ! ComposerPermissions::subject_is_institutional_publisher( $author_id ) ) {
 			return false;
 		}
@@ -216,11 +216,11 @@ final class LegacyFounderPostMigration {
 		$post = function_exists( 'get_post' ) ? get_post( $post_id ) : null;
 		return array(
 			'id'           => (int) $post_id,
-			'title'        => is_object( $post ) && isset( $post->post_title ) ? (string) $post->post_title : '',
-			'author_id'    => is_object( $post ) && isset( $post->post_author ) ? (int) $post->post_author : 0,
-			'status'       => is_object( $post ) && isset( $post->post_status ) ? (string) $post->post_status : '',
+			'title'        => is_object( $post ) ? (string) $post->post_title : '',
+			'author_id'    => is_object( $post ) ? (int) $post->post_author : 0,
+			'status'       => is_object( $post ) ? (string) $post->post_status : '',
 			'review_state' => PostMetadata::review_state( $post_id ),
-			'modified'     => is_object( $post ) && isset( $post->post_modified_gmt ) ? (string) $post->post_modified_gmt : '',
+			'modified'     => is_object( $post ) ? (string) $post->post_modified_gmt : '',
 		);
 	}
 }
