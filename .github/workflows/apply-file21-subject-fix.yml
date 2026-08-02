@@ -46,3 +46,4 @@ jobs:
           git diff --cached --check
           git commit -m 'fix: separate actor authorization from author policy checks'
           git push origin "HEAD:${GITHUB_REF_NAME}"
+# Explicit trigger after introducing the bounded payload.
