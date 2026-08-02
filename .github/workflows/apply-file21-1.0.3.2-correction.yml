@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   apply:
-    if: ${{ hashFiles('.file21-correction/READY') != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -23,12 +22,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f .file21-correction/READY
           base64 --decode tools/file21-1.0.3.2-root.patch.gz.b64 | gzip -dc > /tmp/file21-1.0.3.2.patch
           git apply --check /tmp/file21-1.0.3.2.patch
           git apply /tmp/file21-1.0.3.2.patch
           rm -f .file21-correction/READY
           rmdir .file21-correction 2>/dev/null || true
           rm -f tools/file21-1.0.3.2.patch.gz.b64 tools/file21-1.0.3.2-root.patch.gz.b64
+          rmdir tools 2>/dev/null || true
           rm -f .github/workflows/apply-file21-1.0.3.2-correction.yml
 
       - name: Validate corrected source before commit
