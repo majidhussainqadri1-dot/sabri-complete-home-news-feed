@@ -81,10 +81,12 @@ try {
 		update_post_meta( $private, \Sabri\HomeNewsFeed\PostMetadata::META_REVIEW_STATE, 'approved' );
 		update_post_meta( $private, \Sabri\HomeNewsFeed\PostMetadata::META_VISIBILITY, 'private' );
 
-		$query_args = array(
-			'post_type'=>'post', 'post_status'=>'publish', 'posts_per_page'=>2,
-			'orderby'=>'ID', 'order'=>'ASC', 'fields'=>'ids', 'ignore_sticky_posts'=>true,
+		$query_args = \Sabri\HomeNewsFeed\FeedQuery::wp_query_args(
+			'latest', 1, 2, 0, \Sabri\HomeNewsFeed\Settings::get()
 		);
+		$query_args['orderby'] = 'ID';
+		$query_args['order'] = 'ASC';
+		$query_args['fields'] = 'ids';
 		$page1 = new WP_Query( array_merge( $query_args, array( 'paged'=>1 ) ) );
 		$page2 = new WP_Query( array_merge( $query_args, array( 'paged'=>2 ) ) );
 
