@@ -462,8 +462,27 @@ function sabri_test_phase2_composer_permissions_and_statuses() {
 
 	$settings['capabilities']['verified_doctor_policy'] = 'publish';
 	$sabri_test_current_user_id = 3;
+	$GLOBALS['sabri_test_membership_assertions'][3] = array(
+		'account_class' => 'member',
+		'membership_type' => 'doctor',
+		'status' => 'active',
+		'approved' => true,
+		'eligible' => true,
+		'guardian_verified' => true,
+		'identity_evidence_current' => true,
+		'two_factor_ready' => true,
+		'session_two_factor' => true,
+		'sensitive_action_ready' => true,
+		'professional_verified' => true,
+		'can_publish' => true,
+		'can_practice' => true,
+		'public_profile_allowed' => true,
+		'suspended' => false,
+	);
+	$sabri_test_current_caps['sabri_feed_publish_posts'] = true;
 	$verified_publish = ComposerPermissions::resolve_status_for_action( 'publish', 3, $settings );
-	sabri_assert( ! empty( $verified_publish['allowed'] ) && 'publish' === $verified_publish['status'], 'Verified doctor publish policy must be configurable.' );
+	sabri_assert( ! empty( $verified_publish['allowed'] ) && 'publish' === $verified_publish['status'], 'Verified doctor publish policy must be configurable when File 00 also authorizes publication.' );
+	unset( $GLOBALS['sabri_test_membership_assertions'][3], $sabri_test_current_caps['sabri_feed_publish_posts'] );
 }
 
 function sabri_test_phase2_composer_validation_structures() {
