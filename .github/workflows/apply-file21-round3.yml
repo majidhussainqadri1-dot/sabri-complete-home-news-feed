@@ -24,13 +24,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if test ! -f tools/file21-round3-test-fixture.patch.gz.b64; then
-            echo 'Round-three patch is already applied.'
-            exit 0
-          fi
-          base64 --decode tools/file21-round3-test-fixture.patch.gz.b64 | gzip -dc > /tmp/file21-round3.patch
-          git apply --check /tmp/file21-round3.patch
-          git apply /tmp/file21-round3.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/run-tests.php')
+          text = path.read_text(encoding='utf-8')
+          old = """function sabri_reset_options() {
+          \tsabri_test_reset_state( true );
+          \tsabri_reset_roles();
+          }
+          """
+          new = """function sabri_reset_options() {
+          \tsabri_test_reset_state( true );
+          \tsabri_reset_roles();
+          \t// A fresh installed File 21 assigns its scoped capabilities during
+          \t// activation. Behavioral tests must model that installed state before
+          \t// exercising Composer, media, REST, moderation, and author-edit policies.
+          \tCapabilities::apply_default_policy();
+          }
+          """
+          if new not in text:
+              if old not in text:
+                  raise SystemExit('Expected File 21 reset helper not found.')
+              text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
           rm -f tools/file21-round3-test-fixture.patch.gz.b64
           rmdir tools 2>/dev/null || true
           php -l tests/run-tests.php
@@ -38,5 +55,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add --all
+          if git diff --cached --quiet; then
+            echo 'Round-three correction already present.'
+            exit 0
+          fi
           git commit -m 'test: model installed File 21 scoped capabilities'
           git push origin HEAD:fix/file21-zero-known-defects-1.0.3.2
