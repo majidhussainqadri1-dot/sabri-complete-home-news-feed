@@ -29,12 +29,15 @@ jobs:
             exit 0
           fi
           python3 tools/apply-file21-test-authority-alignment.py
+          python3 tools/patch-production-rejection-authority.py
           php -l tests/wp-stubs.php
           php -l tests/run-tests.php
           php -l tests/run-file21-file22-workflow-adapter-tests.php
+          php -l tests/run-file21-production-rejection-tests.php
           php tools/run-tests.php
+          php tests/run-composer-authority-precedence-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-production-rejection-tests.php
-          rm -f tools/apply-file21-test-authority-alignment.py
+          rm -f tools/apply-file21-test-authority-alignment.py tools/patch-production-rejection-authority.py
           rmdir tools 2>/dev/null || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
