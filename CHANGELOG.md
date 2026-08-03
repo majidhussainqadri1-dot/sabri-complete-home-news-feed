@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.3.2 Public Rendering R3 — 2026-08-04
+
+- Normalize raw Markdown heading markers in the queried singular title without altering stored content.
+- Render conservative bold and italic Markdown in legacy public articles while preserving code/pre blocks and existing HTML.
+- Add `sabri-hnf-content-integrity-single` for non-owned legacy articles so File 20 can recover the correct theme content column without false ownership.
+- Load containment CSS independently and add an explicit cache-busting asset identity.
+- Preserve File 21 ownership, taxonomy, authorization, privacy and runtime/API boundaries.
+
 ## 1.0.3.2 - File 00 Authorization and Public Projection Integrity
 
 ### File 00 authority hardening
