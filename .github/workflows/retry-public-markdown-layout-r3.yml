@@ -1,0 +1,98 @@
+name: Retry File 21 public Markdown and layout correction R3
+
+on:
+  pull_request:
+    branches: [main]
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  correct-review-commit:
+    if: github.head_ref == 'fix/file21-public-markdown-layout-1.0.3.3'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Check out exact correction branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/file21-public-markdown-layout-1.0.3.3
+          fetch-depth: 0
+
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Reapply corrected bounded source transformation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          source = subprocess.check_output(
+              ['git', 'show', '0f323f38ce309506fcd500b2b96e8e8ac1884117:.github/workflows/apply-public-markdown-layout-r3.yml'],
+              text=True,
+          )
+          start_marker = "          python3 <<'PY'\n"
+          end_marker = "\n          PY\n"
+          if source.count(start_marker) != 1 or source.count(end_marker) != 1:
+              raise SystemExit('original File 21 correction script markers are not unique')
+          script = source.split(start_marker, 1)[1].split(end_marker, 1)[0]
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in script.splitlines())
+          faulty = "&& 0 !== preg_match( '/\\/\\s*>$/u', $part )"
+          corrected = "&& 0 === preg_match( '/\\/\\s*>$/u', $part )"
+          if script.count(faulty) != 1:
+              raise SystemExit('pre/code exclusion correction anchor is missing or duplicated')
+          script = script.replace(faulty, corrected, 1)
+          exec(compile(script, '<file21-public-markdown-r3>', 'exec'), {'__name__': '__main__'})
+          Path('.github/workflows/retry-public-markdown-layout-r3.yml').unlink()
+          PY
+
+      - name: Install development dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Review cycle 1 — full source verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' -not -path './vendor/*' -not -path './release/*' -print0 | xargs -0 -n1 php -l
+          php tests/run-public-content-integrity-tests.php
+          composer test:phpunit
+          composer test:phpstan
+          composer test:wpcs
+          git diff --check
+
+      - name: Review cycle 2 — fresh adversarial verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-public-content-integrity-tests.php
+          grep -Fq "add_filter( 'the_title'" includes/class-public-content-integrity.php
+          grep -Fq "sabri-hnf-content-integrity-single" includes/class-public-content-integrity.php assets/css/public-content-integrity.css
+          grep -Fq "<em>\$1</em>" includes/class-public-content-integrity.php
+          grep -Fq "0 === preg_match( '/\\/\\s*>$/u', \$part )" includes/class-public-content-integrity.php
+          ! grep -Fq "wp_update_post" includes/class-public-content-integrity.php
+          ! grep -Fq "update_post_meta" includes/class-public-content-integrity.php
+          composer test:phpunit
+          composer test:phpstan
+          composer test:wpcs
+          python3 tools/build-release.py --source-sha "$(git rev-parse HEAD)"
+          git diff --check
+
+      - name: Commit reviewed correction source
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf vendor release .phpunit.cache composer.lock
+          git restore --source=HEAD -- .github/workflows
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add includes/class-public-content-integrity.php assets/css/public-content-integrity.css tests/run-public-content-integrity-tests.php CHANGELOG.md docs/FILE21-PUBLIC-MARKDOWN-SHELL-INTEGRATION-R3-2026-08-04.md
+          git commit -m 'fix: normalize legacy public Markdown and expose neutral layout signal'
+          git push origin HEAD:fix/file21-public-markdown-layout-1.0.3.3
