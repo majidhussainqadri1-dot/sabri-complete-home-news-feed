@@ -1,0 +1,37 @@
+name: File 21 File 22 Contract Fixture Fix
+
+on:
+  push:
+    branches: [fix/file23-file21-file22-real-contract]
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ !contains(github.event.head_commit.message, '[contract-fixture-fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: fix/file23-file21-file22-real-contract
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Correct real File 22 registry contract fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('tests/run-file21-file22-real-contract-tests.php')
+          text = path.read_text(encoding='utf-8')
+          old = "return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true ) : null;"
+          new = "return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true, 'subject_schema_extension' => true ) : null;"
+          if old not in text:
+              raise SystemExit('Expected Registry workflow contract fixture not found.')
+          path.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/run-file21-file22-real-contract-tests.php
+          git commit -m "test: align real File 22 registry contract fixture [contract-fixture-fix]"
+          git push origin HEAD:fix/file23-file21-file22-real-contract
