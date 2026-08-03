@@ -55,7 +55,7 @@ namespace Sabri\UniversalComposer\Core {
 	final class Registry {
 		public function __construct( private object $adapter ) {}
 		public function get( string $key ): ?object { return 'social_publication' === $key ? $this->adapter : null; }
-		public function workflow_contract( string $key ): ?array { return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true ) : null; }
+		public function workflow_contract( string $key ): ?array { return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true, 'subject_schema_extension' => true ) : null; }
 	}
 	final class Permission_Resolver { public function account_is_eligible( int $user_id ): bool { return $user_id > 0; } public function can_use_capability( int $user_id, string $capability ): bool { return $user_id > 0 && 'sabri_feed_create_posts' === $capability; } }
 	final class Safe_Mode { public static function disabled(): bool { return false; } }
