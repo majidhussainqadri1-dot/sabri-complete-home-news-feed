@@ -1,0 +1,72 @@
+name: File 21 Version 1.0.3.3 Release Identity Materializer
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-release-identity:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: fix/file21-file23-provider-integration-1.0.3.3
+
+      - name: Reconcile current release builder, contract test and README
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          build = Path('tools/build-release.py')
+          text = build.read_text(encoding='utf-8')
+          text = text.replace('PACKAGE_VERSION = "1.0.3.2"', 'PACKAGE_VERSION = "1.0.3.3"')
+          text = text.replace('* Version: 1.0.3.2', '* Version: 1.0.3.3')
+          text = text.replace("SABRI_HNF_PACKAGE_VERSION', '1.0.3.2'", "SABRI_HNF_PACKAGE_VERSION', '1.0.3.3'")
+          text = text.replace('identity is not 1.0.3.2', 'identity is not 1.0.3.3')
+          text = text.replace('# File 21 1.0.3.2 Controlled-Staging Candidate', '# File 21 1.0.3.3 Controlled-Staging Candidate')
+          required = {
+              'PACKAGE_VERSION = "1.0.3.3"',
+              '* Version: 1.0.3.3',
+              "SABRI_HNF_PACKAGE_VERSION', '1.0.3.3'",
+              '# File 21 1.0.3.3 Controlled-Staging Candidate',
+          }
+          missing = sorted(marker for marker in required if marker not in text)
+          if missing:
+              raise SystemExit('File 21 release builder reconciliation failed: ' + ', '.join(missing))
+          build.write_text(text, encoding='utf-8')
+
+          test = Path('tests/phpunit/File21ReleaseContractTest.php')
+          text = test.read_text(encoding='utf-8').replace('1.0.3.2', '1.0.3.3')
+          if '* Version: 1.0.3.3' not in text or "SABRI_HNF_PACKAGE_VERSION', '1.0.3.3'" not in text:
+              raise SystemExit('File 21 release contract test was not reconciled.')
+          test.write_text(text, encoding='utf-8')
+
+          readme = Path('README.md')
+          text = readme.read_text(encoding='utf-8').replace(
+              '21-sabri-complete-home-news-feed-1.0.3.2-CONTROLLED-STAGING-CANDIDATE.zip',
+              '21-sabri-complete-home-news-feed-1.0.3.3-CONTROLLED-STAGING-CANDIDATE.zip',
+          )
+          readme.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit only non-workflow release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- tools/build-release.py tests/phpunit/File21ReleaseContractTest.php README.md; then
+            echo 'Release identity is already reconciled.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tools/build-release.py tests/phpunit/File21ReleaseContractTest.php README.md
+          git commit -m 'File 21 1.0.3.3: align canonical builder and release contract'
+          git push origin HEAD:fix/file21-file23-provider-integration-1.0.3.3
