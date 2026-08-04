@@ -1,4 +1,4 @@
-name: File 21 1.0.3.2 Authorization Integrity
+name: File 21 1.0.3.3 Authorization and File 23 Provider Integrity
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - main
-      - fix/file21-zero-known-defects-1.0.3.2
+      - fix/file21-file23-provider-integration-1.0.3.3
   workflow_dispatch:
 
 permissions:
@@ -50,8 +50,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq '* Version: 1.0.3.2' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.2' );" sabri-complete-home-news-feed.php
+          grep -Fq '* Version: 1.0.3.3' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.3' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.3' );" sabri-complete-home-news-feed.php
           grep -Fq "const MINIMUM_CONTRACT_VERSION = '1.1.2';" includes/class-canonical-identity-adapter.php
           grep -Fq "SMC_Contracts::assertions" includes/class-canonical-identity-adapter.php
@@ -61,6 +61,7 @@ jobs:
           ! grep -Eq "get_user_meta|_smc_doctor_verified|_sabri_doctor_verified|_smc_trusted_publisher|_sabri_trusted_publisher|first_public_meta" includes/class-canonical-identity-adapter.php
           test "$(grep -RIl 'CanonicalIdentityAdapter::current_action_ready' includes admin | wc -l | tr -d ' ')" -ge 15
           php tests/run-file00-authorization-integrity.php
+          php tests/run-file21-file23-provider-integration-tests.php
 
       - name: Build deterministic installable ZIP with embedded manifest
         shell: bash
@@ -97,7 +98,7 @@ jobs:
               manifest_lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {rel.as_posix()}")
           (stage / 'MANIFEST.sha256').write_text('\n'.join(manifest_lines) + '\n', encoding='utf-8')
 
-          base = '21-sabri-complete-home-news-feed-1.0.3.2-ZERO-KNOWN-DEFECTS-RC'
+          base = '21-sabri-complete-home-news-feed-1.0.3.3-FILE23-INTEGRATION-R1'
           archive_path = release / f'{base}.zip'
           with ZipFile(archive_path, 'w') as archive:
               for path in sorted(stage.rglob('*')):
@@ -118,26 +119,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base='21-sabri-complete-home-news-feed-1.0.3.2-ZERO-KNOWN-DEFECTS-RC'
+          base='21-sabri-complete-home-news-feed-1.0.3.3-FILE23-INTEGRATION-R1'
           (cd release && sha256sum -c "${base}.sha256")
           unzip -t "release/${base}.zip"
-          rm -rf /tmp/file21-1032
-          mkdir -p /tmp/file21-1032
-          unzip -q "release/${base}.zip" -d /tmp/file21-1032
-          (cd /tmp/file21-1032/sabri-complete-home-news-feed && sha256sum -c MANIFEST.sha256)
-          grep -Fq '* Version: 1.0.3.2' /tmp/file21-1032/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php
-          php /tmp/file21-1032/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php >/dev/null 2>&1 || test $? -eq 0
+          rm -rf /tmp/file21-1033
+          mkdir -p /tmp/file21-1033
+          unzip -q "release/${base}.zip" -d /tmp/file21-1033
+          (cd /tmp/file21-1033/sabri-complete-home-news-feed && sha256sum -c MANIFEST.sha256)
+          grep -Fq '* Version: 1.0.3.3' /tmp/file21-1033/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php
+          grep -Fq 'class-file23-publishing-dashboard-adapter-runtime.php' <(unzip -Z1 "release/${base}.zip")
+          php /tmp/file21-1033/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php >/dev/null 2>&1 || test $? -eq 0
 
       - name: Write exact-head evidence
         shell: bash
         run: |
-          cat > release/FILE-21-1.0.3.2-TEST-REPORT.md <<REPORT
-          # File 21 1.0.3.2 Corrective Evidence
+          cat > release/FILE-21-1.0.3.3-TEST-REPORT.md <<REPORT
+          # File 21 1.0.3.3 File 23 Provider Corrective Evidence
 
           - Exact workflow SHA: ${{ github.sha }}
           - PHP 8.1 syntax and authority regression: PASS
           - PHP 8.3 syntax and authority regression: PASS
           - Subject-bound File 00 contract: PASS
+          - File 23 provider registration and fail-closed writes: PASS
           - Stale capability and cross-subject denial: PASS
           - Public projection allowlist/privacy: PASS
           - Social, Newsroom, Phase 5 and administrative action gates: PASS
@@ -148,11 +151,11 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: file21-1.0.3.2-zero-known-defects-${{ github.sha }}
+          name: file21-1.0.3.3-file23-provider-${{ github.sha }}
           retention-days: 60
           if-no-files-found: error
           path: |
-            release/21-sabri-complete-home-news-feed-1.0.3.2-ZERO-KNOWN-DEFECTS-RC.zip
-            release/21-sabri-complete-home-news-feed-1.0.3.2-ZERO-KNOWN-DEFECTS-RC.sha256
-            release/21-sabri-complete-home-news-feed-1.0.3.2-ZERO-KNOWN-DEFECTS-RC-SOURCE-MANIFEST.sha256
-            release/FILE-21-1.0.3.2-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.3.3-FILE23-INTEGRATION-R1.zip
+            release/21-sabri-complete-home-news-feed-1.0.3.3-FILE23-INTEGRATION-R1.sha256
+            release/21-sabri-complete-home-news-feed-1.0.3.3-FILE23-INTEGRATION-R1-SOURCE-MANIFEST.sha256
+            release/FILE-21-1.0.3.3-TEST-REPORT.md
