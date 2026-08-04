@@ -1,3 +1,10 @@
+## 1.0.3.3 — File 23 Provider Integration
+
+- Register bounded File 21 inventory, workspace, review and calendar projections with File 23.
+- Preserve File 21 native ownership and deny direct File 23 writes.
+- Bind acceptance evidence to the new package/provider version.
+- Add load-order, authorization, privacy and no-duplicate-backend regression gates.
+
 # Changelog
 
 ## 1.0.3.2 Public Rendering R3 — 2026-08-04

@@ -31,9 +31,9 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 	}
 
 	public function get_provider_version(): string {
-		return defined( 'SABRI_HNF_VERSION' ) && preg_match( '/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', (string) SABRI_HNF_VERSION )
-			? (string) SABRI_HNF_VERSION
-			: '1.0.3';
+		return defined( 'SABRI_HNF_PACKAGE_VERSION' ) && preg_match( '/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/', (string) SABRI_HNF_PACKAGE_VERSION )
+			? (string) SABRI_HNF_PACKAGE_VERSION
+			: '1.0.3.3';
 	}
 
 	public function get_minimum_contract_version(): string {
@@ -145,15 +145,15 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 			return new \WP_Error( 'file21_spdb_workspace_forbidden', __( 'The File 21 workspace subject is invalid.', 'sabri-complete-home-news-feed' ) );
 		}
 
-		$own_counts       = count_user_posts( $user_id, 'post', false );
-		$news_counts      = post_type_exists( 'sabri_news' ) ? count_user_posts( $user_id, 'sabri_news', false ) : null;
+		$own_counts       = max( 0, (int) count_user_posts( $user_id, 'post', false ) );
+		$news_counts      = post_type_exists( 'sabri_news' ) ? max( 0, (int) count_user_posts( $user_id, 'sabri_news', false ) ) : null;
 		$source_timestamp = gmdate( 'Y-m-d\TH:i:s\Z' );
 
 		$cards = array(
 			array(
 				'key'              => 'file21_social_posts',
 				'label'            => __( 'My Social Posts', 'sabri-complete-home-news-feed' ),
-				'value'            => $this->count_statuses( $own_counts ),
+				'value'            => $own_counts,
 				'note'             => __( 'Canonical WordPress posts owned by File 21.', 'sabri-complete-home-news-feed' ),
 				'priority'         => 'information',
 				'data_status'      => 'measured',
@@ -162,11 +162,11 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 				'owner_user_id'    => $user_id,
 			),
 		);
-		if ( is_object( $news_counts ) ) {
+		if ( null !== $news_counts ) {
 			$cards[] = array(
 				'key'              => 'file21_editorial_news',
 				'label'            => __( 'My Editorial News', 'sabri-complete-home-news-feed' ),
-				'value'            => $this->count_statuses( $news_counts ),
+				'value'            => $news_counts,
 				'note'             => __( 'Canonical Editorial News records owned by File 21.', 'sabri-complete-home-news-feed' ),
 				'priority'         => 'information',
 				'data_status'      => 'measured',
@@ -367,6 +367,9 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 		}
 		$post_id     = (int) $post->ID;
 		$reviewer_id = 'sabri_news' === $post->post_type ? (int) get_post_meta( $post_id, '_sabri_news_reviewing_editor_id', true ) : 0;
+		if ( empty( $context['is_founder'] ) && $reviewer_id > 0 && $reviewer_id !== (int) $context['user_id'] ) {
+			return null;
+		}
 		$reviewer    = $reviewer_id > 0 ? get_userdata( $reviewer_id ) : null;
 		$author      = get_userdata( (int) $post->post_author );
 		return array(
@@ -409,7 +412,7 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 			'last_synced_at'     => $this->utc( $post->post_modified_gmt ),
 			'status'             => 'scheduled',
 			'scheduled_at_utc'   => $this->utc( $post->post_date_gmt ),
-			'native_timezone'    => wp_timezone_string() ?: 'UTC',
+			'native_timezone'    => $this->native_timezone(),
 			'conflicts'          => array(),
 			'native_edit_url'    => (string) get_edit_post_link( (int) $post->ID, 'raw' ),
 			'allowed_operations' => array(),
@@ -427,7 +430,7 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 		if ( (int) $post->post_author === $user_id && current_user_can( 'edit_post', (int) $post->ID ) ) {
 			return true;
 		}
-		if ( $operator && ( current_user_can( 'spdb_view_review_queue' ) || current_user_can( 'manage_options' ) ) ) {
+		if ( ( $operator && current_user_can( 'spdb_view_review_queue' ) ) || current_user_can( 'spdb_view_global_analytics' ) || current_user_can( 'manage_options' ) ) {
 			return true;
 		}
 		return 'publish' === $post->post_status && PostMetadata::user_can_view( (int) $post->ID, $user_id );
@@ -502,16 +505,8 @@ final class File23PublishingDashboardAdapterRuntime implements \SPDB_Provider_Ad
 		return preg_match( '/^[a-z0-9][a-z0-9_-]{1,63}$/', $value ) ? $value : '';
 	}
 
-	private function count_statuses( $counts ): int {
-		if ( ! is_object( $counts ) ) {
-			return 0;
-		}
-		$total = 0;
-		foreach ( get_object_vars( $counts ) as $value ) {
-			if ( is_numeric( $value ) ) {
-				$total += max( 0, (int) $value );
-			}
-		}
-		return $total;
+	private function native_timezone(): string {
+		$timezone = function_exists( 'wp_timezone_string' ) ? (string) wp_timezone_string() : '';
+		return in_array( $timezone, timezone_identifiers_list(), true ) ? $timezone : 'UTC';
 	}
 }
