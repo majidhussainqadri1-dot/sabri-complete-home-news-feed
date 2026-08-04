@@ -3,7 +3,7 @@ name: File 21 Official Quality and Ten Browser Gates
 on:
   push:
     branches:
-      - fix/file21-zero-known-defects-1.0.3.2
+      - fix/file21-file23-provider-integration-1.0.3.3
   pull_request:
     branches:
       - main
@@ -75,7 +75,7 @@ jobs:
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
           set -euo pipefail
-          package="release/21-sabri-complete-home-news-feed-1.0.3.2-CONTROLLED-STAGING-CANDIDATE.zip"
+          package="release/21-sabri-complete-home-news-feed-1.0.3.3-CONTROLLED-STAGING-CANDIDATE.zip"
           test -f "$package"
           export SABRI_PLUGIN_ZIP="$package"
           suites=(
