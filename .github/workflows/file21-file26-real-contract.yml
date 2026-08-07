@@ -1,0 +1,117 @@
+name: File 21 File 26 Exact Contract Compatibility
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'includes/class-search-provider-registry.php'
+      - 'tests/run-file21-file26-connector-contract-tests.php'
+      - 'tests/run-file21-four-plan-final-completion-tests.php'
+      - '.github/workflows/file21-file26-real-contract.yml'
+  push:
+    branches:
+      - main
+      - fix/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8
+
+jobs:
+  exact-contract:
+    name: Exact File 26 connector and lifecycle contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact File 21 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          path: file21
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 26 runtime
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/26-search-discovery-recommendations-knowledge-graph-classification
+          ref: ${{ env.FILE26_RUNTIME_SHA }}
+          path: file26
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source pins and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test "$(git -C file26 rev-parse HEAD)" = "${FILE26_RUNTIME_SHA}"
+          php -l file21/includes/class-search-provider-registry.php
+          php -l file21/tests/run-file21-file26-connector-contract-tests.php
+          php -l file26/file-26-search-discovery.php
+          php -l file26/includes/class-file26-connectors.php
+          php -l file26/includes/class-file26-indexer.php
+          php -l file26/includes/class-file26-ranking.php
+
+      - name: Verify actual File 26 public API and lifecycle contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'function sabri_file26_register_connector' file26/file-26-search-discovery.php
+          grep -Fq 'function sabri_file26_tombstone_document' file26/file-26-search-discovery.php
+          grep -Fq "'slug'," file26/includes/class-file26-connectors.php
+          grep -Fq "'owner_file'," file26/includes/class-file26-connectors.php
+          grep -Fq "'contract_version'," file26/includes/class-file26-connectors.php
+          grep -Fq "'entity_types'," file26/includes/class-file26-connectors.php
+          grep -Fq "'privacy_classes'," file26/includes/class-file26-connectors.php
+          grep -Fq "'visibility_fields'," file26/includes/class-file26-connectors.php
+          grep -Fq "'deletion_semantics'," file26/includes/class-file26-connectors.php
+          grep -Fq "'proposed', 'contract_tested', 'shadow', 'approved', 'active'" file26/includes/class-file26-connectors.php
+          grep -Fq "array( 'active', 'approved', 'shadow' )" file26/includes/class-file26-connectors.php
+          grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
+          grep -Fq 'Donation, payment, purchase, advertising spend and Founder favoritism' file26/includes/class-file26-ranking.php
+
+      - name: Verify File 21 manifest matches actual File 26 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          registry=file21/includes/class-search-provider-registry.php
+          grep -Fq "'slug' => self::FILE26_CONNECTOR_SLUG" "$registry"
+          grep -Fq "'owner_file' => '21'" "$registry"
+          grep -Fq "'contract_version' => self::FILE26_CONTRACT_VERSION" "$registry"
+          grep -Fq "'entity_types' => array( 'post', 'news' )" "$registry"
+          grep -Fq "'privacy_classes' => array( 'public' )" "$registry"
+          grep -Fq "'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' )" "$registry"
+          grep -Fq "'deletion_semantics' => 'tombstone'" "$registry"
+          grep -Fq "'status' => 'proposed'" "$registry"
+          ! grep -Fq "'status' => 'active'" "$registry"
+          grep -Fq "'authority_score' => 0.0" "$registry"
+          grep -Fq "'popularity_score' => 0.0" "$registry"
+          php file21/tests/run-file21-file26-connector-contract-tests.php
+
+      - name: Record exact compatibility evidence
+        shell: bash
+        run: |
+          cat > file21-file26-exact-contract.txt <<REPORT
+          File 21 head: ${FILE21_EXPECTED_SHA}
+          File 26 exact runtime: ${FILE26_RUNTIME_SHA}
+          File 26 connector registration API: PASS
+          File 26 lifecycle and shadow gate: PASS
+          File 21 proposed-only manifest: PASS
+          File 21 public projection/tombstone contract: PASS
+          File 26 organic ranking anti-donor/payment/Founder-favoritism invariant: PASS
+          Hostinger multi-plugin staging acceptance: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-file26-exact-contract-${{ env.FILE21_EXPECTED_SHA }}
+          path: file21-file26-exact-contract.txt
+          if-no-files-found: warn
+          retention-days: 30

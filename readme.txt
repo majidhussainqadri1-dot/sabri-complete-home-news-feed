@@ -4,70 +4,90 @@ Tags: home feed, editorial news, profile timeline, moderation, homeopathy
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
-Canonical public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.
+Canonical public Home, social Feed, Editorial News, publication lifecycle, safety and integration runtime for the Sabri Social Homeopathy Platform.
 
 == Description ==
 
-Package 1.0.3.2 replaces role/meta-based publishing trust with the subject-bound File 00 contract 1.1.2 or later. Create, publish, submit-for-review, moderation, and institutional content choices now require an active approved identity, current two-factor session assurance, the exact current actor, and the matching File 21 capability. File 22 and role metadata may narrow access but cannot elevate a File 00 denial. Public author cards use only File 03 approved projections and never raw Membership or legacy verification metadata.
+Package 1.0.4 is the current governing-plan reconciliation release. Stable File 21 runtime/API remains 1.0.3 and schema remains 1.0.0.
 
-Version 1.0.3 remains the production-rejection corrective runtime foundation. It removes front-end database recovery writes, adds native News-slot rendering and legacy News-page handling, keeps exactly ten Home rows observable, guards Breaking News to the main Home/News loop, applies public-post eligibility before pagination, reports File 20 native-slot readiness truthfully, exposes authenticated Safe Boot diagnostics, and resolves duplicate File 21 folders through a controlled administrator reload.
+File 21 remains the canonical owner of Home, social posts, Editorial News, publication lifecycle and native interactions. File 20 owns the application shell, File 22 the role-aware creation facade, File 23 the publishing workspace/dashboard, File 25 the global visual system and File 26 the canonical federated Search/Discovery/Recommendations/Ranking layer.
 
-The File 22 `social_publication` workflow keeps File 21 as the only native post owner. Only exact drafts are mutable; previews are HMAC-signed and expire at request time; idempotency uses hashed markers, atomic processing and execution leases, bounded retention, automatic reconciliation, and aggregate-only Administrator repair. Structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes.
+Package 1.0.4 adds the final cross-owner corrections:
 
-Editorial News gates remain disabled until an authorized administrator completes the Activation Wizard on staging. Automatic publication and automatic File 04 migration remain disabled. Existing posts, pages, users, media, comments, URLs, and legacy sources are preserved.
+* File 22 uses only a coarse authenticated registry gate; native File 21 can_create() remains the final authorization boundary with File 00 subject-state and current-session checks.
+* File 23 receives bounded inventory, workspace, review and calendar projections while direct File 23 writes remain fail-closed.
+* File 21 registers a public derivative `file21-publication` connector with File 26. It starts in `proposed` state and File 21 cannot activate it.
+* File 26 indexing receives only approved public post/news projections and receives tombstones when File 21 source objects become restricted or are deleted.
+* Global organic ranking receives no donation, payment, paid-promotion, purchased-engagement or Founder-favoritism advantage from File 21.
+* File 21 public Feed styling retains green action/accent presentation; File 25 remains the visual-token owner.
+* Deterministic release evidence keeps Hostinger staging, live deployment and operational acceptance explicitly separate from code/package/CI completion.
+
+Runtime/API 1.0.3 remains the production-rejection corrective foundation. It removes front-end database recovery writes, adds native News-slot rendering and legacy News-page handling, keeps exactly ten Home rows observable, guards Breaking News to the main Home/News loop, applies public-post eligibility before pagination, reports File 20 native-slot readiness truthfully, exposes authenticated Safe Boot diagnostics and resolves duplicate File 21 folders through a controlled administrator reload.
+
+The File 22 `social_publication` workflow keeps File 21 as the only native post owner. Only exact drafts are mutable; previews are HMAC-signed and expire at request time; idempotency uses hashed markers, atomic processing and execution leases, bounded retention, automatic reconciliation and aggregate-only Administrator repair. Structured Clinical Case, Research, Poll, upload, Video and PDF workflows remain on their complete native-owner routes.
+
+Editorial News gates remain disabled until an authorized administrator completes the Activation Wizard on staging. Automatic publication and automatic File 04 migration remain disabled. Existing posts, pages, users, media, comments, URLs and legacy sources are preserved.
 
 == Installation ==
 
 1. Take a verified files-and-database backup.
-2. Install on Hostinger staging first.
-3. Replace the existing plugin with the exact 1.0.3.2 authorization-integrity ZIP and confirm that WordPress displays Version 1.0.3.2.
+2. Install the exact package 1.0.4 candidate on Hostinger staging first.
+3. Confirm that WordPress displays Version 1.0.4.
 4. If Safe Boot is recorded, select Retry Safe Boot after replacement.
-5. Visit one WordPress administration page so the bounded File 21 capability reconciliation runs.
-6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, and File 22 workflow health.
-7. Complete the Activation Wizard and enable Editorial News gates only after staging acceptance.
-8. Flush scheduled rewrite rules and verify /news/; legacy /sabri-news/ and /blog/ redirect only after News activation.
-9. Run fresh-install, upgrade, rollback, mixed-role permissions, idempotency recovery, preview expiry, pagination, mobile, accessibility, cache, and visual acceptance before production deployment.
+5. Visit one WordPress administration page so bounded File 21 capability reconciliation runs.
+6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, File 22 workflow health, File 23 provider health and File 26 connector registration.
+7. File 26 must keep the File 21 connector fail-closed until its own contract-tested/shadow/approved/active governance gates are completed.
+8. Complete the Activation Wizard and enable Editorial News gates only after staging acceptance.
+9. Flush scheduled rewrite rules and verify /news/; legacy /sabri-news/ and /blog/ redirect only after News activation.
+10. Run fresh-install, upgrade, rollback, permissions, idempotency recovery, preview expiry, pagination, mobile, accessibility, cache, File 22/23/26 integration and visual acceptance before production deployment.
 
 == Safety ==
 
-Public GET requests do not perform recovery migrations or post-meta normalization. Explicit recovery is capability-checked, nonce-protected, bounded, audited, and repeatable. No draft, pending, private, password-protected, rejected, removed, or archived post is automatically published. File 22 workflow recovery output contains no raw key, native reference, post content, or patient data.
+Public GET requests do not perform recovery migrations or post-meta normalization. Explicit recovery is capability-checked, nonce-protected, bounded, audited and repeatable. No draft, pending, private, password-protected, rejected, removed or archived post is automatically published. File 22 workflow recovery output contains no raw key, native reference, post content or patient data. File 26 receives derivative public projections rather than canonical File 21 source ownership.
+
+Donation/payment status does not create an undisclosed organic ranking advantage or reduce core access. File 21 does not create a second global search backend, Shell, Composer, Publishing Dashboard or visual design system.
 
 == Changelog ==
 
+= 1.0.4 =
+* Corrected the File 22 Founder/Administrator creation gateway while preserving File 21 native final authorization.
+* Preserved File 23 Adapter Contract 2.0.0 projections and fail-closed direct writes.
+* Added the canonical File 26 `file21-publication` public projection connector with proposed-by-default lifecycle, bounded shadow reindex, native visibility revalidation and deletion tombstones.
+* Kept File 26 organic ranking free of donor/payment/paid-promotion/Founder-favoritism inputs from File 21.
+* Added governing-plan regression tests, File 26 connector contract tests and exact-head workflow enforcement.
+* Promoted package identity to 1.0.4 while preserving runtime/API 1.0.3 and schema 1.0.0.
+
+= 1.0.3.3 =
+* Registered bounded File 21 inventory, workspace, review and calendar projections with File 23.
+* Preserved File 21 native ownership and denied direct File 23 writes.
+
 = 1.0.3.2 =
-* Required subject-bound File 00 contract 1.1.2+ assertions for every privileged File 21 social publishing action.
-* Required current-session two-factor assurance and exact current-actor capability checks for create, publish, review submission, moderation, and institutional content choices.
-* Removed stale role, verification-meta, trusted-publisher-meta, and raw profile-data fallbacks from canonical authority and public author projections.
-* Revalidated Founder and verified-Doctor query IDs through current File 00/File 03 truth instead of legacy role/meta discovery.
-* Kept File 21 runtime/API compatibility at 1.0.3 and schema at 1.0.0; no database migration.
+* Required subject-bound File 00 contract 1.1.2+ assertions for privileged File 21 social publishing actions.
+* Required current-session two-factor assurance and exact current-actor capability checks.
+* Removed stale role, verification-meta, trusted-publisher-meta and raw profile-data fallbacks.
+* Revalidated Founder and verified-Doctor query IDs through current File 00/File 03 truth.
 
 = 1.0.3.1 =
-* Corrected Social Composer role precedence so Founder, Administrator, verified Doctor, and unverified Doctor authority is not cancelled by a legacy Subscriber/Patient role.
-* Preserved Student-only, Patient-only, Subscriber-only, Safe Mode, and Emergency Disable denials.
-* Added mixed-role Create, publish, and review regression tests.
-* Retained the File 21-owned `sabri_feed_create_posts` reconciliation required by File 22.
+* Corrected Social Composer role precedence for Founder, Administrator and Doctor authority.
+* Preserved Student-only, Patient-only, Subscriber-only, Safe Mode and Emergency Disable denials.
 
 = 1.0.3 =
-* Corrected File 22 draft-state safety, signed preview expiry, idempotency recovery, concurrency, retention, stale-lock cleanup, and actual Workflow Coordinator integration tests.
+* Corrected File 22 draft-state safety, signed preview expiry, idempotency recovery, concurrency and retention.
 * Removed public-request recovery writes.
 * Added Home and News native-slot contracts and guarded compatibility mounting.
 * Added canonical /news/ handling and legacy News redirects after gate activation.
 * Preserved all ten Home rows with explicit unavailable states.
-* Added Breaking News main-loop, context, and render-once guards.
-* Added SQL-stage visibility/review clauses before pagination, with object-level defense.
-* Replaced false Connected diagnostics with explicit native-slot audit.
-* Added authenticated Safe Boot /status and /schema diagnostics.
-* Unified package/version identity and improved duplicate-folder recovery.
+* Added Breaking News, pagination, Safe Boot and duplicate-folder safeguards.
 
 = 1.0.2 =
-* Added public Home visibility recovery, Profile Timeline, legacy Feed replacement, and Safe Boot recursion correction.
+* Added public Home visibility recovery, Profile Timeline, legacy Feed replacement and Safe Boot recursion correction.
 
 = 1.0.1 =
 * Added comprehensive architecture harmonization and corrective publishing workflows.
 
 = 1.0.0 =
-* Added the initial foundation, Home Feed, Composer, social interactions, and Editorial News phases.
+* Added the initial foundation, Home Feed, Composer, social interactions and Editorial News phases.

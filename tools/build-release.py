@@ -13,10 +13,10 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 SLUG = "sabri-complete-home-news-feed"
-PACKAGE_VERSION = "1.0.3.3"
+PACKAGE_VERSION = "1.0.4"
 RUNTIME_VERSION = "1.0.3"
 BASE = f"21-sabri-complete-home-news-feed-{PACKAGE_VERSION}-CONTROLLED-STAGING-CANDIDATE"
-FIXED_ZIP_TIME = (2026, 8, 2, 0, 0, 0)
+FIXED_ZIP_TIME = (2026, 8, 7, 0, 0, 0)
 EXCLUDED_ROOTS = {
     ".git", ".github", "tests", "tools", "release", "vendor", "node_modules",
     ".phase5-transport", ".file21-correction", "coverage", ".phpunit.cache",
@@ -38,6 +38,8 @@ REQUIRED_FILES = {
     "includes/class-public-query-guard.php",
     "includes/class-integrations.php",
     "includes/class-rest-foundation.php",
+    "includes/class-search-provider-registry.php",
+    "includes/class-file23-publishing-dashboard-bridge.php",
     "public/class-news-routing.php",
     "public/class-phase5-public-runtime.php",
 }
@@ -75,8 +77,8 @@ def source_sha(root: Path, explicit: str | None) -> str:
 def validate_identity(root: Path) -> None:
     bootstrap = (root / "sabri-complete-home-news-feed.php").read_text(encoding="utf-8")
     required = (
-        "* Version: 1.0.3.3",
-        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.3' );",
+        "* Version: 1.0.4",
+        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.4' );",
         "define( 'SABRI_HNF_VERSION', '1.0.3' );",
     )
     missing = [needle for needle in required if needle not in bootstrap]
@@ -149,8 +151,8 @@ def verify_archive(path: Path, payload: list[tuple[Path, str]], manifest_text: s
             if sha256_bytes(data) != digest:
                 raise RuntimeError(f"Manifest mismatch: {relative}")
         bootstrap = archive.read(f"{SLUG}/sabri-complete-home-news-feed.php").decode("utf-8")
-        if "* Version: 1.0.3.3" not in bootstrap:
-            raise RuntimeError("Packaged WordPress identity is not 1.0.3.3")
+        if "* Version: 1.0.4" not in bootstrap:
+            raise RuntimeError("Packaged WordPress identity is not 1.0.4")
 
 
 def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
@@ -182,7 +184,7 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
     (release / f"{BASE}-MANIFEST.sha256").write_text(manifest_text, encoding="utf-8")
     report = "\n".join(
         [
-            "# File 21 1.0.3.3 Controlled-Staging Candidate",
+            "# File 21 1.0.4 Controlled-Staging Candidate",
             "",
             f"- Exact source commit: {commit}",
             f"- Package identity: {PACKAGE_VERSION}",
@@ -194,7 +196,9 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
             "- External MANIFEST.sha256: verified",
             "- Two clean builds byte-identical: PASS",
             "- ZIP CRC and safe inventory: PASS",
-            "- Obsolete 1.0.3.1 corrective documents packaged: NO",
+            "- Canonical global Search/Discovery/Ranking owner: File 26",
+            "- File 21 File 26 connector lifecycle starts proposed: YES",
+            "- File 23 direct writes remain fail-closed: YES",
             "- Hostinger staging accepted: NO",
             "- Live deployed: NO",
             "- Operational acceptance: NO",

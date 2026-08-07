@@ -1,11 +1,24 @@
+# Changelog
+
+## 1.0.4 — Final Governing-Plan and Cross-Owner Reconciliation — 2026-08-07
+
+- Corrected the File 21 → File 22 creation gateway so File 22 performs only a coarse authenticated prefilter while File 21 native `can_create()` remains the final File 00-aware authorization owner.
+- Preserved File 23 Adapter Contract 2.0.0 inventory, workspace, review and calendar projections with direct File 23 writes fail-closed.
+- Added canonical File 26 Search/Discovery/Recommendations/Ranking integration through the `file21-publication` connector.
+- Kept the File 26 connector `proposed` by default; File 21 cannot self-promote or self-activate global Search/Ranking.
+- Added bounded shadow-reindex batches, public-only projection documents, click-time/native visibility revalidation and source restriction/deletion tombstones.
+- Kept global File 26 ranking neutral from File 21 by sending zero authority/popularity weighting and no donation, payment, paid-promotion, purchased-engagement or Founder-favoritism signal.
+- Retained green File 21 public Feed action/accent presentation and preserved File 25 as the canonical visual/design-system owner and File 20 as the Shell owner.
+- Added `run-file21-file26-connector-contract-tests.php` and `run-file21-four-plan-final-completion-tests.php`; strengthened File 22 Founder gateway, File 23 provider, File 26 ownership and exact-head release gates.
+- Promoted WordPress package identity to `1.0.4` while preserving File 21 runtime/API `1.0.3` and schema `1.0.0`; no database migration is introduced.
+- Canonical deterministic candidate is `21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE.zip`; Hostinger staging, live deployment and operational acceptance remain separate external gates.
+
 ## 1.0.3.3 — File 23 Provider Integration
 
 - Register bounded File 21 inventory, workspace, review and calendar projections with File 23.
 - Preserve File 21 native ownership and deny direct File 23 writes.
 - Bind acceptance evidence to the new package/provider version.
 - Add load-order, authorization, privacy and no-duplicate-backend regression gates.
-
-# Changelog
 
 ## 1.0.3.2 Public Rendering R3 — 2026-08-04
 

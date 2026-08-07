@@ -65,6 +65,11 @@ jobs:
         run: |
           set -euo pipefail
           php file21/tests/run-file21-file22-real-contract-tests.php
+
+      - name: Run Founder gateway authorization regression
+        shell: bash
+        run: |
+          set -euo pipefail
           php file21/tests/run-file21-file22-founder-gateway-regression.php
 
       - name: Run bounded retention and maintenance tests

@@ -27,8 +27,8 @@ foreach ( array(
 }
 
 $bootstrap = file_get_contents( $root . '/sabri-complete-home-news-feed.php' );
-foreach ( array( 'Version: 1.0.3', "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
-	$assert( false !== strpos( $bootstrap, $needle ), 'Complete 1.0.3 bootstrap contract missing: ' . $needle );
+foreach ( array( 'Version: 1.0.4', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.4' );", "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
+	$assert( false !== strpos( $bootstrap, $needle ), 'Complete File 21 1.0.4 package / 1.0.3 runtime bootstrap contract missing: ' . $needle );
 }
 
 $plugin = file_get_contents( $root . '/includes/class-plugin.php' );
@@ -92,9 +92,10 @@ foreach ( array( 'sabri_network', 'swc_request_appointment', 'sabri_marketplace'
 }
 
 $search = file_get_contents( $root . '/includes/class-search-provider-registry.php' );
-foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', 'array( \'q\' => $query' ) as $needle ) {
-	$assert( false !== strpos( $search, $needle ), 'Search-provider safeguard missing: ' . $needle );
+foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'PostMetadata::user_can_view', 'NewsPolicy::public_reads_allowed', 'MAX_RESULTS_PER_PROVIDER', 'array( \'q\' => $query', 'FILE26_CONNECTOR_SLUG', "'status' => 'proposed'", "'global_search_owner' => '26'", 'sabri_file26_tombstone_document' ) as $needle ) {
+	$assert( false !== strpos( $search, $needle ), 'Search/File 26 projection safeguard missing: ' . $needle );
 }
+$assert( false === strpos( $search, "'status' => 'active'" ), 'File 21 must not self-activate the canonical File 26 connector.' );
 
 $card = file_get_contents( $root . '/templates/feed-card.php' );
 foreach ( array( 'profile_url', 'specialty', 'country', 'clinic_name' ) as $needle ) {
