@@ -11,7 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Implements one bounded user-to-user follow relationship. */
+/**
+ * File 21 interaction facade. File 17 is canonical when its relationship
+ * runtime is available; the historical File 21 store remains a fail-soft
+ * compatibility path only for installations not yet cut over to File 17.
+ */
 final class FollowService {
 	const TARGET_TYPE = 'user';
 
@@ -26,6 +30,20 @@ final class FollowService {
 		$target_user_id = (int) $authorized['data']['target_user_id'];
 		$limit = InteractionRateLimiter::attempt( 'follows', $user_id, $target_user_id );
 		if ( empty( $limit['ok'] ) ) { return $limit; }
+
+		if ( NetworkRelationshipBridge::native_available() ) {
+			$native = NetworkRelationshipBridge::follow( $user_id, $target_user_id );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $native ) ) {
+				return self::native_error( $native, 'follow_failed' );
+			}
+			if ( ! is_array( $native ) ) {
+				return InteractionResult::error( 'follow_failed', 'The canonical Network relationship could not be confirmed.', array(), 503 );
+			}
+			FeedQuery::invalidate_cache();
+			AuditLog::record( 'user_followed_via_file17', array( 'target_user_id' => $target_user_id ), 'user', $target_user_id );
+			return InteractionResult::success( 'user_followed', self::summary( $target_user_id, $user_id ), 'Following.', 200 );
+		}
+
 		$current = InteractionQueryRepository::follow_record( $user_id, $target_user_id, self::TARGET_TYPE );
 		if ( is_array( $current ) && isset( $current['status'] ) && 'blocked' === sanitize_key( $current['status'] ) ) {
 			return InteractionResult::error( 'relationship_blocked', 'This relationship is unavailable.', array(), 403 );
@@ -51,13 +69,13 @@ final class FollowService {
 			}
 		}
 		if ( empty( $result['ok'] ) ) { return $result; }
-		AuditLog::record( 'user_followed', array( 'target_user_id' => $target_user_id ) );
+		AuditLog::record( 'user_followed_legacy_fallback', array( 'target_user_id' => $target_user_id ) );
 		FeedQuery::invalidate_cache();
 		if ( $became_active ) { NotificationBridge::follow_event( $user_id, $target_user_id ); }
 		return InteractionResult::success( 'user_followed', self::summary( $target_user_id, $user_id ), 'Following.', 200 );
 	}
 
-	/** Stop following a user while retaining the relationship row. */
+	/** Stop following a user while retaining history. */
 	public static function unfollow( $target_user_id, $nonce = '', $user_id = 0 ) {
 		if ( ! Phase3FeatureSettings::enabled( 'follows_enabled' ) ) {
 			return InteractionResult::error( 'follows_disabled', 'Following is currently unavailable.', array(), 503 );
@@ -68,6 +86,20 @@ final class FollowService {
 		$target_user_id = (int) $authorized['data']['target_user_id'];
 		$limit = InteractionRateLimiter::attempt( 'follows', $user_id, $target_user_id );
 		if ( empty( $limit['ok'] ) ) { return $limit; }
+
+		if ( NetworkRelationshipBridge::native_available() ) {
+			$native = NetworkRelationshipBridge::unfollow( $user_id, $target_user_id );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $native ) ) {
+				return self::native_error( $native, 'unfollow_failed' );
+			}
+			if ( ! is_array( $native ) ) {
+				return InteractionResult::error( 'unfollow_failed', 'The canonical Network relationship could not be confirmed.', array(), 503 );
+			}
+			FeedQuery::invalidate_cache();
+			AuditLog::record( 'user_unfollowed_via_file17', array( 'target_user_id' => $target_user_id ), 'user', $target_user_id );
+			return InteractionResult::success( 'user_unfollowed', self::summary( $target_user_id, $user_id ), 'No longer following.', 200 );
+		}
+
 		$current = InteractionQueryRepository::follow_record( $user_id, $target_user_id, self::TARGET_TYPE );
 		if ( is_array( $current ) && isset( $current['status'] ) && 'blocked' === sanitize_key( $current['status'] ) ) {
 			return InteractionResult::error( 'relationship_blocked', 'This relationship is unavailable.', array(), 403 );
@@ -76,7 +108,7 @@ final class FollowService {
 			$result = self::set_status( $user_id, $target_user_id, 'removed' );
 			if ( empty( $result['ok'] ) ) { return $result; }
 		}
-		AuditLog::record( 'user_unfollowed', array( 'target_user_id' => $target_user_id ) );
+		AuditLog::record( 'user_unfollowed_legacy_fallback', array( 'target_user_id' => $target_user_id ) );
 		FeedQuery::invalidate_cache();
 		return InteractionResult::success( 'user_unfollowed', self::summary( $target_user_id, $user_id ), 'No longer following.', 200 );
 	}
@@ -86,6 +118,10 @@ final class FollowService {
 		$target_user_id = self::positive_id( $target_user_id );
 		$target = self::user( $target_user_id );
 		$viewer_user_id = $viewer_user_id ? InteractionPermissions::authenticated_user_id( $viewer_user_id ) : ( function_exists( 'get_current_user_id' ) ? (int) get_current_user_id() : 0 );
+		$native = NetworkRelationshipBridge::summary( $target_user_id, $viewer_user_id );
+		if ( is_array( $native ) ) {
+			return $native;
+		}
 		$count_visible = Phase3FeatureSettings::enabled( 'show_public_follower_counts' );
 		$following = false;
 		if ( $target && $viewer_user_id > 0 && $viewer_user_id !== $target_user_id ) {
@@ -108,6 +144,7 @@ final class FollowService {
 		}
 		$user_id = InteractionPermissions::authenticated_user_id( $user_id );
 		if ( $user_id <= 0 ) { return InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 ); }
+		if ( ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) { return InteractionResult::error( 'identity_assurance_required', 'Current account assurance is required.', array(), 403 ); }
 		if ( ! InteractionPermissions::nonce_valid( $nonce ) ) { return InteractionResult::error( 'invalid_nonce', 'The security token is missing or invalid.', array(), 403 ); }
 		return self::following_for_user( $user_id, $limit );
 	}
@@ -120,9 +157,9 @@ final class FollowService {
 		$user_id = InteractionPermissions::authenticated_user_id( $user_id );
 		if ( $user_id <= 0 ) { return InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 ); }
 		$items = array();
-		foreach ( InteractionQueryRepository::following_user_ids( $user_id, self::TARGET_TYPE, $limit ) as $target_user_id ) {
+		foreach ( NetworkRelationshipBridge::following_user_ids( $user_id, $limit ) as $target_user_id ) {
 			$target = self::user( $target_user_id );
-			if ( ! $target ) { continue; }
+			if ( ! $target || ! NetworkRelationshipBridge::author_allowed( $user_id, $target_user_id ) ) { continue; }
 			$items[] = array(
 				'id'           => $target_user_id,
 				'display_name' => ProfileLinkResolver::display_name( $target_user_id ),
@@ -137,19 +174,30 @@ final class FollowService {
 	private static function authorize( $target_user_id, $nonce, $user_id ) {
 		$user_id = InteractionPermissions::authenticated_user_id( $user_id );
 		if ( $user_id <= 0 ) { return InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 ); }
+		if ( ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) { return InteractionResult::error( 'identity_assurance_required', 'Current account assurance is required.', array(), 403 ); }
 		if ( ! InteractionPermissions::nonce_valid( $nonce ) ) { return InteractionResult::error( 'invalid_nonce', 'The security token is missing or invalid.', array(), 403 ); }
 		if ( SafeMode::public_features_disabled() ) { return InteractionResult::error( 'interaction_unavailable', 'This action is temporarily unavailable.', array(), 503 ); }
 		$target_user_id = self::positive_id( $target_user_id );
 		$target = self::user( $target_user_id );
 		if ( ! $target ) { return InteractionResult::error( 'user_unavailable', 'The requested user is unavailable.', array(), 404 ); }
 		if ( $target_user_id === $user_id ) { return InteractionResult::error( 'self_follow_forbidden', 'You cannot follow your own account.', array(), 400 ); }
+		if ( ! NetworkRelationshipBridge::author_allowed( $user_id, $target_user_id ) ) { return InteractionResult::error( 'relationship_blocked', 'This relationship is unavailable.', array(), 403 ); }
 		$followable = true;
 		if ( function_exists( 'apply_filters' ) ) { $followable = (bool) apply_filters( 'sabri_feed_user_followable', true, $target_user_id, $user_id ); }
 		if ( ! $followable ) { return InteractionResult::error( 'user_not_followable', 'This account cannot be followed.', array(), 403 ); }
 		return InteractionResult::success( 'authorized', array( 'user_id' => $user_id, 'target_user_id' => $target_user_id ), 'Authorized.', 200 );
 	}
 
-	/** Update one natural-key relationship row. */
+	/** Convert a File 17 WP_Error into the existing File 21 interaction envelope. */
+	private static function native_error( $error, $fallback_code ) {
+		$code = method_exists( $error, 'get_error_code' ) ? sanitize_key( $error->get_error_code() ) : sanitize_key( $fallback_code );
+		$message = method_exists( $error, 'get_error_message' ) ? sanitize_text_field( $error->get_error_message() ) : 'The Network relationship action could not be completed.';
+		$data = method_exists( $error, 'get_error_data' ) ? $error->get_error_data() : array();
+		$status = is_array( $data ) && isset( $data['status'] ) ? (int) $data['status'] : 400;
+		return InteractionResult::error( $code ? $code : $fallback_code, $message, array(), $status );
+	}
+
+	/** Update one historical local natural-key relationship row. */
 	private static function set_status( $follower_user_id, $target_user_id, $status ) {
 		return InteractionRepository::update_rows(
 			'follows',
