@@ -3,7 +3,8 @@ name: File 21 Official Quality and Ten Browser Gates
 on:
   push:
     branches:
-      - fix/file21-file23-provider-integration-1.0.3.3
+      - main
+      - fix/**
   pull_request:
     branches:
       - main
@@ -43,6 +44,13 @@ jobs:
         run: composer test:phpstan
       - name: Run official WordPress Coding Standards
         run: composer test:wpcs
+      - name: Run final governing-plan source regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-file21-file22-founder-gateway-regression.php
+          php tests/run-file21-file26-connector-contract-tests.php
+          php tests/run-file21-four-plan-final-completion-tests.php
 
   mandatory-ten-browser-suites:
     name: Mandatory ten Playground and Playwright suites
@@ -75,7 +83,7 @@ jobs:
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
           set -euo pipefail
-          package="release/21-sabri-complete-home-news-feed-1.0.3.3-CONTROLLED-STAGING-CANDIDATE.zip"
+          package="release/21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE.zip"
           test -f "$package"
           export SABRI_PLUGIN_ZIP="$package"
           suites=(
