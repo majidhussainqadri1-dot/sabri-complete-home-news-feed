@@ -6,8 +6,11 @@ on:
       - main
     paths:
       - 'includes/class-search-provider-registry.php'
+      - 'includes/class-feed-ranking.php'
+      - 'includes/class-feed-user-agency.php'
       - 'tests/run-file21-file26-connector-contract-tests.php'
       - 'tests/run-file21-four-plan-final-completion-tests.php'
+      - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file26-real-contract.yml'
   push:
     branches:
@@ -52,7 +55,10 @@ jobs:
           test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
           test "$(git -C file26 rev-parse HEAD)" = "${FILE26_RUNTIME_SHA}"
           php -l file21/includes/class-search-provider-registry.php
+          php -l file21/includes/class-feed-ranking.php
+          php -l file21/includes/class-feed-user-agency.php
           php -l file21/tests/run-file21-file26-connector-contract-tests.php
+          php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
           php -l file26/file-26-search-discovery.php
           php -l file26/includes/class-file26-connectors.php
           php -l file26/includes/class-file26-indexer.php
@@ -76,7 +82,7 @@ jobs:
           grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
           grep -Fq 'Donation, payment, purchase, advertising spend and Founder favoritism' file26/includes/class-file26-ranking.php
 
-      - name: Verify File 21 manifest matches actual File 26 contract
+      - name: Verify File 21 manifest and local ranking boundary match File 26 contract
         shell: bash
         run: |
           set -euo pipefail
@@ -92,7 +98,10 @@ jobs:
           ! grep -Fq "'status' => 'active'" "$registry"
           grep -Fq "'authority_score' => 0.0" "$registry"
           grep -Fq "'popularity_score' => 0.0" "$registry"
+          grep -Fq 'no Founder favoritism' file21/includes/class-feed-ranking.php
+          ! grep -Fq 'is_founder( $author_id )' file21/includes/class-feed-ranking.php
           php file21/tests/run-file21-file26-connector-contract-tests.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
 
       - name: Record exact compatibility evidence
         shell: bash
@@ -104,6 +113,7 @@ jobs:
           File 26 lifecycle and shadow gate: PASS
           File 21 proposed-only manifest: PASS
           File 21 public projection/tombstone contract: PASS
+          File 21 local organic Founder/donor/payment boost: DENIED
           File 26 organic ranking anti-donor/payment/Founder-favoritism invariant: PASS
           Hostinger multi-plugin staging acceptance: NOT CLAIMED
           REPORT
