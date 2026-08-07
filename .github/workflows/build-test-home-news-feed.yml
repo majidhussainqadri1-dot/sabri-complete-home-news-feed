@@ -14,7 +14,7 @@ permissions:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
 
 jobs:
   build-test:
@@ -71,6 +71,7 @@ jobs:
             tests/run-file21-file23-provider-integration-tests.php
             tests/run-file21-file26-connector-contract-tests.php
             tests/run-file21-four-plan-final-completion-tests.php
+            tests/run-file21-four-plan-audit-1.0.5.php
           )
           : > exact-head-regression.log
           php tools/run-tests.php 2>&1 | tee -a exact-head-regression.log
@@ -104,6 +105,7 @@ jobs:
           test -f "$package" && test -f "$checksum" && test -f "$manifest" && test -f "$report"
           grep -Fq -- "- Exact source commit: ${TEST_SHA}" "$report"
           grep -Fq -- "- Canonical global Search/Discovery/Ranking owner: File 26" "$report"
+          grep -Fq -- "- Four-plan current-wave repository reconciliation: implemented" "$report"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
           test "$expected" = "$actual"
@@ -118,6 +120,10 @@ jobs:
             sabri-complete-home-news-feed/includes/class-integrations.php \
             sabri-complete-home-news-feed/includes/class-search-provider-registry.php \
             sabri-complete-home-news-feed/includes/class-file23-publishing-dashboard-bridge.php \
+            sabri-complete-home-news-feed/includes/class-network-relationship-bridge.php \
+            sabri-complete-home-news-feed/includes/class-feed-user-agency.php \
+            sabri-complete-home-news-feed/includes/class-saved-collection-service.php \
+            sabri-complete-home-news-feed/includes/class-comment-experience.php \
             sabri-complete-home-news-feed/public/class-news-public-runtime.php; do
             grep -Fxq "$entry" package-entries.txt
           done
@@ -133,10 +139,10 @@ jobs:
         with:
           name: file21-canonical-candidate-${{ env.TEST_SHA }}
           path: |
-            release/21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE.zip
-            release/21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE.sha256
-            release/21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
-            release/21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
             exact-head-regression.log
             package-entries.txt
           if-no-files-found: warn
