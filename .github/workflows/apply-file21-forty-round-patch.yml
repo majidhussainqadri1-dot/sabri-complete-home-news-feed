@@ -1,0 +1,31 @@
+name: Apply File 21 Forty-Round Corrective Patch
+
+on:
+  push:
+    branches:
+      - audit/file21-forty-round-review-2026-08-07
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[forty-round-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/file21-forty-round-review-2026-08-07
+          fetch-depth: 0
+      - name: Reconstruct and apply reviewed patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .audit/part-00.patch .audit/part-01.patch .audit/part-02.patch .audit/part-03.patch .audit/part-04.patch > /tmp/file21-forty-round.patch
+          git apply --check /tmp/file21-forty-round.patch
+          git apply --index /tmp/file21-forty-round.patch
+          git config user.name 'sabri-forty-round-review-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'File 21 1.0.6 forty-round corrections [forty-round-applied]'
+          git push origin HEAD:audit/file21-forty-round-review-2026-08-07
