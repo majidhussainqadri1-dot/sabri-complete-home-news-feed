@@ -42,17 +42,18 @@ final class FeedRanking {
 		return array_values( array_map( static function ( $item ) { return $item['post']; }, $ranked ) );
 	}
 
-	/** Explain the accepted ranking model. */
+	/** Explain the accepted local ranking model and its canonical limits. */
 	public static function explanation() {
 		return array(
-			'authorized visibility and approved moderation state',
+			'authorized visibility and approved moderation state before ranking',
 			'recency with bounded decay',
-			'Founder and institutionally verified-author priority',
-			'Feed-mode and category relevance',
+			'domain relevance and verified professional authority where contextually relevant',
 			'pinned, featured and editorial quality state',
 			'views, reactions, approved comments, saves, shares and watch-time when available',
 			'confirmed-report penalty and logarithmic anti-abuse scaling',
-			'balanced fallback when optional interaction data is unavailable',
+			'diversity and explicit user-choice controls',
+			'no Founder favoritism, donation, payment, paid promotion or purchased-engagement boost',
+			'File 26 remains the canonical owner of global Search, Discovery, Recommendations and Ranking governance',
 		);
 	}
 
@@ -69,7 +70,9 @@ final class FeedRanking {
 			? ViralRankingSignals::score( $post_id )
 			: self::recency_score( $post_id );
 
-		if ( 'for-you' === $mode && class_exists( __NAMESPACE__ . '\\ViralRankingSignals' ) ) {
+		/* Reduced personalization deliberately removes engagement-derived For You blending. */
+		$reduced = class_exists( __NAMESPACE__ . '\\FeedUserAgency' ) && FeedUserAgency::reduced_personalization();
+		if ( 'for-you' === $mode && ! $reduced && class_exists( __NAMESPACE__ . '\\ViralRankingSignals' ) ) {
 			$score += (int) round( ViralRankingSignals::score( $post_id ) * 0.25 );
 		}
 		if ( self::is_truthy_meta( $post_id, PostMetadata::META_PINNED ) ) {
@@ -79,18 +82,19 @@ final class FeedRanking {
 			$score += 18;
 		}
 		$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
-		if ( $author_id > 0 && CanonicalIdentityAdapter::is_founder( $author_id ) ) {
-			$score += isset( $settings['feed']['founder_priority'] ) ? (int) $settings['feed']['founder_priority'] : 20;
-		} elseif ( $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) {
-			$score += isset( $settings['feed']['verified_author_priority'] ) ? (int) $settings['feed']['verified_author_priority'] : 8;
+
+		/*
+		 * Founder identity grants publication authority, not organic ranking advantage.
+		 * Verified-doctor authority is used only inside the explicit Doctors feed.
+		 */
+		if ( 'doctors-posts' === $mode && $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) {
+			$score += 24;
 		}
+
 		$mode_map = FeedContext::mode_type_map();
 		$mode_types = isset( $mode_map[ $mode ] ) ? (array) $mode_map[ $mode ] : array();
 		if ( in_array( $type, $mode_types, true ) ) {
 			$score += 16;
-		}
-		if ( 'doctors-posts' === $mode && $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) {
-			$score += 24;
 		}
 		if ( 'approved' !== PostMetadata::review_state( $post_id ) ) {
 			$score -= 1000;
