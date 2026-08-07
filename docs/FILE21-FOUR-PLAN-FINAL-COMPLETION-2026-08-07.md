@@ -37,3 +37,7 @@ This correction reconciles File 21 with the current consolidated central-plan go
 ## Release truth
 
 Repository coding, packaging and automated QA may be accepted only when all exact-head workflows are green. Hostinger staging acceptance, installed-companion integration, real browser/device visual acceptance, cache behavior, backup/restore and rollback rehearsal remain external acceptance gates. No merge or package evidence alone constitutes live or operational completion.
+
+## Exact-head QA retrigger
+
+This documentation-only touch records the corrected 1.0.4 harmonization-test expectation and intentionally retriggers the full exact-head workflow matrix before merge.
