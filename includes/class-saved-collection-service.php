@@ -148,7 +148,7 @@ final class SavedCollectionService {
 		if ( '' === $table ) { return array(); }
 		$limit = min( self::MAX_EXPORT_ITEMS * self::MAX_COLLECTIONS, max( 1, (int) $limit ) );
 		$sql = $wpdb->prepare( "SELECT post_id, collection_key, updated_at FROM `{$table}` WHERE user_id = %d AND status = %s ORDER BY updated_at DESC, id DESC LIMIT %d", $user_id, 'active', $limit );
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
+		$rows = $wpdb->get_results( $sql, 'ARRAY_A' );
 		return is_array( $rows ) ? $rows : array();
 	}
 

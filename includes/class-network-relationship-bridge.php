@@ -34,7 +34,7 @@ final class NetworkRelationshipBridge {
 
 	/** File 17 native relationship runtime is available. */
 	public static function native_available() {
-		return class_exists( 'SN_Relationships' ) && method_exists( 'SN_Relationships', 'state' );
+		return class_exists( 'SN_Relationships' ) && is_callable( array( 'SN_Relationships', 'state' ) );
 	}
 
 	/** Scope an otherwise ordinary WP_Query to File 21 Feed post filtering. */
@@ -76,7 +76,7 @@ final class NetworkRelationshipBridge {
 		}
 		$allowed = true;
 		if ( self::native_available() ) {
-			$state = \SN_Relationships::state( $viewer_id, $author_id );
+			$state = call_user_func( array( 'SN_Relationships', 'state' ), $viewer_id, $author_id );
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $state ) ) {
 				$allowed = false;
 			} elseif ( is_array( $state ) && ! empty( $state['blocked'] ) ) {
@@ -93,13 +93,13 @@ final class NetworkRelationshipBridge {
 		if ( $user_id <= 0 ) {
 			return array();
 		}
-		if ( self::native_available() && method_exists( 'SN_Relationships', 'lists' ) ) {
+		if ( self::native_available() && is_callable( array( 'SN_Relationships', 'lists' ) ) ) {
 			$ids = array();
 			$cursor = '';
 			$pages = 0;
 			while ( count( $ids ) < $limit && $pages < 4 ) {
 				$page_limit = min( 50, $limit - count( $ids ) );
-				$result = \SN_Relationships::lists( $user_id, 'following', $page_limit, $cursor );
+				$result = call_user_func( array( 'SN_Relationships', 'lists' ), $user_id, 'following', $page_limit, $cursor );
 				/* When File 17 is present it is authoritative: failures must not fall back to stale File 21 relationship data. */
 				if ( ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) || ! is_array( $result ) ) {
 					return array();
@@ -134,7 +134,7 @@ final class NetworkRelationshipBridge {
 		if ( ! self::native_available() || $target_user_id <= 0 || $viewer_user_id <= 0 || $viewer_user_id === $target_user_id ) {
 			return null;
 		}
-		$state = \SN_Relationships::state( $viewer_user_id, $target_user_id );
+		$state = call_user_func( array( 'SN_Relationships', 'state' ), $viewer_user_id, $target_user_id );
 		if ( function_exists( 'is_wp_error' ) && is_wp_error( $state ) ) {
 			return array( 'target_user_id' => $target_user_id, 'following' => false, 'count_visible' => false, 'follower_count' => 0, 'profile_url' => ProfileLinkResolver::url( $target_user_id ), 'blocked' => true );
 		}
@@ -155,23 +155,23 @@ final class NetworkRelationshipBridge {
 
 	/** Execute follow through File 17 when installed. */
 	public static function follow( $follower_id, $target_user_id ) {
-		if ( ! self::native_available() || ! method_exists( 'SN_Relationships', 'follow' ) ) {
+		if ( ! self::native_available() || ! is_callable( array( 'SN_Relationships', 'follow' ) ) ) {
 			return null;
 		}
-		return \SN_Relationships::follow( (int) $follower_id, (int) $target_user_id );
+		return call_user_func( array( 'SN_Relationships', 'follow' ), (int) $follower_id, (int) $target_user_id );
 	}
 
 	/** Execute unfollow through File 17 using its optimistic-version contract. */
 	public static function unfollow( $follower_id, $target_user_id ) {
-		if ( ! self::native_available() || ! method_exists( 'SN_Relationships', 'unfollow' ) ) {
+		if ( ! self::native_available() || ! is_callable( array( 'SN_Relationships', 'unfollow' ) ) ) {
 			return null;
 		}
-		$state = \SN_Relationships::state( (int) $follower_id, (int) $target_user_id );
+		$state = call_user_func( array( 'SN_Relationships', 'state' ), (int) $follower_id, (int) $target_user_id );
 		if ( function_exists( 'is_wp_error' ) && is_wp_error( $state ) ) {
 			return $state;
 		}
 		$version = is_array( $state ) && isset( $state['follow']['version'] ) ? (int) $state['follow']['version'] : 0;
-		return \SN_Relationships::unfollow( (int) $follower_id, (int) $target_user_id, $version );
+		return call_user_func( array( 'SN_Relationships', 'unfollow' ), (int) $follower_id, (int) $target_user_id, $version );
 	}
 
 	/** Canonical relationship changes invalidate all File 21 Feed caches. */
