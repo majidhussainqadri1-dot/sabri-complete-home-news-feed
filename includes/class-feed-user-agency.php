@@ -57,16 +57,14 @@ final class FeedUserAgency {
 		return ! empty( $prefs['reduced_personalization'] );
 	}
 
-	/** A stable private cache fragment so preference changes cannot reuse stale Feed output. */
+	/** Stable private cache fragment for explicit preferences and canonical follows. */
 	public static function cache_fragment( $user_id = 0 ) {
 		$user_id = self::current_user_id( $user_id );
 		if ( $user_id <= 0 ) {
 			return 'guest';
 		}
 		$prefs = self::preferences( $user_id );
-		$following = Phase3FeatureSettings::enabled( 'follows_enabled' )
-			? InteractionQueryRepository::following_user_ids( $user_id, FollowService::TARGET_TYPE, self::MAX_FOLLOWING_AUTHORS )
-			: array();
+		$following = NetworkRelationshipBridge::following_user_ids( $user_id, self::MAX_FOLLOWING_AUTHORS );
 		$payload = function_exists( 'wp_json_encode' ) ? wp_json_encode( array( $prefs, $following ) ) : json_encode( array( $prefs, $following ) );
 		return hash( 'sha256', (string) $payload );
 	}
@@ -74,14 +72,12 @@ final class FeedUserAgency {
 	/** Apply private hide/mute/snooze and Following constraints before query execution. */
 	public static function filter_query_args( $args, $mode, $user_id, $settings ) {
 		$args = is_array( $args ) ? $args : array();
-		$mode = function_exists( 'sanitize_key' ) ? sanitize_key( $mode ) : (string) $mode;
+		$mode = self::clean_key( $mode );
 		$user_id = self::current_user_id( $user_id );
 		unset( $settings );
 
 		if ( 'following' === $mode ) {
-			$following = $user_id > 0 && Phase3FeatureSettings::enabled( 'follows_enabled' )
-				? InteractionQueryRepository::following_user_ids( $user_id, FollowService::TARGET_TYPE, self::MAX_FOLLOWING_AUTHORS )
-				: array();
+			$following = $user_id > 0 ? NetworkRelationshipBridge::following_user_ids( $user_id, self::MAX_FOLLOWING_AUTHORS ) : array();
 			$args['author__in'] = $following ? array_values( array_unique( array_map( 'absint', $following ) ) ) : array( 0 );
 		}
 
@@ -104,13 +100,12 @@ final class FeedUserAgency {
 		}
 
 		$muted_topics = array_merge( $prefs['muted_topics'], self::active_snoozed_keys( $prefs['snoozed_topics'] ) );
-		$muted_topics = array_values( array_unique( array_filter( array_map( 'sanitize_key', $muted_topics ) ) ) );
+		$muted_topics = array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $muted_topics ) ) ) );
 		if ( $muted_topics ) {
 			$tax_query = isset( $args['tax_query'] ) && is_array( $args['tax_query'] ) ? $args['tax_query'] : array();
 			$tax_query[] = array(
 				'taxonomy' => 'sabri_feed_topic',
 				'field'    => 'slug',
-				'tterms'   => $muted_topics,
 				'terms'    => $muted_topics,
 				'operator' => 'NOT IN',
 			);
@@ -135,7 +130,7 @@ final class FeedUserAgency {
 			return InteractionResult::error( 'feed_preferences_unavailable', 'Feed preferences are temporarily unavailable.', array(), 503 );
 		}
 
-		$action = function_exists( 'sanitize_key' ) ? sanitize_key( $action ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $action ) );
+		$action = self::clean_key( $action );
 		$prefs = self::preferences( $user_id );
 		$now = time();
 		$duration = self::duration( $duration );
@@ -183,7 +178,7 @@ final class FeedUserAgency {
 			case 'mute-topic':
 			case 'unmute-topic':
 			case 'snooze-topic':
-				$topic = function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+				$topic = self::clean_key( $value );
 				if ( '' === $topic ) {
 					return InteractionResult::error( 'topic_unavailable', 'The selected topic is unavailable.', array(), 400 );
 				}
@@ -203,15 +198,23 @@ final class FeedUserAgency {
 		}
 
 		$prefs = self::normalize( $prefs );
-		if ( ! function_exists( 'update_user_meta' ) || false === update_user_meta( $user_id, self::META_KEY, $prefs ) ) {
-			return InteractionResult::error( 'feed_preference_save_failed', 'The feed preference could not be saved.', array(), 500 );
+		if ( ! function_exists( 'update_user_meta' ) ) {
+			return InteractionResult::error( 'feed_preference_save_failed', 'The feed preference store is unavailable.', array(), 503 );
+		}
+		$updated = update_user_meta( $user_id, self::META_KEY, $prefs );
+		if ( false === $updated ) {
+			$persisted = function_exists( 'get_user_meta' ) ? get_user_meta( $user_id, self::META_KEY, true ) : array();
+			$persisted = self::normalize( is_array( $persisted ) ? $persisted : array() );
+			if ( $persisted !== $prefs ) {
+				return InteractionResult::error( 'feed_preference_save_failed', 'The feed preference could not be saved.', array(), 500 );
+			}
 		}
 		FeedQuery::invalidate_cache();
 		AuditLog::record( 'feed_preference_updated', $audit, 'user', $user_id );
 		return InteractionResult::success( 'feed_preference_updated', array( 'preferences' => $prefs ), 'Feed preference updated.', 200 );
 	}
 
-	/** Per-card user-agency controls; relationship Block/Mute stays owned by File 17. */
+	/** Per-card user-agency controls; relationship Block/Restrict remains File 17-owned. */
 	public static function card_controls( $post_id ) {
 		$user_id = self::current_user_id();
 		$post_id = self::positive_id( $post_id );
@@ -235,7 +238,7 @@ final class FeedUserAgency {
 
 	/** Global agency controls rendered beside, not inside, the canonical 14-control bar. */
 	public static function global_controls( $active_mode ) {
-		$active_mode = function_exists( 'sanitize_key' ) ? sanitize_key( $active_mode ) : (string) $active_mode;
+		$active_mode = self::clean_key( $active_mode );
 		$user_id = self::current_user_id();
 		$nonce = $user_id > 0 && function_exists( 'wp_create_nonce' ) ? wp_create_nonce( InteractionPermissions::REST_NONCE_ACTION ) : '';
 		$endpoint = function_exists( 'rest_url' ) ? rest_url( RestFoundation::NAMESPACE . '/feed/preferences' ) : '';
@@ -261,7 +264,7 @@ final class FeedUserAgency {
 
 	/** Explain ranking without claiming hidden inference or File 26 ownership. */
 	public static function why_text( $mode, $user_id = 0 ) {
-		$mode = function_exists( 'sanitize_key' ) ? sanitize_key( $mode ) : (string) $mode;
+		$mode = self::clean_key( $mode );
 		if ( 'latest' === $mode ) {
 			return __( 'Latest shows eligible approved publications in chronological order after safety and visibility checks.', 'sabri-complete-home-news-feed' );
 		}
@@ -283,7 +286,7 @@ final class FeedUserAgency {
 		$out['reduced_personalization'] = ! empty( $prefs['reduced_personalization'] ) ? 1 : 0;
 		$out['hidden_posts'] = array_slice( array_values( array_unique( array_filter( array_map( 'absint', isset( $prefs['hidden_posts'] ) && is_array( $prefs['hidden_posts'] ) ? $prefs['hidden_posts'] : array() ) ) ) ), 0, self::MAX_HIDDEN_POSTS );
 		$out['muted_authors'] = array_slice( array_values( array_unique( array_filter( array_map( 'absint', isset( $prefs['muted_authors'] ) && is_array( $prefs['muted_authors'] ) ? $prefs['muted_authors'] : array() ) ) ) ), 0, self::MAX_MUTED_AUTHORS );
-		$out['muted_topics'] = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_key', isset( $prefs['muted_topics'] ) && is_array( $prefs['muted_topics'] ) ? $prefs['muted_topics'] : array() ) ) ) ), 0, self::MAX_MUTED_TOPICS );
+		$out['muted_topics'] = array_slice( array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), isset( $prefs['muted_topics'] ) && is_array( $prefs['muted_topics'] ) ? $prefs['muted_topics'] : array() ) ) ) ), 0, self::MAX_MUTED_TOPICS );
 		$out['snoozed_authors'] = self::normalize_snoozes( isset( $prefs['snoozed_authors'] ) && is_array( $prefs['snoozed_authors'] ) ? $prefs['snoozed_authors'] : array(), true );
 		$out['snoozed_topics'] = self::normalize_snoozes( isset( $prefs['snoozed_topics'] ) && is_array( $prefs['snoozed_topics'] ) ? $prefs['snoozed_topics'] : array(), false );
 		return $out;
@@ -293,7 +296,7 @@ final class FeedUserAgency {
 		$now = time();
 		$out = array();
 		foreach ( $values as $key => $expiry ) {
-			$clean = $numeric ? (string) self::positive_id( $key ) : ( function_exists( 'sanitize_key' ) ? sanitize_key( $key ) : (string) $key );
+			$clean = $numeric ? (string) self::positive_id( $key ) : self::clean_key( $key );
 			$expiry = is_numeric( $expiry ) ? (int) $expiry : 0;
 			if ( '' !== $clean && '0' !== $clean && $expiry > $now ) {
 				$out[ $clean ] = $expiry;
@@ -317,7 +320,7 @@ final class FeedUserAgency {
 	}
 
 	private static function append_bounded_key( array $values, $key, $limit ) {
-		$values[] = function_exists( 'sanitize_key' ) ? sanitize_key( $key ) : (string) $key;
+		$values[] = self::clean_key( $key );
 		$values = array_values( array_unique( array_filter( $values ) ) );
 		return array_slice( $values, -1 * max( 1, (int) $limit ) );
 	}
@@ -331,7 +334,7 @@ final class FeedUserAgency {
 			return '';
 		}
 		$term = reset( $terms );
-		return is_object( $term ) && isset( $term->slug ) ? sanitize_key( $term->slug ) : '';
+		return is_object( $term ) && isset( $term->slug ) ? self::clean_key( $term->slug ) : '';
 	}
 
 	private static function mode_link( $mode, $label, $active_mode ) {
@@ -345,7 +348,7 @@ final class FeedUserAgency {
 
 	private static function feed_url( $mode ) {
 		$base = function_exists( 'home_url' ) ? home_url( '/' ) : '/';
-		return function_exists( 'add_query_arg' ) ? add_query_arg( array( 'sabri_feed_mode' => sanitize_key( $mode ), 'sabri_feed_page' => 1 ), $base ) : $base;
+		return function_exists( 'add_query_arg' ) ? add_query_arg( array( 'sabri_feed_mode' => self::clean_key( $mode ), 'sabri_feed_page' => 1 ), $base ) : $base;
 	}
 
 	private static function duration( $value ) {
@@ -365,6 +368,10 @@ final class FeedUserAgency {
 			return $current > 0 && $requested === $current ? $current : 0;
 		}
 		return $current;
+	}
+
+	private static function clean_key( $value ) {
+		return function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
 	}
 
 	private static function positive_id( $value ) {
