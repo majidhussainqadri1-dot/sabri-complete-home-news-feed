@@ -46,14 +46,16 @@ final class HomeCompositionRegistry {
 			'clinics'              => array( 'label' => __( 'Clinics', 'sabri-complete-home-news-feed' ), 'kind' => 'module', 'module' => 'appointments', 'path' => '/worldwide-clinic/' ),
 			'marketplace'          => array( 'label' => __( 'Marketplace', 'sabri-complete-home-news-feed' ), 'kind' => 'module', 'module' => 'marketplace', 'path' => '/marketplace/' ),
 		);
-		return function_exists( 'apply_filters' ) ? (array) apply_filters( 'sabri_hnf_home_control_items', $items ) : $items;
+		/* The governing Home bar is frozen at exactly these fourteen controls. */
+		return $items;
 	}
 
 	/** Render the complete control bar without passing module links into FeedQuery. */
 	public static function render_control_bar( $active_mode ) {
 		$active_mode = function_exists( 'sanitize_key' ) ? sanitize_key( $active_mode ) : (string) $active_mode;
-		$html = '<nav class="sabri-hnf-filter sabri-hnf-home-control" aria-label="' . esc_attr__( 'Home content filters', 'sabri-complete-home-news-feed' ) . '"><ul>';
-		foreach ( self::control_items() as $key => $item ) {
+		$items = self::control_items();
+		$html = '<nav class="sabri-hnf-filter sabri-hnf-home-control" aria-label="' . esc_attr__( 'Home content filters', 'sabri-complete-home-news-feed' ) . '" data-sabri-home-control-count="14"><ul>';
+		foreach ( $items as $key => $item ) {
 			$key = sanitize_key( $key );
 			if ( empty( $item['label'] ) ) { continue; }
 			$kind = isset( $item['kind'] ) ? $item['kind'] : '';

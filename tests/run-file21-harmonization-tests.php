@@ -31,13 +31,13 @@ foreach ( array(
 }
 
 $bootstrap = file_get_contents( $root . '/sabri-complete-home-news-feed.php' );
-foreach ( array( 'Version: 1.0.5', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );", "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
-	$assert( false !== strpos( $bootstrap, $needle ), 'Complete File 21 1.0.5 package / 1.0.3 runtime bootstrap contract missing: ' . $needle );
+foreach ( array( 'Version: 1.0.6', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.6' );", "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
+	$assert( false !== strpos( $bootstrap, $needle ), 'Complete File 21 1.0.6 package / 1.0.3 runtime bootstrap contract missing: ' . $needle );
 }
 
 $plugin = file_get_contents( $root . '/includes/class-plugin.php' );
 foreach ( array(
-	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class,
+	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class',
 	'SearchProviderRegistry::class', 'ViralRankingSignals::class', 'NetworkRelationshipBridge::class', 'FeedUserAgency::class',
 	'SavedCollectionService::class', 'CommentExperience::class', 'HomeCompositionRegistry::class',
 	'LegacyInteractionMigrationAdapter::class', 'LegacyPublicationMigration::class', 'LegacyPublicationRollback::class',

@@ -10,7 +10,7 @@ on:
       - 'includes/class-feed-user-agency.php'
       - 'tests/run-file21-file26-connector-contract-tests.php'
       - 'tests/run-file21-four-plan-final-completion-tests.php'
-      - 'tests/run-file21-four-plan-audit-1.0.5.php'
+      - 'tests/run-file21-four-plan-audit-1.0.6.php'
       - '.github/workflows/file21-file26-real-contract.yml'
   push:
     branches:
@@ -58,7 +58,9 @@ jobs:
           php -l file21/includes/class-feed-ranking.php
           php -l file21/includes/class-feed-user-agency.php
           php -l file21/tests/run-file21-file26-connector-contract-tests.php
-          php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
+          php -l file21/tests/run-file21-network-relationship-bridge-tests.php
+          php -l file21/tests/run-file21-forty-round-review-tests.php
+          php -l file21/tests/run-file21-four-plan-audit-1.0.6.php
           php -l file26/file-26-search-discovery.php
           php -l file26/includes/class-file26-connectors.php
           php -l file26/includes/class-file26-indexer.php
@@ -101,7 +103,9 @@ jobs:
           grep -Fq 'no Founder favoritism' file21/includes/class-feed-ranking.php
           ! grep -Fq 'is_founder( $author_id )' file21/includes/class-feed-ranking.php
           php file21/tests/run-file21-file26-connector-contract-tests.php
-          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-network-relationship-bridge-tests.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-forty-round-review-tests.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.6.php
 
       - name: Record exact compatibility evidence
         shell: bash

@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.0.6 — Forty-Round Sequential Corrective Review — 2026-08-07
+
+- Completed forty sequential review/fix cycles against the governing central plans and File 21 specification; every defect-bearing round was corrected before the next round.
+- Corrected a post-merge PHP syntax defect that caused PHP 8.1/8.3 exact-head CI to fail at lint.
+- Hardened File 17 relationship consumption with cursor pagination and fail-closed canonical-owner semantics.
+- Corrected stale release/contract tests and documentation drift discovered by fresh regressions.
+- Removed string-built `innerHTML` from the Newsroom media preview and now construct the preview DOM safely.
+- Added an executable forty-round review contract and ledger.
+- Package identity advances to `1.0.6`; runtime/API remains `1.0.3` and schema remains `1.0.0`.
+- Staging, live deployment and operational acceptance remain separate external gates.
+
+## 1.0.5 — Four-Plan Current-Wave Reconciliation — 2026-08-07
+
+- Preserved the exact fourteen canonical Home controls and ten truthful provider-backed Home rows while adding Following as an auxiliary user-choice Feed mode.
+- Added explainable Feed agency: Why am I seeing this, reduced personalization, Not interested, author/topic snooze or reduction, and reset controls.
+- Consumed File 17 canonical relationship/block state without direct File 17 storage writes and disabled authenticated Feed transient caching to avoid stale viewer-specific privacy state.
+- Added saved collections/folders with private notes, tags and bounded export on the existing File 21 saves truth, plus deterministic Oldest/Newest comments, visible-parent context and textual mentions.
+- Removed Founder/donor/payment/paid-promotion organic ranking advantages while preserving File 26 as canonical global Search/Discovery/Recommendations/Ranking owner.
+- Enforced current green presentation and 44px accessibility/keyboard/reduced-motion/forced-colors safeguards.
+- Added executable four-plan current-wave regression gates and deterministic package identity 1.0.5; runtime/API remains 1.0.3 and schema remains 1.0.0.
+- Hostinger staging, installed-companion acceptance, backup/restore, rollback rehearsal, live deployment and operational acceptance remain external gates.
+
 ## 1.0.4 — Final Governing-Plan and Cross-Owner Reconciliation — 2026-08-07
 
 - Corrected the File 21 → File 22 creation gateway so File 22 performs only a coarse authenticated prefilter while File 21 native `can_create()` remains the final File 00-aware authorization owner.

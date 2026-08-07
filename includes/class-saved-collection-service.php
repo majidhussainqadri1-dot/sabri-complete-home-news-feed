@@ -147,8 +147,10 @@ final class SavedCollectionService {
 		$table = InteractionRepository::table_name( 'saves' );
 		if ( '' === $table ) { return array(); }
 		$limit = min( self::MAX_EXPORT_ITEMS * self::MAX_COLLECTIONS, max( 1, (int) $limit ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- $table is the plugin-owned canonical saves table; all value inputs are prepared below.
 		$sql = $wpdb->prepare( "SELECT post_id, collection_key, updated_at FROM `{$table}` WHERE user_id = %d AND status = %s ORDER BY updated_at DESC, id DESC LIMIT %d", $user_id, 'active', $limit );
-		$rows = $wpdb->get_results( $sql, ARRAY_A );
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql is prepared immediately above.
+		$rows = $wpdb->get_results( $sql, 'ARRAY_A' );
 		return is_array( $rows ) ? $rows : array();
 	}
 

@@ -14,7 +14,7 @@ permissions:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE
 
 jobs:
   build-test:
@@ -71,7 +71,9 @@ jobs:
             tests/run-file21-file23-provider-integration-tests.php
             tests/run-file21-file26-connector-contract-tests.php
             tests/run-file21-four-plan-final-completion-tests.php
-            tests/run-file21-four-plan-audit-1.0.5.php
+            tests/run-file21-network-relationship-bridge-tests.php
+            tests/run-file21-forty-round-review-tests.php
+            tests/run-file21-four-plan-audit-1.0.6.php
           )
           : > exact-head-regression.log
           php tools/run-tests.php 2>&1 | tee -a exact-head-regression.log
@@ -139,10 +141,10 @@ jobs:
         with:
           name: file21-canonical-candidate-${{ env.TEST_SHA }}
           path: |
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
             exact-head-regression.log
             package-entries.txt
           if-no-files-found: warn

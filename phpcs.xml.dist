@@ -25,4 +25,8 @@
   <file>includes/class-universal-composer-workflow-adapter.php</file>
   <file>includes/class-universal-composer-publication-adapter.php</file>
   <file>includes/class-universal-composer-subject-schema-adapter.php</file>
+  <file>includes/class-network-relationship-bridge.php</file>
+  <file>includes/class-feed-user-agency.php</file>
+  <file>includes/class-saved-collection-service.php</file>
+  <file>includes/class-comment-experience.php</file>
 </ruleset>

@@ -334,7 +334,7 @@ final class FeedUserAgency {
 			return '';
 		}
 		$term = reset( $terms );
-		return is_object( $term ) && isset( $term->slug ) ? self::clean_key( $term->slug ) : '';
+		return is_object( $term ) ? self::clean_key( (string) $term->slug ) : '';
 	}
 
 	private static function mode_link( $mode, $label, $active_mode ) {

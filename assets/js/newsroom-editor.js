@@ -22,6 +22,22 @@
 		var initialWorkflowState = initialStateInput ? initialStateInput.value : ( workflowTarget ? workflowTarget.value : '' );
 		var frame;
 
+		function replacePreviewImage( url ) {
+			if ( ! preview ) {
+				return;
+			}
+			while ( preview.firstChild ) {
+				preview.removeChild( preview.firstChild );
+			}
+			if ( ! url ) {
+				return;
+			}
+			var image = document.createElement( 'img' );
+			image.src = String( url );
+			image.alt = '';
+			preview.appendChild( image );
+		}
+
 		if ( selectButton && imageInput && preview && window.wp && window.wp.media ) {
 			selectButton.addEventListener( 'click', function () {
 				if ( frame ) {
@@ -37,7 +53,8 @@
 				frame.on( 'select', function () {
 					var attachment = frame.state().get( 'selection' ).first().toJSON();
 					imageInput.value = String( attachment.id || 0 );
-					preview.innerHTML = attachment.sizes && attachment.sizes.medium ? '<img src="' + attachment.sizes.medium.url + '" alt="" />' : '<img src="' + attachment.url + '" alt="" />';
+					var previewUrl = attachment.sizes && attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
+					replacePreviewImage( previewUrl );
 				} );
 				frame.open();
 			} );
@@ -46,7 +63,7 @@
 		if ( removeButton && imageInput && preview ) {
 			removeButton.addEventListener( 'click', function () {
 				imageInput.value = '0';
-				preview.innerHTML = '';
+				replacePreviewImage( '' );
 			} );
 		}
 

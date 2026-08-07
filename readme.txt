@@ -4,7 +4,7 @@ Tags: home feed, editorial news, profile timeline, moderation, homeopathy
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.4
+Stable tag: 1.0.6
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
@@ -12,11 +12,11 @@ Canonical public Home, social Feed, Editorial News, publication lifecycle, safet
 
 == Description ==
 
-Package 1.0.4 is the current governing-plan reconciliation release. Stable File 21 runtime/API remains 1.0.3 and schema remains 1.0.0.
+Package 1.0.6 is the current forty-round sequential corrective-review release. Stable File 21 runtime/API remains 1.0.3 and schema remains 1.0.0.
 
 File 21 remains the canonical owner of Home, social posts, Editorial News, publication lifecycle and native interactions. File 20 owns the application shell, File 22 the role-aware creation facade, File 23 the publishing workspace/dashboard, File 25 the global visual system and File 26 the canonical federated Search/Discovery/Recommendations/Ranking layer.
 
-Package 1.0.4 adds the final cross-owner corrections:
+Package 1.0.6 preserves the 1.0.4 cross-owner corrections and adds the current four-plan user-agency, relationship, privacy, accessibility and release-truth corrections:
 
 * File 22 uses only a coarse authenticated registry gate; native File 21 can_create() remains the final authorization boundary with File 00 subject-state and current-session checks.
 * File 23 receives bounded inventory, workspace, review and calendar projections while direct File 23 writes remain fail-closed.
@@ -35,8 +35,8 @@ Editorial News gates remain disabled until an authorized administrator completes
 == Installation ==
 
 1. Take a verified files-and-database backup.
-2. Install the exact package 1.0.4 candidate on Hostinger staging first.
-3. Confirm that WordPress displays Version 1.0.4.
+2. Install the exact package 1.0.6 candidate on Hostinger staging first.
+3. Confirm that WordPress displays Version 1.0.6.
 4. If Safe Boot is recorded, select Retry Safe Boot after replacement.
 5. Visit one WordPress administration page so bounded File 21 capability reconciliation runs.
 6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, File 22 workflow health, File 23 provider health and File 26 connector registration.
@@ -52,6 +52,18 @@ Public GET requests do not perform recovery migrations or post-meta normalizatio
 Donation/payment status does not create an undisclosed organic ranking advantage or reduce core access. File 21 does not create a second global search backend, Shell, Composer, Publishing Dashboard or visual design system.
 
 == Changelog ==
+
+= 1.0.6 =
+* Completed forty sequential review/fix cycles with correction before every subsequent round.
+* Corrected post-merge PHP lint failure, File 17 pagination/fail-closed semantics, stale release tests/docs and Newsroom preview DOM construction.
+* Added executable forty-round review evidence.
+* Runtime/API remains 1.0.3 and schema 1.0.0; staging/live/operational acceptance remain separate gates.
+
+= 1.0.5 =
+* Completed the current four-plan reconciliation for Home/Feed: green identity, Founder/donor/payment-neutral organic ranking, Following/Latest/For You user choice, explanations, reduced personalization, Not Interested, snooze/mute and reset controls.
+* Added File 17 relationship/block consumption without foreign storage writes, authenticated Feed no-store behavior, saved collections with private notes/tags/export, deterministic comment sorting/context, and 44px accessibility safeguards.
+* Preserved File 26 as canonical global Search/Discovery/Ranking owner and File 23 direct writes as fail-closed.
+* Package 1.0.6 preserves runtime/API 1.0.3 and schema 1.0.0; Hostinger staging/live/operational acceptance remain separate external gates.
 
 = 1.0.4 =
 * Corrected the File 22 Founder/Administrator creation gateway while preserving File 21 native final authorization.

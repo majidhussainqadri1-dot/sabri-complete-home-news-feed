@@ -51,7 +51,9 @@ jobs:
           php tests/run-file21-file22-founder-gateway-regression.php
           php tests/run-file21-file26-connector-contract-tests.php
           php tests/run-file21-four-plan-final-completion-tests.php
-          php tests/run-file21-four-plan-audit-1.0.5.php
+          php tests/run-file21-network-relationship-bridge-tests.php
+          php tests/run-file21-forty-round-review-tests.php
+          php tests/run-file21-four-plan-audit-1.0.6.php
 
   mandatory-ten-browser-suites:
     name: Mandatory ten Playground and Playwright suites
@@ -84,7 +86,7 @@ jobs:
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
           set -euo pipefail
-          package="release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip"
+          package="release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip"
           test -f "$package"
           export SABRI_PLUGIN_ZIP="$package"
           suites=(

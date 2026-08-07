@@ -82,7 +82,7 @@ final class CommentExperience {
 	private static function mention_tokens( $content ) {
 		$matches = array();
 		preg_match_all( '/(?:^|\s)@([A-Za-z0-9._-]{2,60})/u', (string) $content, $matches );
-		$tokens = isset( $matches[1] ) && is_array( $matches[1] ) ? $matches[1] : array();
+		$tokens = is_array( $matches[1] ) ? $matches[1] : array();
 		$tokens = array_map( 'strtolower', $tokens );
 		return array_slice( array_values( array_unique( array_filter( $tokens ) ) ), 0, 20 );
 	}

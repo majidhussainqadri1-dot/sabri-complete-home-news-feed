@@ -55,12 +55,13 @@ if ( false !== $registry ) {
 	);
 }
 
-foreach ( array( 'donation', 'donor', 'premium', 'advertising spend', 'paid promotion', 'payment' ) as $forbidden ) {
+foreach ( array( 'donation_score', 'donor_score', 'premium_score', 'advertising_spend', 'paid_promotion_score', 'payment_score', 'founder_priority' ) as $forbidden_signal ) {
 	$assert(
-		false === stripos( (string) $feed_ranking . "\n" . (string) $viral, $forbidden ),
-		'File 21 organic feed ranking must not use commercial/donor advantage signal: ' . $forbidden
+		false === stripos( (string) $feed_ranking . "\n" . (string) $viral, $forbidden_signal ),
+		'File 21 organic feed ranking must not implement a commercial/donor/founder advantage signal: ' . $forbidden_signal
 	);
 }
+$assert( false !== stripos( (string) $feed_ranking, 'no Founder favoritism, donation, payment, paid promotion or purchased-engagement boost' ), 'Ranking guardrail must explicitly document that commercial/donor/Founder advantages are excluded.' );
 
 if ( false !== $feed_css ) {
 	$assert( false === stripos( $feed_css, '#ff8a1f' ), 'Superseded orange primary token must not return in File 21 public feed CSS.' );

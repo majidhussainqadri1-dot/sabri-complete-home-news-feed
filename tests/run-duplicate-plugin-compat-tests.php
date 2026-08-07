@@ -18,7 +18,13 @@ $sabri_duplicate_options          = array();
 
 function plugin_dir_path( $file ) { return dirname( $file ) . '/'; }
 function plugin_dir_url( $file ) { return 'https://example.test/' . basename( dirname( $file ) ) . '/'; }
-function plugin_basename( $file ) { return basename( dirname( $file ) ) . '/' . basename( $file ); }
+function plugin_basename( $file ) {
+	$file = str_replace( '\\', '/', (string) $file );
+	if ( substr( $file, -strlen( '/sabri-complete-home-news-feed.php' ) ) === '/sabri-complete-home-news-feed.php' && false === strpos( $file, '/legacy-sabri-feed/' ) ) {
+		return 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php';
+	}
+	return basename( dirname( $file ) ) . '/' . basename( $file );
+}
 function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 	global $sabri_duplicate_actions;
 	$sabri_duplicate_actions[] = compact( 'hook', 'callback', 'priority', 'accepted_args' );
@@ -36,10 +42,12 @@ function get_plugins() {
 		'legacy-sabri-feed/sabri-complete-home-news-feed.php' => array(
 			'Name'       => 'Sabri Complete Home and News Feed',
 			'TextDomain' => 'sabri-complete-home-news-feed',
+			'Version'    => '1.0.0',
 		),
 		'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php' => array(
 			'Name'       => 'Sabri Complete Home and News Feed',
 			'TextDomain' => 'sabri-complete-home-news-feed',
+			'Version'    => '1.0.5',
 		),
 	);
 }

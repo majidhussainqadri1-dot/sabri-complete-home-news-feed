@@ -1,4 +1,4 @@
-name: File 21 1.0.5 Authorization and Cross-Owner Integrity
+name: File 21 1.0.6 Authorization and Cross-Owner Integrity
 
 on:
   pull_request:
@@ -40,7 +40,9 @@ jobs:
           php tests/run-file21-file23-provider-integration-tests.php
           php tests/run-file21-file26-connector-contract-tests.php
           php tests/run-file21-four-plan-final-completion-tests.php
-          php tests/run-file21-four-plan-audit-1.0.5.php
+          php tests/run-file21-network-relationship-bridge-tests.php
+          php tests/run-file21-forty-round-review-tests.php
+          php tests/run-file21-four-plan-audit-1.0.6.php
 
   package-and-boundaries:
     name: Static boundaries and deterministic package
@@ -58,8 +60,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq '* Version: 1.0.5' sabri-complete-home-news-feed.php
-          grep -Fq "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );" sabri-complete-home-news-feed.php
+          grep -Fq '* Version: 1.0.6' sabri-complete-home-news-feed.php
+          grep -Fq "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.6' );" sabri-complete-home-news-feed.php
           grep -Fq "define( 'SABRI_HNF_VERSION', '1.0.3' );" sabri-complete-home-news-feed.php
           grep -Fq "const MINIMUM_CONTRACT_VERSION = '1.1.2';" includes/class-canonical-identity-adapter.php
           grep -Fq "SMC_Contracts::assertions" includes/class-canonical-identity-adapter.php
@@ -82,7 +84,9 @@ jobs:
           php tests/run-file21-file23-provider-integration-tests.php
           php tests/run-file21-file26-connector-contract-tests.php
           php tests/run-file21-four-plan-final-completion-tests.php
-          php tests/run-file21-four-plan-audit-1.0.5.php
+          php tests/run-file21-network-relationship-bridge-tests.php
+          php tests/run-file21-forty-round-review-tests.php
+          php tests/run-file21-four-plan-audit-1.0.6.php
 
       - name: Build deterministic installable ZIP with embedded manifest
         shell: bash
@@ -94,26 +98,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base='21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE'
+          base='21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE'
           (cd release && sha256sum -c "${base}.sha256")
           unzip -t "release/${base}.zip"
-          rm -rf /tmp/file21-105
-          mkdir -p /tmp/file21-105
-          unzip -q "release/${base}.zip" -d /tmp/file21-105
-          (cd /tmp/file21-105/sabri-complete-home-news-feed && sha256sum -c MANIFEST.sha256)
-          grep -Fq '* Version: 1.0.5' /tmp/file21-105/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php
+          rm -rf /tmp/file21-106
+          mkdir -p /tmp/file21-106
+          unzip -q "release/${base}.zip" -d /tmp/file21-106
+          (cd /tmp/file21-106/sabri-complete-home-news-feed && sha256sum -c MANIFEST.sha256)
+          grep -Fq '* Version: 1.0.6' /tmp/file21-106/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php
           grep -Fq 'class-file23-publishing-dashboard-adapter-runtime.php' <(unzip -Z1 "release/${base}.zip")
           grep -Fq 'class-search-provider-registry.php' <(unzip -Z1 "release/${base}.zip")
           grep -Fq 'class-network-relationship-bridge.php' <(unzip -Z1 "release/${base}.zip")
           grep -Fq 'class-feed-user-agency.php' <(unzip -Z1 "release/${base}.zip")
           grep -Fq 'class-saved-collection-service.php' <(unzip -Z1 "release/${base}.zip")
-          php /tmp/file21-105/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php >/dev/null 2>&1 || test $? -eq 0
+          php /tmp/file21-106/sabri-complete-home-news-feed/sabri-complete-home-news-feed.php >/dev/null 2>&1 || test $? -eq 0
 
       - name: Write exact-head evidence
         shell: bash
         run: |
-          cat > release/FILE-21-1.0.5-CROSS-OWNER-TEST-REPORT.md <<REPORT
-          # File 21 1.0.5 Cross-Owner Corrective Evidence
+          cat > release/FILE-21-1.0.6-CROSS-OWNER-TEST-REPORT.md <<REPORT
+          # File 21 1.0.6 Cross-Owner Corrective Evidence
 
           - Exact workflow SHA: ${{ github.sha }}
           - PHP 8.1 syntax and authority regression: PASS
@@ -134,12 +138,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: file21-1.0.5-cross-owner-${{ github.sha }}
+          name: file21-1.0.6-cross-owner-${{ github.sha }}
           retention-days: 60
           if-no-files-found: error
           path: |
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
-            release/FILE-21-1.0.5-CROSS-OWNER-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+            release/FILE-21-1.0.6-CROSS-OWNER-TEST-REPORT.md
