@@ -7,7 +7,7 @@ on:
       - 'templates/**'
       - 'assets/**'
       - 'tests/run-file21-file22-*.php'
-      - 'tests/run-file21-four-plan-audit-1.0.5.php'
+      - 'tests/run-file21-four-plan-audit-1.0.6.php'
       - '.github/workflows/file21-file22-real-contract.yml'
   workflow_dispatch:
 
@@ -60,7 +60,9 @@ jobs:
           php -l file21/tests/run-file21-file22-maintenance-tests.php
           php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
           php -l file21/tests/run-file21-file22-founder-gateway-regression.php
-          php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
+          php -l file21/tests/run-file21-network-relationship-bridge-tests.php
+          php -l file21/tests/run-file21-forty-round-review-tests.php
+          php -l file21/tests/run-file21-four-plan-audit-1.0.6.php
 
       - name: Run actual File 22 Coordinator with File 21 adapter
         shell: bash
@@ -75,7 +77,9 @@ jobs:
         run: |
           set -euo pipefail
           FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-file22-founder-gateway-regression.php
-          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-network-relationship-bridge-tests.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-forty-round-review-tests.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.6.php
 
       - name: Run bounded retention and maintenance tests
         shell: bash
