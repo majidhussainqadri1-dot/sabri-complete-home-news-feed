@@ -11,6 +11,10 @@ parameters:
     - includes/class-universal-composer-workflow-adapter.php
     - includes/class-universal-composer-publication-adapter.php
     - includes/class-universal-composer-subject-schema-adapter.php
+    - includes/class-network-relationship-bridge.php
+    - includes/class-feed-user-agency.php
+    - includes/class-saved-collection-service.php
+    - includes/class-comment-experience.php
   scanDirectories:
     - includes
   scanFiles:

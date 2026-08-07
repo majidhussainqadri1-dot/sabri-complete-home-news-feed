@@ -1,5 +1,5 @@
 <?php
-/** File 21 1.0.5 four-plan current-wave completion audit. */
+/** File 21 1.0.6 four-plan current-wave completion audit. */
 
 $root = getenv( 'FILE21_ROOT' );
 $root = $root ? rtrim( $root, '/\\' ) : dirname( __DIR__ );
@@ -27,8 +27,8 @@ foreach ( array(
 
 $bootstrap = $read( 'sabri-complete-home-news-feed.php' );
 foreach ( array(
-	'* Version: 1.0.5',
-	"define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );",
+	'* Version: 1.0.6',
+	"define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.6' );",
 	"define( 'SABRI_HNF_VERSION', '1.0.3' );",
 	"define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );",
 ) as $needle ) {
@@ -117,11 +117,13 @@ foreach ( array( 'FILE26_CONNECTOR_SLUG', "'status' => 'proposed'", "'global_sea
 $assert( false === strpos( $search, "'status' => 'active'" ), 'File 21 must not self-activate its File 26 connector.' );
 
 $file23 = $read( 'includes/class-file23-publishing-dashboard-bridge.php' );
+$file23_runtime = $read( 'includes/class-file23-publishing-dashboard-adapter-runtime.php' );
 $assert( false !== strpos( $file23, 'spdb/register_adapters' ), 'File 23 provider registration contract regressed.' );
-$assert( false !== strpos( $file23, "'operations' => array()" ) || false !== strpos( $file23, "'operations'     => array()" ), 'File 23 direct File 21 writes are no longer explicitly fail-closed.' );
+$assert( false !== strpos( $file23_runtime, 'public function get_operation_definitions(): array' ) && false !== strpos( $file23_runtime, 'return array();' ), 'File 23 direct File 21 writes are no longer explicitly fail-closed.' );
+$assert( false !== strpos( $file23_runtime, 'file21_spdb_write_not_accepted' ), 'File 23 write attempts must fail closed with the accepted File 21 error contract.' );
 
 $build = $read( 'tools/build-release.py' );
-foreach ( array( 'PACKAGE_VERSION = "1.0.5"', 'Hostinger staging accepted: NO', 'Live deployed: NO', 'Repost/Quote future NEXT/P1 feature falsely claimed current: NO' ) as $needle ) {
+foreach ( array( 'PACKAGE_VERSION = "1.0.6"', 'Hostinger staging accepted: NO', 'Live deployed: NO', 'Repost/Quote future NEXT/P1 feature falsely claimed current: NO' ) as $needle ) {
 	$assert( false !== strpos( $build, $needle ), 'Release-truth/build contract missing: ' . $needle );
 }
 
@@ -130,4 +132,4 @@ if ( $failures ) {
 	exit( 1 );
 }
 
-echo "File 21 1.0.5 four-plan current-wave audit contracts passed.\n";
+echo "File 21 1.0.6 four-plan current-wave audit contracts passed.\n";

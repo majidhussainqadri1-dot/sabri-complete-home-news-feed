@@ -94,18 +94,32 @@ final class NetworkRelationshipBridge {
 			return array();
 		}
 		if ( self::native_available() && method_exists( 'SN_Relationships', 'lists' ) ) {
-			$result = \SN_Relationships::lists( $user_id, 'following', min( 50, $limit ), '' );
-			if ( ! ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) && is_array( $result ) ) {
+			$ids = array();
+			$cursor = '';
+			$pages = 0;
+			while ( count( $ids ) < $limit && $pages < 4 ) {
+				$page_limit = min( 50, $limit - count( $ids ) );
+				$result = \SN_Relationships::lists( $user_id, 'following', $page_limit, $cursor );
+				/* When File 17 is present it is authoritative: failures must not fall back to stale File 21 relationship data. */
+				if ( ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) || ! is_array( $result ) ) {
+					return array();
+				}
 				$items = isset( $result['items'] ) && is_array( $result['items'] ) ? $result['items'] : array();
-				$ids = array();
 				foreach ( $items as $item ) {
 					$id = isset( $item['followed_id'] ) ? absint( $item['followed_id'] ) : 0;
 					if ( $id > 0 && self::author_allowed( $user_id, $id ) ) {
 						$ids[] = $id;
 					}
 				}
-				return array_slice( array_values( array_unique( $ids ) ), 0, $limit );
+				$ids = array_values( array_unique( $ids ) );
+				$next = isset( $result['next_cursor'] ) && is_scalar( $result['next_cursor'] ) ? (string) $result['next_cursor'] : '';
+				if ( '' === $next || $next === $cursor ) {
+					break;
+				}
+				$cursor = $next;
+				$pages++;
 			}
+			return array_slice( $ids, 0, $limit );
 		}
 		if ( Phase3FeatureSettings::enabled( 'follows_enabled' ) ) {
 			return InteractionQueryRepository::following_user_ids( $user_id, FollowService::TARGET_TYPE, $limit );

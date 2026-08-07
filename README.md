@@ -1,6 +1,6 @@
 # Sabri Complete Home and News Feed
 
-Package Version: 1.0.4  
+Package Version: 1.0.6  
 Stable Runtime/API: 1.0.3  
 Schema: 1.0.0
 
@@ -10,9 +10,9 @@ Text domain: `sabri-complete-home-news-feed`
 
 Sabri Complete Home and News Feed is the canonical public Home, social Feed, Editorial News, Newsroom, publication lifecycle, interaction, migration, diagnostics and distribution module for the Sabri Social Homeopathy Platform. File 20 remains the application-shell owner, File 22 the role-aware creation facade, File 23 the publishing workspace/dashboard, File 25 the global visual-system owner, and File 26 the canonical federated Search/Discovery/Recommendations/Ranking owner.
 
-## Governing-plan reconciliation in package 1.0.4
+## Governing-plan reconciliation in package 1.0.6
 
-Package 1.0.4 closes the remaining cross-owner implementation gaps identified after the File 23 integration release:
+Package 1.0.6 closes the remaining cross-owner implementation gaps identified after the File 23 integration release:
 
 - File 22 now uses only a coarse authenticated `read` registry prefilter for File 21 Social Publication; final create authorization remains File 21 native `can_create()` with File 00 current-subject, suspension, current-session assurance, Safe Mode and publication-policy checks.
 - File 23 Adapter Contract 2.0.0 projections remain bounded and read/review/calendar oriented; direct File 23 writes remain fail-closed and File 21 remains the native publication owner.
@@ -20,7 +20,7 @@ Package 1.0.4 closes the remaining cross-owner implementation gaps identified af
 - File 26 receives only allowlisted public post/news projections. Public social posts require approved review state and public visibility; Editorial News uses the approved public projector. Source restriction/deletion produces File 26 tombstones.
 - File 21 sends neutral global ranking inputs and does not inject donation, payment, paid-promotion, purchased-engagement or Founder-favoritism advantages into File 26 organic ranking.
 - File 21 Feed assets retain green public action/accent presentation; File 25 remains the design-token and visual owner.
-- Package identity is promoted to `1.0.4` while stable runtime/API remains `1.0.3` and schema remains `1.0.0`; no database migration is introduced by this package correction.
+- Package identity is `1.0.6` while stable runtime/API remains `1.0.3` and schema remains `1.0.0`; no database migration is introduced by this package correction.
 
 The full correction record is in `docs/FILE21-FOUR-PLAN-FINAL-COMPLETION-2026-08-07.md`.
 
@@ -98,7 +98,7 @@ Social data WordPress core does not model safely is stored in seven plugin-owned
 - `wp_sabri_feed_poll_votes`
 - `wp_sabri_feed_audit_log`
 
-Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit and audit-integrity tables. The schema remains version `1.0.0`; runtime/API remains `1.0.3` and package identity is `1.0.4`.
+Editorial News adds its documented source, review, submission, correction, Breaking News, translation, preview, rate-limit and audit-integrity tables. The schema remains version `1.0.0`; runtime/API remains `1.0.3` and package identity is `1.0.6`.
 
 See `ARCHITECTURE.md`, `DATABASE-SCHEMA.md`, `CAPABILITIES.md`, `FILE-21-HARMONIZATION-COMPLETION-PLAN.md`, `FILE-21-PUBLIC-VISIBILITY-RECOVERY-1.0.2.md`, `FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md`, `docs/FILE22-SOCIAL-PUBLICATION-ADAPTER.md`, and `docs/FILE21-FOUR-PLAN-FINAL-COMPLETION-2026-08-07.md`.
 
@@ -122,9 +122,9 @@ The complete surfaces carry `data-sabri-hnf-surface`, the active runtime version
 
 ## Release artifact
 
-The canonical package 1.0.4 builder creates one candidate identity:
+The canonical package 1.0.6 builder creates one candidate identity:
 
-- `21-sabri-complete-home-news-feed-1.0.4-CONTROLLED-STAGING-CANDIDATE.zip`
+- `21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip`
 - matching `.sha256`
 - embedded and external runtime manifest
 - exact-head test report
@@ -139,4 +139,4 @@ All required source, packaged WordPress, PHP 8.1/8.3, security, migration, publi
 
 ## Truthful lifecycle status
 
-Package 1.0.4 may be called **coded**, **packaged** and **Automated-QA Green** only after the exact-head workflows succeed. **Staging-Accepted**, **Live-Deployed** and **Operational** remain separate external gates and must never be inferred from a merge, ZIP or CI result.
+Package 1.0.6 may be called **coded**, **packaged** and **Automated-QA Green** only after the exact-head workflows succeed. **Staging-Accepted**, **Live-Deployed** and **Operational** remain separate external gates and must never be inferred from a merge, ZIP or CI result.

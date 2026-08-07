@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'SABRI_HNF_VERSION' ) ) define( 'SABRI_HNF_VERSION', '1.0.3' );
+if ( ! defined( 'SABRI_HNF_SCHEMA_VERSION' ) ) define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 require __DIR__ . '/phase5-stubs.php';
 $root = dirname( __DIR__ );
 foreach ( array(
