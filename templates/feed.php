@@ -19,10 +19,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	} else {
 		echo $filters; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
+	if ( class_exists( '\\Sabri\\HomeNewsFeed\\FeedUserAgency' ) ) {
+		echo \Sabri\HomeNewsFeed\FeedUserAgency::global_controls( $result['mode'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
 	?>
 	<div class="sabri-hnf-feed__status" aria-live="polite"></div>
 	<div class="sabri-hnf-feed__list" data-sabri-feed-list>
 		<?php echo '' !== $cards ? $cards : $empty_state; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	</div>
 	<?php echo $pagination; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	<div class="sabri-hnf-session-boundary" role="note">
+		<p><?php esc_html_e( 'You have reached a natural stopping point. You can continue when useful, switch to Latest, or take a break.', 'sabri-complete-home-news-feed' ); ?></p>
+	</div>
 </section>
