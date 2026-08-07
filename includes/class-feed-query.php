@@ -41,8 +41,9 @@ final class FeedQuery {
 			? NewsFeedIntegration::pagination_context( $mode, $page, $per_page )
 			: array( 'enabled' => false, 'mode' => $mode, 'page' => $page, 'per_page' => $per_page, 'news_per_page' => 0, 'ordinary_per_page' => $per_page );
 		$ordinary_per_page = isset( $integration['ordinary_per_page'] ) ? max( 1, (int) $integration['ordinary_per_page'] ) : $per_page;
+		$cache_seconds = self::cache_seconds( $settings, $user_id );
 		$cache_key = self::cache_key( $mode, $page, $per_page, $user_id, $settings );
-		$cached = self::get_cache( $cache_key );
+		$cached = $cache_seconds > 0 ? self::get_cache( $cache_key ) : false;
 		if ( is_array( $cached ) ) { $cached['cache_hit'] = true; return $cached; }
 
 		$ranked_mode = in_array( $mode, FeedContext::ranked_modes(), true );
@@ -81,7 +82,7 @@ final class FeedQuery {
 			'cache_hit' => false, 'query_args' => $query_args, 'explanation' => FeedRanking::explanation(),
 		);
 		if ( ! empty( $integration['enabled'] ) && class_exists( __NAMESPACE__ . '\\NewsFeedIntegration' ) ) { $result = NewsFeedIntegration::integrate_result( $result, $integration ); }
-		self::set_cache( $cache_key, $result, self::cache_seconds( $settings ) );
+		self::set_cache( $cache_key, $result, $cache_seconds );
 		return $result;
 	}
 
@@ -102,7 +103,6 @@ final class FeedQuery {
 		$configured_types = isset( $settings['feed']['allowed_types'] ) && is_array( $settings['feed']['allowed_types'] ) ? array_map( 'sanitize_key', $settings['feed']['allowed_types'] ) : $all_types;
 		$allowed_types = array_values( array_intersect( $all_types, $configured_types ) );
 		$mode_map = FeedContext::mode_type_map();
-		/* Founder mode is an author-authority query, not a content-type query. */
 		if ( 'founder-updates' !== $mode && isset( $mode_map[ $mode ] ) ) {
 			$requested = self::allowed_query_terms( (array) $mode_map[ $mode ], $allowed_types );
 			$args['tax_query'] = array( array( 'taxonomy' => 'sabri_feed_type', 'field' => 'slug', 'terms' => $requested ? $requested : array( '__sabri_disabled_feed_type__' ) ) );
@@ -128,7 +128,8 @@ final class FeedQuery {
 		$scope = implode( ',', FeedContext::visible_feed_scopes_for_user( $user_id, $settings ) );
 		$news_generation = class_exists( __NAMESPACE__ . '\\NewsCache' ) ? NewsCache::version() : 1;
 		$news_gate = class_exists( __NAMESPACE__ . '\\NewsPolicy' ) && NewsPolicy::public_reads_allowed() ? 1 : 0;
-		return 'sabri_hnf_feed_' . md5( self::cache_version() . '|' . $news_generation . '|' . $news_gate . '|' . $mode . '|' . $page . '|' . $per_page . '|' . $user_id . '|' . $scope );
+		$user_agency = $user_id > 0 && class_exists( __NAMESPACE__ . '\\FeedUserAgency' ) ? FeedUserAgency::cache_fragment( $user_id ) : 'public';
+		return 'sabri_hnf_feed_' . md5( self::cache_version() . '|' . $news_generation . '|' . $news_gate . '|' . $mode . '|' . $page . '|' . $per_page . '|' . $user_id . '|' . $scope . '|' . $user_agency );
 	}
 
 	private static function allowed_query_terms( array $requested, array $allowed_canonical ) {
@@ -141,7 +142,11 @@ final class FeedQuery {
 	}
 	private static function stored_type_allowed( $type, array $allowed_canonical ) { $type = sanitize_key( $type ); $aliases = Taxonomies::feed_type_aliases(); $canonical = isset( $aliases[ $type ] ) ? $aliases[ $type ] : $type; return in_array( $canonical, $allowed_canonical, true ); }
 	private static function cache_version() { return function_exists( 'get_option' ) ? max( 1, (int) get_option( self::CACHE_VERSION_OPTION, 1 ) ) : 1; }
-	private static function cache_seconds( array $settings ) { return isset( $settings['feed']['cache_duration'] ) ? max( 0, (int) $settings['feed']['cache_duration'] ) : ( isset( $settings['performance']['cache_seconds'] ) ? max( 0, (int) $settings['performance']['cache_seconds'] ) : 300 ); }
+	/** Authenticated Feed output is intentionally no-store to prevent stale block/privacy state. */
+	private static function cache_seconds( array $settings, $user_id = 0 ) {
+		if ( (int) $user_id > 0 ) { return 0; }
+		return isset( $settings['feed']['cache_duration'] ) ? max( 0, (int) $settings['feed']['cache_duration'] ) : ( isset( $settings['performance']['cache_seconds'] ) ? max( 0, (int) $settings['performance']['cache_seconds'] ) : 300 );
+	}
 	private static function get_cache( $key ) { return function_exists( 'get_transient' ) ? get_transient( $key ) : false; }
 	private static function set_cache( $key, array $value, $seconds ) { if ( $seconds > 0 && function_exists( 'set_transient' ) ) { set_transient( $key, $value, $seconds ); } }
 	private static function empty_result( $mode, $page, $per_page, $status ) { return array( 'status' => $status, 'mode' => $mode, 'page' => $page, 'per_page' => $per_page, 'posts' => array(), 'total' => 0, 'total_is_complete' => true, 'max_pages' => 0, 'has_more' => false, 'cache_hit' => false, 'query_args' => array(), 'explanation' => FeedRanking::explanation() ); }
@@ -156,6 +161,7 @@ final class FeedQuery {
 			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
 			if ( ! PostMetadata::user_can_view( $post_id, $user_id ) ) { return false; }
 			$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
+			if ( ! NetworkRelationshipBridge::author_allowed( $user_id, $author_id ) ) { return false; }
 			if ( 'founder-updates' === $mode && ! CanonicalIdentityAdapter::is_founder( $author_id ) ) { return false; }
 			if ( 'doctors-posts' === $mode && ! CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) { return false; }
 			$type = PostMetadata::feed_type( $post_id );

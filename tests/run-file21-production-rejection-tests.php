@@ -1,5 +1,5 @@
 <?php
-/** Static release contracts for the 1.0.3 runtime/API production-rejection corrective line inside package 1.0.4. */
+/** Static release contracts for the 1.0.3 runtime/API production-rejection corrective line inside package 1.0.5. */
 $root = getenv( 'FILE21_ROOT' );
 $root = $root ? rtrim( $root, '/\\' ) : dirname( __DIR__, 2 ) . '/file21fix';
 $failures = array();
@@ -11,7 +11,7 @@ $read = static function ( $relative ) use ( $root, &$failures ) {
 $assert = static function ( $condition, $message ) use ( &$failures ) { if ( ! $condition ) { $failures[] = $message; } };
 
 $main = $read( 'sabri-complete-home-news-feed.php' );
-$assert( false !== strpos( $main, 'Version: 1.0.4' ), 'Plugin package header is not 1.0.4.' );
+$assert( false !== strpos( $main, 'Version: 1.0.5' ), 'Plugin package header is not 1.0.5.' );
 $assert( false !== strpos( $main, "SABRI_HNF_VERSION', '1.0.3" ), 'Runtime constant is not 1.0.3.' );
 $assert( false !== strpos( $main, "SABRI_HNF_SCHEMA_VERSION', '1.0.0" ), 'Schema must remain 1.0.0.' );
 $assert( false !== strpos( $main, 'sabri_hnf_duplicate_resolved=1' ), 'Duplicate-copy controlled reload is missing.' );
@@ -152,8 +152,8 @@ foreach ( array( 'tests/run-file21-file22-real-contract-tests.php', 'tests/run-f
 
 $readme = $read( 'readme.txt' );
 $change = $read( 'CHANGELOG.md' );
-$assert( false !== strpos( $readme, 'Stable tag: 1.0.4' ), 'Stable tag is not 1.0.4.' );
-$assert( false !== strpos( $change, '## 1.0.4' ), 'Changelog lacks package 1.0.4.' );
+$assert( false !== strpos( $readme, 'Stable tag: 1.0.5' ), 'Stable tag is not 1.0.5.' );
+$assert( false !== strpos( $change, '## 1.0.5' ), 'Changelog lacks package 1.0.5.' );
 $assert( false !== strpos( $change, '## 1.0.3' ), 'Changelog lacks stable runtime history 1.0.3.' );
 $assert( false !== strpos( $change, 'Restored secure public visibility' ), 'Changelog lacks Editorial News repair.' );
 $assert( false !== strpos( $change, 'Universal Post Composer' ), 'Changelog lacks File 22 interoperability.' );

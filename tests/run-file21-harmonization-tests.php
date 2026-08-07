@@ -19,6 +19,10 @@ foreach ( array(
 	'includes/class-harmonization-diagnostics.php',
 	'includes/class-harmonized-settings.php',
 	'includes/class-search-provider-registry.php',
+	'includes/class-network-relationship-bridge.php',
+	'includes/class-feed-user-agency.php',
+	'includes/class-saved-collection-service.php',
+	'includes/class-comment-experience.php',
 	'assets/css/home-composition.css',
 	'FILE-21-HARMONIZATION-COMPLETION-PLAN.md',
 	'FILE-21-PRODUCTION-REJECTION-CORRECTIVE-1.0.3.md',
@@ -27,14 +31,15 @@ foreach ( array(
 }
 
 $bootstrap = file_get_contents( $root . '/sabri-complete-home-news-feed.php' );
-foreach ( array( 'Version: 1.0.4', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.4' );", "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
-	$assert( false !== strpos( $bootstrap, $needle ), 'Complete File 21 1.0.4 package / 1.0.3 runtime bootstrap contract missing: ' . $needle );
+foreach ( array( 'Version: 1.0.5', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );", "define( 'SABRI_HNF_VERSION', '1.0.3' );", "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );", 'sabri_hnf_activate', 'sabri_hnf_deactivate', 'sabri_hnf_bootstrap', 'sabri_hnf_duplicate_resolved=1', 'register_safe_boot_routes' ) as $needle ) {
+	$assert( false !== strpos( $bootstrap, $needle ), 'Complete File 21 1.0.5 package / 1.0.3 runtime bootstrap contract missing: ' . $needle );
 }
 
 $plugin = file_get_contents( $root . '/includes/class-plugin.php' );
 foreach ( array(
-	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class',
-	'SearchProviderRegistry::class', 'ViralRankingSignals::class', 'HomeCompositionRegistry::class',
+	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class,
+	'SearchProviderRegistry::class', 'ViralRankingSignals::class', 'NetworkRelationshipBridge::class', 'FeedUserAgency::class',
+	'SavedCollectionService::class', 'CommentExperience::class', 'HomeCompositionRegistry::class',
 	'LegacyInteractionMigrationAdapter::class', 'LegacyPublicationMigration::class', 'LegacyPublicationRollback::class',
 	'HarmonizationDiagnostics::class', 'HarmonizedSettings::class',
 ) as $needle ) {
@@ -50,19 +55,20 @@ foreach ( array( 'smc_assertions_v1', '_smc_doctor_verified', '_sabri_doctor_ver
 }
 
 $context = file_get_contents( $root . '/includes/class-feed-context.php' );
-foreach ( array( "'most-viral'", "'doctors-posts'", "'remedies'", "'diseases'", "'homeopathy-philosophy'", "'principles-of-hygiene'" ) as $needle ) {
+foreach ( array( "'following'", "'most-viral'", "'doctors-posts'", "'remedies'", "'diseases'", "'homeopathy-philosophy'", "'principles-of-hygiene'" ) as $needle ) {
 	$assert( false !== strpos( $context, $needle ), 'Home Feed mode or approved topic missing: ' . $needle );
 }
 
 $home = file_get_contents( $root . '/includes/class-home-composition-registry.php' );
-foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_shell_news_main', 'sabri_hnf_home_row_items_', 'data-sabri-home-row-count="10"', 'data-provider-state', 'Content is not available from this module yet.' ) as $needle ) {
+foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_shell_news_main', 'sabri_hnf_home_row_items_', 'data-sabri-home-row-count="10"', 'data-sabri-home-control-count="14"', 'data-provider-state', 'Content is not available from this module yet.' ) as $needle ) {
 	$assert( false !== strpos( $home, $needle ), 'Home/News composition contract missing: ' . $needle );
 }
 
 $home_css = file_get_contents( $root . '/assets/css/home-composition.css' );
-foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
-	$assert( false !== strpos( $home_css, $needle ), 'Responsive/accessibility Home CSS missing: ' . $needle );
+foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', '#1f7a55', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
+	$assert( false !== strpos( $home_css, $needle ), 'Responsive/accessibility/current-green Home CSS missing: ' . $needle );
 }
+$assert( false === stripos( $home_css, '#ff8a1f' ), 'Superseded orange primary token remains in Home CSS.' );
 
 $viral = file_get_contents( $root . '/includes/class-viral-ranking-signals.php' );
 foreach ( array( "'views'", "'reactions'", "'comments'", "'saves'", "'shares'", "'watch_seconds'", "'reports'", "'quality'", 'log(' ) as $needle ) {
@@ -98,8 +104,8 @@ foreach ( array( 'sabri_search_providers', 'sabri_shell_search_providers', 'Post
 $assert( false === strpos( $search, "'status' => 'active'" ), 'File 21 must not self-activate the canonical File 26 connector.' );
 
 $card = file_get_contents( $root . '/templates/feed-card.php' );
-foreach ( array( 'profile_url', 'specialty', 'country', 'clinic_name' ) as $needle ) {
-	$assert( false !== strpos( $card, $needle ), 'Feed-card public author field missing: ' . $needle );
+foreach ( array( 'profile_url', 'specialty', 'country', 'clinic_name', 'FeedUserAgency::card_controls' ) as $needle ) {
+	$assert( false !== strpos( $card, $needle ), 'Feed-card public author/user-agency field missing: ' . $needle );
 }
 
 $integrations = file_get_contents( $root . '/includes/class-integrations.php' );

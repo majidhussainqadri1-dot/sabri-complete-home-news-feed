@@ -3,8 +3,11 @@ name: File 21 File 22 Real Contract
 on:
   pull_request:
     paths:
-      - 'includes/class-universal-composer-*.php'
+      - 'includes/**'
+      - 'templates/**'
+      - 'assets/**'
       - 'tests/run-file21-file22-*.php'
+      - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file22-real-contract.yml'
   workflow_dispatch:
 
@@ -57,6 +60,7 @@ jobs:
           php -l file21/tests/run-file21-file22-maintenance-tests.php
           php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
           php -l file21/tests/run-file21-file22-founder-gateway-regression.php
+          php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
 
       - name: Run actual File 22 Coordinator with File 21 adapter
         shell: bash
@@ -66,11 +70,12 @@ jobs:
           set -euo pipefail
           php file21/tests/run-file21-file22-real-contract-tests.php
 
-      - name: Run Founder gateway authorization regression
+      - name: Run Founder gateway and four-plan regressions
         shell: bash
         run: |
           set -euo pipefail
-          php file21/tests/run-file21-file22-founder-gateway-regression.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-file22-founder-gateway-regression.php
+          FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
 
       - name: Run bounded retention and maintenance tests
         shell: bash

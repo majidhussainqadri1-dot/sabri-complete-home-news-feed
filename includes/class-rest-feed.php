@@ -11,26 +11,16 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/**
- * Provides progressive-enhancement feed loading.
- */
+/** Provides progressive-enhancement feed loading and private user-agency preferences. */
 final class RestFeed {
-	/**
-	 * Register hooks.
-	 *
-	 * @return void
-	 */
+	/** Register hooks. */
 	public static function register() {
 		if ( function_exists( 'add_action' ) ) {
 			add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
 		}
 	}
 
-	/**
-	 * Register routes.
-	 *
-	 * @return void
-	 */
+	/** Register routes. */
 	public static function register_routes() {
 		if ( ! function_exists( 'register_rest_route' ) ) {
 			return;
@@ -42,7 +32,7 @@ final class RestFeed {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'feed' ),
-				'permission_callback' => array( __CLASS__, 'permission_callback' ),
+				'permission_callback' => array( __CLASS__, 'public_permission' ),
 				'args'                => array(
 					'mode'     => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_mode' ) ),
 					'page'     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_positive_int' ), 'validate_callback' => array( __CLASS__, 'validate_page' ) ),
@@ -50,33 +40,55 @@ final class RestFeed {
 				),
 			)
 		);
+
+		register_rest_route(
+			RestFoundation::NAMESPACE,
+			'/feed/preferences',
+			array(
+				array(
+					'methods'             => 'GET',
+					'callback'            => array( __CLASS__, 'preferences' ),
+					'permission_callback' => array( __CLASS__, 'private_read_permission' ),
+				),
+				array(
+					'methods'             => 'POST',
+					'callback'            => array( __CLASS__, 'update_preferences' ),
+					'permission_callback' => array( __CLASS__, 'private_write_permission' ),
+					'args'                => array(
+						'action'   => array( 'required' => true, 'sanitize_callback' => 'sanitize_key' ),
+						'value'    => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
+						'duration' => array( 'required' => false, 'sanitize_callback' => array( __CLASS__, 'sanitize_positive_int' ) ),
+					),
+				),
+			)
+		);
 	}
 
-	/**
-	 * Public read permission callback.
-	 *
-	 * @return bool
-	 */
-	public static function permission_callback() {
+	/** Public Feed read permission. */
+	public static function public_permission() {
 		return true;
 	}
 
-	/**
-	 * Validate feed mode.
-	 *
-	 * @param mixed $value Value.
-	 * @return bool
-	 */
+	/** Private preference read permission. */
+	public static function private_read_permission() {
+		$user_id = InteractionPermissions::authenticated_user_id();
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id );
+	}
+
+	/** Private preference write permission is current-session and nonce-bound. */
+	public static function private_write_permission( $request ) {
+		$user_id = InteractionPermissions::authenticated_user_id();
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
+	}
+
+	/** Validate feed mode. */
 	public static function validate_mode( $value ) {
 		return '' === (string) $value || in_array( sanitize_key( $value ), FeedContext::enabled_modes(), true );
 	}
 
-	/**
-	 * Validate page.
-	 *
-	 * @param mixed $value Value.
-	 * @return bool
-	 */
+	/** Validate page. */
 	public static function validate_page( $value ) {
 		if ( ! is_scalar( $value ) || ! preg_match( '/^[0-9]+$/', (string) $value ) ) {
 			return false;
@@ -85,12 +97,7 @@ final class RestFeed {
 		return $value >= 1 && $value <= 1000;
 	}
 
-	/**
-	 * Validate per-page.
-	 *
-	 * @param mixed $value Value.
-	 * @return bool
-	 */
+	/** Validate per-page. */
 	public static function validate_per_page( $value ) {
 		if ( ! is_scalar( $value ) || ! preg_match( '/^[0-9]+$/', (string) $value ) ) {
 			return false;
@@ -99,32 +106,20 @@ final class RestFeed {
 		return $value >= 1 && $value <= 50;
 	}
 
-	/**
-	 * Sanitize a positive integer without converting negatives to positives.
-	 *
-	 * @param mixed $value Value.
-	 * @return int
-	 */
+	/** Sanitize a positive integer without converting negatives to positives. */
 	public static function sanitize_positive_int( $value ) {
 		return is_scalar( $value ) && preg_match( '/^[0-9]+$/', (string) $value ) ? (int) $value : 0;
 	}
 
-	/**
-	 * Feed callback.
-	 *
-	 * @param mixed $request Request.
-	 * @return mixed
-	 */
+	/** Feed callback. */
 	public static function feed( $request ) {
 		$args = array(
 			'mode'     => self::request_param( $request, 'mode' ),
 			'page'     => self::request_param( $request, 'page' ),
 			'per_page' => self::request_param( $request, 'per_page' ),
 		);
-
 		$result = FeedQuery::query( $args );
 		$html   = FeedRenderer::render_cards( $result['posts'], Settings::get() );
-
 		return self::response(
 			array(
 				'mode'      => $result['mode'],
@@ -136,36 +131,74 @@ final class RestFeed {
 		);
 	}
 
-	/**
-	 * Response helper.
-	 *
-	 * @param array<string,mixed> $payload Payload.
-	 * @return mixed
-	 */
+	/** Current user's private Feed preferences. */
+	public static function preferences() {
+		$user_id = InteractionPermissions::authenticated_user_id();
+		if ( $user_id <= 0 ) {
+			return self::result_response( InteractionResult::error( 'authentication_required', 'Authentication is required.', array(), 401 ) );
+		}
+		if ( ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) {
+			return self::result_response( InteractionResult::error( 'identity_assurance_required', 'Current account assurance is required.', array(), 403 ) );
+		}
+		return self::response( array( 'preferences' => FeedUserAgency::preferences( $user_id ) ) );
+	}
+
+	/** Mutate one explicit private Feed preference. */
+	public static function update_preferences( $request ) {
+		$result = FeedUserAgency::update(
+			self::request_param( $request, 'action' ),
+			self::request_param( $request, 'value' ),
+			self::request_param( $request, 'duration' ),
+			self::request_nonce( $request ),
+			0
+		);
+		return self::result_response( $result );
+	}
+
+	/** Response helper. */
 	private static function response( array $payload ) {
 		if ( class_exists( 'WP_REST_Response' ) ) {
-			return new \WP_REST_Response( array( 'ok' => true, 'data' => $payload ), 200 );
+			$response = new \WP_REST_Response( array( 'ok' => true, 'data' => $payload ), 200 );
+			if ( method_exists( $response, 'header' ) ) {
+				$response->header( 'Cache-Control', 'no-store, private' );
+			}
+			return $response;
 		}
-
 		return array( 'ok' => true, 'data' => $payload );
 	}
 
-	/**
-	 * Request param helper.
-	 *
-	 * @param mixed  $request Request.
-	 * @param string $key Key.
-	 * @return mixed
-	 */
+	/** Convert InteractionResult to a REST response without losing status truth. */
+	private static function result_response( array $result ) {
+		$status = isset( $result['status'] ) ? (int) $result['status'] : ( ! empty( $result['ok'] ) ? 200 : 400 );
+		if ( class_exists( 'WP_REST_Response' ) ) {
+			$response = new \WP_REST_Response( $result, $status );
+			if ( method_exists( $response, 'header' ) ) {
+				$response->header( 'Cache-Control', 'no-store, private' );
+			}
+			return $response;
+		}
+		return $result;
+	}
+
+	/** Request nonce helper. */
+	private static function request_nonce( $request ) {
+		if ( is_object( $request ) && method_exists( $request, 'get_header' ) ) {
+			return sanitize_text_field( $request->get_header( 'X-WP-Nonce' ) );
+		}
+		if ( is_array( $request ) && isset( $request['_wpnonce'] ) ) {
+			return sanitize_text_field( $request['_wpnonce'] );
+		}
+		return isset( $_SERVER['HTTP_X_WP_NONCE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) ) : '';
+	}
+
+	/** Request param helper. */
 	private static function request_param( $request, $key ) {
 		if ( is_array( $request ) && array_key_exists( $key, $request ) ) {
 			return $request[ $key ];
 		}
-
 		if ( is_object( $request ) && method_exists( $request, 'get_param' ) ) {
 			return $request->get_param( $key );
 		}
-
 		return null;
 	}
 }

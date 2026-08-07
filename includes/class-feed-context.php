@@ -19,6 +19,7 @@ final class FeedContext {
 	public static function modes() {
 		return array(
 			'for-you' => __( 'For You', 'sabri-complete-home-news-feed' ),
+			'following' => __( 'Following', 'sabri-complete-home-news-feed' ),
 			'most-viral' => __( 'Most Viral', 'sabri-complete-home-news-feed' ),
 			'latest' => __( 'Latest', 'sabri-complete-home-news-feed' ),
 			'founder-updates' => __( 'Founder Posts', 'sabri-complete-home-news-feed' ),
@@ -114,7 +115,7 @@ final class FeedContext {
 		return in_array( $default, $enabled, true ) ? $default : self::DEFAULT_MODE;
 	}
 
-	/** Enabled Feed modes. */
+	/** Enabled Feed modes. Following is a user-choice mode and does not alter the governing 14-control Home bar. */
 	public static function enabled_modes( $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$modes = array_keys( self::modes() );
@@ -125,6 +126,9 @@ final class FeedContext {
 			if ( in_array( $mode, $modes, true ) ) {
 				$enabled[] = $mode;
 			}
+		}
+		if ( Phase3FeatureSettings::enabled( 'follows_enabled' ) ) {
+			$enabled[] = 'following';
 		}
 		return $enabled ? array_values( array_unique( $enabled ) ) : array( self::DEFAULT_MODE, 'latest' );
 	}
