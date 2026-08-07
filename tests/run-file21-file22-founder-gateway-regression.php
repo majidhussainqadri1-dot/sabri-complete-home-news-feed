@@ -2,14 +2,16 @@
 /**
  * File 21 / File 22 Founder gateway regression.
  *
- * This is intentionally a source-contract test: File 22 may use the adapter's
- * required_capability() only as a coarse authenticated registry gate, while
- * File 21 remains the final authorization owner through can_create().
+ * This is intentionally a source-contract test: File 22 may use the subject
+ * wrapper's required_capability() only as a coarse authenticated registry gate,
+ * while File 21 remains the final authorization owner through the inherited
+ * native workflow can_create() policy.
  */
 
 $root = dirname( __DIR__ );
 $wrapper_path = $root . '/includes/class-universal-composer-subject-schema-adapter.php';
-$native_path = $root . '/includes/class-universal-composer-publication-adapter.php';
+$workflow_path = $root . '/includes/class-universal-composer-workflow-adapter.php';
+$publication_path = $root . '/includes/class-universal-composer-publication-adapter.php';
 $permissions_path = $root . '/includes/class-composer-permissions.php';
 
 $failures = array();
@@ -21,11 +23,13 @@ $assert = static function ( $condition, $message ) use ( &$failures ) {
 };
 
 $wrapper = file_get_contents( $wrapper_path );
-$native = file_get_contents( $native_path );
+$workflow = file_get_contents( $workflow_path );
+$publication = file_get_contents( $publication_path );
 $permissions = file_get_contents( $permissions_path );
 
 $assert( false !== $wrapper, 'Subject schema wrapper must be readable.' );
-$assert( false !== $native, 'Native publication adapter must be readable.' );
+$assert( false !== $workflow, 'Native workflow adapter must be readable.' );
+$assert( false !== $publication, 'Native publication adapter must be readable.' );
 $assert( false !== $permissions, 'Composer permissions policy must be readable.' );
 
 if ( false !== $wrapper ) {
@@ -39,10 +43,18 @@ if ( false !== $wrapper ) {
 	);
 }
 
-if ( false !== $native ) {
+if ( false !== $publication ) {
 	$assert(
-		false !== strpos( $native, 'ComposerPermissions::user_can_create' ),
-		'Native publication adapter must use ComposerPermissions::user_can_create().' 
+		false !== strpos( $publication, 'extends UniversalComposerWorkflowAdapter' ),
+		'Publication adapter must inherit the reviewed native workflow authorization boundary.'
+	);
+}
+
+if ( false !== $workflow ) {
+	$assert(
+		false !== strpos( $workflow, 'public function can_create( int $user_id ): bool' )
+		&& false !== strpos( $workflow, 'ComposerPermissions::user_can_create( $user_id, Settings::get() )' ),
+		'Native workflow adapter must use ComposerPermissions::user_can_create().' 
 	);
 }
 
