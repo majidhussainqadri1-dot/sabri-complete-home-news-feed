@@ -49,7 +49,7 @@ foreach ( array( 'following', 'Why am I seeing this?', 'Not interested', 'Snooze
 $assert( false !== strpos( $agency, 'NetworkRelationshipBridge::following_user_ids' ), 'Following Feed is not consuming the canonical relationship bridge.' );
 
 $network = $read( 'includes/class-network-relationship-bridge.php' );
-foreach ( array( 'SN_Relationships', 'state(', 'lists(', 'follow(', 'unfollow(', 'posts_results', 'author_allowed' ) as $needle ) {
+foreach ( array( 'SN_Relationships', "'state'", "'lists'", "'follow'", "'unfollow'", 'call_user_func', 'posts_results', 'author_allowed' ) as $needle ) {
 	$assert( false !== strpos( $network, $needle ), 'File 17 relationship bridge contract missing: ' . $needle );
 }
 foreach ( array( 'SN_DB', 'wp_sn_', 'sn_follows', 'sn_blocks', '$wpdb' ) as $forbidden ) {
