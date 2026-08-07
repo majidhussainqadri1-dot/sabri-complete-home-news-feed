@@ -60,7 +60,12 @@ final class SavedCollectionService {
 			}
 		}
 		if ( empty( $result['ok'] ) ) { return $result; }
-		self::set_item_metadata( $user_id, $collection, $post_id, $note, $tags );
+
+		$metadata_result = self::set_item_metadata( $user_id, $collection, $post_id, $note, $tags );
+		if ( empty( $metadata_result['ok'] ) ) {
+			AuditLog::record( 'saved_collection_metadata_failed', array( 'post_id' => $post_id, 'collection' => $collection ) );
+			return $metadata_result;
+		}
 		AuditLog::record( 'post_saved_to_collection', array( 'post_id' => $post_id, 'collection' => $collection ) );
 		return InteractionResult::success( 'post_saved_to_collection', array( 'post_id' => $post_id, 'collection' => $collection ), 'Post saved to collection.', 200 );
 	}
@@ -161,6 +166,7 @@ final class SavedCollectionService {
 		return is_array( $stored ) ? $stored : array( 'items' => array() );
 	}
 
+	/** Persist collection item metadata and verify idempotent writes. */
 	private static function set_item_metadata( $user_id, $collection, $post_id, $note, $tags ) {
 		$meta = self::metadata( $user_id );
 		if ( ! isset( $meta['items'] ) || ! is_array( $meta['items'] ) ) { $meta['items'] = array(); }
@@ -169,8 +175,20 @@ final class SavedCollectionService {
 		if ( function_exists( 'mb_substr' ) ) { $note = mb_substr( $note, 0, self::MAX_NOTE_LENGTH ); } else { $note = substr( $note, 0, self::MAX_NOTE_LENGTH ); }
 		$tags = is_array( $tags ) ? $tags : preg_split( '/\s*,\s*/', (string) $tags );
 		$tags = array_slice( array_values( array_unique( array_filter( array_map( 'sanitize_key', $tags ) ) ) ), 0, self::MAX_TAGS );
-		$meta['items'][ $collection ][ (string) $post_id ] = array( 'note' => $note, 'tags' => $tags );
-		if ( function_exists( 'update_user_meta' ) ) { update_user_meta( $user_id, self::META_KEY, $meta ); }
+		$desired = array( 'note' => $note, 'tags' => $tags );
+		$meta['items'][ $collection ][ (string) $post_id ] = $desired;
+		if ( ! function_exists( 'update_user_meta' ) ) {
+			return InteractionResult::error( 'saved_collection_metadata_unavailable', 'Saved collection notes and tags cannot be stored right now.', array(), 503 );
+		}
+		$updated = update_user_meta( $user_id, self::META_KEY, $meta );
+		if ( false === $updated ) {
+			$persisted = self::metadata( $user_id );
+			$actual = isset( $persisted['items'][ $collection ][ (string) $post_id ] ) && is_array( $persisted['items'][ $collection ][ (string) $post_id ] ) ? $persisted['items'][ $collection ][ (string) $post_id ] : null;
+			if ( $actual !== $desired ) {
+				return InteractionResult::error( 'saved_collection_metadata_failed', 'Saved collection notes and tags could not be stored.', array(), 500 );
+			}
+		}
+		return InteractionResult::success( 'saved_collection_metadata_saved', array(), 'Saved collection metadata stored.', 200 );
 	}
 
 	private static function remove_item_metadata( $user_id, $collection, $post_id ) {
