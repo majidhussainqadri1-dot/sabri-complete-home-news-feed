@@ -46,7 +46,16 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	public function priority(): int { return $this->delegate->priority(); }
 	public function native_module(): string { return $this->delegate->native_module(); }
 	public function minimum_native_version(): string { return $this->delegate->minimum_native_version(); }
-	public function required_capability(): string { return $this->delegate->required_capability(); }
+	/**
+	 * File 22's registry performs this check before native can_create().  Keep it
+	 * intentionally coarse so canonical Founder/Administrator authority is not
+	 * rejected merely because an in-place upgrade has not reconciled a legacy
+	 * role capability yet.  This is not an authorization grant: all protected
+	 * creation paths still delegate to File 21 can_create(), which revalidates
+	 * File 00 subject state, suspension, current-session assurance, Safe Mode and
+	 * native publication policy.
+	 */
+	public function required_capability(): string { return 'read'; }
 	public function privacy_classification(): string { return $this->delegate->privacy_classification(); }
 	public function is_available(): bool { return $this->delegate->is_available(); }
 	public function can_create( int $user_id ): bool { return $this->delegate->can_create( $user_id ); }
