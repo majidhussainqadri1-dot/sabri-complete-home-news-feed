@@ -1,0 +1,90 @@
+diff --git a/includes/class-comment-experience.php b/includes/class-comment-experience.php
+index 7f1ba22..96d4685 100644
+--- a/includes/class-comment-experience.php
++++ b/includes/class-comment-experience.php
+@@ -82,7 +82,7 @@ final class CommentExperience {
+ 	private static function mention_tokens( $content ) {
+ 		$matches = array();
+ 		preg_match_all( '/(?:^|\s)@([A-Za-z0-9._-]{2,60})/u', (string) $content, $matches );
+-		$tokens = isset( $matches[1] ) && is_array( $matches[1] ) ? $matches[1] : array();
++		$tokens = is_array( $matches[1] ) ? $matches[1] : array();
+ 		$tokens = array_map( 'strtolower', $tokens );
+ 		return array_slice( array_values( array_unique( array_filter( $tokens ) ) ), 0, 20 );
+ 	}
+diff --git a/includes/class-feed-user-agency.php b/includes/class-feed-user-agency.php
+index 980046c..0212b16 100644
+--- a/includes/class-feed-user-agency.php
++++ b/includes/class-feed-user-agency.php
+@@ -334,7 +334,7 @@ final class FeedUserAgency {
+ 			return '';
+ 		}
+ 		$term = reset( $terms );
+-		return is_object( $term ) && isset( $term->slug ) ? self::clean_key( $term->slug ) : '';
++		return is_object( $term ) ? self::clean_key( (string) $term->slug ) : '';
+ 	}
+ 
+ 	private static function mode_link( $mode, $label, $active_mode ) {
+diff --git a/includes/class-network-relationship-bridge.php b/includes/class-network-relationship-bridge.php
+index e532f62..a80a5d5 100644
+--- a/includes/class-network-relationship-bridge.php
++++ b/includes/class-network-relationship-bridge.php
+@@ -34,7 +34,7 @@ final class NetworkRelationshipBridge {
+ 
+ 	/** File 17 native relationship runtime is available. */
+ 	public static function native_available() {
+-		return class_exists( 'SN_Relationships' ) && method_exists( 'SN_Relationships', 'state' );
++		return class_exists( 'SN_Relationships' ) && is_callable( array( 'SN_Relationships', 'state' ) );
+ 	}
+@@ -76,7 +76,7 @@ final class NetworkRelationshipBridge {
+ 		}
+ 		$allowed = true;
+ 		if ( self::native_available() ) {
+-			$state = \SN_Relationships::state( $viewer_id, $author_id );
++			$state = call_user_func( array( 'SN_Relationships', 'state' ), $viewer_id, $author_id );
+@@ -93,13 +93,13 @@ final class NetworkRelationshipBridge {
+ 		if ( $user_id <= 0 ) {
+ 			return array();
+ 		}
+-		if ( self::native_available() && method_exists( 'SN_Relationships', 'lists' ) ) {
++		if ( self::native_available() && is_callable( array( 'SN_Relationships', 'lists' ) ) ) {
+@@
+-				$result = \SN_Relationships::lists( $user_id, 'following', $page_limit, $cursor );
++				$result = call_user_func( array( 'SN_Relationships', 'lists' ), $user_id, 'following', $page_limit, $cursor );
+@@ -134,7 +134,7 @@ final class NetworkRelationshipBridge {
+-		$state = \SN_Relationships::state( $viewer_user_id, $target_user_id );
++		$state = call_user_func( array( 'SN_Relationships', 'state' ), $viewer_user_id, $target_user_id );
+@@ -155,23 +155,23 @@ final class NetworkRelationshipBridge {
+ 	/** Execute follow through File 17 when installed. */
+ 	public static function follow( $follower_id, $target_user_id ) {
+-		if ( ! self::native_available() || ! method_exists( 'SN_Relationships', 'follow' ) ) {
++		if ( ! self::native_available() || ! is_callable( array( 'SN_Relationships', 'follow' ) ) ) {
+ 			return null;
+ 		}
+-		return \SN_Relationships::follow( (int) $follower_id, (int) $target_user_id );
++		return call_user_func( array( 'SN_Relationships', 'follow' ), (int) $follower_id, (int) $target_user_id );
+ 	}
+ 
+ 	/** Execute unfollow through File 17 using its optimistic-version contract. */
+ 	public static function unfollow( $follower_id, $target_user_id ) {
+-		if ( ! self::native_available() || ! method_exists( 'SN_Relationships', 'unfollow' ) ) {
++		if ( ! self::native_available() || ! is_callable( array( 'SN_Relationships', 'unfollow' ) ) ) {
+ 			return null;
+ 		}
+-		$state = \SN_Relationships::state( (int) $follower_id, (int) $target_user_id );
++		$state = call_user_func( array( 'SN_Relationships', 'state' ), (int) $follower_id, (int) $target_user_id );
+@@
+-		return \SN_Relationships::unfollow( (int) $follower_id, (int) $target_user_id, $version );
++		return call_user_func( array( 'SN_Relationships', 'unfollow' ), (int) $follower_id, (int) $target_user_id, $version );
+ 	}
+diff --git a/includes/class-saved-collection-service.php b/includes/class-saved-collection-service.php
+index 1cbf528..3fa3514 100644
+--- a/includes/class-saved-collection-service.php
++++ b/includes/class-saved-collection-service.php
+@@ -148,7 +148,7 @@ final class SavedCollectionService {
+ 		if ( '' === $table ) { return array(); }
+ 		$limit = min( self::MAX_EXPORT_ITEMS * self::MAX_COLLECTIONS, max( 1, (int) $limit ) );
+ 		$sql = $wpdb->prepare( "SELECT post_id, collection_key, updated_at FROM `{$table}` WHERE user_id = %d AND status = %s ORDER BY updated_at DESC, id DESC LIMIT %d", $user_id, 'active', $limit );
+-		$rows = $wpdb->get_results( $sql, ARRAY_A );
++		$rows = $wpdb->get_results( $sql, 'ARRAY_A' );
+ 		return is_array( $rows ) ? $rows : array();
+ 	}
