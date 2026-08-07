@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 SLUG = "sabri-complete-home-news-feed"
-PACKAGE_VERSION = "1.0.3.2"
+PACKAGE_VERSION = "1.0.3.3"
 RUNTIME_VERSION = "1.0.3"
 BASE = f"21-sabri-complete-home-news-feed-{PACKAGE_VERSION}-CONTROLLED-STAGING-CANDIDATE"
 FIXED_ZIP_TIME = (2026, 8, 2, 0, 0, 0)
@@ -75,8 +75,8 @@ def source_sha(root: Path, explicit: str | None) -> str:
 def validate_identity(root: Path) -> None:
     bootstrap = (root / "sabri-complete-home-news-feed.php").read_text(encoding="utf-8")
     required = (
-        "* Version: 1.0.3.2",
-        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.2' );",
+        "* Version: 1.0.3.3",
+        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.3' );",
         "define( 'SABRI_HNF_VERSION', '1.0.3' );",
     )
     missing = [needle for needle in required if needle not in bootstrap]
@@ -149,8 +149,8 @@ def verify_archive(path: Path, payload: list[tuple[Path, str]], manifest_text: s
             if sha256_bytes(data) != digest:
                 raise RuntimeError(f"Manifest mismatch: {relative}")
         bootstrap = archive.read(f"{SLUG}/sabri-complete-home-news-feed.php").decode("utf-8")
-        if "* Version: 1.0.3.2" not in bootstrap:
-            raise RuntimeError("Packaged WordPress identity is not 1.0.3.2")
+        if "* Version: 1.0.3.3" not in bootstrap:
+            raise RuntimeError("Packaged WordPress identity is not 1.0.3.3")
 
 
 def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
@@ -182,7 +182,7 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
     (release / f"{BASE}-MANIFEST.sha256").write_text(manifest_text, encoding="utf-8")
     report = "\n".join(
         [
-            "# File 21 1.0.3.2 Controlled-Staging Candidate",
+            "# File 21 1.0.3.3 Controlled-Staging Candidate",
             "",
             f"- Exact source commit: {commit}",
             f"- Package identity: {PACKAGE_VERSION}",

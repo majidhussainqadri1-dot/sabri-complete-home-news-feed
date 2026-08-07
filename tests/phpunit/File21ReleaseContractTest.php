@@ -18,8 +18,8 @@ final class File21ReleaseContractTest extends TestCase
     public function testReleaseIdentityIsSeparatedFromStableRuntime(): void
     {
         $bootstrap = $this->source('sabri-complete-home-news-feed.php');
-        self::assertStringContainsString('* Version: 1.0.3.2', $bootstrap);
-        self::assertStringContainsString("SABRI_HNF_PACKAGE_VERSION', '1.0.3.2'", $bootstrap);
+        self::assertStringContainsString('* Version: 1.0.3.3', $bootstrap);
+        self::assertStringContainsString("SABRI_HNF_PACKAGE_VERSION', '1.0.3.3'", $bootstrap);
         self::assertStringContainsString("SABRI_HNF_VERSION', '1.0.3'", $bootstrap);
     }
 

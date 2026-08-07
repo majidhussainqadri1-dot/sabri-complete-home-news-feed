@@ -8,6 +8,10 @@ Text domain: `sabri-complete-home-news-feed`
 
 Sabri Complete Home and News Feed is the canonical public Home, social Feed, Profile Timeline, Editorial News, Newsroom, publishing, interaction, migration, diagnostics, and distribution module for the Sabri Social Homeopathy Platform.
 
+## File 23 provider integration in package 1.0.3.3
+
+File 21 now registers a load-order-safe Adapter Contract 2.0.0 provider with File 23. The provider supplies bounded, authorization-filtered native inventory, Founder/Doctor workspace counts, review-queue projections and publishing-calendar projections. File 21 remains the canonical owner and exposes no direct File 23 write operations. Package identity 1.0.3.3 invalidates prior provider-acceptance evidence; production writes remain fail-closed pending new staging/production acceptance.
+
 ## Production-Rejection Corrective Release in 1.0.3
 
 Version 1.0.3 closes the live-deployment defects found after 1.0.2: public GET requests no longer write recovery metadata; File 21 registers and renders the native News slot; canonical and legacy News pages are routed or redirected safely after explicit gate activation; all ten Home rows remain observable with honest unavailable states; Breaking News is main-loop/context/render-once guarded; core-post visibility is applied before pagination; recursive Home Feed rendering is blocked while WordPress applies `the_content`; Shell diagnostics no longer claim Connected without all five native slots; Safe Boot keeps authenticated status/schema diagnostics available; and duplicate plugin copies resolve to the highest canonical version with one controlled administrator reload.
@@ -118,7 +122,7 @@ The complete surfaces carry `data-sabri-hnf-surface`, the active runtime version
 
 The canonical 1.0.3 release builders create one candidate identity:
 
-- `21-sabri-complete-home-news-feed-1.0.3.2-CONTROLLED-STAGING-CANDIDATE.zip`
+- `21-sabri-complete-home-news-feed-1.0.3.3-CONTROLLED-STAGING-CANDIDATE.zip`
 - matching `.sha256`
 - runtime manifest
 - exact test report

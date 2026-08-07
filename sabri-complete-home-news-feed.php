@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Complete Home and News Feed
  * Plugin URI: https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed
  * Description: Complete public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.
- * Version: 1.0.3.2
+ * Version: 1.0.3.3
  * Author: Dr. Allamah Majid Hussain Sabri Muhaddith Mursheed
  * Text Domain: sabri-complete-home-news-feed
  * Domain Path: /languages
@@ -52,7 +52,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
 		}
 		foreach ( array_filter( array( $current_basename, $loaded_basename ) ) as $basename ) {
 			if ( ! isset( $candidates[ $basename ] ) ) {
-				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.3.2' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
+				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.3.3' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
 			}
 		}
 		if ( empty( $candidates ) ) { return; }
@@ -89,7 +89,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
  * cross-plugin API contract at 1.0.3. WordPress uses the plugin header above
  * to distinguish the corrected package during replacement and rollback.
  */
-define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.2' );
+define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.3.3' );
 define( 'SABRI_HNF_VERSION', '1.0.3' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
