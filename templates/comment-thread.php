@@ -22,8 +22,19 @@ if ( ! defined( 'ABSPATH' ) ) {
 	aria-labelledby="sabri-hnf-comments-title-<?php echo esc_attr( $post_id ); ?>"
 >
 	<header class="sabri-hnf-comments__header">
-		<h2 id="sabri-hnf-comments-title-<?php echo esc_attr( $post_id ); ?>"><?php esc_html_e( 'Comments', 'sabri-complete-home-news-feed' ); ?></h2>
-		<span class="sabri-hnf-comments__count"><?php echo esc_html( (string) $data['approved_count'] ); ?></span>
+		<div>
+			<h2 id="sabri-hnf-comments-title-<?php echo esc_attr( $post_id ); ?>"><?php esc_html_e( 'Comments', 'sabri-complete-home-news-feed' ); ?></h2>
+			<span class="sabri-hnf-comments__count"><?php echo esc_html( (string) $data['approved_count'] ); ?></span>
+		</div>
+		<form class="sabri-hnf-comments__sort" method="get" action="<?php echo esc_url( $sort_action ); ?>">
+			<label for="sabri-hnf-comment-sort-<?php echo esc_attr( $post_id ); ?>"><?php esc_html_e( 'Sort comments', 'sabri-complete-home-news-feed' ); ?></label>
+			<select id="sabri-hnf-comment-sort-<?php echo esc_attr( $post_id ); ?>" name="sabri_comment_sort">
+				<?php foreach ( $sort_modes as $sort_key => $sort_label ) : ?>
+					<option value="<?php echo esc_attr( $sort_key ); ?>" <?php selected( $sort, $sort_key ); ?>><?php echo esc_html( $sort_label ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<button type="submit"><?php esc_html_e( 'Apply', 'sabri-complete-home-news-feed' ); ?></button>
+		</form>
 	</header>
 
 	<?php if ( $logged_in && ! empty( $data['comments_open'] ) ) : ?>
@@ -49,7 +60,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 				echo esc_html(
 					sprintf(
 						/* translators: 1: maximum characters, 2: edit window minutes. */
-						__( 'Maximum %1$d characters. You may edit your comment for %2$d minutes. Never include patient-identifying information.', 'sabri-complete-home-news-feed' ),
+						__( 'Maximum %1$d characters. You may edit your comment for %2$d minutes. Replies retain a short visible parent context; @mentions remain textual unless a canonical account is explicitly linked elsewhere. Never include patient-identifying information.', 'sabri-complete-home-news-feed' ),
 						(int) $data['max_length'],
 						(int) $data['edit_minutes']
 					)
@@ -61,9 +72,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php elseif ( ! $logged_in ) : ?>
 		<p class="sabri-hnf-comments__notice">
 			<?php esc_html_e( 'Sign in to comment or reply.', 'sabri-complete-home-news-feed' ); ?>
-			<?php if ( '' !== $login_url ) : ?>
-				<a href="<?php echo esc_url( $login_url ); ?>"><?php esc_html_e( 'Sign In', 'sabri-complete-home-news-feed' ); ?></a>
-			<?php endif; ?>
+			<?php if ( '' !== $login_url ) : ?><a href="<?php echo esc_url( $login_url ); ?>"><?php esc_html_e( 'Sign In', 'sabri-complete-home-news-feed' ); ?></a><?php endif; ?>
 		</p>
 	<?php else : ?>
 		<p class="sabri-hnf-comments__notice"><?php esc_html_e( 'Comments are closed for this post.', 'sabri-complete-home-news-feed' ); ?></p>
@@ -73,9 +82,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php if ( empty( $tree ) ) : ?>
 			<p class="sabri-hnf-comments__empty"><?php esc_html_e( 'No approved comments yet.', 'sabri-complete-home-news-feed' ); ?></p>
 		<?php else : ?>
-			<?php foreach ( $tree as $item ) : ?>
-				<?php echo \Sabri\HomeNewsFeed\CommentRuntime::render_item( $item ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-			<?php endforeach; ?>
+			<?php foreach ( $tree as $item ) : ?><?php echo \Sabri\HomeNewsFeed\CommentRuntime::render_item( $item ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php endforeach; ?>
 		<?php endif; ?>
 	</div>
 </section>
