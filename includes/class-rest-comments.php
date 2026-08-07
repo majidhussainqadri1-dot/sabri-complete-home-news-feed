@@ -164,12 +164,16 @@ final class RestComments {
 		return self::validate_non_negative_id( $value ) ? (int) $value : 0;
 	}
 
-	/** Validate sort. */
+	/** Validate only an exact supported sort key; do not coerce unknown values. */
 	public static function validate_sort( $value ) {
-		return is_scalar( $value ) && array_key_exists( CommentExperience::normalize_sort( $value ), CommentExperience::sort_modes() );
+		if ( ! is_scalar( $value ) ) {
+			return false;
+		}
+		$key = function_exists( 'sanitize_key' ) ? sanitize_key( $value ) : strtolower( preg_replace( '/[^a-zA-Z0-9_\-]/', '', (string) $value ) );
+		return array_key_exists( $key, CommentExperience::sort_modes() );
 	}
 
-	/** Sanitize sort. */
+	/** Sanitize sort after validation. */
 	public static function sanitize_sort( $value ) {
 		return CommentExperience::normalize_sort( $value );
 	}
