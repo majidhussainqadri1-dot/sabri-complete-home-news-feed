@@ -28,30 +28,24 @@ final class HarmonizedSettings {
 		}
 	}
 
-	/**
-	 * Normalize an option payload without deleting unknown future keys.
-	 *
-	 * Option filters must be re-entry safe. A translation, compatibility or
-	 * third-party sanitizer filter may read the same option while this method is
-	 * executing. Returning the already bounded payload during that nested read
-	 * prevents an infinite normalize -> option read -> normalize cycle.
-	 *
-	 * @param mixed $value Stored/default option value.
-	 * @return array
-	 */
+	/** Normalize an option payload without deleting unknown future keys. */
 	public static function normalize( $value ) {
 		$value = is_array( $value ) ? $value : array();
-
 		if ( self::$normalizing ) {
 			return $value;
 		}
-
 		self::$normalizing = true;
-
 		try {
+			$value['general'] = isset( $value['general'] ) && is_array( $value['general'] ) ? $value['general'] : array();
 			$value['capabilities'] = isset( $value['capabilities'] ) && is_array( $value['capabilities'] ) ? $value['capabilities'] : array();
 			$value['feed'] = isset( $value['feed'] ) && is_array( $value['feed'] ) ? $value['feed'] : array();
 			$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
+
+			/* Latest Founder governance: green is central; orange legacy values cannot survive reads/writes. */
+			$value['general']['admin_accent_hex'] = '#1f7a55';
+
+			/* Founder identity grants authority, never organic ranking preference. */
+			$value['feed']['founder_priority'] = 0;
 
 			$value['capabilities']['founder_roles'] = self::merge_keys(
 				isset( $value['capabilities']['founder_roles'] ) ? $value['capabilities']['founder_roles'] : array(),
@@ -115,14 +109,14 @@ final class HarmonizedSettings {
 		if ( ! function_exists( 'get_option' ) || ! function_exists( 'update_option' ) || ! function_exists( 'current_user_can' ) || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$marker = 'sabri_hnf_settings_harmonized_' . str_replace( '.', '_', SABRI_HNF_VERSION );
+		$marker = 'sabri_hnf_settings_harmonized_' . str_replace( '.', '_', SABRI_HNF_PACKAGE_VERSION );
 		if ( get_option( $marker, 0 ) ) {
 			return;
 		}
 		$current = get_option( Settings::OPTION_NAME, array() );
 		update_option( Settings::OPTION_NAME, self::normalize( $current ), false );
 		update_option( $marker, 1, false );
-		AuditLog::record( 'file21_settings_harmonized', array( 'version' => SABRI_HNF_VERSION ) );
+		AuditLog::record( 'file21_settings_harmonized', array( 'package_version' => SABRI_HNF_PACKAGE_VERSION, 'runtime_version' => SABRI_HNF_VERSION ) );
 	}
 
 	/** Merge and sanitize role or controlled-key aliases. */
@@ -139,14 +133,7 @@ final class HarmonizedSettings {
 		return array_values( array_intersect( $items, array_map( array( __CLASS__, 'clean_key' ), $allowed ) ) );
 	}
 
-	/**
-	 * Normalize a controlled ASCII key without invoking WordPress filters.
-	 *
-	 * WordPress sanitize_key() applies the global `sanitize_key` filter. Calling
-	 * it from an option filter can recurse when another callback reads this same
-	 * settings option. File 21 keys are controlled ASCII slugs, so a local pure
-	 * sanitizer is both sufficient and safer here.
-	 */
+	/** Pure sanitizer for controlled ASCII keys. */
 	private static function clean_key( $value ) {
 		$value = strtolower( (string) $value );
 		$value = preg_replace( '/[^a-z0-9_\-]/', '', $value );
