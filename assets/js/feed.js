@@ -171,6 +171,67 @@
 			});
 	}
 
+	function preferenceStatus(agency, message) {
+		var target = agency ? agency.querySelector('[data-sabri-feed-preference-status]') : null;
+		if (target) {
+			target.textContent = message || '';
+		}
+	}
+
+	function setPreferenceBusy(agency, busy) {
+		if (!agency) {
+			return;
+		}
+		agency.setAttribute('aria-busy', busy ? 'true' : 'false');
+		Array.prototype.forEach.call(agency.closest('.sabri-hnf-feed').querySelectorAll('[data-sabri-feed-preference]'), function (button) {
+			button.disabled = !!busy;
+		});
+	}
+
+	function handleFeedPreference(button) {
+		var feed = button.closest('.sabri-hnf-feed');
+		var agency = feed ? feed.querySelector('[data-sabri-feed-agency]') : null;
+		if (!agency || agency.getAttribute('aria-busy') === 'true') {
+			return;
+		}
+		if (agency.getAttribute('data-logged-in') !== '1') {
+			var loginUrl = agency.getAttribute('data-login-url');
+			if (loginUrl) {
+				window.location.assign(loginUrl);
+			} else {
+				preferenceStatus(agency, 'Sign in to change Feed preferences.');
+			}
+			return;
+		}
+		var url = agency.getAttribute('data-preferences-url');
+		if (!url) {
+			preferenceStatus(agency, 'Feed preferences are unavailable.');
+			return;
+		}
+		var action = button.getAttribute('data-sabri-feed-preference') || '';
+		var value = button.getAttribute('data-value') || '';
+		var duration = parseInt(button.getAttribute('data-duration') || '0', 10) || 0;
+		setPreferenceBusy(agency, true);
+		preferenceStatus(agency, 'Saving Feed preference');
+		request(agency, url, 'POST', { action: action, value: value, duration: duration })
+			.then(function (result) {
+				preferenceStatus(agency, result.message || 'Feed preference updated.');
+				if (action === 'hide-post') {
+					var card = button.closest('.sabri-hnf-card');
+					if (card) {
+						card.remove();
+					}
+					setPreferenceBusy(agency, false);
+					return;
+				}
+				window.setTimeout(function () { window.location.reload(); }, 250);
+			})
+			.catch(function (error) {
+				preferenceStatus(agency, error.message || 'The Feed preference could not be saved.');
+				setPreferenceBusy(agency, false);
+			});
+	}
+
 	function reportContext(form) {
 		return form ? form.closest('[data-sabri-interactions], [data-sabri-comments]') : null;
 	}
@@ -307,6 +368,12 @@
 		});
 
 		document.addEventListener('click', function (event) {
+			var preferenceButton = event.target.closest('[data-sabri-feed-preference]');
+			if (preferenceButton) {
+				event.preventDefault();
+				handleFeedPreference(preferenceButton);
+				return;
+			}
 			var button = event.target.closest('[data-sabri-action]');
 			if (!button) {
 				return;
