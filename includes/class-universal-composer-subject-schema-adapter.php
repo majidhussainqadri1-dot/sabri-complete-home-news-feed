@@ -46,7 +46,17 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	public function priority(): int { return $this->delegate->priority(); }
 	public function native_module(): string { return $this->delegate->native_module(); }
 	public function minimum_native_version(): string { return $this->delegate->minimum_native_version(); }
-	public function required_capability(): string { return $this->delegate->required_capability(); }
+
+	/**
+	 * File 22 performs a generic capability prefilter before invoking the native
+	 * adapter. That prefilter must not reject a canonical Founder or Administrator
+	 * merely because a plugin-specific role capability was not re-applied during
+	 * an in-place upgrade. `read` is only the authenticated coarse gate; the
+	 * authoritative File 00 identity, suspension, native capability and policy
+	 * checks remain enforced by can_create() and every native write command.
+	 */
+	public function required_capability(): string { return 'read'; }
+
 	public function privacy_classification(): string { return $this->delegate->privacy_classification(); }
 	public function is_available(): bool { return $this->delegate->is_available(); }
 	public function can_create( int $user_id ): bool { return $this->delegate->can_create( $user_id ); }

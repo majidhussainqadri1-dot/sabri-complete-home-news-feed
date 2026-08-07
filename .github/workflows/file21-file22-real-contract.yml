@@ -56,6 +56,7 @@ jobs:
           php -l file21/tests/run-file21-file22-real-contract-tests.php
           php -l file21/tests/run-file21-file22-maintenance-tests.php
           php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
+          php -l file21/tests/run-file21-file22-founder-gateway-regression.php
 
       - name: Run actual File 22 Coordinator with File 21 adapter
         shell: bash
@@ -64,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           php file21/tests/run-file21-file22-real-contract-tests.php
+          php file21/tests/run-file21-file22-founder-gateway-regression.php
 
       - name: Run bounded retention and maintenance tests
         shell: bash
