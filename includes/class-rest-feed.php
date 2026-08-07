@@ -32,7 +32,7 @@ final class RestFeed {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'feed' ),
-				'permission_callback' => array( __CLASS__, 'permission_callback' ),
+				'permission_callback' => array( __CLASS__, 'public_permission' ),
 				'args'                => array(
 					'mode'     => array( 'sanitize_callback' => 'sanitize_key', 'validate_callback' => array( __CLASS__, 'validate_mode' ) ),
 					'page'     => array( 'sanitize_callback' => array( __CLASS__, 'sanitize_positive_int' ), 'validate_callback' => array( __CLASS__, 'validate_page' ) ),
@@ -48,12 +48,12 @@ final class RestFeed {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( __CLASS__, 'preferences' ),
-					'permission_callback' => array( __CLASS__, 'permission_callback' ),
+					'permission_callback' => array( __CLASS__, 'private_read_permission' ),
 				),
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( __CLASS__, 'update_preferences' ),
-					'permission_callback' => array( __CLASS__, 'permission_callback' ),
+					'permission_callback' => array( __CLASS__, 'private_write_permission' ),
 					'args'                => array(
 						'action'   => array( 'required' => true, 'sanitize_callback' => 'sanitize_key' ),
 						'value'    => array( 'required' => false, 'sanitize_callback' => 'sanitize_text_field' ),
@@ -64,9 +64,23 @@ final class RestFeed {
 		);
 	}
 
-	/** Public read registration; callbacks enforce authentication for private preferences. */
-	public static function permission_callback() {
+	/** Public Feed read permission. */
+	public static function public_permission() {
 		return true;
+	}
+
+	/** Private preference read permission. */
+	public static function private_read_permission() {
+		$user_id = InteractionPermissions::authenticated_user_id();
+		return $user_id > 0 && CanonicalIdentityAdapter::current_action_ready( $user_id );
+	}
+
+	/** Private preference write permission is current-session and nonce-bound. */
+	public static function private_write_permission( $request ) {
+		$user_id = InteractionPermissions::authenticated_user_id();
+		return $user_id > 0
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& InteractionPermissions::nonce_valid( self::request_nonce( $request ) );
 	}
 
 	/** Validate feed mode. */
@@ -104,10 +118,8 @@ final class RestFeed {
 			'page'     => self::request_param( $request, 'page' ),
 			'per_page' => self::request_param( $request, 'per_page' ),
 		);
-
 		$result = FeedQuery::query( $args );
 		$html   = FeedRenderer::render_cards( $result['posts'], Settings::get() );
-
 		return self::response(
 			array(
 				'mode'      => $result['mode'],
@@ -137,7 +149,7 @@ final class RestFeed {
 			self::request_param( $request, 'action' ),
 			self::request_param( $request, 'value' ),
 			self::request_param( $request, 'duration' ),
-			'',
+			self::request_nonce( $request ),
 			0
 		);
 		return self::result_response( $result );
@@ -146,7 +158,11 @@ final class RestFeed {
 	/** Response helper. */
 	private static function response( array $payload ) {
 		if ( class_exists( 'WP_REST_Response' ) ) {
-			return new \WP_REST_Response( array( 'ok' => true, 'data' => $payload ), 200 );
+			$response = new \WP_REST_Response( array( 'ok' => true, 'data' => $payload ), 200 );
+			if ( method_exists( $response, 'header' ) ) {
+				$response->header( 'Cache-Control', 'no-store, private' );
+			}
+			return $response;
 		}
 		return array( 'ok' => true, 'data' => $payload );
 	}
@@ -155,9 +171,24 @@ final class RestFeed {
 	private static function result_response( array $result ) {
 		$status = isset( $result['status'] ) ? (int) $result['status'] : ( ! empty( $result['ok'] ) ? 200 : 400 );
 		if ( class_exists( 'WP_REST_Response' ) ) {
-			return new \WP_REST_Response( $result, $status );
+			$response = new \WP_REST_Response( $result, $status );
+			if ( method_exists( $response, 'header' ) ) {
+				$response->header( 'Cache-Control', 'no-store, private' );
+			}
+			return $response;
 		}
 		return $result;
+	}
+
+	/** Request nonce helper. */
+	private static function request_nonce( $request ) {
+		if ( is_object( $request ) && method_exists( $request, 'get_header' ) ) {
+			return sanitize_text_field( $request->get_header( 'X-WP-Nonce' ) );
+		}
+		if ( is_array( $request ) && isset( $request['_wpnonce'] ) ) {
+			return sanitize_text_field( $request['_wpnonce'] );
+		}
+		return isset( $_SERVER['HTTP_X_WP_NONCE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) ) : '';
 	}
 
 	/** Request param helper. */
