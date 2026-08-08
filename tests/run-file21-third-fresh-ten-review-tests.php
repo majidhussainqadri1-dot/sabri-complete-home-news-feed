@@ -73,7 +73,7 @@ $assert( str_contains( $hardening, "'preview_only'       => true" ) && str_conta
 $assert( ! str_contains( $hardening, 'sun_ingest_domain_event' ), 'read hardening never invokes File 19 ingestion' );
 
 // Round 4 — the continuing current File 20 pin and five-slot boundary remain executable.
-$assert( str_contains( $companions, 'FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c' ), 'current File 20 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' ), 'current File 20 exact head is pinned' );
 $assert( str_contains( $companions, 'five-exact-slots-fallback-suppressed' ), 'File 20 five-slot File 21 boundary is tested' );
 
 // Round 5 — current File 22 replaces the stale compatibility pin.
@@ -82,7 +82,7 @@ $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
 // Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e' ), 'current File 04 exact head is pinned' );
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
@@ -97,7 +97,7 @@ $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains(
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
-$assert( str_contains( $companions, 'FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' ), 'current File 24 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 
 // Round 10 — this historical cycle remains an executable permanent release gate.
