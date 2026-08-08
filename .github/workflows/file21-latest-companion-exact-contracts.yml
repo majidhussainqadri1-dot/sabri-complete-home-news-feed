@@ -7,6 +7,7 @@ on:
     paths:
       - 'includes/**'
       - 'tests/run-file21-third-fresh-ten-review-tests.php'
+      - 'tests/run-file21-fourth-fresh-ten-review-tests.php'
       - '.github/workflows/file21-latest-companion-exact-contracts.yml'
       - '.github/workflows/file21-file22-real-contract.yml'
   push:
@@ -22,10 +23,10 @@ env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   FILE00_SHA: 3a84c32a6ddad151f2ed09d244fa8aa536a58108
   FILE02_SHA: e352aab7e3bd32bbbe82fc26424a3623b9c71a56
-  FILE04_SHA: ee77ecf321c772e86b1d4250d614e0879edd3fe6
-  FILE20_SHA: 8e6a350f3fc9c180c5e7a14e54d941f956e3ae23
+  FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03
+  FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
-  FILE24_SHA: 0cf9d6e4d0ef7c84b6cabba81c414219d1f772a1
+  FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3
 
 jobs:
   exact-current-companions:
@@ -120,7 +121,7 @@ jobs:
 
           php -l file04/includes/class-snfla-central-plan.php
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
-          grep -Eqi 'read.only|write.*disable|migration|cutover' file04/includes/class-snfla-central-plan.php
+          grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
 
           php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq "'21' => array( 'Complete Home and News Feed'" file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
@@ -133,7 +134,7 @@ jobs:
           grep -Fq 'Production writes require `production_accepted`' file23/docs/ADAPTER-CONTRACT.md
           grep -Fq 'Generic unregistered action strings are prohibited' file23/docs/ADAPTER-CONTRACT.md
 
-          grep -Eqi 'native enforcement|native module|native authorization' file24/docs/ARCHITECTURE.md file24/README.md
+          grep -Eqi 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' file24/docs/ARCHITECTURE.md file24/README.md
           grep -Eqi 'single point of failure|fail.safe|fail-closed' file24/docs/ARCHITECTURE.md file24/README.md
 
       - name: Verify File 21 side remains within current boundaries
@@ -141,8 +142,10 @@ jobs:
         run: |
           set -euo pipefail
           php -l file21/includes/class-third-fresh-review-hardening.php
+          php -l file21/includes/class-fourth-fresh-review-hardening.php
           php file21/tests/run-file21-file23-provider-integration-tests.php
           php file21/tests/run-file21-third-fresh-ten-review-tests.php
+          php file21/tests/run-file21-fourth-fresh-ten-review-tests.php
 
       - name: Record exact companion evidence
         shell: bash

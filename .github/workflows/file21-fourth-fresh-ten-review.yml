@@ -1,0 +1,138 @@
+name: File 21 Fourth Fresh Ten-Round Review Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'includes/**'
+      - 'tests/**'
+      - 'docs/FILE21-FOURTH-FRESH-TEN-ROUND-REVIEW-2026-08-08.md'
+      - '.github/workflows/file21-fourth-fresh-ten-review.yml'
+      - '.github/workflows/file21-latest-companion-exact-contracts.yml'
+  push:
+    branches:
+      - main
+      - 'file21-fourth-fresh-ten-review-20260808'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
+
+jobs:
+  fourth-fresh-ten-round:
+    name: Fourth fresh ten-round source and package gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact File 21 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: PHP syntax and fourth-review executable evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-fourth-fresh-review-hardening.php
+          php -l includes/class-plugin.php
+          php -l tests/run-file21-fourth-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-fourth-fresh-ten-review-tests.php
+
+      - name: Re-run affected and governing regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE21_ROOT="$PWD" php tests/run-file21-next-generation-30-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-third-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-latest-plan-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-four-plan-audit-1.0.5.php
+          FILE21_ROOT="$PWD" php tests/run-file21-file23-provider-integration-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-file26-connector-contract-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-public-visibility-tests.php
+
+      - name: Verify fresh cross-file pins are current review inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          companion=.github/workflows/file21-latest-companion-exact-contracts.yml
+          grep -Fq 'FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03' "$companion"
+          grep -Fq 'FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c' "$companion"
+          grep -Fq 'FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3' "$companion"
+          grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
+          grep -Fq 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' .github/workflows/file21-file22-real-contract.yml
+          grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
+
+      - name: Deterministic canonical package regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build-release.py --source-sha "${FILE21_EXPECTED_SHA}"
+          package="release/${CANONICAL_BASE}.zip"
+          checksum="release/${CANONICAL_BASE}.sha256"
+          manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          report="release/${CANONICAL_BASE}-TEST-REPORT.md"
+          test -f "$package"
+          test -f "$checksum"
+          test -f "$manifest"
+          test -f "$report"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          unzip -Z1 "$package" > fourth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-fourth-fresh-review-hardening.php' fourth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-third-fresh-review-hardening.php' fourth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-feed.php' fourth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-rest-next-generation.php' fourth-review-package-entries.txt
+          if grep -Eq '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules)/' fourth-review-package-entries.txt; then
+            echo 'Development-only files are present in the package.'
+            exit 1
+          fi
+
+      - name: Record fourth-review evidence
+        shell: bash
+        run: |
+          cat > fourth-fresh-ten-round-evidence.txt <<REPORT
+          File 21 exact head: ${FILE21_EXPECTED_SHA}
+          Review rounds: 10
+          Defect-bearing rounds: 2,3,4,9,10
+          No-new-defect rounds: 1,5,6,7,8
+          Package: 1.0.5
+          Runtime/API: 1.0.3
+          Schema: 1.0.0
+          Database migration: NONE
+          Repost/Quote non-public source leak: BLOCKED BEFORE WRITE
+          Story current professional eligibility: REVALIDATED
+          Coauthor current canonical public identity: REVALIDATED
+          Fresh File 04/20/24 pins: UPDATED
+          Deterministic package: PASS
+          Hostinger staging acceptance: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-fourth-fresh-ten-review-${{ env.FILE21_EXPECTED_SHA }}
+          path: |
+            fourth-fresh-ten-round-evidence.txt
+            fourth-review-package-entries.txt
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+          if-no-files-found: warn
+          retention-days: 30
