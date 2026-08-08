@@ -2,6 +2,10 @@
 /**
  * Executable evidence for the third fresh ten-round File 21 review.
  *
+ * Historical round classifications remain tied to the third-review report,
+ * while continuing exact-companion assertions intentionally follow the
+ * currently approved immutable pins maintained by the latest companion gate.
+ *
  * @package SabriCompleteHomeNewsFeed
  */
 
@@ -68,8 +72,8 @@ $assert( str_contains( $hardening, "self::DIGEST_ROUTE === \$route && 'GET' === 
 $assert( str_contains( $hardening, "'preview_only'       => true" ) && str_contains( $hardening, "'delivery_scheduled' => false" ), 'digest preview truthfully declares no delivery side effect' );
 $assert( ! str_contains( $hardening, 'sun_ingest_domain_event' ), 'read hardening never invokes File 19 ingestion' );
 
-// Round 4 — current File 20 contract is exact-pinned and the five-slot ownership boundary is asserted.
-$assert( str_contains( $companions, 'FILE20_SHA: 8e6a350f3fc9c180c5e7a14e54d941f956e3ae23' ), 'current File 20 exact head is pinned' );
+// Round 4 — the continuing current File 20 pin and five-slot boundary remain executable.
+$assert( str_contains( $companions, 'FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c' ), 'current File 20 exact head is pinned' );
 $assert( str_contains( $companions, 'five-exact-slots-fallback-suppressed' ), 'File 20 five-slot File 21 boundary is tested' );
 
 // Round 5 — current File 22 replaces the stale compatibility pin.
@@ -77,9 +81,9 @@ $assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd2190
 $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 'stale File 22 pin is removed' );
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
-// Round 6 — current File 04 migration-only contract is exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: ee77ecf321c772e86b1d4250d614e0879edd3fe6' ), 'current File 04 exact head is pinned' );
-$assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover' ), 'legacy migration/write-disable boundary is asserted' );
+// Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
+$assert( str_contains( $companions, 'FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
 $assert( str_contains( $companions, 'FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759' ), 'current File 23 exact head is pinned' );
@@ -92,11 +96,11 @@ $assert( str_contains( $hardening, "'ng30_mutation_conflict'" ) && str_contains(
 $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains( $hardening, 'hash_equals' ), 'cross-request lock uses atomic option creation and owner-token release' );
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
-// Round 9 — File 24 exact assurance boundary remains native-enforcement preserving.
-$assert( str_contains( $companions, 'FILE24_SHA: 0cf9d6e4d0ef7c84b6cabba81c414219d1f772a1' ), 'current File 24 exact head is pinned' );
-$assert( str_contains( $companions, 'native enforcement|native module|native authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
+// Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
+$assert( str_contains( $companions, 'FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 
-// Round 10 — this fresh cycle itself is an executable permanent release gate.
+// Round 10 — this historical cycle remains an executable permanent release gate.
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );
 $assert( str_contains( $workflow, 'run-file21-third-fresh-ten-review-tests.php' ), 'third-review executable test is wired into CI' );
 $assert( str_contains( $workflow, 'python3 tools/build-release.py --source-sha' ), 'third-review CI includes deterministic package regression' );
