@@ -9,6 +9,10 @@ on:
       - 'tests/run-file21-file22-*.php'
       - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file22-real-contract.yml'
+  push:
+    branches:
+      - main
+      - 'file21-**'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE22_RUNTIME_SHA: 4d4f17ff11810d3048c7f6d5c8fd10a5ac506385
+  FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a
 
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
