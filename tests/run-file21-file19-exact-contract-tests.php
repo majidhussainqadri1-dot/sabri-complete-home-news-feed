@@ -47,17 +47,25 @@ foreach ( array( 'producer', 'owner', 'event_id', 'event_type', 'schema_version'
 	$check( false !== strpos( $file21, "'{$field}'" ), 'File 21 event envelope missing ' . $field . '.' );
 }
 
-// File 21 must register a bounded producer contract rather than rely on an untyped action only.
+// File 21 must register a type-bounded producer and emit a versioned event envelope.
 $check( false !== strpos( $file21, 'sun_register_notification_producer' ), 'File 21 does not register its File 19 producer.' );
-$check( false !== strpos( $file21, "'event_types'" ) && false !== strpos( $file21, "'schema_versions'" ), 'File 21 producer declaration is not version/type bounded.' );
+$check( false !== strpos( $file21, "'event_types'" ), 'File 21 producer declaration is not event-type bounded.' );
+$check( false !== strpos( $file21, "'schema_version'" ), 'File 21 event envelope is not schema-versioned.' );
 $check( false !== strpos( $file21, "'owner'           => 'File 21'" ), 'File 21 producer owner does not match its event owner.' );
+
+// The pinned producer registry authorizes event types; schema version belongs to the event validator/envelope.
+$check(
+	false !== strpos( $file19['registry'], 'register_runtime' )
+	&& false !== strpos( $file19['registry'], "'event_types'" )
+	&& false !== strpos( $file19['registry'], 'authorize_type' ),
+	'Pinned File 19 producer registry shape changed unexpectedly.'
+);
 
 // The chosen fact must satisfy the validator's naming shape and an active File 19 delivery policy.
 $event_type = 'Publishing.DigestCandidatesPrepared';
 $check( false !== strpos( $file21, $event_type ), 'File 21 exact File 19 event type changed unexpectedly.' );
 $check( 1 === preg_match( '/^[A-Z][A-Za-z0-9]*(?:\.[A-Z][A-Za-z0-9]*)+$/', $event_type ), 'File 21 event type violates File 19 domain-fact syntax.' );
 $check( false !== strpos( $file19['activator'], "'Publishing.*'" ), 'Pinned File 19 no longer seeds a matching Publishing.* policy.' );
-$check( false !== strpos( $file19['registry'], 'schema_versions' ), 'Pinned File 19 producer registry no longer supports bounded schema versions.' );
 
 // Canonical ingestion must be attempted and unavailable/rejected states must remain truthful.
 $check( false !== strpos( $file21, 'sun_ingest_domain_event( $event )' ), 'File 21 does not call File 19 canonical ingestion.' );
