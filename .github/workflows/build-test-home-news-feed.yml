@@ -110,6 +110,7 @@ jobs:
           grep -Fq -- "- Canonical global Search/Discovery/Ranking owner: File 26" "$report"
           grep -Fq -- "- Founder-approved File 21 next-generation 30-feature expansion: implemented" "$report"
           grep -Fq -- "- File 26 Why Trending/related-knowledge integration: versioned adapter; File 26 remains global owner" "$report"
+          grep -Fq -- "- Ten-round NG30 hardening runtime files are package-mandatory: YES" "$report"
           grep -Fq -- "- File 23 direct writes remain fail-closed: YES" "$report"
           expected=$(awk '{print tolower($1)}' "$checksum")
           actual=$(sha256sum "$package" | awk '{print $1}')
@@ -131,8 +132,11 @@ jobs:
             sabri-complete-home-news-feed/includes/class-comment-experience.php \
             sabri-complete-home-news-feed/includes/class-next-generation-feed.php \
             sabri-complete-home-news-feed/includes/class-next-generation-integrations.php \
+            sabri-complete-home-news-feed/includes/class-next-generation-hardening.php \
             sabri-complete-home-news-feed/includes/class-rest-next-generation.php \
             sabri-complete-home-news-feed/assets/js/next-generation.js \
+            sabri-complete-home-news-feed/assets/js/next-generation-share.js \
+            sabri-complete-home-news-feed/assets/js/next-generation-accessibility.js \
             sabri-complete-home-news-feed/assets/css/next-generation.css \
             sabri-complete-home-news-feed/public/class-news-public-runtime.php; do
             grep -Fxq "$entry" package-entries.txt
