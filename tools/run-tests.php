@@ -13,6 +13,21 @@ $root         = dirname( __DIR__ );
 $node_modules = $root . '/node_modules';
 $isolated     = '';
 
+/*
+ * The lean behavior harness intentionally does not bootstrap WordPress core.
+ * File 21 runtime code may rely on WordPress' standard time constants, so the
+ * wrapper supplies their canonical values only when the harness lacks them.
+ */
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 60 * 60 );
+}
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 24 * HOUR_IN_SECONDS );
+}
+if ( ! defined( 'WEEK_IN_SECONDS' ) ) {
+	define( 'WEEK_IN_SECONDS', 7 * DAY_IN_SECONDS );
+}
+
 $restore_node_modules = static function () use ( $node_modules, &$isolated ) {
 	if ( '' === $isolated || ! is_dir( $isolated ) || file_exists( $node_modules ) ) {
 		return;
