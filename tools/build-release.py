@@ -14,7 +14,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 SLUG = "sabri-complete-home-news-feed"
 PACKAGE_VERSION = "1.1.0"
-RUNTIME_VERSION = "1.1.0"
+RUNTIME_VERSION = "1.0.3"
 BASE = f"21-sabri-complete-home-news-feed-{PACKAGE_VERSION}-CONTROLLED-STAGING-CANDIDATE"
 FIXED_ZIP_TIME = (2026, 8, 8, 0, 0, 0)
 EXCLUDED_ROOTS = {
@@ -88,7 +88,7 @@ def validate_identity(root: Path) -> None:
     required = (
         "* Version: 1.1.0",
         "define( 'SABRI_HNF_PACKAGE_VERSION', '1.1.0' );",
-        "define( 'SABRI_HNF_VERSION', '1.1.0' );",
+        "define( 'SABRI_HNF_VERSION', '1.0.3' );",
         "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );",
     )
     missing = [needle for needle in required if needle not in bootstrap]
@@ -198,7 +198,7 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
             "",
             f"- Exact source commit: {commit}",
             f"- Package identity: {PACKAGE_VERSION}",
-            f"- Runtime/API: {RUNTIME_VERSION}",
+            f"- Stable runtime/API: {RUNTIME_VERSION}",
             "- Database schema: 1.0.0 (unchanged; no DB migration introduced)",
             f"- Artifact: {final_zip.name}",
             f"- SHA-256: {archive_hash}",
