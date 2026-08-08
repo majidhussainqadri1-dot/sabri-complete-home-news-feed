@@ -48,7 +48,20 @@ final class NextGenerationPrivacy {
 		if ( ! $user || empty( $user->ID ) ) {
 			return array( 'data' => array(), 'done' => true );
 		}
-		$state = NextGenerationFeed::user_state( absint( $user->ID ) );
+
+		$user_id   = absint( $user->ID );
+		$has_state = false;
+		if ( function_exists( 'metadata_exists' ) ) {
+			$has_state = metadata_exists( 'user', $user_id, NextGenerationFeed::USER_META );
+		} elseif ( function_exists( 'get_user_meta' ) ) {
+			$raw_state = get_user_meta( $user_id, NextGenerationFeed::USER_META, true );
+			$has_state = is_array( $raw_state ) && ! empty( $raw_state );
+		}
+		if ( ! $has_state ) {
+			return array( 'data' => array(), 'done' => true );
+		}
+
+		$state = NextGenerationFeed::user_state( $user_id );
 		$data  = array(
 			array( 'name' => __( 'Followed topics', 'sabri-complete-home-news-feed' ), 'value' => implode( ', ', (array) $state['topics'] ) ),
 			array( 'name' => __( 'Reading progress', 'sabri-complete-home-news-feed' ), 'value' => self::json( $state['progress'] ) ),
@@ -64,7 +77,7 @@ final class NextGenerationPrivacy {
 				array(
 					'group_id'    => 'sabri-hnf-next-generation-state',
 					'group_label' => __( 'Home and News Feed private reading preferences', 'sabri-complete-home-news-feed' ),
-					'item_id'     => 'user-' . absint( $user->ID ),
+					'item_id'     => 'user-' . $user_id,
 					'data'        => $data,
 				),
 			),
