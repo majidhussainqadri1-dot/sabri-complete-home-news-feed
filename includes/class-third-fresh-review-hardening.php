@@ -117,7 +117,7 @@ final class ThirdFreshReviewHardening {
 
 		$frequency = self::request_param( $request, 'frequency' );
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
-		$days      = 'weekly' === $frequency ? 7 : 1;
+		$since     = time() - ( 'weekly' === $frequency ? WEEK_IN_SECONDS : DAY_IN_SECONDS );
 		$items     = array();
 
 		if ( class_exists( 'WP_Query' ) ) {
@@ -130,12 +130,12 @@ final class ThirdFreshReviewHardening {
 					'order'               => 'DESC',
 					'ignore_sticky_posts' => true,
 					'no_found_rows'       => true,
-					'date_query'           => array( array( 'after' => $days . ' days ago', 'inclusive' => true ) ),
+					'date_query'           => array( array( 'after' => gmdate( 'Y-m-d H:i:s', $since ), 'inclusive' => true, 'column' => 'post_date_gmt' ) ),
 				)
 			);
 			foreach ( (array) $query->posts as $post ) {
 				$post_id = is_object( $post ) && isset( $post->ID ) ? absint( $post->ID ) : absint( $post );
-				if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id ) ) {
+				if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 					continue;
 				}
 				$items[] = array(
