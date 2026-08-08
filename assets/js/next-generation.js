@@ -142,10 +142,11 @@
 		});
 	}
 
-	function exportOfflinePack(button) {
+	function exportOfflinePack(control) {
 		if (!requireLogin() || !endpoint) { return; }
 		var url = endpoint.replace(/\/action(?:\?.*)?$/, '/offline-pack');
-		button.disabled = true;
+		var canDisable = control && 'disabled' in control;
+		if (canDisable) { control.disabled = true; }
 		window.fetch(url, {
 			method: 'GET', credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce || '' }
 		}).then(function (response) { return response.json(); }).then(function (json) {
@@ -167,13 +168,157 @@
 			setStatus('Offline pack prepared.', false);
 		}).catch(function (error) {
 			setStatus(error.message || 'Offline pack unavailable.', true);
-		}).finally(function () { button.disabled = false; });
+		}).finally(function () {
+			if (canDisable) { control.disabled = false; }
+		});
 	}
 
+	/* Cookie-authenticated REST calls require the WP REST nonce. */
 	document.addEventListener('click', function (event) {
-		var button = event.target.closest('[data-sabri-ng-offline-export]');
-		if (!button) { return; }
+		var control = event.target.closest('[data-sabri-ng-offline-export], a[href*="/next-generation/offline-pack"]');
+		if (!control) { return; }
 		event.preventDefault();
-		exportOfflinePack(button);
+		exportOfflinePack(control);
 	});
+
+	/*
+	 * News Compare was originally exposed only as a REST contract. Build a
+	 * progressive, keyboard-operable selection surface on Feed cards so the
+	 * feature is complete at the user-experience layer without changing the
+	 * frozen canonical Home-control registry.
+	 */
+	function initCompareMode() {
+		if (!endpoint) { return; }
+		var cards = Array.prototype.slice.call(document.querySelectorAll('[data-sabri-ng-card]'));
+		if (cards.length < 2) { return; }
+
+		var selected = [];
+		var host = document.querySelector('.sabri-hnf-ng-home__controls') || document.querySelector('.sabri-hnf-feed');
+		if (!host) { return; }
+
+		var tray = document.createElement('div');
+		tray.className = 'sabri-hnf-ng-compare-tray';
+		tray.setAttribute('role', 'region');
+		tray.setAttribute('aria-label', 'News Compare');
+		var count = document.createElement('span');
+		count.textContent = 'Compare: 0 selected';
+		var run = document.createElement('button');
+		run.type = 'button';
+		run.className = 'sabri-hnf-ng-button';
+		run.textContent = 'Compare selected';
+		run.disabled = true;
+		tray.appendChild(count);
+		tray.appendChild(run);
+		host.appendChild(tray);
+
+		function refresh() {
+			count.textContent = 'Compare: ' + selected.length + ' selected (2-4)';
+			run.disabled = selected.length < 2 || selected.length > 4;
+		}
+
+		cards.forEach(function (card) {
+			var postId = parseInt(card.getAttribute('data-sabri-ng-card') || '0', 10) || 0;
+			if (!postId) { return; }
+			var actions = card.querySelector('.sabri-hnf-ng-actions') || card;
+			var button = document.createElement('button');
+			button.type = 'button';
+			button.className = 'sabri-hnf-ng-button sabri-hnf-ng-compare-toggle';
+			button.textContent = 'Compare';
+			button.setAttribute('aria-pressed', 'false');
+			button.addEventListener('click', function () {
+				var index = selected.indexOf(postId);
+				if (index >= 0) {
+					selected.splice(index, 1);
+					button.setAttribute('aria-pressed', 'false');
+					button.classList.remove('is-active');
+				} else if (selected.length < 4) {
+					selected.push(postId);
+					button.setAttribute('aria-pressed', 'true');
+					button.classList.add('is-active');
+				} else {
+					setStatus('News Compare supports up to four items at a time.', true);
+				}
+				refresh();
+			});
+			actions.appendChild(button);
+		});
+
+		run.addEventListener('click', function () {
+			if (selected.length < 2 || selected.length > 4) { return; }
+			run.disabled = true;
+			var url = endpoint.replace(/\/action(?:\?.*)?$/, '/compare') + '?ids=' + encodeURIComponent(selected.join(','));
+			window.fetch(url, { credentials: 'same-origin' })
+				.then(function (response) { return response.json(); })
+				.then(function (json) {
+					if (!json || json.ok === false || !json.data || !Array.isArray(json.data.items)) {
+						throw new Error('Comparison is unavailable.');
+					}
+					showComparison(json.data.items);
+				})
+				.catch(function (error) { setStatus(error.message || 'Comparison is unavailable.', true); })
+				.finally(function () { refresh(); });
+		});
+	}
+
+	function showComparison(items) {
+		var dialog = document.createElement('dialog');
+		dialog.className = 'sabri-hnf-ng-compare-dialog';
+		dialog.setAttribute('aria-labelledby', 'sabri-hnf-ng-compare-title');
+		var title = document.createElement('h2');
+		title.id = 'sabri-hnf-ng-compare-title';
+		title.textContent = 'News Compare';
+		dialog.appendChild(title);
+		var list = document.createElement('div');
+		list.className = 'sabri-hnf-ng-compare-grid';
+		items.forEach(function (item) {
+			var article = document.createElement('article');
+			var heading = document.createElement('h3');
+			var link = document.createElement('a');
+			link.href = item.url || '#';
+			link.textContent = item.title || 'Untitled';
+			heading.appendChild(link);
+			article.appendChild(heading);
+			['author', 'date'].forEach(function (key) {
+				if (!item[key]) { return; }
+				var line = document.createElement('p');
+				line.textContent = key.charAt(0).toUpperCase() + key.slice(1) + ': ' + item[key];
+				article.appendChild(line);
+			});
+			if (item.evidence && item.evidence.level) {
+				var evidence = document.createElement('p');
+				evidence.textContent = 'Evidence: ' + item.evidence.level;
+				article.appendChild(evidence);
+			}
+			if (item.sources && typeof item.sources.count !== 'undefined') {
+				var sources = document.createElement('p');
+				sources.textContent = 'Independent source domains: ' + item.sources.count;
+				article.appendChild(sources);
+			}
+			list.appendChild(article);
+		});
+		dialog.appendChild(list);
+		var close = document.createElement('button');
+		close.type = 'button';
+		close.className = 'sabri-hnf-ng-button';
+		close.textContent = 'Close';
+		close.addEventListener('click', function () {
+			if (typeof dialog.close === 'function') { dialog.close(); }
+			dialog.remove();
+		});
+		dialog.appendChild(close);
+		document.body.appendChild(dialog);
+		if (typeof dialog.showModal === 'function') {
+			dialog.showModal();
+		} else {
+			dialog.setAttribute('open', 'open');
+			dialog.setAttribute('role', 'dialog');
+		}
+		close.focus();
+	}
+
+	if ('loading' === document.readyState) {
+		document.addEventListener('DOMContentLoaded', initCompareMode);
+	} else {
+		initCompareMode();
+	}
 }());
