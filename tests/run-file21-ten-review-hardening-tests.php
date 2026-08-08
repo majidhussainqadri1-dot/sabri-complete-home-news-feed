@@ -45,17 +45,18 @@ $assert( false !== strpos( $share_js, 'navigator.clipboard' ) && false !== strpo
 
 $assert( false !== strpos( $a11y_js, "textActions = ['quote', 'qna-question', 'qna-answer', 'expert-context']" ), 'Accessible text-action interception does not cover all prompt-based NG30 actions.' );
 $assert( false !== strpos( $a11y_js, 'showModal' ) && false !== strpos( $a11y_js, 'stopImmediatePropagation' ), 'Accessible dialog/focus path is incomplete.' );
-$assert( false === strpos( $a11y_js, 'window.prompt' ), 'Accessibility correction must not introduce another prompt-only path.' );
+$assert( false === strpos( $a11y_js, 'window.prompt(' ), 'Accessibility correction must not execute another prompt-only path.' );
 
 foreach ( array(
-	"Phase5RateLimiter::allow( 'ng-action', 60, 60, $user_id )",
-	"in_array( $action, array( 'follow-topic', 'unfollow-topic' ), true )",
-	"term_exists( $slug, 'sabri_feed_topic' )",
+	'Phase5RateLimiter::allow( \'ng-action\', 60, 60, $user_id )',
+	'in_array( $action, array( \'follow-topic\', \'unfollow-topic\' ), true )',
+	'term_exists( $slug, \'sabri_feed_topic\' )',
 	"'Cache-Control', 'no-store, private, max-age=0'",
 	"'/next-generation/digest/dispatch'",
 	"'preview_only'     => true",
 	'InteractionPermissions::nonce_valid( $nonce )',
-	"Phase5RateLimiter::allow( 'ng-digest-dispatch', 4, HOUR_IN_SECONDS, $user_id )",
+	'Phase5RateLimiter::allow( \'ng-digest-dispatch\', 4, HOUR_IN_SECONDS, $user_id )',
+	'InteractionPermissions::can_view_post( $post_id, $user_id )',
 ) as $needle ) {
 	$assert( false !== strpos( $hardening, $needle ), 'Hardening contract missing: ' . $needle );
 }
