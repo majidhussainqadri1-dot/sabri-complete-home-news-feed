@@ -180,7 +180,7 @@ final class NextGenerationHardening {
 		$items = array();
 		foreach ( (array) $query->posts as $post ) {
 			$post_id = is_object( $post ) && isset( $post->ID ) ? absint( $post->ID ) : absint( $post );
-			if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
 			$items[] = array(
