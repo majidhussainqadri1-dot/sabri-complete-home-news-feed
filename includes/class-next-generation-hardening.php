@@ -37,6 +37,13 @@ final class NextGenerationHardening {
 			SABRI_HNF_PACKAGE_VERSION,
 			true
 		);
+		wp_enqueue_script(
+			'sabri-hnf-next-generation-accessibility',
+			SABRI_HNF_URL . 'assets/js/next-generation-accessibility.js',
+			array( 'sabri-hnf-next-generation' ),
+			SABRI_HNF_PACKAGE_VERSION,
+			true
+		);
 	}
 
 	/** Register explicit POST handoff so GET digest preview remains side-effect free. */
