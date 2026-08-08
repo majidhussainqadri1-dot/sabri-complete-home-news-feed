@@ -55,8 +55,8 @@ foreach ( array( 'most-viral-now', 'latest-news', 'from-founder', 'from-verified
 }
 
 // Round 5: Editorial News retains its own gated lifecycle, public states and retraction policy.
-$check( false !== strpos( $files['news_policy'], 'public_archive_states' ) && false !== strpos( $files['news_policy'], "'retracted' === $state" ), 'Round 5: Editorial News public/retraction lifecycle drift.' );
-$check( false !== strpos( $files['news_policy'], "current_user_can( 'edit_editorial_news', $post_id )" ), 'Round 5: Editorial News object authorization missing.' );
+$check( false !== strpos( $files['news_policy'], 'public_archive_states' ) && false !== strpos( $files['news_policy'], "'retracted' === \$state" ), 'Round 5: Editorial News public/retraction lifecycle drift.' );
+$check( false !== strpos( $files['news_policy'], "current_user_can( 'edit_editorial_news', \$post_id )" ), 'Round 5: Editorial News object authorization missing.' );
 
 // Round 6: co-authors and 24-hour professional Stories now enforce current canonical authority.
 $check( false !== strpos( $files['hardening2'], 'sanitize_post_meta__sabri_hnf_ng_coauthors' ) && false !== strpos( $files['hardening2'], 'CanonicalIdentityAdapter::public_projection' ), 'Round 6: co-author canonical-identity guard missing.' );
