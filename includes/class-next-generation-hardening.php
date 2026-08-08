@@ -11,12 +11,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Keeps NG30 mutations bounded, fail-closed and taxonomy-valid. */
+/** Keeps NG30 mutations bounded, fail-closed and privacy-safe. */
 final class NextGenerationHardening {
 	/** Register REST guards. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'rest_pre_dispatch', array( __CLASS__, 'pre_dispatch' ), 8, 3 );
+			add_filter( 'rest_post_dispatch', array( __CLASS__, 'post_dispatch' ), 20, 3 );
 		}
 	}
 
@@ -57,9 +58,35 @@ final class NextGenerationHardening {
 		return $result;
 	}
 
+	/** Prevent user-specific next-generation REST data from being cached or indexed. */
+	public static function post_dispatch( $response, $server, $request ) {
+		unset( $server );
+		if ( ! self::is_private_ng_route( $request ) || ! is_object( $response ) || ! method_exists( $response, 'header' ) ) {
+			return $response;
+		}
+		$response->header( 'Cache-Control', 'no-store, private, max-age=0' );
+		$response->header( 'Pragma', 'no-cache' );
+		$response->header( 'X-Robots-Tag', 'noindex, nofollow' );
+		return $response;
+	}
+
 	/** Whether this is a File 21 next-generation REST route. */
 	private static function is_ng_route( $request ) {
 		return false !== strpos( self::route( $request ), '/next-generation/' );
+	}
+
+	/** Whether the route carries user-private state or causes a private mutation. */
+	private static function is_private_ng_route( $request ) {
+		$route = self::route( $request );
+		if ( false === strpos( $route, '/next-generation/' ) ) {
+			return false;
+		}
+		foreach ( array( '/next-generation/action', '/next-generation/my-topics', '/next-generation/catch-up', '/next-generation/offline-pack', '/next-generation/digest' ) as $private_path ) {
+			if ( false !== strpos( $route, $private_path ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Route string. */
