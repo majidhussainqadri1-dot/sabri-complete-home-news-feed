@@ -111,11 +111,11 @@ $assert( false !== strpos( $css, 'min-height: 44px' ), 'Next-generation controls
 $assert( false !== strpos( $css, '.sabri-hnf-low-bandwidth' ) && false !== strpos( $css, '.sabri-hnf-data-saver' ), 'Low-Bandwidth and Data Saver presentation modes must ship.' );
 
 $assert( false !== strpos( $plugin, 'NextGenerationIntegrations::class' ) && false !== strpos( $plugin, 'NextGenerationFeed::class' ) && false !== strpos( $plugin, 'RestNextGeneration::class' ), 'Plugin coordinator must register all next-generation runtime modules.' );
-$assert( false !== strpos( $bootstrap, "SABRI_HNF_PACKAGE_VERSION', '1.1.0'" ), 'Package identity must be 1.1.0.' );
+$assert( false !== strpos( $bootstrap, "SABRI_HNF_PACKAGE_VERSION', '1.0.5'" ), 'Package identity must remain canonical 1.0.5 for this amendment.' );
 $assert( false !== strpos( $bootstrap, "SABRI_HNF_VERSION', '1.0.3'" ), 'Stable File 21 runtime/API contract must remain 1.0.3.' );
 $assert( false !== strpos( $bootstrap, "SABRI_HNF_SCHEMA_VERSION', '1.0.0'" ), 'Database schema must remain 1.0.0.' );
-$assert( false === stripos( $feed, 'CREATE TABLE' ) && false === stripos( $integrations, 'CREATE TABLE' ) && false === stripos( $rest, 'CREATE TABLE' ), 'The next-generation release must not introduce an undeclared database table/schema migration.' );
-$assert( false !== strpos( $builder, 'PACKAGE_VERSION = "1.1.0"' ) && false !== strpos( $builder, 'RUNTIME_VERSION = "1.0.3"' ), 'Deterministic builder must match package 1.1.0 and stable runtime 1.0.3.' );
+$assert( false === stripos( $feed, 'CREATE TABLE' ) && false === stripos( $integrations, 'CREATE TABLE' ) && false === stripos( $rest, 'CREATE TABLE' ), 'The next-generation amendment must not introduce an undeclared database table/schema migration.' );
+$assert( false !== strpos( $builder, 'PACKAGE_VERSION = "1.0.5"' ) && false !== strpos( $builder, 'RUNTIME_VERSION = "1.0.3"' ), 'Deterministic builder must match package 1.0.5 and stable runtime 1.0.3.' );
 foreach ( array( 'class-next-generation-feed.php', 'class-next-generation-integrations.php', 'class-rest-next-generation.php', 'next-generation.js', 'next-generation.css' ) as $required ) {
 	$assert( false !== strpos( $builder, $required ), 'Deterministic package must require ' . $required . '.' );
 }
