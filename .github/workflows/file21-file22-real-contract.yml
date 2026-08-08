@@ -9,6 +9,10 @@ on:
       - 'tests/run-file21-file22-*.php'
       - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file22-real-contract.yml'
+  push:
+    branches:
+      - main
+      - 'file21-**'
   workflow_dispatch:
 
 permissions:
@@ -16,7 +20,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE22_RUNTIME_SHA: 4d4f17ff11810d3048c7f6d5c8fd10a5ac506385
+  FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a
 
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
@@ -50,6 +54,10 @@ jobs:
           test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
           test "$(git -C file22 rev-parse HEAD)" = "${FILE22_RUNTIME_SHA}"
           php -v
+          php -l file22/includes/core/class-version.php
+          php -l file22/includes/core/class-contract-boundary.php
+          php -l file22/includes/core/class-workflow-validator.php
+          php -l file22/includes/core/class-workflow-coordinator.php
           php -l file21/includes/class-universal-composer-workflow-store.php
           php -l file21/includes/class-universal-composer-workflow-maintenance.php
           php -l file21/includes/class-universal-composer-execution-lock-maintenance.php
@@ -62,13 +70,21 @@ jobs:
           php -l file21/tests/run-file21-file22-founder-gateway-regression.php
           php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
 
-      - name: Run actual File 22 Coordinator with File 21 adapter
+      - name: Run actual current File 22 Coordinator with File 21 adapter
         shell: bash
         env:
           FILE22_ROOT: ${{ github.workspace }}/file22
         run: |
           set -euo pipefail
-          php file21/tests/run-file21-file22-real-contract-tests.php
+          php -r '
+            error_reporting(E_ALL & ~E_WARNING);
+            define("ABSPATH", getcwd() . "/file21/tests/");
+            $root = getenv("FILE22_ROOT");
+            require $root . "/includes/core/class-version.php";
+            require $root . "/includes/core/class-contract-boundary.php";
+            require $root . "/includes/core/class-workflow-validator.php";
+            require "file21/tests/run-file21-file22-real-contract-tests.php";
+          '
 
       - name: Run Founder gateway and four-plan regressions
         shell: bash
