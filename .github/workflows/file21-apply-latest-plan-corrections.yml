@@ -1,0 +1,36 @@
+name: File 21 one-shot latest-plan correction apply
+
+on:
+  push:
+    branches:
+      - file21-fresh-ten-review-latest-plans-20260808
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: file21-fresh-ten-review-latest-plans-20260808
+          fetch-depth: 1
+      - name: Apply deterministic corrections
+        run: python3 tools/apply-file21-latest-plan-fresh-ten-review.py
+      - name: Validate patched PHP syntax
+        run: find includes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Commit patched tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Apply fresh ten-round latest-plan File 21 corrections'
+          git push origin HEAD:file21-fresh-ten-review-latest-plans-20260808
