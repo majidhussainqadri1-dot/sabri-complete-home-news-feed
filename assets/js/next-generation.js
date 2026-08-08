@@ -142,10 +142,11 @@
 		});
 	}
 
-	function exportOfflinePack(button) {
+	function exportOfflinePack(control) {
 		if (!requireLogin() || !endpoint) { return; }
 		var url = endpoint.replace(/\/action(?:\?.*)?$/, '/offline-pack');
-		button.disabled = true;
+		var canDisable = control && 'disabled' in control;
+		if (canDisable) { control.disabled = true; }
 		window.fetch(url, {
 			method: 'GET', credentials: 'same-origin', headers: { 'X-WP-Nonce': config.nonce || '' }
 		}).then(function (response) { return response.json(); }).then(function (json) {
@@ -167,13 +168,21 @@
 			setStatus('Offline pack prepared.', false);
 		}).catch(function (error) {
 			setStatus(error.message || 'Offline pack unavailable.', true);
-		}).finally(function () { button.disabled = false; });
+		}).finally(function () {
+			if (canDisable) { control.disabled = false; }
+		});
 	}
 
+	/*
+	 * The server renders a normal REST link so the feature is discoverable without
+	 * JavaScript. Cookie-authenticated REST calls require the WP REST nonce,
+	 * therefore enhanced browsers must intercept that link and export through the
+	 * authenticated fetch path instead of navigating to a nonce-less endpoint.
+	 */
 	document.addEventListener('click', function (event) {
-		var button = event.target.closest('[data-sabri-ng-offline-export]');
-		if (!button) { return; }
+		var control = event.target.closest('[data-sabri-ng-offline-export], a[href*="/next-generation/offline-pack"]');
+		if (!control) { return; }
 		event.preventDefault();
-		exportOfflinePack(button);
+		exportOfflinePack(control);
 	});
 }());
