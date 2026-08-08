@@ -1,0 +1,124 @@
+name: File 21 Third Fresh Ten-Round Review Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'includes/**'
+      - 'tests/**'
+      - 'docs/FILE21-THIRD-FRESH-TEN-ROUND-REVIEW-2026-08-08.md'
+      - '.github/workflows/file21-third-fresh-ten-review.yml'
+      - '.github/workflows/file21-latest-companion-exact-contracts.yml'
+      - '.github/workflows/file21-file22-real-contract.yml'
+  push:
+    branches:
+      - main
+      - 'file21-third-fresh-ten-review-20260808'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
+
+jobs:
+  third-fresh-ten-round:
+    name: Third fresh ten-round source and package gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out exact File 21 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact source head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test -z "$(git status --porcelain --untracked-files=no)"
+
+      - name: PHP syntax and third-review executable evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-third-fresh-review-hardening.php
+          php -l includes/class-plugin.php
+          php -l tests/run-file21-third-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-third-fresh-ten-review-tests.php
+
+      - name: Re-run affected and governing regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE21_ROOT="$PWD" php tests/run-file21-next-generation-30-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-second-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-latest-plans-fresh-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-four-plan-audit-1.0.5.php
+          FILE21_ROOT="$PWD" php tests/run-file21-file23-provider-integration-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-file26-connector-contract-tests.php
+
+      - name: Deterministic canonical package regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/build-release.py --source-sha "${FILE21_EXPECTED_SHA}"
+          package="release/${CANONICAL_BASE}.zip"
+          checksum="release/${CANONICAL_BASE}.sha256"
+          manifest="release/${CANONICAL_BASE}-MANIFEST.sha256"
+          report="release/${CANONICAL_BASE}-TEST-REPORT.md"
+          test -f "$package"
+          test -f "$checksum"
+          test -f "$manifest"
+          test -f "$report"
+          expected=$(awk '{print tolower($1)}' "$checksum")
+          actual=$(sha256sum "$package" | awk '{print $1}')
+          test "$expected" = "$actual"
+          unzip -tqq "$package"
+          unzip -Z1 "$package" > third-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-third-fresh-review-hardening.php' third-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-feed.php' third-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-integrations.php' third-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-rest-next-generation.php' third-review-package-entries.txt
+          if grep -Eq '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules)/' third-review-package-entries.txt; then
+            echo 'Development-only files are present in the package.'
+            exit 1
+          fi
+
+      - name: Record third-review evidence
+        shell: bash
+        run: |
+          cat > third-fresh-ten-round-evidence.txt <<REPORT
+          File 21 exact head: ${FILE21_EXPECTED_SHA}
+          Review rounds: 10
+          Defect-bearing rounds: 2,3,4,5,6,7,8,10
+          No-new-defect rounds: 1,9
+          Package: 1.0.5
+          Runtime/API: 1.0.3
+          Schema: 1.0.0
+          Database migration: NONE
+          Digest GET side effect: REMOVED
+          NG30 concurrent shared-meta overwrite: CONFLICT-GUARDED
+          Deterministic package: PASS
+          Hostinger staging acceptance: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-third-fresh-ten-review-${{ env.FILE21_EXPECTED_SHA }}
+          path: |
+            third-fresh-ten-round-evidence.txt
+            third-review-package-entries.txt
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+          if-no-files-found: warn
+          retention-days: 30
