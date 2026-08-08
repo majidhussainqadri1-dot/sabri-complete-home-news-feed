@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.5 — Four-Plan Current-Wave Reconciliation — 2026-08-08
+
+- Reconciled File 21 against the current consolidated governing plan, recovered Founder directives, Continuous Value / Global Top-20 superset and the File 21 Final Encyclopedic Master Plan.
+- Preserved exactly fourteen canonical Home controls while exposing Following as an auxiliary Feed choice rather than a fifteenth Home control.
+- Added Following / Latest / For You user choice, “Why am I seeing this?” explanations, reduced personalization, Not interested, bounded author/topic snoozes, topic reduction and one-action Feed preference reset.
+- Added `NetworkRelationshipBridge` so File 21 consumes File 17 relationship/block truth without direct File 17 storage queries or writes; the historical File 21 follow store remains compatibility-only fallback.
+- Added saved collections, tags, private notes and bounded export on the existing canonical File 21 saves truth rather than creating a parallel bookmark backend.
+- Added a visible natural stopping point, deterministic Oldest/Newest comment sorting, safe already-visible parent/reply context, textual mention metadata and collapsible deeper replies.
+- Disabled transient caching for authenticated Feed output so current private preference, relationship and block state cannot be served stale.
+- Enforced central green presentation and removed Founder, donation, payment, paid-promotion and purchased-engagement organic ranking advantage while retaining File 26 as canonical global Search/Discovery/Recommendations/Ranking owner.
+- Preserved File 23 Adapter Contract 2.0.0 read/review/calendar projections with direct write operation definitions empty and write execution fail-closed.
+- Kept the File 26 `file21-publication` connector `proposed` by default with public-only projections and tombstones; File 21 cannot self-activate it.
+- Advanced WordPress package identity to `1.0.5` while preserving File 21 runtime/API `1.0.3` and schema `1.0.0`; no database migration is introduced.
+- Canonical deterministic candidate is `21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip`; Hostinger staging, live deployment and operational acceptance remain separate external gates.
+- Corrected exact-head QA defects discovered after the first 1.0.5 merge: repaired the harmonization-test syntax, replaced policy-prose false positives with executable-token ranking checks, aligned official PHPUnit release expectations with package 1.0.5, and made the four-plan audit verify the current structural Home-control and File 23 fail-closed implementations.
+
 ## 1.0.4 — Final Governing-Plan and Cross-Owner Reconciliation — 2026-08-07
 
 - Corrected the File 21 → File 22 creation gateway so File 22 performs only a coarse authenticated prefilter while File 21 native `can_create()` remains the final File 00-aware authorization owner.
@@ -65,7 +81,7 @@
 - Updated the bridge to require exact File 22 Adapter, Workflow, Subject Schema, and public API owner/function-ownership contracts before registration or fallback removal.
 - Added real File 22 Coordinator tests for role-neutral health, Doctor/Founder schema separation, schema-bound draft/preview/submit/status/canonical URL, and bounded maintenance.
 - Added capability-aware File 22 schema choices and actual integration testing against the exact corrected File 22 runtime.
-- Extended Sabri Universal Post Composer interoperability with a guarded File 22 `Workflow_Adapter`: File 21 owns direct native draft creation, validation, signed preview, idempotent submission, status, and subject-aware canonical URL resolution without creating any File 22 shadow record. The direct schema is deliberately text-first; structured Clinical Case, Research, Poll, upload, Video, and PDF workflows remain on their complete native owner routes.
+- Extended Sabri Universal Post Composer interoperability with a guarded File 22 `Workflow_Adapter`: File 21 owns direct native draft creation, validation, signed preview, idempotent submission, status, and subject-aware canonical URL resolution without creating any File 22 shadow record. The direct schema is deliberately text-first; structured Clinical Case, Research, Poll, upload, Video and PDF workflows remain on their complete native owner routes.
 - Added fail-soft Sabri Universal Post Composer interoperability: File 21 registers a versioned `social_publication` adapter, retains permanent ownership and native permissions, prefers the universal Create page when the complete File 20/File 22 gateway is available, and preserves its existing `/create-post/` fallback when that gateway is absent.
 - Restored the public **Create Post** action on Home and News, supplied the Unified Shell Create destination, and added the canonical `/create-post/` public Composer route with login, permission, duplicate-render and one-shot rewrite safeguards.
 - Restored the News Composer posting option after ZIP replacement by reconciling plugin-owned Administrator/Founder Editorial News capabilities on `admin_init`, preserving the canonical submenu, and adding a prominent **Create Editorial News** action on the Newsroom screen.

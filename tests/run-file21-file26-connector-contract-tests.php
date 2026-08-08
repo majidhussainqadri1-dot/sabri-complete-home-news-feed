@@ -55,10 +55,34 @@ if ( false !== $registry ) {
 	);
 }
 
+/*
+ * Inspect executable PHP tokens only. Human-readable policy/explanation strings
+ * are allowed to say that donor/commercial advantage is prohibited; the gate
+ * must fail only if those concepts appear in executable ranking identifiers/code.
+ */
+$executable_source = static function ( $source ) {
+	if ( false === $source ) {
+		return '';
+	}
+	$out = '';
+	foreach ( token_get_all( (string) $source ) as $token ) {
+		if ( is_array( $token ) ) {
+			if ( in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT, T_CONSTANT_ENCAPSED_STRING, T_ENCAPSED_AND_WHITESPACE, T_START_HEREDOC, T_END_HEREDOC ), true ) ) {
+				continue;
+			}
+			$out .= $token[1];
+			continue;
+		}
+		$out .= $token;
+	}
+	return strtolower( str_replace( array( '_', '-' ), ' ', $out ) );
+};
+
+$ranking_executable = $executable_source( $feed_ranking ) . "\n" . $executable_source( $viral );
 foreach ( array( 'donation', 'donor', 'premium', 'advertising spend', 'paid promotion', 'payment' ) as $forbidden ) {
 	$assert(
-		false === stripos( (string) $feed_ranking . "\n" . (string) $viral, $forbidden ),
-		'File 21 organic feed ranking must not use commercial/donor advantage signal: ' . $forbidden
+		false === strpos( $ranking_executable, $forbidden ),
+		'File 21 executable organic ranking code must not use commercial/donor advantage signal: ' . $forbidden
 	);
 }
 

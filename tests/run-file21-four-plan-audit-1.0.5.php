@@ -36,11 +36,16 @@ foreach ( array(
 }
 
 $home = $read( 'includes/class-home-composition-registry.php' );
-$assert( false !== strpos( $home, 'data-sabri-home-control-count="14"' ), 'Canonical Home control bar is not frozen at exactly 14 controls.' );
+$control_start = strpos( $home, 'public static function control_items()' );
+$control_end = false !== $control_start ? strpos( $home, '/** Render the complete control bar', $control_start ) : false;
+$control_source = false !== $control_start && false !== $control_end ? substr( $home, $control_start, $control_end - $control_start ) : '';
+$control_matches = array();
+preg_match_all( "/^\s*'[^']+'\s*=>\s*array\(/m", $control_source, $control_matches );
+$assert( 14 === count( $control_matches[0] ), 'Canonical Home control bar is not frozen at exactly 14 controls.' );
 foreach ( array( 'For You', 'Most Viral', 'Latest', 'Founder Posts', 'Doctors Posts', 'Classical Learning', 'Remedies', 'Diseases', 'Clinical Cases', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace' ) as $label ) {
-	$assert( false !== strpos( $home, $label ), 'Canonical Home control missing: ' . $label );
+	$assert( false !== strpos( $control_source, $label ), 'Canonical Home control missing: ' . $label );
 }
-$assert( false === strpos( $home, "array( 'following', 'Following'" ), 'Following must remain an auxiliary user-choice mode, not a fifteenth canonical Home control.' );
+$assert( false === strpos( $control_source, "array( 'following', 'Following'" ), 'Following must remain an auxiliary user-choice mode, not a fifteenth canonical Home control.' );
 
 $agency = $read( 'includes/class-feed-user-agency.php' );
 foreach ( array( 'following', 'Why am I seeing this?', 'Not interested', 'Snooze author for 7 days', 'Snooze this topic for 7 days', 'Use less personalization', 'Reset Feed preferences', 'reduced_personalization' ) as $needle ) {
@@ -118,7 +123,9 @@ $assert( false === strpos( $search, "'status' => 'active'" ), 'File 21 must not 
 
 $file23 = $read( 'includes/class-file23-publishing-dashboard-bridge.php' );
 $assert( false !== strpos( $file23, 'spdb/register_adapters' ), 'File 23 provider registration contract regressed.' );
-$assert( false !== strpos( $file23, "'operations' => array()" ) || false !== strpos( $file23, "'operations'     => array()" ), 'File 23 direct File 21 writes are no longer explicitly fail-closed.' );
+$file23_runtime = $read( 'includes/class-file23-publishing-dashboard-adapter-runtime.php' );
+$assert( 1 === preg_match( '/public function get_operation_definitions\(\): array\s*\{\s*return array\(\);\s*\}/s', $file23_runtime ), 'File 23 direct File 21 operation definitions are no longer fail-closed.' );
+$assert( false !== strpos( $file23_runtime, 'file21_spdb_write_not_accepted' ), 'File 23 direct File 21 write execution no longer fails closed.' );
 
 $build = $read( 'tools/build-release.py' );
 foreach ( array( 'PACKAGE_VERSION = "1.0.5"', 'Hostinger staging accepted: NO', 'Live deployed: NO', 'Repost/Quote future NEXT/P1 feature falsely claimed current: NO' ) as $needle ) {
