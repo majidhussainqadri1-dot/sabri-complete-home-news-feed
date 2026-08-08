@@ -85,13 +85,13 @@ if ( $sabri_hnf_duplicate_loaded ) {
 }
 
 /*
- * Package/runtime 1.1.0 is the Founder-approved next-generation Home and News
- * Feed release. It adds the 30-feature expansion through File 21-owned local
- * semantics plus versioned File 16/19/25/26 adapters. No database schema
- * migration is introduced, so the established schema remains 1.0.0.
+ * Package 1.1.0 is the Founder-approved next-generation Home and News Feed
+ * release. It adds the 30-feature expansion through File 21-owned local
+ * semantics plus versioned File 16/19/25/26 adapters. The established stable
+ * File 21 runtime/API contract remains 1.0.3 and database schema remains 1.0.0.
  */
 define( 'SABRI_HNF_PACKAGE_VERSION', '1.1.0' );
-define( 'SABRI_HNF_VERSION', '1.1.0' );
+define( 'SABRI_HNF_VERSION', '1.0.3' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
 define( 'SABRI_HNF_PATH', function_exists( 'plugin_dir_path' ) ? plugin_dir_path( __FILE__ ) : dirname( __FILE__ ) . DIRECTORY_SEPARATOR );
