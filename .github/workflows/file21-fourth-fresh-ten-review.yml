@@ -69,9 +69,9 @@ jobs:
         run: |
           set -euo pipefail
           companion=.github/workflows/file21-latest-companion-exact-contracts.yml
-          grep -Fq 'FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03' "$companion"
-          grep -Fq 'FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c' "$companion"
-          grep -Fq 'FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3' "$companion"
+          grep -Fq 'FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e' "$companion"
+          grep -Fq 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' "$companion"
+          grep -Fq 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' "$companion"
           grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
           grep -Fq 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
@@ -108,9 +108,10 @@ jobs:
         run: |
           cat > fourth-fresh-ten-round-evidence.txt <<REPORT
           File 21 exact head: ${FILE21_EXPECTED_SHA}
-          Review rounds: 10
-          Defect-bearing rounds: 2,3,4,9,10
-          No-new-defect rounds: 1,5,6,7,8
+          Historical fourth-review rounds: 10
+          Historical defect-bearing rounds: 2,3,4,9,10
+          Historical no-new-defect rounds: 1,5,6,7,8
+          Continuing File 04/20/24 compatibility pins: CURRENT
           Package: 1.0.5
           Runtime/API: 1.0.3
           Schema: 1.0.0
@@ -118,7 +119,6 @@ jobs:
           Repost/Quote non-public source leak: BLOCKED BEFORE WRITE
           Story current professional eligibility: REVALIDATED
           Coauthor current canonical public identity: REVALIDATED
-          Fresh File 04/20/24 pins: UPDATED
           Deterministic package: PASS
           Hostinger staging acceptance: NOT CLAIMED
           REPORT
