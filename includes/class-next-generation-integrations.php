@@ -179,12 +179,27 @@ final class NextGenerationIntegrations {
 	public static function dispatch_digest_candidates( $user_id, $frequency, array $items ) {
 		$user_id   = absint( $user_id );
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
-		$payload   = array(
-			'contract_version' => '1.0.0',
+		$items     = array_slice( $items, 0, 20 );
+		$window    = 'weekly' === $frequency ? gmdate( 'o-\\WW' ) : gmdate( 'Y-m-d' );
+		$item_ids  = array();
+		foreach ( $items as $item ) {
+			if ( is_array( $item ) && ! empty( $item['id'] ) ) {
+				$item_ids[] = absint( $item['id'] );
+			}
+		}
+		$fingerprint    = implode( '|', array( 'file-21', $user_id, $frequency, $window, implode( ',', $item_ids ) ) );
+		$idempotency_key = 'f21-digest-' . substr( hash( 'sha256', $fingerprint ), 0, 32 );
+		$payload         = array(
+			'contract_version' => '1.1.0',
 			'owner'            => 'file-21',
+			'event_type'       => 'File21DigestCandidatesPrepared.v1',
+			'event_id'         => $idempotency_key,
+			'idempotency_key'  => $idempotency_key,
+			'trace_id'         => substr( hash( 'sha256', 'trace|' . $fingerprint ), 0, 32 ),
+			'candidate_window' => $window,
 			'user_id'          => $user_id,
 			'frequency'        => $frequency,
-			'items'            => array_slice( $items, 0, 20 ),
+			'items'            => $items,
 			'generated_at_utc' => gmdate( 'c' ),
 		);
 		if ( function_exists( 'do_action' ) ) {

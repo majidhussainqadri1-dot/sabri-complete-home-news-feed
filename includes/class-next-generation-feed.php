@@ -104,6 +104,9 @@ final class NextGenerationFeed {
 
 	/** Enqueue the progressive-enhancement UI for the 30-feature layer. */
 	public static function enqueue_assets() {
+		if ( ! self::assets_required_on_current_request() ) {
+			return;
+		}
 		if ( ! function_exists( 'wp_enqueue_style' ) || ! function_exists( 'wp_enqueue_script' ) ) {
 			return;
 		}
@@ -123,6 +126,35 @@ final class NextGenerationFeed {
 		if ( function_exists( 'wp_localize_script' ) ) {
 			wp_localize_script( 'sabri-hnf-next-generation', 'SabriHnfNextGeneration', $payload );
 		}
+	}
+
+
+	/** Whether NG30 front-end assets are applicable to this request. */
+	public static function assets_required_on_current_request() {
+		if ( function_exists( 'is_admin' ) && is_admin() ) {
+			return false;
+		}
+		if ( function_exists( 'is_front_page' ) && is_front_page() ) {
+			return true;
+		}
+		if ( function_exists( 'is_home' ) && is_home() ) {
+			return true;
+		}
+		if ( function_exists( 'is_singular' ) && is_singular( array( 'post', 'sabri_news' ) ) ) {
+			return true;
+		}
+		if ( function_exists( 'is_post_type_archive' ) && is_post_type_archive( 'sabri_news' ) ) {
+			return true;
+		}
+		global $post;
+		if ( is_object( $post ) && isset( $post->post_content ) && function_exists( 'has_shortcode' ) && has_shortcode( (string) $post->post_content, 'sabri_complete_home_feed' ) ) {
+			return true;
+		}
+		$required = false;
+		if ( function_exists( 'apply_filters' ) ) {
+			$required = (bool) apply_filters( 'sabri_hnf_next_generation_assets_required', false );
+		}
+		return $required;
 	}
 
 	/** Add explicit data-saving state classes; never infer these preferences. */
@@ -171,7 +203,7 @@ final class NextGenerationFeed {
 	/** Render File 21-owned and cross-owner context on a Feed card. */
 	public static function render_card_extensions( $post_id ) {
 		$post_id = absint( $post_id );
-		if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id ) ) {
+		if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id ) ) {
 			return '';
 		}
 		$kind     = self::post_kind( $post_id );
@@ -322,7 +354,7 @@ final class NextGenerationFeed {
 		if ( $user_id < 1 || ! ComposerPermissions::user_can_create( $user_id ) ) {
 			return self::error( 'publishing_not_allowed', __( 'Your account cannot create public social posts.', 'sabri-complete-home-news-feed' ), 403 );
 		}
-		if ( $original_id < 1 || ! PostMetadata::user_can_view( $original_id, $user_id ) ) {
+		if ( $original_id < 1 || ! InteractionPermissions::can_view_post( $original_id, $user_id ) ) {
 			return self::error( 'original_unavailable', __( 'The original post is unavailable.', 'sabri-complete-home-news-feed' ), 404 );
 		}
 		if ( ! function_exists( 'wp_insert_post' ) ) {
@@ -413,7 +445,7 @@ final class NextGenerationFeed {
 		$post_id = absint( $post_id );
 		$user_id = self::current_user_id();
 		$text    = self::clean_textarea( $text );
-		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 			return self::error( 'context_invalid', __( 'The expert context is invalid.', 'sabri-complete-home-news-feed' ), 400 );
 		}
 		if ( ! CanonicalIdentityAdapter::is_verified_doctor( $user_id ) && ! ComposerPermissions::user_can_moderate() ) {
@@ -440,7 +472,7 @@ final class NextGenerationFeed {
 		$user_id = self::current_user_id();
 		$kind    = self::clean_key( $kind );
 		$text    = self::clean_textarea( $text );
-		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! in_array( $kind, array( 'question', 'answer' ), true ) || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! in_array( $kind, array( 'question', 'answer' ), true ) || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 			return self::error( 'qna_invalid', __( 'The Q&A entry is invalid.', 'sabri-complete-home-news-feed' ), 400 );
 		}
 		if ( ! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) {
@@ -508,7 +540,7 @@ final class NextGenerationFeed {
 			case 'progress':
 				$post_id = absint( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
 				$percent = min( 100, max( 0, absint( isset( $input['percent'] ) ? $input['percent'] : 0 ) ) );
-				if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+				if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 					return self::error( 'post_unavailable', __( 'The article is unavailable.', 'sabri-complete-home-news-feed' ), 404 );
 				}
 				if ( $percent >= 100 ) {
@@ -521,7 +553,7 @@ final class NextGenerationFeed {
 			case 'queue-toggle':
 			case 'offline-toggle':
 				$post_id = absint( isset( $input['post_id'] ) ? $input['post_id'] : 0 );
-				if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+				if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 					return self::error( 'post_unavailable', __( 'The article is unavailable.', 'sabri-complete-home-news-feed' ), 404 );
 				}
 				$key = 'queue-toggle' === $action ? 'queue' : 'offline';
@@ -622,7 +654,7 @@ final class NextGenerationFeed {
 		$out = array();
 		foreach ( (array) $query->posts as $post ) {
 			$post_id = absint( $post->ID );
-			if ( ! PostMetadata::user_can_view( $post_id ) ) {
+			if ( ! InteractionPermissions::can_view_post( $post_id ) ) {
 				continue;
 			}
 			$expires = absint( get_post_meta( $post_id, self::META_STORY_EXPIRES, true ) );
@@ -686,7 +718,7 @@ final class NextGenerationFeed {
 		$items   = array();
 		foreach ( $state['progress'] as $post_id => $progress ) {
 			$post_id = absint( $post_id );
-			if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
 			$items[] = array(
@@ -707,7 +739,7 @@ final class NextGenerationFeed {
 		$ids     = array_reverse( self::user_state( $user_id )['queue'] );
 		$posts   = array();
 		foreach ( array_slice( $ids, 0, max( 1, absint( $limit ) ) ) as $post_id ) {
-			if ( PostMetadata::user_can_view( $post_id, $user_id ) ) {
+			if ( InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				$posts[] = (object) array( 'ID' => $post_id );
 			}
 		}
@@ -719,7 +751,7 @@ final class NextGenerationFeed {
 		$user_id = $user_id ? absint( $user_id ) : self::current_user_id();
 		$items   = array();
 		foreach ( self::user_state( $user_id )['offline'] as $post_id ) {
-			if ( ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+			if ( ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
 			$items[] = array(
@@ -763,7 +795,7 @@ final class NextGenerationFeed {
 		$ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 4 );
 		$out = array();
 		foreach ( $ids as $post_id ) {
-			if ( ! PostMetadata::user_can_view( $post_id ) ) {
+			if ( ! InteractionPermissions::can_view_post( $post_id ) ) {
 				continue;
 			}
 			$out[] = array(
@@ -784,7 +816,7 @@ final class NextGenerationFeed {
 	/** Safe semantic payload for File 25 visual card rendering or ordinary sharing. */
 	public static function share_card_payload( $post_id ) {
 		$post_id = absint( $post_id );
-		if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id ) ) {
+		if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id ) ) {
 			return array();
 		}
 		$content = wp_strip_all_tags( get_post_field( 'post_excerpt', $post_id ) );
@@ -814,7 +846,7 @@ final class NextGenerationFeed {
 	/** Original source projection for Repost/Quote. */
 	public static function original_post( $post_id ) {
 		$original_id = function_exists( 'get_post_meta' ) ? absint( get_post_meta( absint( $post_id ), self::META_ORIGINAL_ID, true ) ) : 0;
-		if ( $original_id < 1 || ! PostMetadata::user_can_view( $original_id ) ) {
+		if ( $original_id < 1 || ! InteractionPermissions::can_view_post( $original_id ) ) {
 			return array();
 		}
 		return array( 'id' => $original_id, 'title' => get_the_title( $original_id ), 'url' => get_permalink( $original_id ) );
@@ -841,7 +873,7 @@ final class NextGenerationFeed {
 		);
 		$items = array();
 		foreach ( (array) $query->posts as $post ) {
-			if ( PostMetadata::user_can_view( $post->ID ) ) {
+			if ( InteractionPermissions::can_view_post( $post->ID ) ) {
 				$items[] = array( 'id' => (int) $post->ID, 'title' => get_the_title( $post->ID ), 'url' => get_permalink( $post->ID ) );
 			}
 		}
@@ -1307,7 +1339,7 @@ final class NextGenerationFeed {
 		$out = array();
 		foreach ( $posts as $post ) {
 			$post_id = is_object( $post ) && isset( $post->ID ) ? absint( $post->ID ) : absint( $post );
-			if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
 			$out[] = array( 'id' => $post_id, 'title' => get_the_title( $post_id ), 'url' => get_permalink( $post_id ), 'date' => get_the_date( '', $post_id ) );
