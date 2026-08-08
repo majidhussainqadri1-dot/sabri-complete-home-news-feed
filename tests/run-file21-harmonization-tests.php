@@ -60,9 +60,15 @@ foreach ( array( "'following'", "'most-viral'", "'doctors-posts'", "'remedies'",
 }
 
 $home = file_get_contents( $root . '/includes/class-home-composition-registry.php' );
-foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_shell_news_main', 'sabri_hnf_home_row_items_', 'data-sabri-home-row-count="10"', 'data-sabri-home-control-count="14"', 'data-provider-state', 'Content is not available from this module yet.' ) as $needle ) {
+foreach ( array( 'Most Viral', 'Founder Posts', 'Doctors Posts', 'Videos', 'Reels', 'PDF Books', 'Clinics', 'Marketplace', 'sabri_shell_home_main', 'sabri_shell_news_main', 'sabri_hnf_home_row_items_', 'data-sabri-home-row-count="10"', 'data-provider-state', 'Content is not available from this module yet.' ) as $needle ) {
 	$assert( false !== strpos( $home, $needle ), 'Home/News composition contract missing: ' . $needle );
 }
+$control_start = strpos( $home, 'public static function control_items()' );
+$control_end = false !== $control_start ? strpos( $home, '/** Render the complete control bar', $control_start ) : false;
+$control_source = false !== $control_start && false !== $control_end ? substr( $home, $control_start, $control_end - $control_start ) : '';
+$control_matches = array();
+preg_match_all( "/^\s*'[^']+'\s*=>\s*array\(/m", $control_source, $control_matches );
+$assert( 14 === count( $control_matches[0] ), 'Canonical Home composition must define exactly fourteen controls.' );
 
 $home_css = file_get_contents( $root . '/assets/css/home-composition.css' );
 foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', '#1f7a55', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
