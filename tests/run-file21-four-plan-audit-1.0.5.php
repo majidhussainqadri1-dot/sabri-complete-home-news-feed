@@ -20,6 +20,9 @@ foreach ( array(
 	'includes/class-network-relationship-bridge.php',
 	'includes/class-saved-collection-service.php',
 	'includes/class-comment-experience.php',
+	'includes/class-next-generation-feed.php',
+	'includes/class-next-generation-integrations.php',
+	'includes/class-rest-next-generation.php',
 	'docs/FILE-21-FOUR-PLAN-AUDIT-AND-CORRECTION-2026-08-07.md',
 ) as $relative ) {
 	$assert( is_file( $root . '/' . $relative ), 'Four-plan deliverable missing: ' . $relative );
@@ -114,6 +117,23 @@ $assert( substr_count( $comments_css, 'min-height: 44px' ) >= 3, 'Comment contro
 
 $feed_template = $read( 'templates/feed.php' );
 $assert( false !== strpos( $feed_template, 'natural stopping point' ), 'Healthy-use natural session boundary is missing.' );
+$assert( false !== strpos( $feed_template, 'NextGenerationFeed::render_feed_tools' ), 'Founder-approved next-generation Home tools are not mounted.' );
+
+$next = $read( 'includes/class-next-generation-feed.php' );
+$matches = array();
+preg_match_all( "/'F21-NG-(\\d{2})'\\s*=>/", $next, $matches );
+$feature_ids = isset( $matches[1] ) ? array_values( array_unique( $matches[1] ) ) : array();
+sort( $feature_ids );
+$expected_ids = array_map( static function ( $number ) { return str_pad( (string) $number, 2, '0', STR_PAD_LEFT ); }, range( 1, 30 ) );
+$assert( $expected_ids === $feature_ids, 'Founder-approved next-generation manifest is not exactly F21-NG-01 through F21-NG-30.' );
+foreach ( array( 'repost', 'quote-post', 'post-threads', 'professional-stories', 'evidence-card', 'smart-share-warning', 'follow-topics', 'offline-feed-pack', 'structured-qna', 'news-compare', 'personal-feed-recipe', 'knowledge-digest' ) as $slug ) {
+	$assert( false !== strpos( $next, "'slug' => '" . $slug . "'" ), 'Next-generation feature missing: ' . $slug );
+}
+
+$ng_integrations = $read( 'includes/class-next-generation-integrations.php' );
+foreach ( array( 'sabri_file16_article_summary', 'sabri_file16_ask_article_contract', 'sabri_file16_translation_options', 'sabri_file26_why_trending', 'sabri_file26_related_knowledge', 'sabri_file25_shareable_knowledge_card', 'sabri_file19_digest_candidates' ) as $needle ) {
+	$assert( false !== strpos( $ng_integrations, $needle ), 'Next-generation cross-owner adapter missing: ' . $needle );
+}
 
 $search = $read( 'includes/class-search-provider-registry.php' );
 foreach ( array( 'FILE26_CONNECTOR_SLUG', "'status' => 'proposed'", "'global_search_owner' => '26'" ) as $needle ) {
@@ -128,13 +148,22 @@ $assert( 1 === preg_match( '/public function get_operation_definitions\(\): arra
 $assert( false !== strpos( $file23_runtime, 'file21_spdb_write_not_accepted' ), 'File 23 direct File 21 write execution no longer fails closed.' );
 
 $build = $read( 'tools/build-release.py' );
-foreach ( array( 'PACKAGE_VERSION = "1.0.5"', 'Hostinger staging accepted: NO', 'Live deployed: NO', 'Repost/Quote future NEXT/P1 feature falsely claimed current: NO' ) as $needle ) {
+foreach ( array(
+	'PACKAGE_VERSION = "1.0.5"',
+	'RUNTIME_VERSION = "1.0.3"',
+	'Founder-approved File 21 next-generation 30-feature expansion: implemented',
+	'File 26 Why Trending/related-knowledge integration: versioned adapter; File 26 remains global owner',
+	'Hostinger staging accepted: NO',
+	'Live deployed: NO',
+	'Operational acceptance: NO',
+) as $needle ) {
 	$assert( false !== strpos( $build, $needle ), 'Release-truth/build contract missing: ' . $needle );
 }
+$assert( false === strpos( $build, 'Repost/Quote future NEXT/P1 feature falsely claimed current: NO' ), 'Superseded pre-approval Repost/Quote NEXT-only marker must not survive after Founder approval.' );
 
 if ( $failures ) {
 	fwrite( STDERR, implode( "\n", $failures ) . "\n" );
 	exit( 1 );
 }
 
-echo "File 21 1.0.5 four-plan current-wave audit contracts passed.\n";
+echo "File 21 1.0.5 four-plan current-wave audit contracts passed with Founder-approved NG30 amendment.\n";

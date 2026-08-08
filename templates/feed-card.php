@@ -14,6 +14,13 @@ $author_clinic = isset( $author_projection['clinic_name'] ) ? (string) $author_p
 $stored_type = class_exists( '\\Sabri\\HomeNewsFeed\\PostMetadata' ) ? \Sabri\HomeNewsFeed\PostMetadata::feed_type( $post_id ) : '';
 $canonical_type = class_exists( '\\Sabri\\HomeNewsFeed\\Taxonomies' ) ? \Sabri\HomeNewsFeed\Taxonomies::canonical_feed_type( $stored_type ) : $stored_type;
 $health_types = array( 'clinical-education', 'clinical-case', 'research', 'nutrition', 'public-health-education', 'pathology', 'anatomy', 'principles-of-hygiene', 'islamic-spiritual-healing' );
+$topic_terms = function_exists( 'get_the_terms' ) ? get_the_terms( $post_id, 'sabri_feed_topic' ) : array();
+$topic_terms = is_array( $topic_terms ) ? $topic_terms : array();
+$followed_topics = array();
+if ( class_exists( '\\Sabri\\HomeNewsFeed\\NextGenerationFeed' ) && function_exists( 'is_user_logged_in' ) && is_user_logged_in() ) {
+	$ng_state = \Sabri\HomeNewsFeed\NextGenerationFeed::user_state();
+	$followed_topics = isset( $ng_state['topics'] ) && is_array( $ng_state['topics'] ) ? $ng_state['topics'] : array();
+}
 if ( '' === $disclaimer && in_array( $canonical_type, $health_types, true ) ) {
 	$disclaimer = __( 'Educational content only; it is not an emergency service or a substitute for individualized professional care.', 'sabri-complete-home-news-feed' );
 }
@@ -49,8 +56,23 @@ if ( '' === $disclaimer && in_array( $canonical_type, $health_types, true ) ) {
 	</div>
 	<?php echo $gallery; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<?php if ( ! empty( $topics ) || ! empty( $categories ) || ! empty( $hashtags ) ) : ?><footer class="sabri-hnf-card__terms"><?php foreach ( array_merge( $topics, $categories, $hashtags ) as $term_label ) : ?><span><?php echo esc_html( $term_label ); ?></span><?php endforeach; ?></footer><?php endif; ?>
+	<?php if ( ! empty( $topic_terms ) && function_exists( 'is_user_logged_in' ) && is_user_logged_in() ) : ?>
+		<div class="sabri-hnf-ng-topic-actions" aria-label="<?php esc_attr_e( 'Topic controls', 'sabri-complete-home-news-feed' ); ?>">
+			<?php foreach ( array_slice( $topic_terms, 0, 4 ) as $topic_term ) : ?>
+				<?php
+				$topic_slug = isset( $topic_term->slug ) ? sanitize_key( $topic_term->slug ) : '';
+				if ( '' === $topic_slug ) { continue; }
+				$is_followed = in_array( $topic_slug, $followed_topics, true );
+				?>
+				<button type="button" class="sabri-hnf-ng-button<?php echo $is_followed ? ' is-active' : ''; ?>" data-sabri-ng-action="<?php echo esc_attr( $is_followed ? 'unfollow-topic' : 'follow-topic' ); ?>" data-topic="<?php echo esc_attr( $topic_slug ); ?>" aria-pressed="<?php echo $is_followed ? 'true' : 'false'; ?>">
+					<?php echo esc_html( $is_followed ? sprintf( __( 'Following %s', 'sabri-complete-home-news-feed' ), $topic_term->name ) : sprintf( __( 'Follow %s', 'sabri-complete-home-news-feed' ), $topic_term->name ) ); ?>
+				</button>
+			<?php endforeach; ?>
+		</div>
+	<?php endif; ?>
 	<?php if ( '' !== $disclaimer ) : ?><aside class="sabri-hnf-card__disclaimer"><?php echo esc_html( $disclaimer ); ?></aside><?php endif; ?>
 	<?php if ( class_exists( '\\Sabri\\HomeNewsFeed\\FeedUserAgency' ) ) { echo \Sabri\HomeNewsFeed\FeedUserAgency::card_controls( $post_id ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+	<?php if ( class_exists( '\\Sabri\\HomeNewsFeed\\NextGenerationFeed' ) ) { echo \Sabri\HomeNewsFeed\NextGenerationFeed::render_card_extensions( $post_id ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<?php echo \Sabri\HomeNewsFeed\PollRuntime::render_poll( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<?php echo \Sabri\HomeNewsFeed\SocialRuntime::render_action_bar( $post_id ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 	<a class="sabri-hnf-card__read-more" href="<?php echo esc_url( $permalink ); ?>"><?php esc_html_e( 'Read More', 'sabri-complete-home-news-feed' ); ?></a>

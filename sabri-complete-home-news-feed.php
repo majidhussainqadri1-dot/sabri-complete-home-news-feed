@@ -85,10 +85,10 @@ if ( $sabri_hnf_duplicate_loaded ) {
 }
 
 /*
- * Package 1.0.5 is the four-plan current-wave reconciliation release. It
- * preserves the established File 21 runtime/API contract at 1.0.3 and schema
- * at 1.0.0 while correcting user agency, relationship ownership, green brand,
- * saved collections, comments, privacy/cache and ranking boundaries.
+ * Package 1.0.5 remains the governed current release line. The Founder-approved
+ * next-generation 30-feature amendment is implemented at exact-head without a
+ * database migration, while stable File 21 runtime/API remains 1.0.3 and
+ * database schema remains 1.0.0.
  */
 define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );
 define( 'SABRI_HNF_VERSION', '1.0.3' );

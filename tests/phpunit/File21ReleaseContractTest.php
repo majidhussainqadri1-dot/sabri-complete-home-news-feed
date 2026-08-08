@@ -30,8 +30,11 @@ final class File21ReleaseContractTest extends TestCase
         $php = $this->source('tools/build-release.php');
         $powershell = $this->source('tools/build-release.ps1');
         self::assertStringContainsString('PACKAGE_VERSION = "1.0.5"', $python);
+        self::assertStringContainsString('RUNTIME_VERSION = "1.0.3"', $python);
         self::assertStringContainsString('Two clean deterministic builds were not byte-identical', $python);
         self::assertStringContainsString('MANIFEST.sha256', $python);
+        self::assertStringContainsString('includes/class-next-generation-feed.php', $python);
+        self::assertStringContainsString('includes/class-rest-next-generation.php', $python);
         self::assertStringContainsString('Hostinger staging accepted: NO', $python);
         self::assertStringContainsString('Live deployed: NO', $python);
         self::assertStringContainsString('Use: python3 tools/build-release.py', $php);

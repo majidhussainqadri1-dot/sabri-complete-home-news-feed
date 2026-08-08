@@ -22,6 +22,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	if ( class_exists( '\\Sabri\\HomeNewsFeed\\FeedUserAgency' ) ) {
 		echo \Sabri\HomeNewsFeed\FeedUserAgency::global_controls( $result['mode'] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
+	if ( class_exists( '\\Sabri\\HomeNewsFeed\\NextGenerationFeed' ) ) {
+		echo \Sabri\HomeNewsFeed\NextGenerationFeed::render_feed_tools(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
 	?>
 	<div class="sabri-hnf-feed__status" aria-live="polite"></div>
 	<div class="sabri-hnf-feed__list" data-sabri-feed-list>

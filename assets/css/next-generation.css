@@ -1,0 +1,155 @@
+.sabri-hnf-ng-home,
+.sabri-hnf-ng-article,
+.sabri-hnf-ng-card {
+	box-sizing: border-box;
+	font: inherit;
+}
+
+.sabri-hnf-ng-home,
+.sabri-hnf-ng-article {
+	border: 1px solid #d7e5de;
+	border-radius: 14px;
+	padding: 1rem;
+	margin: 1rem 0;
+	background: #fff;
+}
+
+.sabri-hnf-ng-home__controls,
+.sabri-hnf-ng-actions,
+.sabri-hnf-ng-reading-actions,
+.sabri-hnf-ng-translations,
+.sabri-hnf-ng-thread {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5rem;
+	align-items: center;
+}
+
+.sabri-hnf-ng-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 44px;
+	padding: .55rem .85rem;
+	border: 1px solid #087a4e;
+	border-radius: 999px;
+	background: #fff;
+	color: #075f3e;
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.sabri-hnf-ng-button:hover,
+.sabri-hnf-ng-button:focus-visible,
+.sabri-hnf-ng-button.is-active {
+	background: #087a4e;
+	color: #fff;
+}
+
+.sabri-hnf-ng-stories__list {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	gap: .75rem;
+	margin-bottom: 1rem;
+}
+
+.sabri-hnf-ng-stories__list a {
+	min-height: 72px;
+	padding: .75rem;
+	border: 1px solid #d7e5de;
+	border-radius: 12px;
+	text-decoration: none;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+}
+
+.sabri-hnf-ng-card {
+	padding: .75rem 1rem 0;
+	border-top: 1px solid #e8efeb;
+}
+
+.sabri-hnf-ng-original,
+.sabri-hnf-ng-evidence,
+.sabri-hnf-ng-warning,
+.sabri-hnf-ng-summary,
+.sabri-hnf-ng-context article,
+.sabri-hnf-ng-question {
+	padding: .75rem;
+	margin: .75rem 0;
+	border-radius: 10px;
+	background: #f5faf7;
+}
+
+.sabri-hnf-ng-warning {
+	border-inline-start: 4px solid #9d6f00;
+	background: #fff8e5;
+}
+
+.sabri-hnf-ng-evidence {
+	display: flex;
+	gap: .75rem;
+	flex-wrap: wrap;
+}
+
+.sabri-hnf-ng-doctor-badge {
+	font-weight: 700;
+	color: #075f3e;
+}
+
+.sabri-hnf-ng-recipe label {
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+	margin: .35rem .75rem .35rem 0;
+	min-height: 44px;
+}
+
+.sabri-hnf-ng-recipe select,
+.sabri-hnf-ng-reading-actions input[type="range"] {
+	min-height: 44px;
+}
+
+.sabri-hnf-ng-status {
+	min-height: 1.5em;
+	margin-top: .5rem;
+}
+
+.sabri-hnf-ng-status[data-error="1"] {
+	font-weight: 700;
+}
+
+.sabri-hnf-low-bandwidth .sabri-hnf-card__media,
+.sabri-hnf-low-bandwidth .sabri-hnf-media-gallery,
+.sabri-hnf-data-saver .sabri-hnf-card__media,
+.sabri-hnf-data-saver .sabri-hnf-media-gallery,
+.sabri-hnf-data-saver video,
+.sabri-hnf-data-saver iframe {
+	display: none !important;
+}
+
+.sabri-hnf-data-saver img:not(.sabri-hnf-card__avatar-img) {
+	content-visibility: auto;
+}
+
+@media (max-width: 600px) {
+	.sabri-hnf-ng-home,
+	.sabri-hnf-ng-article {
+		padding: .75rem;
+		border-radius: 10px;
+	}
+
+	.sabri-hnf-ng-button {
+		flex: 1 1 auto;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sabri-hnf-ng-home *,
+	.sabri-hnf-ng-article *,
+	.sabri-hnf-ng-card * {
+		scroll-behavior: auto !important;
+		transition: none !important;
+		animation: none !important;
+	}
+}
