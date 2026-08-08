@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0 — Next-Generation Home and News Feed: 30 Founder-Approved Features — 2026-08-08
+
+- Added the complete 30-feature File 21 expansion in one governed release while preserving canonical ownership and the frozen fourteen-control Home bar.
+- Added source-linked **Repost** and **Quote Post** without copying the original publication into a second source of truth.
+- Added **Post Threads / Series**, bounded **Co-authors**, **Professional Stories / 24-hour Updates**, and **Developing Story Timelines**.
+- Added verified **Expert Context**, structured **Evidence Cards**, **Source Diversity View**, public-safe **Edit & Correction History**, and **Smart Share Warnings**.
+- Added File 16-owned adapters for **AI 30-second Summary**, **Ask This Article**, and **Intelligent Translation**; File 21 only supplies article context/rendering and does not create a duplicate AI backend.
+- Added **Follow Topics**, **My Topics Feed**, bounded **Catch Up / What You Missed**, **Continue Reading**, and **Reading Queue / Read Later**.
+- Added explicit **Low-Bandwidth Feed**, **Data Saver**, and user-selected **Offline Feed Pack** behavior.
+- Added **Structured Q&A beneath Posts** with a **Verified Doctor Response** badge sourced from canonical File 00/File 09 identity verification.
+- Added File 26-owned adapters for **Why Trending?** and **Related Knowledge Graph Cards**; File 26 remains the canonical global Search/Discovery/Recommendations/Ranking owner.
+- Added **News Compare Mode** and a File 25 semantic payload/renderer contract for **Shareable Knowledge Cards**; File 25 remains the canonical visual-system owner.
+- Added a transparent local File 21 **Personal Feed Recipe**; it contains no Founder, donation, payment, paid-promotion or purchased-engagement organic ranking advantage.
+- Added File 21 **Daily/Weekly Knowledge Digest** candidate generation while File 19 remains the canonical notification/delivery owner.
+- Added a versioned 30-feature manifest and bounded REST contracts for public-safe context and authenticated preferences/actions.
+- Added green, mobile-first, 44px-target next-generation presentation, reduced-motion behavior, and low-bandwidth/data-saving CSS without creating a second File 20 Shell or File 25 design system.
+- Advanced WordPress package and runtime/API identity to `1.1.0`; database schema remains `1.0.0` and no database migration is introduced.
+- Canonical deterministic candidate becomes `21-sabri-complete-home-news-feed-1.1.0-CONTROLLED-STAGING-CANDIDATE.zip`; Hostinger staging, live deployment and operational acceptance remain separate external gates.
+
 ## 1.0.5 — Four-Plan Current-Wave Reconciliation — 2026-08-08
 
 - Reconciled File 21 against the current consolidated governing plan, recovered Founder directives, Continuous Value / Global Top-20 superset and the File 21 Final Encyclopedic Master Plan.
