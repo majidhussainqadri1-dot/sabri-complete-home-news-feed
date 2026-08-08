@@ -15,12 +15,12 @@ final class File21ReleaseContractTest extends TestCase
         return $contents;
     }
 
-    public function testReleaseIdentityMatchesNextGenerationRuntime(): void
+    public function testReleaseIdentityMatchesNextGenerationPackageAndStableRuntime(): void
     {
         $bootstrap = $this->source('sabri-complete-home-news-feed.php');
         self::assertStringContainsString('* Version: 1.1.0', $bootstrap);
         self::assertStringContainsString("SABRI_HNF_PACKAGE_VERSION', '1.1.0'", $bootstrap);
-        self::assertStringContainsString("SABRI_HNF_VERSION', '1.1.0'", $bootstrap);
+        self::assertStringContainsString("SABRI_HNF_VERSION', '1.0.3'", $bootstrap);
         self::assertStringContainsString("SABRI_HNF_SCHEMA_VERSION', '1.0.0'", $bootstrap);
     }
 
@@ -30,7 +30,7 @@ final class File21ReleaseContractTest extends TestCase
         $php = $this->source('tools/build-release.php');
         $powershell = $this->source('tools/build-release.ps1');
         self::assertStringContainsString('PACKAGE_VERSION = "1.1.0"', $python);
-        self::assertStringContainsString('RUNTIME_VERSION = "1.1.0"', $python);
+        self::assertStringContainsString('RUNTIME_VERSION = "1.0.3"', $python);
         self::assertStringContainsString('Database schema: 1.0.0 (unchanged; no DB migration introduced)', $python);
         self::assertStringContainsString('Two clean deterministic builds were not byte-identical', $python);
         self::assertStringContainsString('MANIFEST.sha256', $python);
