@@ -73,6 +73,7 @@ jobs:
             tests/run-file21-four-plan-final-completion-tests.php
             tests/run-file21-four-plan-audit-1.0.5.php
             tests/run-file21-next-generation-30-tests.php
+            tests/run-file21-ten-review-hardening-tests.php
           )
           : > exact-head-regression.log
           php tools/run-tests.php 2>&1 | tee -a exact-head-regression.log
