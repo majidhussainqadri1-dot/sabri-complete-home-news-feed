@@ -74,6 +74,11 @@ if ( function_exists( 'delete_option' ) ) {
 	delete_option( 'sabri_feed_settings' );
 }
 
+/* File 21-owned private NG30 preferences are not Phase 5 accountability records. */
+if ( function_exists( 'delete_metadata' ) ) {
+	delete_metadata( 'user', 0, '_sabri_hnf_ng_user_v1', '', true );
+}
+
 /* Phase 5 accountability data requires a second explicit destructive confirmation. */
 $phase5_destructive = function_exists( 'get_option' ) ? get_option( 'sabri_feed_phase5_destructive_uninstall_confirmation', '' ) : '';
 if ( 'DELETE-PHASE5-EDITORIAL-DATA' !== $phase5_destructive ) {
