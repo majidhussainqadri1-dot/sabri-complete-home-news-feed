@@ -13,7 +13,7 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 SLUG = "sabri-complete-home-news-feed"
-PACKAGE_VERSION = "1.1.0"
+PACKAGE_VERSION = "1.0.5"
 RUNTIME_VERSION = "1.0.3"
 BASE = f"21-sabri-complete-home-news-feed-{PACKAGE_VERSION}-CONTROLLED-STAGING-CANDIDATE"
 FIXED_ZIP_TIME = (2026, 8, 8, 0, 0, 0)
@@ -86,8 +86,8 @@ def source_sha(root: Path, explicit: str | None) -> str:
 def validate_identity(root: Path) -> None:
     bootstrap = (root / "sabri-complete-home-news-feed.php").read_text(encoding="utf-8")
     required = (
-        "* Version: 1.1.0",
-        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.1.0' );",
+        "* Version: 1.0.5",
+        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );",
         "define( 'SABRI_HNF_VERSION', '1.0.3' );",
         "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );",
     )
@@ -161,8 +161,8 @@ def verify_archive(path: Path, payload: list[tuple[Path, str]], manifest_text: s
             if sha256_bytes(data) != digest:
                 raise RuntimeError(f"Manifest mismatch: {relative}")
         bootstrap = archive.read(f"{SLUG}/sabri-complete-home-news-feed.php").decode("utf-8")
-        if "* Version: 1.1.0" not in bootstrap:
-            raise RuntimeError("Packaged WordPress identity is not 1.1.0")
+        if "* Version: 1.0.5" not in bootstrap:
+            raise RuntimeError("Packaged WordPress identity is not 1.0.5")
 
 
 def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
@@ -194,7 +194,7 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
     (release / f"{BASE}-MANIFEST.sha256").write_text(manifest_text, encoding="utf-8")
     report = "\n".join(
         [
-            "# File 21 1.1.0 Controlled-Staging Candidate",
+            "# File 21 1.0.5 Controlled-Staging Candidate — Next-Generation 30 Amendment",
             "",
             f"- Exact source commit: {commit}",
             f"- Package identity: {PACKAGE_VERSION}",
@@ -207,6 +207,8 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
             "- External MANIFEST.sha256: verified",
             "- Two clean builds byte-identical: PASS",
             "- ZIP CRC and safe inventory: PASS",
+            "- Four-plan current-wave repository reconciliation: implemented",
+            "- Canonical global Search/Discovery/Ranking owner: File 26",
             "- Founder-approved File 21 next-generation 30-feature expansion: implemented",
             "- Repost/Quote, threads, coauthors, professional Stories and developing-story timeline: implemented",
             "- Expert context, evidence/source diversity, edit/correction history and smart-share warnings: implemented",
