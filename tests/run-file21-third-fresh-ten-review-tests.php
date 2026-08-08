@@ -99,7 +99,7 @@ $assert( str_contains( $companions, 'native enforcement|native module|native aut
 // Round 10 — this fresh cycle itself is an executable permanent release gate.
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );
 $assert( str_contains( $workflow, 'run-file21-third-fresh-ten-review-tests.php' ), 'third-review executable test is wired into CI' );
-$assert( str_contains( $workflow, 'build/package.py' ) || str_contains( $workflow, 'build-package.php' ) || str_contains( $workflow, 'build/' ), 'third-review CI includes deterministic package regression' );
+$assert( str_contains( $workflow, 'python3 tools/build-release.py --source-sha' ), 'third-review CI includes deterministic package regression' );
 
 $rounds = array();
 if ( preg_match_all( '/^\|\s*(\d{1,2})\s*\|/m', $report, $matches ) ) {
