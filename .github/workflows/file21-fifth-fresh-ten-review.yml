@@ -1,4 +1,4 @@
-name: File 21 Fourth Fresh Ten-Round Review Gate
+name: File 21 Fifth Fresh Ten-Round Review Gate
 
 on:
   pull_request:
@@ -7,13 +7,13 @@ on:
     paths:
       - 'includes/**'
       - 'tests/**'
-      - 'docs/FILE21-FOURTH-FRESH-TEN-ROUND-REVIEW-2026-08-08.md'
-      - '.github/workflows/file21-fourth-fresh-ten-review.yml'
+      - 'docs/FILE21-FIFTH-FRESH-TEN-ROUND-REVIEW-2026-08-09.md'
+      - '.github/workflows/file21-fifth-fresh-ten-review.yml'
       - '.github/workflows/file21-latest-companion-exact-contracts.yml'
   push:
     branches:
       - main
-      - 'file21-fourth-fresh-ten-review-20260808'
+      - 'file21-fifth-fresh-ten-review-20260809'
   workflow_dispatch:
 
 permissions:
@@ -24,8 +24,8 @@ env:
   CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
 
 jobs:
-  fourth-fresh-ten-round:
-    name: Fourth fresh ten-round source and package gate
+  fifth-fresh-ten-round:
+    name: Fifth fresh ten-round source and package gate
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -43,19 +43,20 @@ jobs:
           test "$(git rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
           test -z "$(git status --porcelain --untracked-files=no)"
 
-      - name: PHP syntax and fourth-review executable evidence
+      - name: PHP syntax and fifth-review executable evidence
         shell: bash
         run: |
           set -euo pipefail
-          php -l includes/class-fourth-fresh-review-hardening.php
+          php -l includes/class-fifth-fresh-review-hardening.php
           php -l includes/class-plugin.php
-          php -l tests/run-file21-fourth-fresh-ten-review-tests.php
-          FILE21_ROOT="$PWD" php tests/run-file21-fourth-fresh-ten-review-tests.php
+          php -l tests/run-file21-fifth-fresh-ten-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-fifth-fresh-ten-review-tests.php
 
       - name: Re-run affected and governing regressions
         shell: bash
         run: |
           set -euo pipefail
+          FILE21_ROOT="$PWD" php tests/run-file21-fourth-fresh-ten-review-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-next-generation-30-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-third-fresh-ten-review-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-latest-plan-fresh-ten-review-tests.php
@@ -64,7 +65,7 @@ jobs:
           FILE21_ROOT="$PWD" php tests/run-file21-file26-connector-contract-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-public-visibility-tests.php
 
-      - name: Verify fresh cross-file pins are current review inputs
+      - name: Verify fifth-review companion pins
         shell: bash
         run: |
           set -euo pipefail
@@ -75,6 +76,17 @@ jobs:
           grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
           grep -Fq 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
+
+      - name: Static fifth-review invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'FifthFreshReviewHardening::class' includes/class-plugin.php
+          grep -Fq 'subject_is_allowed_public_social_publisher' includes/class-fifth-fresh-review-hardening.php
+          grep -Fq "'sabri_feed_publish_posts'" includes/class-fifth-fresh-review-hardening.php
+          grep -Fq "'sabri_news' === \$post_type" includes/class-fifth-fresh-review-hardening.php
+          grep -Fq "NewsPolicy::can_public_read( \$post_id, 'single' )" includes/class-fifth-fresh-review-hardening.php
+          ! grep -Fq 'InteractionPermissions::can_view_post( $post_id, 0 )' includes/class-fifth-fresh-review-hardening.php
 
       - name: Deterministic canonical package regression
         shell: bash
@@ -93,32 +105,34 @@ jobs:
           actual=$(sha256sum "$package" | awk '{print $1}')
           test "$expected" = "$actual"
           unzip -tqq "$package"
-          unzip -Z1 "$package" > fourth-review-package-entries.txt
-          grep -Fxq 'sabri-complete-home-news-feed/includes/class-fourth-fresh-review-hardening.php' fourth-review-package-entries.txt
-          grep -Fxq 'sabri-complete-home-news-feed/includes/class-third-fresh-review-hardening.php' fourth-review-package-entries.txt
-          grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-feed.php' fourth-review-package-entries.txt
-          grep -Fxq 'sabri-complete-home-news-feed/includes/class-rest-next-generation.php' fourth-review-package-entries.txt
-          if grep -Eq '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules)/' fourth-review-package-entries.txt; then
+          unzip -Z1 "$package" > fifth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-fifth-fresh-review-hardening.php' fifth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-fourth-fresh-review-hardening.php' fifth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-feed.php' fifth-review-package-entries.txt
+          grep -Fxq 'sabri-complete-home-news-feed/includes/class-rest-next-generation.php' fifth-review-package-entries.txt
+          if grep -Eq '^sabri-complete-home-news-feed/(\.github|tools|tests|release|vendor|node_modules)/' fifth-review-package-entries.txt; then
             echo 'Development-only files are present in the package.'
             exit 1
           fi
 
-      - name: Record fourth-review evidence
+      - name: Record fifth-review evidence
         shell: bash
         run: |
-          cat > fourth-fresh-ten-round-evidence.txt <<REPORT
+          cat > fifth-fresh-ten-round-evidence.txt <<REPORT
           File 21 exact head: ${FILE21_EXPECTED_SHA}
-          Historical fourth-review rounds: 10
-          Historical defect-bearing rounds: 2,3,4,9,10
-          Historical no-new-defect rounds: 1,5,6,7,8
-          Continuing File 04/20/24 compatibility pins: CURRENT
+          Review rounds: 10
+          Defect-bearing rounds: 2,3,4,8,9,10
+          No-new-File21-defect rounds: 1,5,6,7
+          External dependency blocker: File 00 exact current head remains independently not production-ready
+          Round 10 exact-head CI defect: stale historical File 04/20/24 companion-pin assertions corrected
           Package: 1.0.5
           Runtime/API: 1.0.3
           Schema: 1.0.0
           Database migration: NONE
-          Repost/Quote non-public source leak: BLOCKED BEFORE WRITE
-          Story current professional eligibility: REVALIDATED
-          Coauthor current canonical public identity: REVALIDATED
+          General-member social publication over-authorization: FAIL-CLOSED
+          Editorial News Repost/Quote permissive fallback: REMOVED
+          Professional Story generic can_publish inheritance: FAIL-CLOSED
+          Fresh File 04/20/24 pins: UPDATED
           Deterministic package: PASS
           Hostinger staging acceptance: NOT CLAIMED
           REPORT
@@ -126,10 +140,10 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: file21-fourth-fresh-ten-review-${{ env.FILE21_EXPECTED_SHA }}
+          name: file21-fifth-fresh-ten-review-${{ env.FILE21_EXPECTED_SHA }}
           path: |
-            fourth-fresh-ten-round-evidence.txt
-            fourth-review-package-entries.txt
+            fifth-fresh-ten-round-evidence.txt
+            fifth-review-package-entries.txt
             release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
             release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
             release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
