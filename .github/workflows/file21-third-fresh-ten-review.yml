@@ -59,7 +59,7 @@ jobs:
           set -euo pipefail
           FILE21_ROOT="$PWD" php tests/run-file21-next-generation-30-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-second-fresh-ten-review-tests.php
-          FILE21_ROOT="$PWD" php tests/run-file21-latest-plans-fresh-review-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-latest-plan-fresh-ten-review-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-four-plan-audit-1.0.5.php
           FILE21_ROOT="$PWD" php tests/run-file21-file23-provider-integration-tests.php
           FILE21_ROOT="$PWD" php tests/run-file21-file26-connector-contract-tests.php
