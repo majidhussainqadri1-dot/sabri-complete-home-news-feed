@@ -121,9 +121,10 @@ jobs:
           cat > fifth-fresh-ten-round-evidence.txt <<REPORT
           File 21 exact head: ${FILE21_EXPECTED_SHA}
           Review rounds: 10
-          Defect-bearing rounds before exact-head closure: 2,3,8,9
-          No-new-defect rounds before exact-head closure: 1,4,5,6,7
-          Round 10: exact-head CI/packaging/browser closure gate
+          Defect-bearing rounds: 2,3,4,8,9,10
+          No-new-File21-defect rounds: 1,5,6,7
+          External dependency blocker: File 00 exact current head remains independently not production-ready
+          Round 10 exact-head CI defect: stale historical File 04/20/24 companion-pin assertions corrected
           Package: 1.0.5
           Runtime/API: 1.0.3
           Schema: 1.0.0
