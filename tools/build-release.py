@@ -13,10 +13,10 @@ from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 SLUG = "sabri-complete-home-news-feed"
-PACKAGE_VERSION = "1.0.5"
-RUNTIME_VERSION = "1.0.3"
+PACKAGE_VERSION = "1.1.0"
+RUNTIME_VERSION = "1.1.0"
 BASE = f"21-sabri-complete-home-news-feed-{PACKAGE_VERSION}-CONTROLLED-STAGING-CANDIDATE"
-FIXED_ZIP_TIME = (2026, 8, 7, 0, 0, 0)
+FIXED_ZIP_TIME = (2026, 8, 8, 0, 0, 0)
 EXCLUDED_ROOTS = {
     ".git", ".github", "tests", "tools", "release", "vendor", "node_modules",
     ".phase5-transport", ".file21-correction", "coverage", ".phpunit.cache",
@@ -44,6 +44,11 @@ REQUIRED_FILES = {
     "includes/class-feed-user-agency.php",
     "includes/class-saved-collection-service.php",
     "includes/class-comment-experience.php",
+    "includes/class-next-generation-feed.php",
+    "includes/class-next-generation-integrations.php",
+    "includes/class-rest-next-generation.php",
+    "assets/js/next-generation.js",
+    "assets/css/next-generation.css",
     "public/class-news-routing.php",
     "public/class-phase5-public-runtime.php",
 }
@@ -81,9 +86,10 @@ def source_sha(root: Path, explicit: str | None) -> str:
 def validate_identity(root: Path) -> None:
     bootstrap = (root / "sabri-complete-home-news-feed.php").read_text(encoding="utf-8")
     required = (
-        "* Version: 1.0.5",
-        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );",
-        "define( 'SABRI_HNF_VERSION', '1.0.3' );",
+        "* Version: 1.1.0",
+        "define( 'SABRI_HNF_PACKAGE_VERSION', '1.1.0' );",
+        "define( 'SABRI_HNF_VERSION', '1.1.0' );",
+        "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );",
     )
     missing = [needle for needle in required if needle not in bootstrap]
     if missing:
@@ -155,8 +161,8 @@ def verify_archive(path: Path, payload: list[tuple[Path, str]], manifest_text: s
             if sha256_bytes(data) != digest:
                 raise RuntimeError(f"Manifest mismatch: {relative}")
         bootstrap = archive.read(f"{SLUG}/sabri-complete-home-news-feed.php").decode("utf-8")
-        if "* Version: 1.0.5" not in bootstrap:
-            raise RuntimeError("Packaged WordPress identity is not 1.0.5")
+        if "* Version: 1.1.0" not in bootstrap:
+            raise RuntimeError("Packaged WordPress identity is not 1.1.0")
 
 
 def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
@@ -188,11 +194,12 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
     (release / f"{BASE}-MANIFEST.sha256").write_text(manifest_text, encoding="utf-8")
     report = "\n".join(
         [
-            "# File 21 1.0.5 Controlled-Staging Candidate",
+            "# File 21 1.1.0 Controlled-Staging Candidate",
             "",
             f"- Exact source commit: {commit}",
             f"- Package identity: {PACKAGE_VERSION}",
-            f"- Stable runtime/API: {RUNTIME_VERSION}",
+            f"- Runtime/API: {RUNTIME_VERSION}",
+            "- Database schema: 1.0.0 (unchanged; no DB migration introduced)",
             f"- Artifact: {final_zip.name}",
             f"- SHA-256: {archive_hash}",
             f"- Manifest-covered runtime files: {len(payload)}",
@@ -200,16 +207,20 @@ def build(root: Path, release: Path, commit: str) -> dict[str, str | int]:
             "- External MANIFEST.sha256: verified",
             "- Two clean builds byte-identical: PASS",
             "- ZIP CRC and safe inventory: PASS",
-            "- Four-plan current-wave repository reconciliation: implemented",
-            "- Feed user-agency controls: implemented",
-            "- File 17 relationship/block owner bridge: implemented without foreign-table writes",
-            "- Saved collections/tags/notes/export: implemented on canonical File 21 saves truth",
-            "- Explainable comment sorting/reply context: implemented",
-            "- Canonical global Search/Discovery/Ranking owner: File 26",
-            "- File 21 File 26 connector lifecycle starts proposed: YES",
-            "- Founder/donation/payment/paid-promotion organic ranking advantage: NO",
+            "- Founder-approved File 21 next-generation 30-feature expansion: implemented",
+            "- Repost/Quote, threads, coauthors, professional Stories and developing-story timeline: implemented",
+            "- Expert context, evidence/source diversity, edit/correction history and smart-share warnings: implemented",
+            "- File 16 AI summary/Ask Article/translation integration: versioned adapter; no duplicate AI backend",
+            "- Topic following, My Topics, Catch Up, Continue Reading, Read Later and offline pack: implemented",
+            "- Low-bandwidth and Data Saver user controls: implemented",
+            "- Structured Q&A and verified-doctor response badge: implemented",
+            "- File 26 Why Trending/related-knowledge integration: versioned adapter; File 26 remains global owner",
+            "- News Compare and File 25 shareable knowledge-card semantic handoff: implemented",
+            "- Transparent local File 21 Feed recipe: implemented; no donor/payment/Founder organic advantage",
+            "- File 19 daily/weekly digest candidate handoff: implemented; File 19 remains delivery owner",
+            "- Frozen governing 14-control Home bar preserved: YES",
+            "- File 17 relationship/block owner bridge preserved without foreign-table writes: YES",
             "- File 23 direct writes remain fail-closed: YES",
-            "- Repost/Quote future NEXT/P1 feature falsely claimed current: NO",
             "- Hostinger staging accepted: NO",
             "- Live deployed: NO",
             "- Operational acceptance: NO",
