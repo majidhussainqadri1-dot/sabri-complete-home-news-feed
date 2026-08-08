@@ -21,6 +21,8 @@ jobs:
         run: |
           python3 tools/apply-file21-latest-plan-fresh-ten-review.py
           git restore .github/workflows/file21-apply-latest-plan-corrections.yml
+          git restore .github/workflows/build-test-home-news-feed.yml
+          git restore .github/workflows/file21-official-and-browser-gates.yml
       - name: Validate patched PHP syntax
         run: find includes tests -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Commit patched tree
