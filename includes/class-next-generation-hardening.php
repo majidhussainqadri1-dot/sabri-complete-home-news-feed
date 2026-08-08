@@ -13,12 +13,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Keeps NG30 mutations bounded, fail-closed and privacy-safe. */
 final class NextGenerationHardening {
-	/** Register REST guards. */
+	/** Register REST guards and progressive-enhancement fixes. */
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'rest_pre_dispatch', array( __CLASS__, 'pre_dispatch' ), 8, 3 );
 			add_filter( 'rest_post_dispatch', array( __CLASS__, 'post_dispatch' ), 20, 3 );
 		}
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ), 35 );
+		}
+	}
+
+	/** Load small corrective UX enhancements after the main NG30 client. */
+	public static function enqueue_assets() {
+		if ( ! function_exists( 'wp_enqueue_script' ) ) {
+			return;
+		}
+		wp_enqueue_script(
+			'sabri-hnf-next-generation-share',
+			SABRI_HNF_URL . 'assets/js/next-generation-share.js',
+			array( 'sabri-hnf-next-generation' ),
+			SABRI_HNF_PACKAGE_VERSION,
+			true
+		);
 	}
 
 	/** Guard mutation requests before their owner callback executes. */
