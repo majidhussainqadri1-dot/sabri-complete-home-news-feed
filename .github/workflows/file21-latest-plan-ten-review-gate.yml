@@ -1,0 +1,46 @@
+name: File 21 Latest Plans Fresh Ten-Round Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - file21-fresh-ten-review-latest-plans-20260808
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  PACKAGE: release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
+
+jobs:
+  latest-plan-source-package-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Verify exact source head
+        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+      - name: PHP syntax and fresh ten-round source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          find includes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+          FILE21_ROOT="$PWD" php tests/run-file21-latest-plan-fresh-ten-review-tests.php
+      - name: Build deterministic package
+        run: python3 tools/build-release.py --source-sha "${TEST_SHA}"
+      - name: Verify latest-plan runtime is package-mandatory
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${PACKAGE}"
+          unzip -tqq "${PACKAGE}"
+          unzip -Z1 "${PACKAGE}" | grep -Fxq 'sabri-complete-home-news-feed/includes/class-next-generation-privacy.php'
+          test -z "$(git status --porcelain --untracked-files=no)"

@@ -27,6 +27,9 @@ final class NextGenerationHardening {
 
 	/** Load small corrective UX enhancements after the main NG30 client. */
 	public static function enqueue_assets() {
+		if ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && ! NextGenerationFeed::assets_required_on_current_request() ) {
+			return;
+		}
 		if ( ! function_exists( 'wp_enqueue_script' ) ) {
 			return;
 		}
@@ -98,6 +101,13 @@ final class NextGenerationHardening {
 
 		$method = self::method( $request );
 		$route  = self::route( $request );
+
+		if ( 'GET' === $method ) {
+			$rate_error = self::read_rate_limit_error( $route );
+			if ( null !== $rate_error ) {
+				return $rate_error;
+			}
+		}
 
 		if ( 'GET' === $method && preg_match( '#/next-generation/digest/?$#', $route ) ) {
 			$user_id = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
@@ -191,6 +201,35 @@ final class NextGenerationHardening {
 			);
 		}
 		return $items;
+	}
+
+
+	/** Bounded abuse control for read-heavy NG30 REST surfaces. */
+	private static function read_rate_limit_error( $route ) {
+		if ( ! class_exists( __NAMESPACE__ . '\\Phase5RateLimiter' ) ) {
+			return null;
+		}
+		$rules = array(
+			'/next-generation/post/'         => array( 'ng-read-post-context', 30, 60 ),
+			'/next-generation/compare'       => array( 'ng-read-compare', 60, 60 ),
+			'/next-generation/share-card/'   => array( 'ng-read-share-card', 60, 60 ),
+			'/next-generation/stories'       => array( 'ng-read-stories', 120, 60 ),
+			'/next-generation/my-topics'     => array( 'ng-read-my-topics', 60, 60 ),
+			'/next-generation/catch-up'      => array( 'ng-read-catch-up', 30, 60 ),
+			'/next-generation/offline-pack'  => array( 'ng-read-offline-pack', 12, 60 ),
+			'/next-generation/digest'        => array( 'ng-read-digest', 12, HOUR_IN_SECONDS ),
+		);
+		foreach ( $rules as $needle => $rule ) {
+			if ( false === strpos( $route, $needle ) ) {
+				continue;
+			}
+			$user_id = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+			if ( ! Phase5RateLimiter::allow( $rule[0], $rule[1], $rule[2], $user_id ) ) {
+				return self::error( 'rate_limited', __( 'Too many requests were attempted. Please wait and try again.', 'sabri-complete-home-news-feed' ), 429 );
+			}
+			break;
+		}
+		return null;
 	}
 
 	/** Whether this is a File 21 next-generation REST route. */

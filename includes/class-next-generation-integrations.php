@@ -17,9 +17,36 @@ if ( ! defined( 'ABSPATH' ) ) {
  * is duplicated here.
  */
 final class NextGenerationIntegrations {
-	/** Register compatibility filters. */
+	/** Stable File 19 producer key. */
+	private const FILE19_PRODUCER = 'file21-home-news-feed';
+
+	/** File 19-compatible past-tense domain fact. */
+	private const FILE19_EVENT_TYPE = 'Publishing.DigestCandidatesPrepared';
+
+	/** File 19 event-envelope schema emitted by File 21. */
+	private const FILE19_SCHEMA_VERSION = '1.0.0';
+
+	/** Register compatibility contracts after all plugins have loaded. */
 	public static function register() {
-		// Deliberately hook-free. Public static methods are the stable File 21 adapter API.
+		if ( function_exists( 'add_action' ) ) {
+			add_action( 'init', array( __CLASS__, 'register_file19_producer' ), 20 );
+		}
+	}
+
+	/** Register File 21 as an explicit File 19 notification producer. */
+	public static function register_file19_producer() {
+		if ( ! function_exists( 'sun_register_notification_producer' ) ) {
+			return false;
+		}
+
+		return (bool) sun_register_notification_producer(
+			self::FILE19_PRODUCER,
+			array(
+				'owner'           => 'File 21',
+				'event_types'     => array( self::FILE19_EVENT_TYPE ),
+				'schema_versions' => array( self::FILE19_SCHEMA_VERSION ),
+			)
+		);
 	}
 
 	/** File 16-owned AI summary projection. */
@@ -121,19 +148,19 @@ final class NextGenerationIntegrations {
 		}
 		if ( is_array( $payload ) && ! empty( $payload['reason'] ) ) {
 			return array(
-				'available'   => true,
-				'owner'       => 'file-26',
-				'reason'      => self::clean_textarea( $payload['reason'] ),
-				'time_window' => self::clean_text( isset( $payload['time_window'] ) ? $payload['time_window'] : '' ),
-				'source_count'=> absint( isset( $payload['source_count'] ) ? $payload['source_count'] : 0 ),
+				'available'    => true,
+				'owner'        => 'file-26',
+				'reason'       => self::clean_textarea( $payload['reason'] ),
+				'time_window'  => self::clean_text( isset( $payload['time_window'] ) ? $payload['time_window'] : '' ),
+				'source_count' => absint( isset( $payload['source_count'] ) ? $payload['source_count'] : 0 ),
 			);
 		}
 		return array(
-			'available'   => false,
-			'owner'       => 'file-26',
-			'reason'      => __( 'Global trending explanation is available when the File 26 discovery contract is active.', 'sabri-complete-home-news-feed' ),
-			'time_window' => '',
-			'source_count'=> 0,
+			'available'    => false,
+			'owner'        => 'file-26',
+			'reason'       => __( 'Global trending explanation is available when the File 26 discovery contract is active.', 'sabri-complete-home-news-feed' ),
+			'time_window'  => '',
+			'source_count' => 0,
 		);
 	}
 
@@ -175,22 +202,111 @@ final class NextGenerationIntegrations {
 		return is_string( $rendered ) ? $rendered : '';
 	}
 
-	/** File 19-owned digest delivery contract. */
+	/**
+	 * Hand a viewer-filtered digest candidate fact to File 19's canonical event intake.
+	 *
+	 * File 21 selects the public candidates. File 19 remains the sole notification,
+	 * policy, quiet-hours, digest scheduling, retry/dead-letter and delivery owner.
+	 */
 	public static function dispatch_digest_candidates( $user_id, $frequency, array $items ) {
 		$user_id   = absint( $user_id );
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
-		$payload   = array(
-			'contract_version' => '1.0.0',
+		$items     = array_slice( $items, 0, 20 );
+		$window    = 'weekly' === $frequency ? gmdate( 'o-\\WW' ) : gmdate( 'Y-m-d' );
+		$item_ids  = array();
+
+		foreach ( $items as $item ) {
+			if ( is_array( $item ) && ! empty( $item['id'] ) ) {
+				$item_ids[] = absint( $item['id'] );
+			}
+		}
+
+		$fingerprint     = implode( '|', array( self::FILE19_PRODUCER, $user_id, $frequency, $window, implode( ',', $item_ids ) ) );
+		$idempotency_key = 'f21-digest-' . substr( hash( 'sha256', $fingerprint ), 0, 32 );
+		$trace_id        = 'f21-trace-' . substr( hash( 'sha256', 'trace|' . $fingerprint ), 0, 32 );
+		$occurred_at     = gmdate( 'c' );
+		$summary         = sprintf(
+			/* translators: %d: number of digest candidate items. */
+			__( '%d Home and News Feed items are ready for your knowledge digest.', 'sabri-complete-home-news-feed' ),
+			count( $items )
+		);
+		$event           = array(
+			'producer'        => self::FILE19_PRODUCER,
+			'owner'           => 'File 21',
+			'event_id'        => $idempotency_key,
+			'event_type'      => self::FILE19_EVENT_TYPE,
+			'schema_version'  => self::FILE19_SCHEMA_VERSION,
+			'occurred_at'     => $occurred_at,
+			'recipients'      => array( $user_id ),
+			'trace_id'        => $trace_id,
+			'idempotency_key' => $idempotency_key,
+			'source_version'  => defined( 'SABRI_HNF_PACKAGE_VERSION' ) ? SABRI_HNF_PACKAGE_VERSION : '1.0.5',
+			'category'        => 'publishing',
+			'priority'        => 'normal',
+			'sensitivity'     => 'standard',
+			'data'            => array(
+				'action_name'      => __( 'Knowledge digest ready', 'sabri-complete-home-news-feed' ),
+				'object_name'      => __( 'Home and News Feed', 'sabri-complete-home-news-feed' ),
+				'summary'          => $summary,
+				'frequency'        => $frequency,
+				'candidate_window' => $window,
+				'items'            => $items,
+			),
+		);
+
+		$registered = self::register_file19_producer();
+		$available  = $registered && function_exists( 'sun_ingest_domain_event' );
+		$status     = 'unavailable';
+		$error_code = '';
+		$ingest     = null;
+
+		if ( $available ) {
+			$ingest = sun_ingest_domain_event( $event );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $ingest ) ) {
+				$status     = 'rejected';
+				$error_code = self::clean_key( $ingest->get_error_code() );
+			} elseif ( is_array( $ingest ) ) {
+				$status = self::clean_key( isset( $ingest['status'] ) ? $ingest['status'] : 'processed' );
+			} else {
+				$status = 'unknown';
+			}
+		}
+
+		$compatibility_payload = array(
+			'contract_version' => '1.2.0',
 			'owner'            => 'file-21',
-			'user_id'          => $user_id,
+			'delivery_owner'   => 'file-19',
+			'event'            => $event,
 			'frequency'        => $frequency,
-			'items'            => array_slice( $items, 0, 20 ),
-			'generated_at_utc' => gmdate( 'c' ),
+			'items'            => $items,
 		);
 		if ( function_exists( 'do_action' ) ) {
-			do_action( 'sabri_file19_digest_candidates', $payload );
+			// Transitional observer only; canonical File 19 v3 ingestion is the PHP API above.
+			do_action( 'sabri_file19_digest_candidates', $compatibility_payload );
 		}
-		return $payload;
+
+		$response = array(
+			'contract_version'  => '1.2.0',
+			'owner'             => 'file-21',
+			'delivery_owner'    => 'file-19',
+			'delivery_available'=> $available,
+			'ingest_status'     => $status,
+			'event_id'          => $idempotency_key,
+			'trace_id'          => $trace_id,
+			'frequency'         => $frequency,
+			'candidate_window'  => $window,
+			'item_count'        => count( $items ),
+			'items'             => $items,
+			'generated_at_utc'  => $occurred_at,
+		);
+		if ( '' !== $error_code ) {
+			$response['ingest_error_code'] = $error_code;
+		}
+		if ( is_array( $ingest ) && ! empty( $ingest['event_public_id'] ) ) {
+			$response['notification_event_id'] = self::clean_text( $ingest['event_public_id'] );
+		}
+
+		return $response;
 	}
 
 	/** Safe post array metadata. */

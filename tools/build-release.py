@@ -47,6 +47,7 @@ REQUIRED_FILES = {
     "includes/class-next-generation-feed.php",
     "includes/class-next-generation-integrations.php",
     "includes/class-next-generation-hardening.php",
+    "includes/class-next-generation-privacy.php",
     "includes/class-rest-next-generation.php",
     "assets/js/next-generation.js",
     "assets/js/next-generation-share.js",
