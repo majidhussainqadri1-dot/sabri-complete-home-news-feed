@@ -8,6 +8,7 @@ on:
       - 'includes/**'
       - 'tests/run-file21-third-fresh-ten-review-tests.php'
       - 'tests/run-file21-fourth-fresh-ten-review-tests.php'
+      - 'tests/run-file21-fifth-fresh-ten-review-tests.php'
       - '.github/workflows/file21-latest-companion-exact-contracts.yml'
       - '.github/workflows/file21-file22-real-contract.yml'
   push:
@@ -23,10 +24,10 @@ env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   FILE00_SHA: 3a84c32a6ddad151f2ed09d244fa8aa536a58108
   FILE02_SHA: e352aab7e3bd32bbbe82fc26424a3623b9c71a56
-  FILE04_SHA: cc296b06ec732da708480e6ab61e920db9ad5f03
-  FILE20_SHA: a8c3b959d0fc9b791501db69fd81ed55434e781c
+  FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e
+  FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
-  FILE24_SHA: bc5777f79fd77bbc54a644726f50ad174b4f52d3
+  FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea
 
 jobs:
   exact-current-companions:
@@ -143,9 +144,11 @@ jobs:
           set -euo pipefail
           php -l file21/includes/class-third-fresh-review-hardening.php
           php -l file21/includes/class-fourth-fresh-review-hardening.php
+          php -l file21/includes/class-fifth-fresh-review-hardening.php
           php file21/tests/run-file21-file23-provider-integration-tests.php
           php file21/tests/run-file21-third-fresh-ten-review-tests.php
           php file21/tests/run-file21-fourth-fresh-ten-review-tests.php
+          php file21/tests/run-file21-fifth-fresh-ten-review-tests.php
 
       - name: Record exact companion evidence
         shell: bash
@@ -163,6 +166,7 @@ jobs:
           Shell five-slot/canonical-owner boundary: PASS
           Dashboard native-owner boundary: PASS
           Security assurance/native-enforcement boundary: PASS
+          Fifth-review social-publication and Editorial News share hardening: PASS
           Hostinger staging acceptance: NOT CLAIMED
           REPORT
 
