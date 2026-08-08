@@ -12,7 +12,9 @@ $files = array(
 );
 $failures = array();
 $check = static function ( $ok, $message ) use ( &$failures ) {
-	if ( ! $ok ) { $failures[] = $message; }
+	if ( ! $ok ) {
+		$failures[] = $message;
+	}
 };
 
 // Round 1: current File 00 action assurance remains the only privileged identity gate.
@@ -33,10 +35,27 @@ foreach ( array( 'ng-read-post-context', 'ng-read-compare', 'ng-read-share-card'
 	$check( false !== strpos( $files['hardening'], $bucket ), 'Round 4: missing rate-limit bucket ' . $bucket );
 }
 
-// Round 5: File 19 receives deterministic event/dedup metadata while retaining delivery ownership.
-foreach ( array( 'File21DigestCandidatesPrepared.v1', 'idempotency_key', 'candidate_window', 'trace_id', 'sabri_file19_digest_candidates' ) as $needle ) {
-	$check( false !== strpos( $files['integrations'], $needle ), 'Round 5: digest contract missing ' . $needle );
+// Round 5: File 19 receives the strict sun.event.v1 envelope through its canonical PHP API.
+foreach (
+	array(
+		'sun_register_notification_producer',
+		'sun_ingest_domain_event',
+		'file21-home-news-feed',
+		'Publishing.DigestCandidatesPrepared',
+		"'schema_version'",
+		"'occurred_at'",
+		"'recipients'",
+		"'idempotency_key'",
+		"'trace_id'",
+		"'candidate_window'",
+		'sabri_file19_digest_candidates',
+	) as $needle
+) {
+	$check( false !== strpos( $files['integrations'], $needle ), 'Round 5: File 19 exact contract missing ' . $needle );
 }
+$check( false === strpos( $files['integrations'], 'File21DigestCandidatesPrepared.v1' ), 'Round 5: obsolete non-File19 event type remains.' );
+$check( false !== strpos( $files['integrations'], "'owner'           => 'File 21'" ), 'Round 5: canonical producer owner is not frozen.' );
+$check( false !== strpos( $files['integrations'], "'delivery_available'" ) && false !== strpos( $files['integrations'], "'ingest_status'" ), 'Round 5: File 19 unavailable/rejected state is not exposed honestly.' );
 
 // Round 6: File 21 corrective assets are route/context conditional.
 $check( false !== strpos( $files['feed'], 'assets_required_on_current_request' ) && false !== strpos( $files['feed'], 'sabri_hnf_next_generation_assets_required' ), 'Round 6: conditional asset policy missing.' );
@@ -57,7 +76,9 @@ $check( false !== strpos( $files['hardening'], 'InteractionPermissions::nonce_va
 $check( false !== strpos( $files['builder'], 'includes/class-next-generation-privacy.php' ), 'Round 10: new privacy runtime file is not package-mandatory.' );
 
 if ( $failures ) {
-	foreach ( $failures as $failure ) { fwrite( STDERR, "FAIL: {$failure}\n" ); }
+	foreach ( $failures as $failure ) {
+		fwrite( STDERR, "FAIL: {$failure}\n" );
+	}
 	exit( 1 );
 }
 echo "File 21 fresh ten-round latest-plan source gate: PASS\n";
