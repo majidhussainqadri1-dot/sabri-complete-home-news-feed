@@ -1,0 +1,46 @@
+name: File 21 File 19 Exact Contract Compatibility
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+      - file21-fresh-ten-review-latest-plans-20260808
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685
+
+jobs:
+  file21-file19-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout File 21 exact source head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+      - name: Verify File 21 exact source head
+        run: test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+      - name: Checkout pinned File 19 v3 contract source
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/19-sabri-unified-notifications
+          ref: ${{ env.FILE19_CONTRACT_SHA }}
+          path: file19-contract
+          fetch-depth: 1
+      - name: Verify pinned File 19 source head
+        run: test "$(git -C file19-contract rev-parse HEAD)" = "${FILE19_CONTRACT_SHA}"
+      - name: Run exact cross-repository contract gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l tests/run-file21-file19-exact-contract-tests.php
+          FILE21_ROOT="$PWD" FILE19_ROOT="$PWD/file19-contract" php tests/run-file21-file19-exact-contract-tests.php
