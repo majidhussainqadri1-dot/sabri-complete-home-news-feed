@@ -37,7 +37,7 @@ foreach ( array( 'Version: 1.0.5', "define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5'
 
 $plugin = file_get_contents( $root . '/includes/class-plugin.php' );
 foreach ( array(
-	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class,
+	'CanonicalIdentityAdapter::class', 'CompanionIntegrationRegistry::class', 'CompanionHomeRowAdapters::class',
 	'SearchProviderRegistry::class', 'ViralRankingSignals::class', 'NetworkRelationshipBridge::class', 'FeedUserAgency::class',
 	'SavedCollectionService::class', 'CommentExperience::class', 'HomeCompositionRegistry::class',
 	'LegacyInteractionMigrationAdapter::class', 'LegacyPublicationMigration::class', 'LegacyPublicationRollback::class',
