@@ -1,0 +1,172 @@
+name: File 21 Latest Companion Exact Contracts
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'includes/**'
+      - 'tests/run-file21-third-fresh-ten-review-tests.php'
+      - '.github/workflows/file21-latest-companion-exact-contracts.yml'
+      - '.github/workflows/file21-file22-real-contract.yml'
+  push:
+    branches:
+      - main
+      - 'file21-**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE00_SHA: 3a84c32a6ddad151f2ed09d244fa8aa536a58108
+  FILE02_SHA: e352aab7e3bd32bbbe82fc26424a3623b9c71a56
+  FILE04_SHA: ee77ecf321c772e86b1d4250d614e0879edd3fe6
+  FILE20_SHA: 8e6a350f3fc9c180c5e7a14e54d941f956e3ae23
+  FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
+  FILE24_SHA: 0cf9d6e4d0ef7c84b6cabba81c414219d1f772a1
+
+jobs:
+  exact-current-companions:
+    name: Exact current File 00/02/04/20/23/24 contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact File 21 head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          path: file21
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 00
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/00-sabri-membership-core
+          ref: ${{ env.FILE00_SHA }}
+          path: file00
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 02
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/02-sabri-authentication
+          ref: ${{ env.FILE02_SHA }}
+          path: file02
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 04
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/04-sabri-news-feed-and-publishing
+          ref: ${{ env.FILE04_SHA }}
+          path: file04
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 20
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/20-sabri-unified-application-shell
+          ref: ${{ env.FILE20_SHA }}
+          path: file20
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 23
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/23-sabri-doctor-founder-publishing-dashboard
+          ref: ${{ env.FILE23_SHA }}
+          path: file23
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 24
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/24-sabri-platform-security-privacy-compliance-and-resilience-center
+          ref: ${{ env.FILE24_SHA }}
+          path: file24
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify immutable source pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          test "$(git -C file00 rev-parse HEAD)" = "${FILE00_SHA}"
+          test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
+          test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
+          test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
+          test "$(git -C file24 rev-parse HEAD)" = "${FILE24_SHA}"
+
+      - name: Verify current ownership and authorization boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l file00/source/sabri-membership-core/includes/class-smc-contracts.php
+          grep -Fq 'class SMC_Contracts' file00/source/sabri-membership-core/includes/class-smc-contracts.php
+
+          php -l file02/includes/class-sa-membership-adapter.php
+          ! grep -Eq 'class[[:space:]]+SA_.*(Membership|Identity).*(Authority|Owner)' file02/includes/class-sa-membership-adapter.php
+          grep -Eqi 'membership|File 00|SMC_' file02/includes/class-sa-membership-adapter.php
+
+          php -l file04/includes/class-snfla-central-plan.php
+          grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
+          grep -Eqi 'read.only|write.*disable|migration|cutover' file04/includes/class-snfla-central-plan.php
+
+          php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+          grep -Fq "'21' => array( 'Complete Home and News Feed'" file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+          grep -Fq 'five-exact-slots-fallback-suppressed' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+          grep -Fq 'suppress-writes-after-cutover' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+          grep -Fq 'private-route-mount-only' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+          grep -Fq 'sanitized-events-native-controls-remain' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
+
+          grep -Fq 'Native data and native state remain authoritative' file23/docs/ADAPTER-CONTRACT.md
+          grep -Fq 'Production writes require `production_accepted`' file23/docs/ADAPTER-CONTRACT.md
+          grep -Fq 'Generic unregistered action strings are prohibited' file23/docs/ADAPTER-CONTRACT.md
+
+          grep -Eqi 'native enforcement|native module|native authorization' file24/docs/ARCHITECTURE.md file24/README.md
+          grep -Eqi 'single point of failure|fail.safe|fail-closed' file24/docs/ARCHITECTURE.md file24/README.md
+
+      - name: Verify File 21 side remains within current boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l file21/includes/class-third-fresh-review-hardening.php
+          php file21/tests/run-file21-file23-provider-integration-tests.php
+          php file21/tests/run-file21-third-fresh-ten-review-tests.php
+
+      - name: Record exact companion evidence
+        shell: bash
+        run: |
+          cat > latest-companion-contracts.txt <<REPORT
+          File 21: ${FILE21_EXPECTED_SHA}
+          File 00: ${FILE00_SHA}
+          File 02: ${FILE02_SHA}
+          File 04: ${FILE04_SHA}
+          File 20: ${FILE20_SHA}
+          File 23: ${FILE23_SHA}
+          File 24: ${FILE24_SHA}
+          Current identity/auth boundary: PASS
+          Legacy cutover/no-new-owner boundary: PASS
+          Shell five-slot/canonical-owner boundary: PASS
+          Dashboard native-owner boundary: PASS
+          Security assurance/native-enforcement boundary: PASS
+          Hostinger staging acceptance: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-latest-companion-contracts-${{ env.FILE21_EXPECTED_SHA }}
+          path: latest-companion-contracts.txt
+          if-no-files-found: warn
+          retention-days: 30
