@@ -118,6 +118,15 @@ final class RestNextGeneration {
 				'permission_callback' => array( __CLASS__, 'authenticated_permission' ),
 			)
 		);
+		register_rest_route(
+			RestFoundation::NAMESPACE,
+			'/next-generation/digest/dispatch',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'dispatch_digest' ),
+				'permission_callback' => array( __CLASS__, 'authenticated_permission' ),
+			)
+		);
 	}
 
 	/** Authenticated, assurance-ready users only. */
@@ -263,8 +272,19 @@ final class RestNextGeneration {
 		return self::response( $payload, 200 );
 	}
 
-	/** Daily/weekly digest candidate preview and File 19 handoff. */
+	/** Daily/weekly digest candidate preview; GET is intentionally side-effect free. */
 	public static function digest( $request ) {
+		$frequency = NextGenerationFeed::clean_key( self::param( $request, 'frequency' ) );
+		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
+		$user_id   = absint( get_current_user_id() );
+		return self::response( array( 'frequency' => $frequency, 'items' => NextGenerationFeed::digest_preview_candidates( $user_id, $frequency ) ), 200 );
+	}
+
+	/** Explicit nonce-protected File 19 digest handoff. */
+	public static function dispatch_digest( $request ) {
+		if ( ! self::nonce_valid( $request ) ) {
+			return self::error( 'invalid_nonce', __( 'The security token is missing or invalid.', 'sabri-complete-home-news-feed' ), 403 );
+		}
 		$frequency = NextGenerationFeed::clean_key( self::param( $request, 'frequency' ) );
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
 		$user_id   = absint( get_current_user_id() );

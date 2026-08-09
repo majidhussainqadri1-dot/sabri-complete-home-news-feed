@@ -767,8 +767,8 @@ final class NextGenerationFeed {
 		return array( 'contract_version' => self::CONTRACT_VERSION, 'generated_at_utc' => gmdate( 'c' ), 'items' => $items );
 	}
 
-	/** Daily/weekly digest candidates; File 19 remains the delivery owner. */
-	public static function digest_candidates( $user_id, $frequency = 'daily' ) {
+	/** Daily/weekly digest preview candidates; this method has no delivery side effect. */
+	public static function digest_preview_candidates( $user_id, $frequency = 'daily' ) {
 		$user_id   = absint( $user_id );
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
 		$since     = time() - ( 'weekly' === $frequency ? WEEK_IN_SECONDS : DAY_IN_SECONDS );
@@ -786,7 +786,14 @@ final class NextGenerationFeed {
 				'no_found_rows'  => true,
 			)
 		);
-		$items = self::public_post_links( (array) $query->posts, $user_id );
+		return self::public_post_links( (array) $query->posts, $user_id );
+	}
+
+	/** Explicit File 19 digest handoff; callers must use a protected mutation path. */
+	public static function digest_candidates( $user_id, $frequency = 'daily' ) {
+		$user_id   = absint( $user_id );
+		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
+		$items     = self::digest_preview_candidates( $user_id, $frequency );
 		return NextGenerationIntegrations::dispatch_digest_candidates( $user_id, $frequency, $items );
 	}
 
@@ -899,13 +906,13 @@ final class NextGenerationFeed {
 		$ids = is_array( $ids ) ? array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 12 ) : array();
 		$out = array();
 		foreach ( $ids as $user_id ) {
-			$user = get_userdata( $user_id );
-			if ( ! $user ) {
+			$projection = CanonicalIdentityAdapter::public_projection( $user_id );
+			if ( empty( $projection ) || empty( $projection['name'] ) ) {
 				continue;
 			}
 			$out[] = array(
 				'id'              => $user_id,
-				'name'            => sanitize_text_field( $user->display_name ),
+				'name'            => sanitize_text_field( $projection['name'] ),
 				'verified_doctor' => CanonicalIdentityAdapter::is_verified_doctor( $user_id ),
 			);
 		}
@@ -945,15 +952,20 @@ final class NextGenerationFeed {
 			if ( $approved_only && 'approved' !== $status ) {
 				continue;
 			}
-			$author_id = absint( isset( $item['author_id'] ) ? $item['author_id'] : 0 );
+			$author_id  = absint( isset( $item['author_id'] ) ? $item['author_id'] : 0 );
+			$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+			$current_verified = $author_id > 0 && ! empty( $projection ) && CanonicalIdentityAdapter::is_verified_doctor( $author_id );
+			if ( $approved_only && ! $current_verified ) {
+				continue;
+			}
 			$out[] = array(
 				'id'              => self::clean_text( isset( $item['id'] ) ? $item['id'] : '' ),
 				'author_id'       => $author_id,
-				'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Expert', 'sabri-complete-home-news-feed' ),
+				'author_name'     => ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : __( 'Expert', 'sabri-complete-home-news-feed' ),
 				'text'            => self::clean_textarea( $item['text'] ),
 				'status'          => $status,
 				'created_at_utc'  => self::clean_text( isset( $item['created_at_utc'] ) ? $item['created_at_utc'] : '' ),
-				'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),
+				'verified_doctor' => $current_verified,
 			);
 		}
 		return array_slice( $out, -100 );
@@ -1047,15 +1059,15 @@ final class NextGenerationFeed {
 				'author_name' => '',
 				'answers'     => array(),
 			);
-			$item['author_name'] = $item['author_id'] > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $item['author_id'] ) ) : __( 'Member', 'sabri-complete-home-news-feed' );
+			$item['author_name'] = self::public_actor_name( $item['author_id'], __( 'Member', 'sabri-complete-home-news-feed' ) );
 			foreach ( isset( $question['answers'] ) && is_array( $question['answers'] ) ? $question['answers'] : array() as $answer ) {
 				$author_id = absint( isset( $answer['author_id'] ) ? $answer['author_id'] : 0 );
 				$item['answers'][] = array(
 					'id'              => self::clean_text( isset( $answer['id'] ) ? $answer['id'] : '' ),
 					'text'            => self::clean_textarea( isset( $answer['text'] ) ? $answer['text'] : '' ),
 					'author_id'       => $author_id,
-					'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Member', 'sabri-complete-home-news-feed' ),
-					'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),
+					'author_name'     => self::public_actor_name( $author_id, __( 'Member', 'sabri-complete-home-news-feed' ) ),
+					'verified_doctor' => $author_id > 0 && ! empty( CanonicalIdentityAdapter::public_projection( $author_id ) ) && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),
 				);
 			}
 			$out[] = $item;
@@ -1332,6 +1344,13 @@ final class NextGenerationFeed {
 			}
 		}
 		return $out;
+	}
+
+	/** Resolve a public-safe actor name without leaking a revoked/private identity. */
+	private static function public_actor_name( $user_id, $fallback ) {
+		$user_id = absint( $user_id );
+		$projection = $user_id > 0 ? CanonicalIdentityAdapter::public_projection( $user_id ) : array();
+		return ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : $fallback;
 	}
 
 	/** Convert query posts into public-safe links. */
