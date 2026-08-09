@@ -26,9 +26,10 @@ $check( false !== strpos( $files['plugin'], 'NextGenerationPrivacy::class' ), 'R
 $check( false !== strpos( $files['privacy'], 'wp_privacy_personal_data_exporters' ) && false !== strpos( $files['privacy'], 'wp_privacy_personal_data_erasers' ), 'Round 2: WordPress privacy hooks missing.' );
 $check( false !== strpos( $files['privacy'], 'NextGenerationFeed::USER_META' ) && false !== strpos( $files['privacy'], 'delete_user_meta' ), 'Round 2: NG30 private user state erasure missing.' );
 
-// Round 3: article/News visibility uses the canonical cross-domain gate.
+// Round 3: public article/News visibility uses the stronger current strict-public cross-domain gate.
 $check( false === strpos( $files['feed'], 'PostMetadata::user_can_view(' ), 'Round 3: legacy social-only visibility call remains in NG30 runtime.' );
-$check( substr_count( $files['feed'], 'InteractionPermissions::can_view_post(' ) >= 8, 'Round 3: canonical cross-domain visibility not applied comprehensively.' );
+$check( false !== strpos( $files['feed'], 'function strict_public_item' ), 'Round 3: strict-public cross-domain visibility boundary missing.' );
+$check( substr_count( $files['feed'], 'self::strict_public_item(' ) >= 8, 'Round 3: strict-public cross-domain visibility not applied comprehensively.' );
 
 // Round 4: read-heavy public/private REST surfaces have bounded rate gates.
 foreach ( array( 'ng-read-post-context', 'ng-read-compare', 'ng-read-share-card', 'ng-read-stories', 'ng-read-offline-pack', 'ng-read-digest' ) as $bucket ) {
