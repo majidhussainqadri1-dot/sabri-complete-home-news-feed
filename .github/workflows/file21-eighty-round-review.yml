@@ -131,7 +131,8 @@ jobs:
           cat > eighty-round-evidence.txt <<REPORT
           File 21 exact head: ${FILE21_EXPECTED_SHA}
           Review rounds: 80
-          Pre-CI defect rounds: 5,6,7,8,10,13,14,15,17,18,19,20,26,30,31,32,33,34,36,41,45,48,53,54,58,62,77
+          Defect rounds: 5,6,7,8,10,13,14,15,17,18,19,20,26,30,31,32,33,34,36,41,45,48,53,54,58,62,77,80
+          Round 80 stale latest-plan visibility regression: CORRECTED
           Package: 1.0.5
           Runtime/API: 1.0.3
           Schema: 1.0.0
