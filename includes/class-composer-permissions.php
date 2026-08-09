@@ -33,12 +33,23 @@ final class ComposerPermissions {
 		return CanonicalIdentityAdapter::roles( $user_id );
 	}
 
+	/** Whether a subject belongs to the only classes eligible for public social publishing. */
+	public static function subject_is_public_publisher_class( $user_id = 0 ) {
+		$user_id = $user_id ? (int) $user_id : self::current_user_id();
+		return $user_id > 0 && (
+			CanonicalIdentityAdapter::is_founder( $user_id )
+			|| CanonicalIdentityAdapter::is_administrator( $user_id )
+			|| CanonicalIdentityAdapter::is_verified_doctor( $user_id )
+		);
+	}
+
 	/** Whether a user is an immediate publisher under the canonical policy. */
 	public static function user_is_privileged_publisher( $user_id = 0, $settings = null ) {
 		$settings = null === $settings ? Settings::get() : $settings;
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
 		return self::current_actor_matches( $user_id )
 			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& self::subject_is_public_publisher_class( $user_id )
 			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings )
 			&& self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) );
 	}
@@ -55,6 +66,7 @@ final class ComposerPermissions {
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
 		return $user_id > 0
 			&& CanonicalIdentityAdapter::subject_is_active( $user_id )
+			&& self::subject_is_public_publisher_class( $user_id )
 			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings );
 	}
 
@@ -86,6 +98,7 @@ final class ComposerPermissions {
 			return false;
 		}
 		return CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& self::subject_is_public_publisher_class( $user_id )
 			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings )
 			&& self::current_user_can_any( array( 'sabri_feed_publish_posts', 'manage_options' ) );
 	}
