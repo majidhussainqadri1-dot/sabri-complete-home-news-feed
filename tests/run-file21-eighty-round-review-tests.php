@@ -18,6 +18,7 @@ $paths = array(
     'report' => $root . '/docs/FILE21-EIGHTY-ROUND-REVIEW-2026-08-09.md',
     'companions' => $root . '/.github/workflows/file21-latest-companion-exact-contracts.yml',
     'workflow' => $root . '/.github/workflows/file21-eighty-round-review.yml',
+    'latest_plan_test' => $root . '/tests/run-file21-latest-plan-fresh-ten-review-tests.php',
 );
 $read = static fn(string $p): string => is_file($p) ? (file_get_contents($p) ?: '') : '';
 $f = array_map($read, $paths);
@@ -31,9 +32,8 @@ foreach ($paths as $k=>$p) $assert(is_file($p), "$k evidence exists");
 preg_match_all('/^\|\s*(\d{1,2})\s*\|/m', $f['report'], $m);
 $rounds=array_values(array_unique(array_map('intval',$m[1] ?? array())));
 $assert($rounds===range(1,80),'report contains exactly rounds 1 through 80');
-$defects=array(5,6,7,8,10,13,14,15,17,18,19,20,26,30,31,32,33,34,36,41,45,48,53,54,58,62,77);
+$defects=array(5,6,7,8,10,13,14,15,17,18,19,20,26,30,31,32,33,34,36,41,45,48,53,54,58,62,77,80);
 foreach($defects as $r) $assert((bool)preg_match('/^\|\s*'.$r.'\s*\|.*\|\s*DEFECT\s*\|/mi',$f['report']),"round $r marked DEFECT");
-$assert((bool)preg_match('/^\|\s*80\s*\|.*PENDING EXACT-HEAD CI/mi',$f['report']),'round 80 is evidence-driven pending before CI');
 
 $assert(str_contains($f['main'],"SABRI_HNF_PACKAGE_VERSION', '1.0.5'"),'package stays 1.0.5');
 $assert(str_contains($f['main'],"SABRI_HNF_VERSION', '1.0.3'"),'runtime stays 1.0.3');
@@ -62,7 +62,8 @@ $assert(str_contains($f['companions'],'FILE04_SHA: 4d6266413b377fda451894b1c7076
 $assert(str_contains($f['companions'],'FILE20_SHA: 7b4019091d1f83ef4cd9dc3f559abb2b3a95955d'),'current File 20 pin');
 $assert(str_contains($f['companions'],'FILE24_SHA: 2b303722e68869cc59cfd0a621f770e5b2826ebf'),'current File 24 pin');
 $assert(str_contains($f['companions'],'class-native-content-slots.php') && str_contains($f['companions'],'sabri_shell_news_main'),'latest File 20 exact five-slot runtime is executable evidence');
+$assert(str_contains($f['latest_plan_test'],'function strict_public_item') && str_contains($f['latest_plan_test'],'self::strict_public_item('),'Round 80 stale visibility regression follows the stronger current boundary');
 $assert(str_contains($f['workflow'],'run-file21-eighty-round-review-tests.php') && str_contains($f['workflow'],'tools/build-release.py --source-sha'),'80-round gate tests exact source and deterministic package');
 
-printf("File 21 eighty-round pre-CI evidence: %d passed, %d failed.\n",$passed,$failed);
+printf("File 21 eighty-round final evidence: %d passed, %d failed.\n",$passed,$failed);
 exit($failed?1:0);
