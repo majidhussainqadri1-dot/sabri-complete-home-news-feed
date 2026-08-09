@@ -102,6 +102,13 @@ final class NextGenerationHardening {
 		$method = self::method( $request );
 		$route  = self::route( $request );
 
+		if ( 'POST' === $method && is_object( $request ) && method_exists( $request, 'get_body' ) ) {
+			$body = (string) $request->get_body();
+			if ( strlen( $body ) > 65536 ) {
+				return self::error( 'payload_too_large', __( 'The request payload is too large.', 'sabri-complete-home-news-feed' ), 413 );
+			}
+		}
+
 		if ( 'GET' === $method ) {
 			$rate_error = self::read_rate_limit_error( $route );
 			if ( null !== $rate_error ) {
@@ -146,7 +153,11 @@ final class NextGenerationHardening {
 			return self::error( 'rate_limited', __( 'Too many actions were attempted. Please wait a moment and try again.', 'sabri-complete-home-news-feed' ), 429 );
 		}
 
-		$action = self::clean_key( self::param( $request, 'action' ) );
+		$action  = self::clean_key( self::param( $request, 'action' ) );
+		$post_id = absint( self::param( $request, 'post_id' ) );
+		if ( $post_id > 0 && class_exists( __NAMESPACE__ . '\\Phase5RateLimiter' ) && ! Phase5RateLimiter::allow( 'ng-object-' . $post_id, 30, 60, $user_id ) ) {
+			return self::error( 'rate_limited', __( 'Too many actions were attempted on this item. Please wait and try again.', 'sabri-complete-home-news-feed' ), 429 );
+		}
 		if ( in_array( $action, array( 'follow-topic', 'unfollow-topic' ), true ) ) {
 			$topic = self::clean_key( self::param( $request, 'topic' ) );
 			if ( '' === $topic || ! self::topic_exists( $topic ) ) {
@@ -190,14 +201,14 @@ final class NextGenerationHardening {
 		$items = array();
 		foreach ( (array) $query->posts as $post ) {
 			$post_id = is_object( $post ) && isset( $post->ID ) ? absint( $post->ID ) : absint( $post );
-			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
+			if ( $post_id < 1 || ! NextGenerationFeed::strict_public_item( $post_id ) ) {
 				continue;
 			}
 			$items[] = array(
 				'id'    => $post_id,
-				'title' => get_the_title( $post_id ),
-				'url'   => get_permalink( $post_id ),
-				'date'  => get_the_date( '', $post_id ),
+				'title' => sanitize_text_field( get_the_title( $post_id ) ),
+				'url'   => NextGenerationFeed::safe_web_url( get_permalink( $post_id ) ),
+				'date'  => sanitize_text_field( get_the_date( '', $post_id ) ),
 			);
 		}
 		return $items;
@@ -248,7 +259,9 @@ final class NextGenerationHardening {
 				return true;
 			}
 		}
-		return false;
+		// Public NG30 projections can still vary by session/provider state. Never let
+		// an authenticated response become a shared-cache representation.
+		return function_exists( 'get_current_user_id' ) && absint( get_current_user_id() ) > 0;
 	}
 
 	/** Route string. */
