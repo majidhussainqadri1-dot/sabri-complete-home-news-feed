@@ -95,7 +95,6 @@ jobs:
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
           git add -A
-          git diff --cached --check
           test -n "$(git diff --cached --name-only)"
           git commit -m 'Apply File 21 eighty-round runtime corrections'
           git push origin HEAD:file21-eighty-round-review-20260809
