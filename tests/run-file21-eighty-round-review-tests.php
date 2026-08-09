@@ -19,6 +19,7 @@ $paths = array(
     'companions' => $root . '/.github/workflows/file21-latest-companion-exact-contracts.yml',
     'workflow' => $root . '/.github/workflows/file21-eighty-round-review.yml',
     'latest_plan_test' => $root . '/tests/run-file21-latest-plan-fresh-ten-review-tests.php',
+    'wp_stubs' => $root . '/tests/wp-stubs.php',
 );
 $read = static fn(string $p): string => is_file($p) ? (file_get_contents($p) ?: '') : '';
 $f = array_map($read, $paths);
@@ -63,6 +64,8 @@ $assert(str_contains($f['companions'],'FILE20_SHA: 7b4019091d1f83ef4cd9dc3f559ab
 $assert(str_contains($f['companions'],'FILE24_SHA: 2b303722e68869cc59cfd0a621f770e5b2826ebf'),'current File 24 pin');
 $assert(str_contains($f['companions'],'class-native-content-slots.php') && str_contains($f['companions'],'sabri_shell_news_main'),'latest File 20 exact five-slot runtime is executable evidence');
 $assert(str_contains($f['latest_plan_test'],'function strict_public_item') && str_contains($f['latest_plan_test'],'self::strict_public_item('),'Round 80 stale visibility regression follows the stronger current boundary');
+$assert(str_contains($f['wp_stubs'],'function get_post_type('),'Round 80 lean harness supplies the WordPress get_post_type core contract');
+$assert(str_contains($f['wp_stubs'],"define( 'HOUR_IN_SECONDS', 3600 );") && str_contains($f['wp_stubs'],"define( 'WEEK_IN_SECONDS', 604800 );"),'Round 80 lean harness supplies WordPress time constants reached by strict public card rendering');
 $assert(str_contains($f['workflow'],'run-file21-eighty-round-review-tests.php') && str_contains($f['workflow'],'tools/build-release.py --source-sha'),'80-round gate tests exact source and deterministic package');
 
 printf("File 21 eighty-round final evidence: %d passed, %d failed.\n",$passed,$failed);
