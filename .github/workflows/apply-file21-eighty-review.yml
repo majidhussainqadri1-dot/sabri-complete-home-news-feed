@@ -44,36 +44,6 @@ jobs:
           PY
           patch -p1 < /tmp/eighty-runtime.patch
 
-      - name: Refresh continuing historical companion assertions
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          replacements = {
-              '54253e6de2dc68c2c57f7e0d4fd474bd0622de8e': '4d6266413b377fda451894b1c7076f2ce93f50fc',
-              '3e9c65373d88332e050628f27f0801092d417da2': '7b4019091d1f83ef4cd9dc3f559abb2b3a95955d',
-              '0dbd461a7a78328c0d134b711ef7a538023028ea': '2b303722e68869cc59cfd0a621f770e5b2826ebf',
-          }
-          paths = [
-              Path('tests/run-file21-third-fresh-ten-review-tests.php'),
-              Path('.github/workflows/file21-fourth-fresh-ten-review.yml'),
-              Path('.github/workflows/file21-fifth-fresh-ten-review.yml'),
-          ]
-          for path in paths:
-              text = path.read_text()
-              for old, new in replacements.items():
-                  text = text.replace(old, new)
-              path.write_text(text)
-          PY
-
-      - name: Remove transport-only files
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf .review
-          rm -f .github/workflows/apply-file21-eighty-review.yml
-
       - name: Syntax smoke
         shell: bash
         run: |
@@ -88,13 +58,22 @@ jobs:
           php -l includes/class-comment-service.php
           node --check assets/js/next-generation-accessibility.js
 
-      - name: Commit corrected runtime to review branch
+      - name: Commit only corrected runtime to review branch
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
-          git add -A
+          git add assets/js/next-generation-accessibility.js \
+            includes/class-comment-service.php \
+            includes/class-feed-renderer.php \
+            includes/class-news-public-projector.php \
+            includes/class-next-generation-feed.php \
+            includes/class-next-generation-hardening.php \
+            includes/class-next-generation-integrations.php \
+            includes/class-profile-timeline.php \
+            includes/class-rest-next-generation.php \
+            templates/news-card.php
           test -n "$(git diff --cached --name-only)"
           git commit -m 'Apply File 21 eighty-round runtime corrections'
           git push origin HEAD:file21-eighty-round-review-20260809
