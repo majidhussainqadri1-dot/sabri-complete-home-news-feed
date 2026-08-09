@@ -50,13 +50,13 @@ jobs:
         run: |
           set -euo pipefail
           php -l includes/class-composer-permissions.php
-          php -l tests/run-file21-eighty-fresh-review-v2-tests.php
+          php -l tests/run-file21-eighty-fresh-review-v3-tests.php
 
       - name: Execute all eighty source and contract review rounds
         shell: bash
         run: |
           set -euo pipefail
-          FILE21_ROOT="$PWD" php tests/run-file21-eighty-fresh-review-v2-tests.php
+          FILE21_ROOT="$PWD" php tests/run-file21-eighty-fresh-review-v3-tests.php
 
       - name: Re-run governing historical and NG30 regressions
         shell: bash
