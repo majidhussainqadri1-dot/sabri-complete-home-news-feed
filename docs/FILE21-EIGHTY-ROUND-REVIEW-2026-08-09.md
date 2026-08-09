@@ -87,13 +87,14 @@
 | 77 | Performance and bounded iteration | DEFECT | Stored user-state/provider arrays could be very large before normalization even though final output was sliced. Added pre-slices for stored topic/queue/offline/progress and File16/File26 provider arrays before iteration. |
 | 78 | Deterministic package/version/release metadata | NO DEFECT | No version/schema bump is required; build must still prove exact-head deterministic ZIP/checksum/manifest in CI. |
 | 79 | Fresh cross-repository drift recheck after corrections | NO DEFECT | File 04/20/24 refreshed heads and unchanged File00/02/19/22/23/26 heads are frozen as exact inputs for this cycle. |
-| 80 | Exact-head CI, package and regression closure | PENDING EXACT-HEAD CI | This round is only closed after the final branch head passes the full new 80-round gate plus existing build/quality/browser/companion contracts; any CI defect found here will be corrected and this row updated before merge. |
+| 80 | Exact-head CI, package and regression closure | DEFECT | The first exact-head 80-round gate exposed a stale historical latest-plan regression that still required eight `InteractionPermissions::can_view_post()` calls even though the corrected runtime now uses the stronger fail-closed `strict_public_item()` boundary. Updated that continuing regression to assert the current strict-public boundary; the corrected exact-head 80-round gate then passed source, governing regressions, companion pins and deterministic package. Final PR/post-merge suites remain mandatory before release claims. |
 
-## Pre-CI defect classification
+## Final review classification
 
-**Defect-bearing rounds before exact-head CI closure:** `5, 6, 7, 8, 10, 13, 14, 15, 17, 18, 19, 20, 26, 30, 31, 32, 33, 34, 36, 41, 45, 48, 53, 54, 58, 62, 77`  
-**No-new-File-21-defect rounds before exact-head CI closure:** `1, 2, 3, 4, 9, 11, 12, 16, 21, 22, 23, 24, 25, 27, 28, 29, 35, 37, 38, 39, 40, 42, 43, 44, 46, 47, 49, 50, 51, 52, 55, 56, 57, 59, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 78, 79`  
-**Round 80:** pending exact-head CI at this draft stage; final classification is updated only from real CI evidence.  
+**Defect-bearing rounds:** `5, 6, 7, 8, 10, 13, 14, 15, 17, 18, 19, 20, 26, 30, 31, 32, 33, 34, 36, 41, 45, 48, 53, 54, 58, 62, 77, 80`  
+**No-new-File-21-defect rounds:** `1, 2, 3, 4, 9, 11, 12, 16, 21, 22, 23, 24, 25, 27, 28, 29, 35, 37, 38, 39, 40, 42, 43, 44, 46, 47, 49, 50, 51, 52, 55, 56, 57, 59, 60, 61, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 78, 79`  
+**Round 80:** DEFECT — real exact-head CI exposed and then verified correction of the stale latest-plan visibility regression.  
+**Known unresolved File 21 repository defects after same-round corrections:** `0`, subject to final PR exact-head and post-merge exact-main suites remaining green.  
 **External dependency blocker:** File 00 remains independently not production-ready; File 21 does not claim to repair File 00-owned defects.  
 
 ## Current exact companion inputs for this cycle
