@@ -27,7 +27,7 @@ jobs:
           cat .review/eighty-patch.* > /tmp/eighty-patch.b64
           base64 -d /tmp/eighty-patch.b64 > /tmp/eighty-patch.xz
           xz -dc /tmp/eighty-patch.xz > /tmp/eighty.patch
-          patch -p2 < /tmp/eighty.patch
+          patch -p1 < /tmp/eighty.patch
 
       - name: Refresh continuing historical companion assertions
         shell: bash
