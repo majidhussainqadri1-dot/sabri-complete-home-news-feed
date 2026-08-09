@@ -1,4 +1,4 @@
-name: Apply PR41 Round 80 Build Fix
+name: Apply PR41 Round 80 Lean Harness Fix
 
 on:
   push:
@@ -17,44 +17,41 @@ jobs:
         with:
           ref: file21-eighty-round-review-20260809
           fetch-depth: 1
-      - name: Apply public-card same-round corrections
+      - name: Complete lean WordPress core stubs required by stricter public rendering
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
-          p = Path('includes/class-next-generation-feed.php')
+          p = Path('tests/wp-stubs.php')
           s = p.read_text()
-          old = """\t\tif ( 'post' !== $post_type ) {\n\t\t\treturn false;\n\t\t}\n\t\treturn class_exists( __NAMESPACE__ . '\\\\FourthFreshReviewHardening' )\n\t\t\t&& is_callable( array( FourthFreshReviewHardening::class, 'public_source_is_shareable' ) )\n\t\t\t&& (bool) FourthFreshReviewHardening::public_source_is_shareable( $post_id );\n"""
-          new = """\t\tif ( 'post' !== $post_type ) {\n\t\t\treturn false;\n\t\t}\n\t\treturn 'public' === PostMetadata::visibility( $post_id )\n\t\t\t&& PostMetadata::review_state_publicly_visible( $post_id )\n\t\t\t&& InteractionPermissions::can_view_post( $post_id, 0 );\n"""
-          if old not in s:
-              raise SystemExit('strict-public social block not found')
-          p.write_text(s.replace(old, new, 1))
-
-          p = Path('includes/class-feed-renderer.php')
-          s = p.read_text()
-          old = "MediaHandler::visible_attachment_ids( array_map( 'absint', $ids ) )"
-          new = "MediaHandler::visible_attachment_ids( array_map( 'absint', $ids ), 0 )"
-          if old not in s:
-              raise SystemExit('gallery visibility call not found')
-          p.write_text(s.replace(old, new, 1))
+          day = "define( 'DAY_IN_SECONDS', 86400 );\n"
+          if "define( 'HOUR_IN_SECONDS', 3600 );" not in s:
+              if day not in s:
+                  raise SystemExit('DAY_IN_SECONDS anchor missing')
+              s = s.replace(day, day + "define( 'HOUR_IN_SECONDS', 3600 );\ndefine( 'WEEK_IN_SECONDS', 604800 );\n", 1)
+          status = "function get_post_status( $post_id ) { return get_post_field( 'post_status', $post_id ); }\n"
+          if 'function get_post_type(' not in s:
+              if status not in s:
+                  raise SystemExit('get_post_status anchor missing')
+              s = s.replace(status, status + "function get_post_type( $post_id = 0 ) { return get_post_field( 'post_type', $post_id ); }\n", 1)
+          p.write_text(s)
           PY
-      - name: Verify behavior regressions
+      - name: Verify the exact behavior suite and eighty-round evidence
         shell: bash
         run: |
           set -euo pipefail
-          php -l includes/class-next-generation-feed.php
-          php -l includes/class-feed-renderer.php
+          php -l tests/wp-stubs.php
           php tests/run-tests.php
-      - name: Commit corrections and remove one-shot workflow
+          FILE21_ROOT="$PWD" php tests/run-file21-eighty-round-review-tests.php
+      - name: Commit harness correction and remove one-shot workflow
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'majidhussainqadri1-dot'
           git config user.email 'majidhussainqadri1@gmail.com'
           git rm .github/workflows/apply-pr41-round80-build-fix.yml
-          git add includes/class-next-generation-feed.php includes/class-feed-renderer.php
+          git add tests/wp-stubs.php
           git diff --cached --check
-          git commit -m 'Fix Round 80 public-card behavior regressions'
+          git commit -m 'Fix Round 80 lean WordPress behavior harness'
           git push origin HEAD:file21-eighty-round-review-20260809
