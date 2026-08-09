@@ -1,0 +1,107 @@
+name: File 21 Sixth Eighty-Round Corrective Patch Runner
+
+on:
+  push:
+    branches:
+      - file21-sixth-fresh-eighty-review-20260809
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-corrections:
+    if: ${{ !contains(github.event.head_commit.message || '', '[sixth80-patched]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Apply deterministic same-round corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p=Path(path); s=p.read_text()
+              n=s.count(old)
+              if n!=1:
+                  raise SystemExit(f'{path}: expected 1 match, found {n}')
+              p.write_text(s.replace(old,new,1))
+
+          # Round 24/25/26: public identity must be current and public-projection-safe.
+          p=Path('includes/class-next-generation-feed.php')
+          s=p.read_text()
+          old='''\t/** Co-author public projections. */\n\tpublic static function coauthors( $post_id ) {\n\t\t$ids = get_post_meta( absint( $post_id ), self::META_COAUTHORS, true );\n\t\t$ids = is_array( $ids ) ? array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 12 ) : array();\n\t\t$out = array();\n\t\tforeach ( $ids as $user_id ) {\n\t\t\t$user = get_userdata( $user_id );\n\t\t\tif ( ! $user ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\t$out[] = array(\n\t\t\t\t'id'              => $user_id,\n\t\t\t\t'name'            => sanitize_text_field( $user->display_name ),\n\t\t\t\t'verified_doctor' => CanonicalIdentityAdapter::is_verified_doctor( $user_id ),\n\t\t\t);\n\t\t}\n\t\treturn $out;\n\t}\n'''
+          new='''\t/** Co-author public projections. */\n\tpublic static function coauthors( $post_id ) {\n\t\t$ids = get_post_meta( absint( $post_id ), self::META_COAUTHORS, true );\n\t\t$ids = is_array( $ids ) ? array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 12 ) : array();\n\t\t$out = array();\n\t\tforeach ( $ids as $user_id ) {\n\t\t\t$projection = CanonicalIdentityAdapter::public_projection( $user_id );\n\t\t\tif ( empty( $projection ) || empty( $projection['name'] ) ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\t$out[] = array(\n\t\t\t\t'id'              => $user_id,\n\t\t\t\t'name'            => sanitize_text_field( $projection['name'] ),\n\t\t\t\t'verified_doctor' => CanonicalIdentityAdapter::is_verified_doctor( $user_id ),\n\t\t\t);\n\t\t}\n\t\treturn $out;\n\t}\n'''
+          if old not in s: raise SystemExit('coauthors block not found')
+          s=s.replace(old,new,1)
+
+          old="""\t\t\t$author_id = absint( isset( $item['author_id'] ) ? $item['author_id'] : 0 );\n\t\t\t$out[] = array(\n\t\t\t\t'id'              => self::clean_text( isset( $item['id'] ) ? $item['id'] : '' ),\n\t\t\t\t'author_id'       => $author_id,\n\t\t\t\t'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Expert', 'sabri-complete-home-news-feed' ),\n\t\t\t\t'text'            => self::clean_textarea( $item['text'] ),\n\t\t\t\t'status'          => $status,\n\t\t\t\t'created_at_utc'  => self::clean_text( isset( $item['created_at_utc'] ) ? $item['created_at_utc'] : '' ),\n\t\t\t\t'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),\n\t\t\t);\n"""
+          new="""\t\t\t$author_id  = absint( isset( $item['author_id'] ) ? $item['author_id'] : 0 );\n\t\t\t$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();\n\t\t\t$current_verified = $author_id > 0 && ! empty( $projection ) && CanonicalIdentityAdapter::is_verified_doctor( $author_id );\n\t\t\tif ( $approved_only && ! $current_verified ) {\n\t\t\t\tcontinue;\n\t\t\t}\n\t\t\t$out[] = array(\n\t\t\t\t'id'              => self::clean_text( isset( $item['id'] ) ? $item['id'] : '' ),\n\t\t\t\t'author_id'       => $author_id,\n\t\t\t\t'author_name'     => ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : __( 'Expert', 'sabri-complete-home-news-feed' ),\n\t\t\t\t'text'            => self::clean_textarea( $item['text'] ),\n\t\t\t\t'status'          => $status,\n\t\t\t\t'created_at_utc'  => self::clean_text( isset( $item['created_at_utc'] ) ? $item['created_at_utc'] : '' ),\n\t\t\t\t'verified_doctor' => $current_verified,\n\t\t\t);\n"""
+          if old not in s: raise SystemExit('expert context block not found')
+          s=s.replace(old,new,1)
+
+          s=s.replace("$item['author_name'] = $item['author_id'] > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $item['author_id'] ) ) : __( 'Member', 'sabri-complete-home-news-feed' );", "$item['author_name'] = self::public_actor_name( $item['author_id'], __( 'Member', 'sabri-complete-home-news-feed' ) );",1)
+          s=s.replace("'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Member', 'sabri-complete-home-news-feed' ),", "'author_name'     => self::public_actor_name( $author_id, __( 'Member', 'sabri-complete-home-news-feed' ) ),",1)
+          s=s.replace("'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),", "'verified_doctor' => $author_id > 0 && ! empty( CanonicalIdentityAdapter::public_projection( $author_id ) ) && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),",1)
+
+          marker="""\t/** Convert query posts into public-safe links. */\n\tprivate static function public_post_links( array $posts, $user_id ) {"""
+          helper="""\t/** Resolve a public-safe actor name without leaking a revoked/private identity. */\n\tprivate static function public_actor_name( $user_id, $fallback ) {\n\t\t$user_id = absint( $user_id );\n\t\t$projection = $user_id > 0 ? CanonicalIdentityAdapter::public_projection( $user_id ) : array();\n\t\treturn ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : $fallback;\n\t}\n\n"""
+          if marker not in s: raise SystemExit('public_post_links marker not found')
+          s=s.replace(marker,helper+marker,1)
+
+          # Round 41: GET digest becomes read-only preview; File 19 handoff moves to explicit POST.
+          old="""\t/** Daily/weekly digest candidates; File 19 remains the delivery owner. */\n\tpublic static function digest_candidates( $user_id, $frequency = 'daily' ) {\n\t\t$user_id   = absint( $user_id );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$since     = time() - ( 'weekly' === $frequency ? WEEK_IN_SECONDS : DAY_IN_SECONDS );\n\t\tif ( ! class_exists( 'WP_Query' ) ) {\n\t\t\treturn array();\n\t\t}\n\t\t$query = new \\WP_Query(\n\t\t\tarray(\n\t\t\t\t'post_type'      => array( 'post', 'sabri_news' ),\n\t\t\t\t'post_status'    => 'publish',\n\t\t\t\t'posts_per_page' => 20,\n\t\t\t\t'orderby'        => 'date',\n\t\t\t\t'order'          => 'DESC',\n\t\t\t\t'date_query'     => array( array( 'after' => gmdate( 'Y-m-d H:i:s', $since ), 'inclusive' => true, 'column' => 'post_date_gmt' ) ),\n\t\t\t\t'no_found_rows'  => true,\n\t\t\t)\n\t\t);\n\t\t$items = self::public_post_links( (array) $query->posts, $user_id );\n\t\treturn NextGenerationIntegrations::dispatch_digest_candidates( $user_id, $frequency, $items );\n\t}\n"""
+          new="""\t/** Daily/weekly digest preview candidates; this method has no delivery side effect. */\n\tpublic static function digest_preview_candidates( $user_id, $frequency = 'daily' ) {\n\t\t$user_id   = absint( $user_id );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$since     = time() - ( 'weekly' === $frequency ? WEEK_IN_SECONDS : DAY_IN_SECONDS );\n\t\tif ( ! class_exists( 'WP_Query' ) ) {\n\t\t\treturn array();\n\t\t}\n\t\t$query = new \\WP_Query(\n\t\t\tarray(\n\t\t\t\t'post_type'      => array( 'post', 'sabri_news' ),\n\t\t\t\t'post_status'    => 'publish',\n\t\t\t\t'posts_per_page' => 20,\n\t\t\t\t'orderby'        => 'date',\n\t\t\t\t'order'          => 'DESC',\n\t\t\t\t'date_query'     => array( array( 'after' => gmdate( 'Y-m-d H:i:s', $since ), 'inclusive' => true, 'column' => 'post_date_gmt' ) ),\n\t\t\t\t'no_found_rows'  => true,\n\t\t\t)\n\t\t);\n\t\treturn self::public_post_links( (array) $query->posts, $user_id );\n\t}\n\n\t/** Explicit File 19 digest handoff; callers must use a protected mutation path. */\n\tpublic static function digest_candidates( $user_id, $frequency = 'daily' ) {\n\t\t$user_id   = absint( $user_id );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$items     = self::digest_preview_candidates( $user_id, $frequency );\n\t\treturn NextGenerationIntegrations::dispatch_digest_candidates( $user_id, $frequency, $items );\n\t}\n"""
+          if old not in s: raise SystemExit('digest block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          # Round 42: explicit POST+nonce handoff endpoint; GET remains side-effect free.
+          p=Path('includes/class-rest-next-generation.php'); s=p.read_text()
+          route="""\t\tregister_rest_route(\n\t\t\tRestFoundation::NAMESPACE,\n\t\t\t'/next-generation/digest',\n\t\t\tarray(\n\t\t\t\t'methods'             => 'GET',\n\t\t\t\t'callback'            => array( __CLASS__, 'digest' ),\n\t\t\t\t'permission_callback' => array( __CLASS__, 'authenticated_permission' ),\n\t\t\t)\n\t\t);\n"""
+          route_new=route+"""\t\tregister_rest_route(\n\t\t\tRestFoundation::NAMESPACE,\n\t\t\t'/next-generation/digest/dispatch',\n\t\t\tarray(\n\t\t\t\t'methods'             => 'POST',\n\t\t\t\t'callback'            => array( __CLASS__, 'dispatch_digest' ),\n\t\t\t\t'permission_callback' => array( __CLASS__, 'authenticated_permission' ),\n\t\t\t)\n\t\t);\n"""
+          if route not in s: raise SystemExit('digest route block not found')
+          s=s.replace(route,route_new,1)
+          old="""\t/** Daily/weekly digest candidate preview and File 19 handoff. */\n\tpublic static function digest( $request ) {\n\t\t$frequency = NextGenerationFeed::clean_key( self::param( $request, 'frequency' ) );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$user_id   = absint( get_current_user_id() );\n\t\treturn self::response( NextGenerationFeed::digest_candidates( $user_id, $frequency ), 200 );\n\t}\n"""
+          new="""\t/** Daily/weekly digest candidate preview; GET is intentionally side-effect free. */\n\tpublic static function digest( $request ) {\n\t\t$frequency = NextGenerationFeed::clean_key( self::param( $request, 'frequency' ) );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$user_id   = absint( get_current_user_id() );\n\t\treturn self::response( array( 'frequency' => $frequency, 'items' => NextGenerationFeed::digest_preview_candidates( $user_id, $frequency ) ), 200 );\n\t}\n\n\t/** Explicit nonce-protected File 19 digest handoff. */\n\tpublic static function dispatch_digest( $request ) {\n\t\tif ( ! self::nonce_valid( $request ) ) {\n\t\t\treturn self::error( 'invalid_nonce', __( 'The security token is missing or invalid.', 'sabri-complete-home-news-feed' ), 403 );\n\t\t}\n\t\t$frequency = NextGenerationFeed::clean_key( self::param( $request, 'frequency' ) );\n\t\t$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';\n\t\t$user_id   = absint( get_current_user_id() );\n\t\treturn self::response( NextGenerationFeed::digest_candidates( $user_id, $frequency ), 200 );\n\t}\n"""
+          if old not in s: raise SystemExit('digest handler block not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          # Round 58: refresh current immutable cross-repository compatibility assertions.
+          replacements={
+            '54253e6de2dc68c2c57f7e0d4fd474bd0622de8e':'05fd19277974c804204d399b6ec0543342d181cf',
+            '3e9c65373d88332e050628f27f0801092d417da2':'75e451996b3b9cbbcbb37578678759d32c404ca1',
+            '0dbd461a7a78328c0d134b711ef7a538023028ea':'0be43b3f424d7b53865587b2770479ca33f51a0b',
+          }
+          for root in (Path('.github/workflows'),Path('tests')):
+              for f in root.rglob('*'):
+                  if not f.is_file(): continue
+                  try: text=f.read_text()
+                  except UnicodeDecodeError: continue
+                  out=text
+                  for a,b in replacements.items(): out=out.replace(a,b)
+                  if out!=text: f.write_text(out)
+          PY
+
+          php -l includes/class-next-generation-feed.php
+          php -l includes/class-rest-next-generation.php
+          git diff --check
+
+      - name: Commit same-round corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add includes .github/workflows tests
+          if git diff --cached --quiet; then
+            echo 'No patch required.'
+            exit 0
+          fi
+          git commit -m 'File 21 eighty-round same-cycle corrections [sixth80-patched]'
+          git push origin HEAD:file21-sixth-fresh-eighty-review-20260809
