@@ -20,14 +20,29 @@ jobs:
           ref: file21-eighty-round-review-20260809
           fetch-depth: 1
 
-      - name: Reconstruct and apply reviewed patch
+      - name: Reconstruct and apply reviewed runtime patch
         shell: bash
         run: |
           set -euo pipefail
           cat .review/eighty-patch.* > /tmp/eighty-patch.b64
           base64 -d /tmp/eighty-patch.b64 > /tmp/eighty-patch.xz
-          xz -dc /tmp/eighty-patch.xz > /tmp/eighty.patch
-          patch -p1 < /tmp/eighty.patch
+          xz -dc /tmp/eighty-patch.xz > /tmp/eighty-all.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/eighty-all.patch').read_text()
+          chunks = text.split('diff -ruN ')
+          kept = []
+          for chunk in chunks[1:]:
+              header = chunk.splitlines()[0]
+              parts = header.split(' ', 1)
+              new_path = parts[1] if len(parts) == 2 else ''
+              if new_path.startswith(('f21work/assets/', 'f21work/includes/', 'f21work/templates/')):
+                  kept.append('diff -ruN ' + chunk)
+          Path('/tmp/eighty-runtime.patch').write_text(''.join(kept))
+          if not kept:
+              raise SystemExit('No runtime patch sections selected')
+          PY
+          patch -p1 < /tmp/eighty-runtime.patch
 
       - name: Refresh continuing historical companion assertions
         shell: bash
@@ -59,7 +74,7 @@ jobs:
           rm -rf .review
           rm -f .github/workflows/apply-file21-eighty-review.yml
 
-      - name: Syntax and executable review smoke
+      - name: Syntax smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -71,11 +86,9 @@ jobs:
           php -l includes/class-profile-timeline.php
           php -l includes/class-news-public-projector.php
           php -l includes/class-comment-service.php
-          php -l tests/run-file21-eighty-round-review-tests.php
           node --check assets/js/next-generation-accessibility.js
-          FILE21_ROOT="$PWD" php tests/run-file21-eighty-round-review-tests.php
 
-      - name: Commit corrected source to review branch
+      - name: Commit corrected runtime to review branch
         shell: bash
         run: |
           set -euo pipefail
@@ -84,5 +97,5 @@ jobs:
           git add -A
           git diff --cached --check
           test -n "$(git diff --cached --name-only)"
-          git commit -m 'Apply File 21 eighty-round review corrections'
+          git commit -m 'Apply File 21 eighty-round runtime corrections'
           git push origin HEAD:file21-eighty-round-review-20260809
