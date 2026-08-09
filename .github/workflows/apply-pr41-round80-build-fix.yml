@@ -1,0 +1,60 @@
+name: Apply PR41 Round 80 Build Fix
+
+on:
+  push:
+    branches: [ file21-eighty-round-review-20260809 ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: file21-eighty-round-review-20260809
+          fetch-depth: 1
+      - name: Apply public-card same-round corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('includes/class-next-generation-feed.php')
+          s = p.read_text()
+          old = """\t\tif ( 'post' !== $post_type ) {\n\t\t\treturn false;\n\t\t}\n\t\treturn class_exists( __NAMESPACE__ . '\\\\FourthFreshReviewHardening' )\n\t\t\t&& is_callable( array( FourthFreshReviewHardening::class, 'public_source_is_shareable' ) )\n\t\t\t&& (bool) FourthFreshReviewHardening::public_source_is_shareable( $post_id );\n"""
+          new = """\t\tif ( 'post' !== $post_type ) {\n\t\t\treturn false;\n\t\t}\n\t\treturn 'public' === PostMetadata::visibility( $post_id )\n\t\t\t&& PostMetadata::review_state_publicly_visible( $post_id )\n\t\t\t&& InteractionPermissions::can_view_post( $post_id, 0 );\n"""
+          if old not in s:
+              raise SystemExit('strict-public social block not found')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('includes/class-feed-renderer.php')
+          s = p.read_text()
+          old = "MediaHandler::visible_attachment_ids( array_map( 'absint', $ids ) )"
+          new = "MediaHandler::visible_attachment_ids( array_map( 'absint', $ids ), 0 )"
+          if old not in s:
+              raise SystemExit('gallery visibility call not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Verify behavior regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l includes/class-next-generation-feed.php
+          php -l includes/class-feed-renderer.php
+          php tests/run-tests.php
+      - name: Commit corrections and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git rm .github/workflows/apply-pr41-round80-build-fix.yml
+          git add includes/class-next-generation-feed.php includes/class-feed-renderer.php
+          git diff --cached --check
+          git commit -m 'Fix Round 80 public-card behavior regressions'
+          git push origin HEAD:file21-eighty-round-review-20260809
