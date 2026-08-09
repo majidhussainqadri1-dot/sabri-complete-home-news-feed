@@ -1,0 +1,46 @@
+name: Temporary File 21 Sixth Eighty Bootstrap
+
+on:
+  push:
+    branches:
+      - file21-sixth-fresh-eighty-review-20260809
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: ${{ !contains(github.event.head_commit.message || '', '[sixth80-patched]') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Execute embedded corrective script from review branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import textwrap
+          wf=Path('.github/workflows/file21-sixth-eighty-patch-runner.yml').read_text()
+          start="          python3 - <<'PY'\n"
+          end="\n          PY\n\n          php -l includes/class-next-generation-feed.php"
+          if start not in wf or end not in wf:
+              raise SystemExit('Embedded patch script markers not found')
+          code=wf.split(start,1)[1].split(end,1)[0]
+          code=textwrap.dedent(code)
+          exec(compile(code,'sixth80_embedded_patch','exec'),{})
+          PY
+          php -l includes/class-next-generation-feed.php
+          php -l includes/class-rest-next-generation.php
+          git diff --check
+      - name: Commit branch corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'majidhussainqadri1-dot'
+          git config user.email 'majidhussainqadri1@gmail.com'
+          git add includes .github/workflows tests
+          git commit -m 'File 21 eighty-round same-cycle corrections [sixth80-patched]'
+          git push origin HEAD:file21-sixth-fresh-eighty-review-20260809
