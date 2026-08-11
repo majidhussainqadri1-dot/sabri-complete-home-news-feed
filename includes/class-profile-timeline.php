@@ -122,7 +122,8 @@ final class ProfileTimeline {
 			wp_enqueue_style( 'sabri-hnf-corrective-public', SABRI_HNF_URL . 'assets/css/corrective-public.css', array(), SABRI_HNF_VERSION );
 		}
 
-		$author_name = function_exists( 'get_the_author_meta' ) ? (string) get_the_author_meta( 'display_name', (int) $result['user_id'] ) : '';
+		$projection  = class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ? CanonicalIdentityAdapter::public_projection( (int) $result['user_id'] ) : array();
+		$author_name = is_array( $projection ) && ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : '';
 		$count_label = ! empty( $result['total_is_complete'] )
 			? sprintf( _n( '%d public post', '%d public posts', (int) $result['visible_total'], 'sabri-complete-home-news-feed' ), (int) $result['visible_total'] )
 			: sprintf( __( 'Showing up to %d authorized posts', 'sabri-complete-home-news-feed' ), (int) $result['scan_limit'] );

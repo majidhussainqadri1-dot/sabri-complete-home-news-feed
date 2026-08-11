@@ -203,7 +203,7 @@ final class NextGenerationFeed {
 	/** Render File 21-owned and cross-owner context on a Feed card. */
 	public static function render_card_extensions( $post_id ) {
 		$post_id = absint( $post_id );
-		if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id ) ) {
+		if ( $post_id < 1 || ! self::strict_public_item( $post_id ) ) {
 			return '';
 		}
 		$kind     = self::post_kind( $post_id );
@@ -320,7 +320,16 @@ final class NextGenerationFeed {
 		if ( $contexts ) {
 			$html .= '<section class="sabri-hnf-ng-context"><h3>' . esc_html__( 'Expert context', 'sabri-complete-home-news-feed' ) . '</h3>';
 			foreach ( $contexts as $context ) {
-				$html .= '<article><p>' . esc_html( $context['text'] ) . '</p><small>' . esc_html( $context['author_name'] ) . ( $context['verified_doctor'] ? ' - ' . esc_html__( 'Verified doctor', 'sabri-complete-home-news-feed' ) : '' ) . '</small></article>';
+				$html .= '<article><p>' . esc_html( $context['text'] ) . '</p><small>' . esc_html( $context['author_name'] ) . ( $context['verified_doctor'] ? ' - ' . esc_html__( 'Verified doctor', 'sabri-complete-home-news-feed' ) : '' ) . '</small>';
+				if ( ! empty( $context['sources'] ) && is_array( $context['sources'] ) ) {
+					$html .= '<ul class="sabri-hnf-ng-context-sources" aria-label="' . esc_attr__( 'Expert context sources', 'sabri-complete-home-news-feed' ) . '">';
+					foreach ( array_slice( $context['sources'], 0, 10 ) as $source ) {
+						$label = ! empty( $source['label'] ) ? $source['label'] : $source['url'];
+						$html .= '<li><a rel="noopener noreferrer" href="' . esc_url( $source['url'] ) . '">' . esc_html( $label ) . '</a></li>';
+					}
+					$html .= '</ul>';
+				}
+				$html .= '</article>';
 			}
 			$html .= '</section>';
 		}
@@ -350,12 +359,16 @@ final class NextGenerationFeed {
 	public static function create_repost( $original_id, $quote = '' ) {
 		$original_id = absint( $original_id );
 		$user_id     = self::current_user_id();
-		$quote       = self::clean_textarea( $quote );
+		$quote_raw   = (string) $quote;
+		if ( self::text_length( $quote_raw ) > 5000 ) {
+			return self::error( 'text_too_long', __( 'Quote text exceeds the 5,000-character limit.', 'sabri-complete-home-news-feed' ), 413 );
+		}
+		$quote       = self::clean_textarea( $quote_raw );
 		if ( $user_id < 1 || ! ComposerPermissions::user_can_create( $user_id ) ) {
 			return self::error( 'publishing_not_allowed', __( 'Your account cannot create public social posts.', 'sabri-complete-home-news-feed' ), 403 );
 		}
-		if ( $original_id < 1 || ! InteractionPermissions::can_view_post( $original_id, $user_id ) ) {
-			return self::error( 'original_unavailable', __( 'The original post is unavailable.', 'sabri-complete-home-news-feed' ), 404 );
+		if ( $original_id < 1 || ! self::strict_public_item( $original_id ) ) {
+			return self::error( 'original_unavailable', __( 'Only a currently public, approved original may be reposted or quoted.', 'sabri-complete-home-news-feed' ), 404 );
 		}
 		if ( ! function_exists( 'wp_insert_post' ) ) {
 			return self::error( 'publishing_unavailable', __( 'Publishing is temporarily unavailable.', 'sabri-complete-home-news-feed' ), 503 );
@@ -405,7 +418,7 @@ final class NextGenerationFeed {
 		}
 		$changed = array();
 		if ( array_key_exists( 'thread_id', $input ) ) {
-			$value = self::clean_key( $input['thread_id'] );
+			$value = self::bounded_key( $input['thread_id'], 96 );
 			update_post_meta( $post_id, self::META_THREAD_ID, $value );
 			update_post_meta( $post_id, self::META_THREAD_ORDER, max( 1, absint( isset( $input['thread_order'] ) ? $input['thread_order'] : 1 ) ) );
 			$changed[] = 'thread';
@@ -421,7 +434,7 @@ final class NextGenerationFeed {
 			$changed[] = 'story';
 		}
 		if ( array_key_exists( 'developing_story', $input ) ) {
-			update_post_meta( $post_id, self::META_DEVELOPING_STORY, self::clean_key( $input['developing_story'] ) );
+			update_post_meta( $post_id, self::META_DEVELOPING_STORY, self::bounded_key( $input['developing_story'], 96 ) );
 			$changed[] = 'developing_story';
 		}
 		if ( array_key_exists( 'evidence', $input ) ) {
@@ -441,10 +454,15 @@ final class NextGenerationFeed {
 	}
 
 	/** Submit verified expert context; non-moderator expert notes remain pending. */
-	public static function add_expert_context( $post_id, $text ) {
-		$post_id = absint( $post_id );
-		$user_id = self::current_user_id();
-		$text    = self::clean_textarea( $text );
+	public static function add_expert_context( $post_id, $text, $sources = array() ) {
+		$post_id  = absint( $post_id );
+		$user_id  = self::current_user_id();
+		$text_raw = (string) $text;
+		if ( self::text_length( $text_raw ) > 5000 ) {
+			return self::error( 'text_too_long', __( 'Expert context exceeds the 5,000-character limit.', 'sabri-complete-home-news-feed' ), 413 );
+		}
+		$text    = self::clean_textarea( $text_raw );
+		$sources = array_slice( self::sanitize_sources( $sources ), 0, 10 );
 		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 			return self::error( 'context_invalid', __( 'The expert context is invalid.', 'sabri-complete-home-news-feed' ), 400 );
 		}
@@ -459,6 +477,7 @@ final class NextGenerationFeed {
 			'status'          => ComposerPermissions::user_can_moderate() ? 'approved' : 'pending',
 			'created_at_utc'  => gmdate( 'c' ),
 			'verified_doctor' => CanonicalIdentityAdapter::is_verified_doctor( $user_id ) ? 1 : 0,
+			'sources'         => $sources,
 		);
 		$items = array_slice( $items, -100 );
 		update_post_meta( $post_id, self::META_EXPERT_CONTEXTS, $items );
@@ -470,8 +489,13 @@ final class NextGenerationFeed {
 	public static function qna_action( $post_id, $kind, $text, $question_id = '' ) {
 		$post_id = absint( $post_id );
 		$user_id = self::current_user_id();
-		$kind    = self::clean_key( $kind );
-		$text    = self::clean_textarea( $text );
+		$kind     = self::clean_key( $kind );
+		$text_raw = (string) $text;
+		if ( self::text_length( $text_raw ) > 5000 ) {
+			return self::error( 'text_too_long', __( 'Q&A text exceeds the 5,000-character limit.', 'sabri-complete-home-news-feed' ), 413 );
+		}
+		$text        = self::clean_textarea( $text_raw );
+		$question_id = self::bounded_text( $question_id, 100 );
 		if ( $post_id < 1 || $user_id < 1 || '' === $text || ! in_array( $kind, array( 'question', 'answer' ), true ) || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 			return self::error( 'qna_invalid', __( 'The Q&A entry is invalid.', 'sabri-complete-home-news-feed' ), 400 );
 		}
@@ -601,15 +625,27 @@ final class NextGenerationFeed {
 			),
 			$stored
 		);
-		$state['topics']        = array_slice( array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), (array) $state['topics'] ) ) ) ), -100 );
-		$state['queue']         = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) $state['queue'] ) ) ) ), -100 );
-		$state['offline']       = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) $state['offline'] ) ) ) ), -100 );
+		$topics                 = is_array( $state['topics'] ) ? array_slice( $state['topics'], -250 ) : array();
+		$state['topics']        = array_slice( array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $topics ) ) ) ), -100 );
+		$queue                  = is_array( $state['queue'] ) ? array_slice( $state['queue'], -250 ) : array();
+		$state['queue']         = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $queue ) ) ) ), -100 );
+		$offline                = is_array( $state['offline'] ) ? array_slice( $state['offline'], -250 ) : array();
+		$state['offline']       = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $offline ) ) ) ), -100 );
 		$state['progress']      = self::sanitize_progress( $state['progress'] );
 		$state['low_bandwidth'] = ! empty( $state['low_bandwidth'] ) ? 1 : 0;
 		$state['data_saver']    = ! empty( $state['data_saver'] ) ? 1 : 0;
 		$state['last_catch_up'] = max( 0, absint( $state['last_catch_up'] ) );
 		$state['recipe']        = self::sanitize_recipe( $state['recipe'] );
 		return $state;
+	}
+
+	/** Whether the current user explicitly requested transfer-saving media suppression. */
+	public static function media_transfer_suppressed() {
+		if ( self::current_user_id() < 1 ) {
+			return false;
+		}
+		$state = self::user_state();
+		return ! empty( $state['low_bandwidth'] ) || ! empty( $state['data_saver'] );
 	}
 
 	/** Apply only explicit local File 21 Feed recipe preferences. */
@@ -654,7 +690,7 @@ final class NextGenerationFeed {
 		$out = array();
 		foreach ( (array) $query->posts as $post ) {
 			$post_id = absint( $post->ID );
-			if ( ! InteractionPermissions::can_view_post( $post_id ) ) {
+			if ( ! self::strict_public_item( $post_id ) ) {
 				continue;
 			}
 			$expires = absint( get_post_meta( $post_id, self::META_STORY_EXPIRES, true ) );
@@ -687,7 +723,7 @@ final class NextGenerationFeed {
 				'no_found_rows'  => true,
 			)
 		);
-		return self::public_post_links( (array) $query->posts, $user_id );
+		return self::strict_public_post_links( (array) $query->posts );
 	}
 
 	/** Bounded catch-up based on the user's explicit last catch-up marker. */
@@ -708,7 +744,7 @@ final class NextGenerationFeed {
 				'no_found_rows'  => true,
 			)
 		);
-		return self::public_post_links( (array) $query->posts, $user_id );
+		return self::strict_public_post_links( (array) $query->posts );
 	}
 
 	/** Continue Reading projection. */
@@ -718,7 +754,7 @@ final class NextGenerationFeed {
 		$items   = array();
 		foreach ( $state['progress'] as $post_id => $progress ) {
 			$post_id = absint( $post_id );
-			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
+			if ( $post_id < 1 || ! self::strict_public_item( $post_id ) ) {
 				continue;
 			}
 			$items[] = array(
@@ -786,7 +822,7 @@ final class NextGenerationFeed {
 				'no_found_rows'  => true,
 			)
 		);
-		$items = self::public_post_links( (array) $query->posts, $user_id );
+		$items = self::strict_public_post_links( (array) $query->posts );
 		return NextGenerationIntegrations::dispatch_digest_candidates( $user_id, $frequency, $items );
 	}
 
@@ -795,15 +831,16 @@ final class NextGenerationFeed {
 		$ids = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 4 );
 		$out = array();
 		foreach ( $ids as $post_id ) {
-			if ( ! InteractionPermissions::can_view_post( $post_id ) ) {
+			if ( ! self::strict_public_item( $post_id ) ) {
 				continue;
 			}
+			$author_id = (int) get_post_field( 'post_author', $post_id );
 			$out[] = array(
 				'id'       => $post_id,
-				'title'    => get_the_title( $post_id ),
-				'url'      => get_permalink( $post_id ),
-				'date'     => get_the_date( DATE_ATOM, $post_id ),
-				'author'   => get_the_author_meta( 'display_name', (int) get_post_field( 'post_author', $post_id ) ),
+				'title'    => self::bounded_text( get_the_title( $post_id ), 300 ),
+				'url'      => self::safe_web_url( get_permalink( $post_id ) ),
+				'date'     => self::bounded_text( get_the_date( DATE_ATOM, $post_id ), 100 ),
+				'author'   => self::canonical_public_author_name( $author_id, __( 'Editorial author', 'sabri-complete-home-news-feed' ) ),
 				'evidence' => self::evidence_card( $post_id ),
 				'sources'  => self::source_diversity( $post_id ),
 				'history'  => self::edit_history( $post_id ),
@@ -816,7 +853,7 @@ final class NextGenerationFeed {
 	/** Safe semantic payload for File 25 visual card rendering or ordinary sharing. */
 	public static function share_card_payload( $post_id ) {
 		$post_id = absint( $post_id );
-		if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id ) ) {
+		if ( $post_id < 1 || ! self::strict_public_item( $post_id ) ) {
 			return array();
 		}
 		$content = wp_strip_all_tags( get_post_field( 'post_excerpt', $post_id ) );
@@ -826,10 +863,10 @@ final class NextGenerationFeed {
 		$payload = array(
 			'contract_version' => self::CONTRACT_VERSION,
 			'post_id'          => $post_id,
-			'title'            => get_the_title( $post_id ),
-			'excerpt'          => $content,
-			'url'              => get_permalink( $post_id ),
-			'source_label'     => get_bloginfo( 'name' ),
+			'title'            => self::bounded_text( get_the_title( $post_id ), 300 ),
+			'excerpt'          => self::bounded_textarea( $content, 2000 ),
+			'url'              => self::safe_web_url( get_permalink( $post_id ) ),
+			'source_label'     => self::bounded_text( get_bloginfo( 'name' ), 200 ),
 			'evidence'         => self::evidence_card( $post_id ),
 			'warning'          => self::share_warning( $post_id ),
 		);
@@ -846,10 +883,10 @@ final class NextGenerationFeed {
 	/** Original source projection for Repost/Quote. */
 	public static function original_post( $post_id ) {
 		$original_id = function_exists( 'get_post_meta' ) ? absint( get_post_meta( absint( $post_id ), self::META_ORIGINAL_ID, true ) ) : 0;
-		if ( $original_id < 1 || ! InteractionPermissions::can_view_post( $original_id ) ) {
+		if ( $original_id < 1 || ! self::strict_public_item( $original_id ) ) {
 			return array();
 		}
-		return array( 'id' => $original_id, 'title' => get_the_title( $original_id ), 'url' => get_permalink( $original_id ) );
+		return array( 'id' => $original_id, 'title' => self::bounded_text( get_the_title( $original_id ), 300 ), 'url' => self::safe_web_url( get_permalink( $original_id ) ) );
 	}
 
 	/** Thread/series navigation. */
@@ -873,8 +910,8 @@ final class NextGenerationFeed {
 		);
 		$items = array();
 		foreach ( (array) $query->posts as $post ) {
-			if ( InteractionPermissions::can_view_post( $post->ID ) ) {
-				$items[] = array( 'id' => (int) $post->ID, 'title' => get_the_title( $post->ID ), 'url' => get_permalink( $post->ID ) );
+			if ( self::strict_public_item( $post->ID ) ) {
+				$items[] = array( 'id' => (int) $post->ID, 'title' => self::bounded_text( get_the_title( $post->ID ), 300 ), 'url' => self::safe_web_url( get_permalink( $post->ID ) ) );
 			}
 		}
 		$position = 0;
@@ -899,13 +936,14 @@ final class NextGenerationFeed {
 		$ids = is_array( $ids ) ? array_slice( array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) ), 0, 12 ) : array();
 		$out = array();
 		foreach ( $ids as $user_id ) {
-			$user = get_userdata( $user_id );
-			if ( ! $user ) {
+			$projection = CanonicalIdentityAdapter::public_projection( $user_id );
+			if ( ! is_array( $projection ) || absint( isset( $projection['id'] ) ? $projection['id'] : 0 ) !== $user_id || empty( $projection['name'] ) ) {
 				continue;
 			}
 			$out[] = array(
 				'id'              => $user_id,
-				'name'            => sanitize_text_field( $user->display_name ),
+				'name'            => self::bounded_text( $projection['name'], 200 ),
+				'profile_url'     => isset( $projection['profile_url'] ) ? self::safe_web_url( $projection['profile_url'] ) : '',
 				'verified_doctor' => CanonicalIdentityAdapter::is_verified_doctor( $user_id ),
 			);
 		}
@@ -929,13 +967,13 @@ final class NextGenerationFeed {
 				'no_found_rows'  => true,
 			)
 		);
-		return self::public_post_links( (array) $query->posts, self::current_user_id() );
+		return self::strict_public_post_links( (array) $query->posts );
 	}
 
 	/** Approved or all expert context. */
 	public static function expert_contexts( $post_id, $approved_only = true ) {
 		$items = get_post_meta( absint( $post_id ), self::META_EXPERT_CONTEXTS, true );
-		$items = is_array( $items ) ? $items : array();
+		$items = is_array( $items ) ? array_slice( $items, 0, 50 ) : array();
 		$out   = array();
 		foreach ( $items as $item ) {
 			if ( ! is_array( $item ) || empty( $item['text'] ) ) {
@@ -947,13 +985,14 @@ final class NextGenerationFeed {
 			}
 			$author_id = absint( isset( $item['author_id'] ) ? $item['author_id'] : 0 );
 			$out[] = array(
-				'id'              => self::clean_text( isset( $item['id'] ) ? $item['id'] : '' ),
+				'id'              => self::bounded_text( isset( $item['id'] ) ? $item['id'] : '', 100 ),
 				'author_id'       => $author_id,
-				'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Expert', 'sabri-complete-home-news-feed' ),
-				'text'            => self::clean_textarea( $item['text'] ),
+				'author_name'     => self::canonical_public_author_name( $author_id, __( 'Expert', 'sabri-complete-home-news-feed' ) ),
+				'text'            => self::bounded_textarea( $item['text'], 5000 ),
 				'status'          => $status,
-				'created_at_utc'  => self::clean_text( isset( $item['created_at_utc'] ) ? $item['created_at_utc'] : '' ),
+				'created_at_utc'  => self::bounded_text( isset( $item['created_at_utc'] ) ? $item['created_at_utc'] : '', 100 ),
 				'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),
+				'sources'         => self::sanitize_sources( isset( $item['sources'] ) ? $item['sources'] : array() ),
 			);
 		}
 		return array_slice( $out, -100 );
@@ -995,7 +1034,7 @@ final class NextGenerationFeed {
 		}
 		if ( function_exists( 'get_post_type' ) && 'sabri_news' === get_post_type( $post_id ) && class_exists( __NAMESPACE__ . '\\CorrectionLedger' ) ) {
 			foreach ( CorrectionLedger::public_history( $post_id ) as $entry ) {
-				$out[] = array( 'date' => self::clean_text( $entry['published_at'] ), 'label' => ucfirst( self::clean_key( $entry['class'] ) ) . ': ' . self::clean_textarea( $entry['public_note'] ) );
+				$out[] = array( 'date' => self::bounded_text( $entry['published_at'], 100 ), 'label' => self::bounded_textarea( ucfirst( self::clean_key( $entry['class'] ) ) . ': ' . ( isset( $entry['public_note'] ) ? $entry['public_note'] : '' ), 2000 ) );
 			}
 		}
 		usort( $out, static function ( $a, $b ) { return strcmp( $b['date'], $a['date'] ); } );
@@ -1009,10 +1048,6 @@ final class NextGenerationFeed {
 		$status   = function_exists( 'get_post_status' ) ? get_post_status( $post_id ) : '';
 		if ( 'publish' !== $status ) {
 			$messages[] = __( 'This item is not in ordinary published state.', 'sabri-complete-home-news-feed' );
-		}
-		$history = self::edit_history( $post_id );
-		if ( $history ) {
-			$messages[] = __( 'This item has an edit or correction history; review the latest version before sharing.', 'sabri-complete-home-news-feed' );
 		}
 		$retraction = get_post_meta( $post_id, '_sabri_news_retraction_notice', true );
 		$correction = get_post_meta( $post_id, '_sabri_news_correction_notice', true );
@@ -1041,20 +1076,20 @@ final class NextGenerationFeed {
 				continue;
 			}
 			$item = array(
-				'id'          => self::clean_text( $question['id'] ),
-				'text'        => self::clean_textarea( $question['text'] ),
+				'id'          => self::bounded_text( $question['id'], 100 ),
+				'text'        => self::bounded_textarea( $question['text'], 5000 ),
 				'author_id'   => absint( isset( $question['author_id'] ) ? $question['author_id'] : 0 ),
 				'author_name' => '',
 				'answers'     => array(),
 			);
-			$item['author_name'] = $item['author_id'] > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $item['author_id'] ) ) : __( 'Member', 'sabri-complete-home-news-feed' );
+			$item['author_name'] = self::canonical_public_author_name( $item['author_id'], __( 'Member', 'sabri-complete-home-news-feed' ) );
 			foreach ( isset( $question['answers'] ) && is_array( $question['answers'] ) ? $question['answers'] : array() as $answer ) {
 				$author_id = absint( isset( $answer['author_id'] ) ? $answer['author_id'] : 0 );
 				$item['answers'][] = array(
-					'id'              => self::clean_text( isset( $answer['id'] ) ? $answer['id'] : '' ),
-					'text'            => self::clean_textarea( isset( $answer['text'] ) ? $answer['text'] : '' ),
+					'id'              => self::bounded_text( isset( $answer['id'] ) ? $answer['id'] : '', 100 ),
+					'text'            => self::bounded_textarea( isset( $answer['text'] ) ? $answer['text'] : '', 5000 ),
 					'author_id'       => $author_id,
-					'author_name'     => $author_id > 0 ? sanitize_text_field( get_the_author_meta( 'display_name', $author_id ) ) : __( 'Member', 'sabri-complete-home-news-feed' ),
+					'author_name'     => self::canonical_public_author_name( $author_id, __( 'Member', 'sabri-complete-home-news-feed' ) ),
 					'verified_doctor' => $author_id > 0 && CanonicalIdentityAdapter::is_verified_doctor( $author_id ),
 				);
 			}
@@ -1203,9 +1238,12 @@ final class NextGenerationFeed {
 			'low_bandwidth' => 0, 'data_saver' => 0, 'last_catch_up' => time() - WEEK_IN_SECONDS, 'recipe' => self::default_recipe(),
 		);
 		$state = array_merge( $defaults, $state );
-		$state['topics']        = array_slice( array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), (array) $state['topics'] ) ) ) ), -100 );
-		$state['queue']         = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) $state['queue'] ) ) ) ), -100 );
-		$state['offline']       = array_slice( array_values( array_unique( array_filter( array_map( 'absint', (array) $state['offline'] ) ) ) ), -100 );
+		$topics                 = is_array( $state['topics'] ) ? array_slice( $state['topics'], -250 ) : array();
+		$state['topics']        = array_slice( array_values( array_unique( array_filter( array_map( array( __CLASS__, 'clean_key' ), $topics ) ) ) ), -100 );
+		$queue                  = is_array( $state['queue'] ) ? array_slice( $state['queue'], -250 ) : array();
+		$state['queue']         = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $queue ) ) ) ), -100 );
+		$offline                = is_array( $state['offline'] ) ? array_slice( $state['offline'], -250 ) : array();
+		$state['offline']       = array_slice( array_values( array_unique( array_filter( array_map( 'absint', $offline ) ) ) ), -100 );
 		$state['progress']      = self::sanitize_progress( $state['progress'] );
 		$state['low_bandwidth'] = ! empty( $state['low_bandwidth'] ) ? 1 : 0;
 		$state['data_saver']    = ! empty( $state['data_saver'] ) ? 1 : 0;
@@ -1232,7 +1270,7 @@ final class NextGenerationFeed {
 
 	/** Normalize progress map. */
 	private static function sanitize_progress( $progress ) {
-		$progress = is_array( $progress ) ? $progress : array();
+		$progress = is_array( $progress ) ? array_slice( $progress, -250, null, true ) : array();
 		$out      = array();
 		foreach ( $progress as $post_id => $item ) {
 			$post_id = absint( $post_id );
@@ -1257,17 +1295,17 @@ final class NextGenerationFeed {
 	private static function sanitize_evidence( $value ) {
 		$value = is_array( $value ) ? $value : array();
 		return array(
-			'level'                => self::clean_text( isset( $value['level'] ) ? $value['level'] : '' ),
-			'review_date'          => self::clean_text( isset( $value['review_date'] ) ? $value['review_date'] : '' ),
-			'author_qualification' => self::clean_text( isset( $value['author_qualification'] ) ? $value['author_qualification'] : '' ),
-			'uncertainty'          => self::clean_textarea( isset( $value['uncertainty'] ) ? $value['uncertainty'] : '' ),
+			'level'                => self::bounded_text( isset( $value['level'] ) ? $value['level'] : '', 100 ),
+			'review_date'          => self::bounded_text( isset( $value['review_date'] ) ? $value['review_date'] : '', 50 ),
+			'author_qualification' => self::bounded_text( isset( $value['author_qualification'] ) ? $value['author_qualification'] : '', 300 ),
+			'uncertainty'          => self::bounded_textarea( isset( $value['uncertainty'] ) ? $value['uncertainty'] : '', 2000 ),
 			'sources'              => self::sanitize_sources( isset( $value['sources'] ) ? $value['sources'] : array() ),
 		);
 	}
 
 	/** Sanitize source list. */
 	private static function sanitize_sources( $sources ) {
-		$sources = is_array( $sources ) ? $sources : array();
+		$sources = is_array( $sources ) ? array_slice( $sources, 0, 30 ) : array();
 		$out     = array();
 		foreach ( $sources as $source ) {
 			if ( is_string( $source ) ) {
@@ -1276,11 +1314,11 @@ final class NextGenerationFeed {
 			if ( ! is_array( $source ) ) {
 				continue;
 			}
-			$url = esc_url_raw( isset( $source['url'] ) ? $source['url'] : '' );
-			if ( '' === $url || ! in_array( wp_parse_url( $url, PHP_URL_SCHEME ), array( 'http', 'https' ), true ) ) {
+			$url = self::safe_web_url( isset( $source['url'] ) ? $source['url'] : '' );
+			if ( '' === $url ) {
 				continue;
 			}
-			$out[] = array( 'url' => $url, 'label' => self::clean_text( isset( $source['label'] ) ? $source['label'] : '' ) );
+			$out[] = array( 'url' => $url, 'label' => self::bounded_text( isset( $source['label'] ) ? $source['label'] : '', 300 ) );
 			if ( count( $out ) >= 30 ) {
 				break;
 			}
@@ -1290,22 +1328,22 @@ final class NextGenerationFeed {
 
 	/** Sanitize translation relation list. */
 	private static function sanitize_translations( $items ) {
-		$items = is_array( $items ) ? $items : array();
+		$items = is_array( $items ) ? array_slice( $items, 0, 50 ) : array();
 		$out   = array();
 		foreach ( $items as $item ) {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
-			$lang = self::clean_key( isset( $item['language'] ) ? $item['language'] : '' );
-			$url  = esc_url_raw( isset( $item['url'] ) ? $item['url'] : '' );
+			$lang = self::bounded_key( isset( $item['language'] ) ? $item['language'] : '', 35 );
+			$url  = self::safe_web_url( isset( $item['url'] ) ? $item['url'] : '' );
 			if ( '' === $lang || '' === $url ) {
 				continue;
 			}
 			$out[] = array(
 				'language' => $lang,
 				'url'      => $url,
-				'method'   => in_array( isset( $item['method'] ) ? $item['method'] : '', array( 'human', 'machine' ), true ) ? $item['method'] : 'machine',
-				'label'    => self::clean_text( isset( $item['label'] ) ? $item['label'] : strtoupper( $lang ) ),
+				'method'   => in_array( isset( $item['method'] ) ? $item['method'] : '', array( 'original', 'human', 'machine' ), true ) ? $item['method'] : 'machine',
+				'label'    => self::bounded_text( isset( $item['label'] ) ? $item['label'] : strtoupper( $lang ), 100 ),
 			);
 			if ( count( $out ) >= 12 ) {
 				break;
@@ -1316,7 +1354,7 @@ final class NextGenerationFeed {
 
 	/** Normalize user IDs. */
 	private static function normalize_user_ids( $values, $limit, $exclude = 0 ) {
-		$values = is_array( $values ) ? $values : array();
+		$values = is_array( $values ) ? array_slice( $values, 0, 50 ) : array();
 		$ids    = array_values( array_unique( array_filter( array_map( 'absint', $values ) ) ) );
 		if ( $exclude > 0 ) {
 			$ids = array_values( array_diff( $ids, array( absint( $exclude ) ) ) );
@@ -1342,9 +1380,103 @@ final class NextGenerationFeed {
 			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
-			$out[] = array( 'id' => $post_id, 'title' => get_the_title( $post_id ), 'url' => get_permalink( $post_id ), 'date' => get_the_date( '', $post_id ) );
+			$out[] = array( 'id' => $post_id, 'title' => self::bounded_text( get_the_title( $post_id ), 300 ), 'url' => self::safe_web_url( get_permalink( $post_id ) ), 'date' => self::bounded_text( get_the_date( '', $post_id ), 100 ) );
 		}
 		return $out;
+	}
+
+	/** Canonical public identity name, otherwise a non-identifying fallback. */
+	private static function canonical_public_author_name( $user_id, $fallback ) {
+		$user_id = absint( $user_id );
+		if ( $user_id < 1 ) {
+			return (string) $fallback;
+		}
+		$projection = CanonicalIdentityAdapter::public_projection( $user_id );
+		if ( ! is_array( $projection ) || absint( isset( $projection['id'] ) ? $projection['id'] : 0 ) !== $user_id || empty( $projection['name'] ) ) {
+			return (string) $fallback;
+		}
+		return self::bounded_text( $projection['name'], 200 );
+	}
+
+	/** Strictly public File 21 social/news item; never author/moderator private visibility. */
+	public static function strict_public_item( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( $post_id < 1 || ! function_exists( 'get_post_status' ) || 'publish' !== get_post_status( $post_id ) ) {
+			return false;
+		}
+		$post_type = function_exists( 'get_post_type' ) ? self::clean_key( get_post_type( $post_id ) ) : '';
+		if ( 'sabri_news' === $post_type ) {
+			return class_exists( __NAMESPACE__ . '\\NewsPolicy' )
+				&& is_callable( array( NewsPolicy::class, 'can_public_read' ) )
+				&& (bool) NewsPolicy::can_public_read( $post_id, 'single' );
+		}
+		if ( 'post' !== $post_type ) {
+			return false;
+		}
+		return class_exists( __NAMESPACE__ . '\\FourthFreshReviewHardening' )
+			&& is_callable( array( FourthFreshReviewHardening::class, 'public_source_is_shareable' ) )
+			&& (bool) FourthFreshReviewHardening::public_source_is_shareable( $post_id );
+	}
+
+	/** Convert query posts into strictly public links. */
+	private static function strict_public_post_links( array $posts ) {
+		$out = array();
+		foreach ( $posts as $post ) {
+			$post_id = is_object( $post ) && isset( $post->ID ) ? absint( $post->ID ) : absint( $post );
+			if ( ! self::strict_public_item( $post_id ) ) {
+				continue;
+			}
+			$out[] = array(
+				'id'    => $post_id,
+				'title' => self::bounded_text( get_the_title( $post_id ), 300 ),
+				'url'   => self::safe_web_url( get_permalink( $post_id ) ),
+				'date'  => self::bounded_text( get_the_date( '', $post_id ), 100 ),
+			);
+		}
+		return $out;
+	}
+
+	/** Length helper that remains safe when mbstring is unavailable. */
+	private static function text_length( $value ) {
+		$value = (string) $value;
+		return function_exists( 'mb_strlen' ) ? mb_strlen( $value, 'UTF-8' ) : strlen( $value );
+	}
+
+	/** Sanitize and hard-cap a key. */
+	private static function bounded_key( $value, $max_length ) {
+		$key = self::clean_key( $value );
+		return substr( $key, 0, max( 1, absint( $max_length ) ) );
+	}
+
+	/** Sanitize and hard-cap one short text value. */
+	private static function bounded_text( $value, $max_length ) {
+		$text = self::clean_text( $value );
+		$max  = max( 1, absint( $max_length ) );
+		return function_exists( 'mb_substr' ) ? mb_substr( $text, 0, $max, 'UTF-8' ) : substr( $text, 0, $max );
+	}
+
+	/** Sanitize and hard-cap textarea text. */
+	private static function bounded_textarea( $value, $max_length ) {
+		$text = self::clean_textarea( $value );
+		$max  = max( 1, absint( $max_length ) );
+		return function_exists( 'mb_substr' ) ? mb_substr( $text, 0, $max, 'UTF-8' ) : substr( $text, 0, $max );
+	}
+
+	/** Strict http(s) URL with an explicit host and no embedded credentials. */
+	public static function safe_web_url( $value ) {
+		$raw = trim( (string) $value );
+		if ( self::text_length( $raw ) > 2048 ) {
+			return '';
+		}
+		$url = function_exists( 'esc_url_raw' ) ? esc_url_raw( $raw, array( 'http', 'https' ) ) : filter_var( $raw, FILTER_SANITIZE_URL );
+		if ( '' === $url ) {
+			return '';
+		}
+		$parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $url ) : parse_url( $url );
+		if ( ! is_array( $parts ) || empty( $parts['scheme'] ) || ! in_array( strtolower( (string) $parts['scheme'] ), array( 'http', 'https' ), true ) || empty( $parts['host'] ) || ! empty( $parts['user'] ) || ! empty( $parts['pass'] ) ) {
+			return '';
+		}
+		return $url;
 	}
 
 	/** Current URL for safe post-login return. */
