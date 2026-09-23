@@ -8,6 +8,7 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -17,8 +18,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * File 22 orchestrates; File 21 remains the sole writer and permanent owner.
  */
-class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_Adapter {
 	private const SCHEMA_VERSION               = '1.0.1';
+	private const LIFECYCLE_OPTION_PREFIX      = 'sabri_hnf_f22_lifecycle_';
+	private const META_LIFECYCLE_STATE         = '_sabri_hnf_file22_lifecycle_state';
+	private const META_ARCHIVED_STATUS         = '_sabri_hnf_file22_archived_status';
+	private const META_ARCHIVED_VISIBILITY     = '_sabri_hnf_file22_archived_visibility';
+	private const META_CORRECTION_LOG          = '_sabri_hnf_file22_correction_log';
 	private const IDEMPOTENCY_PATTERN          = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
 	private const INSTITUTIONAL_FEED_TYPES      = array( 'founder-update', 'platform-news' );
@@ -48,6 +54,149 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 
 	public function workflow_api_version(): string {
 		return UniversalComposerBridge::WORKFLOW_API_VERSION;
+	}
+
+
+	/** Exact File 22 governance contract implemented by this native owner. */
+	public function governance_api_version(): string {
+		return UniversalComposerBridge::GOVERNANCE_API_VERSION;
+	}
+
+	/** Exact File 22 lifecycle contract implemented by this native owner. */
+	public function lifecycle_api_version(): string {
+		return UniversalComposerBridge::LIFECYCLE_API_VERSION;
+	}
+
+	/**
+	 * Declarative File 22 governance profile. File 21 remains the canonical writer
+	 * for content, moderation, media, search projections and notification facts.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function governance_profile(): array {
+		return array(
+			'authoring_features' => array(
+				'rights_license',
+				'accessibility_authoring',
+				'translation',
+				'corrections',
+				'revision_history',
+				'scheduling',
+				'patient_case_safety',
+				'medical_safety',
+				'source_evidence',
+				'preview_matrix',
+				'search_projection',
+				'notification_events',
+			),
+			'media_rules'            => 'file21_native_media_policy',
+			'edit_capability'        => 'sabri_feed_create_posts',
+			'cleanup_policy'         => 'reversible_native',
+			'search_indexing_policy' => 'conditional_native',
+			'notification_events'    => array( 'publishing.digest_candidates_prepared' ),
+		);
+	}
+
+	/**
+	 * Return only lifecycle commands that are currently safe for this exact
+	 * subject/object pair. File 22 never grants permission by itself.
+	 *
+	 * @return array<int,string>|\WP_Error
+	 */
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $user_id < 1 || $post_id < 1 || ! $this->current_subject_matches( $user_id ) || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$state = $this->native_lifecycle_state( $post_id );
+		if ( 'archived' === $state ) {
+			return array( 'restore' );
+		}
+		if ( 'withdrawn' === $state ) {
+			return array( 'edit', 'revise', 'schedule', 'archive' );
+		}
+		$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+		switch ( $status ) {
+			case 'draft':
+				return array( 'edit', 'revise', 'schedule', 'withdraw', 'archive' );
+			case 'pending':
+				return array( 'withdraw', 'archive' );
+			case 'future':
+				return array( 'unschedule', 'withdraw', 'archive' );
+			case 'publish':
+				return array( 'correct', 'withdraw', 'archive' );
+			default:
+				return array();
+		}
+	}
+
+	/**
+	 * Execute one File 22 lifecycle command idempotently through File 21's native
+	 * ownership boundary. Only fingerprints/results are retained; command payloads
+	 * are never persisted in the reconciliation record.
+	 *
+	 * @param array<string,mixed> $payload Native command payload.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		$command = function_exists( 'sanitize_key' ) ? sanitize_key( $command ) : strtolower( $command );
+		if ( $user_id < 1 || $post_id < 1 || ! $this->current_subject_matches( $user_id ) || ! $this->valid_idempotency_key( $idempotency_key ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$capabilities = $this->lifecycle_capabilities( $user_id, $native_reference );
+		if ( $capabilities instanceof \WP_Error || ! in_array( $command, $capabilities, true ) ) {
+			return $capabilities instanceof \WP_Error ? $capabilities : $this->error( 'permission_denied' );
+		}
+		if ( ! $this->lifecycle_payload_allowed( $command, $payload ) ) {
+			return $this->error( 'validation_failed' );
+		}
+		if ( ! function_exists( 'get_option' ) || ! function_exists( 'add_option' ) || ! function_exists( 'update_option' ) || ! function_exists( 'delete_option' ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+
+		$key_hash    = hash( 'sha256', $idempotency_key );
+		$option_key  = self::LIFECYCLE_OPTION_PREFIX . $user_id . '_' . $key_hash;
+		$encoded     = function_exists( 'wp_json_encode' ) ? wp_json_encode( array( $native_reference, $command, $payload ) ) : json_encode( array( $native_reference, $command, $payload ) );
+		$fingerprint = is_string( $encoded ) ? hash( 'sha256', $encoded ) : '';
+		if ( '' === $fingerprint ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		$existing = get_option( $option_key, null );
+		if ( is_array( $existing ) ) {
+			if ( (int) ( $existing['expires_at'] ?? 0 ) <= time() ) {
+				delete_option( $option_key );
+				$existing = null;
+			} elseif ( empty( $existing['fingerprint'] ) || ! hash_equals( (string) $existing['fingerprint'], $fingerprint ) ) {
+				return $this->error( 'conflict' );
+			} elseif ( 'completed' === ( $existing['state'] ?? '' ) && isset( $existing['result'] ) && is_array( $existing['result'] ) ) {
+				return $existing['result'];
+			} else {
+				return $this->error( 'temporarily_unavailable' );
+			}
+		}
+		$ttl = defined( 'DAY_IN_SECONDS' ) ? 30 * DAY_IN_SECONDS : 2592000;
+		$record = array(
+			'state'       => 'processing',
+			'fingerprint' => $fingerprint,
+			'created_at'  => time(),
+			'expires_at'  => time() + $ttl,
+		);
+		if ( ! add_option( $option_key, $record, '', false ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+
+		$result = $this->perform_lifecycle_command( $user_id, $post_id, $command, $payload );
+		if ( $result instanceof \WP_Error ) {
+			delete_option( $option_key );
+			return $result;
+		}
+		$record['state']      = 'completed';
+		$record['result']     = $result;
+		$record['updated_at'] = time();
+		$record['expires_at'] = time() + $ttl;
+		update_option( $option_key, $record, false );
+		return $result;
 	}
 
 	public function schema_version(): string {
@@ -401,6 +550,10 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 		if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error( 'permission_denied' );
 		}
+		$lifecycle_state = $this->native_lifecycle_state( $post_id );
+		if ( in_array( $lifecycle_state, array( 'archived', 'withdrawn' ), true ) ) {
+			return array( 'native_reference' => UniversalComposerWorkflowStore::native_reference( $post_id ), 'status' => $lifecycle_state );
+		}
 		$status = function_exists( 'get_post_status' ) ? UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) ) : '';
 		return '' !== $status ? $this->status_envelope( $post_id, $status, $user_id ) : $this->error( 'not_found' );
 	}
@@ -440,6 +593,161 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 			'native_route_available' => '' !== $this->native_url(),
 			'available' => $available,
 		);
+	}
+
+
+	/** @param array<string,mixed> $payload @return array<string,mixed>|\WP_Error */
+	private function perform_lifecycle_command( int $user_id, int $post_id, string $command, array $payload ) {
+		if ( in_array( $command, array( 'edit', 'revise', 'schedule' ), true ) ) {
+			$action = 'schedule' === $command ? 'schedule' : 'draft';
+			$input  = $this->normalize_payload( $payload, $action, $post_id, $user_id );
+			if ( $input instanceof \WP_Error ) {
+				return $input;
+			}
+			$result = Composer::create_or_update_from_request( $input, array(), $user_id );
+			if ( empty( $result['ok'] ) ) {
+				return $this->result_error( $result );
+			}
+			if ( function_exists( 'delete_post_meta' ) ) {
+				delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
+			}
+			$status = UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? '' ) );
+			FeedQuery::invalidate_cache();
+			return '' !== $status ? $this->status_envelope( $post_id, $status, $user_id ) : $this->error( 'temporarily_unavailable' );
+		}
+
+		if ( 'correct' === $command ) {
+			if ( ! function_exists( 'get_post_status' ) || 'publish' !== (string) get_post_status( $post_id ) || ! function_exists( 'wp_update_post' ) ) {
+				return $this->error( 'conflict' );
+			}
+			$title = isset( $payload['title'] ) && is_scalar( $payload['title'] ) ? sanitize_text_field( (string) $payload['title'] ) : '';
+			$content = isset( $payload['content'] ) && is_scalar( $payload['content'] ) ? (string) $payload['content'] : '';
+			$note = isset( $payload['correction_note'] ) && is_scalar( $payload['correction_note'] ) ? sanitize_textarea_field( (string) $payload['correction_note'] ) : '';
+			if ( '' === trim( $note ) || ( '' === trim( $title ) && '' === trim( $content ) ) ) {
+				return $this->error( 'validation_failed' );
+			}
+			$postarr = array( 'ID' => $post_id, 'post_status' => 'publish' );
+			if ( '' !== trim( $title ) ) { $postarr['post_title'] = $title; }
+			if ( '' !== trim( $content ) ) { $postarr['post_content'] = wp_kses_post( $content ); }
+			$updated = wp_update_post( $postarr, true );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			$log = function_exists( 'get_post_meta' ) ? get_post_meta( $post_id, self::META_CORRECTION_LOG, true ) : array();
+			$log = is_array( $log ) ? array_slice( $log, -49 ) : array();
+			$log[] = array( 'at' => gmdate( 'c' ), 'user_id' => $user_id, 'note' => substr( $note, 0, 1000 ) );
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, self::META_CORRECTION_LOG, $log );
+				update_post_meta( $post_id, PostMetadata::META_EDITED_AT, gmdate( 'Y-m-d H:i:s' ) );
+			}
+			if ( class_exists( __NAMESPACE__ . '\\AuditLog' ) ) {
+				AuditLog::record( 'file22_lifecycle_correction', array( 'post_id' => $post_id ), 'post', $post_id );
+			}
+			FeedQuery::invalidate_cache();
+			return $this->status_envelope( $post_id, 'published', $user_id );
+		}
+
+		if ( ! function_exists( 'wp_update_post' ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		if ( 'unschedule' === $command || 'withdraw' === $command ) {
+			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ), true );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, PostMetadata::META_REVIEW_STATE, 'pending' );
+				update_post_meta( $post_id, PostMetadata::META_EDITED_AT, gmdate( 'Y-m-d H:i:s' ) );
+				if ( 'withdraw' === $command ) {
+					update_post_meta( $post_id, self::META_LIFECYCLE_STATE, 'withdrawn' );
+				} elseif ( function_exists( 'delete_post_meta' ) ) {
+					delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
+				}
+			}
+			FeedQuery::invalidate_cache();
+			return array( 'native_reference' => UniversalComposerWorkflowStore::native_reference( $post_id ), 'status' => 'withdraw' === $command ? 'withdrawn' : 'draft' );
+		}
+
+		if ( 'archive' === $command ) {
+			$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+			$visibility = function_exists( 'get_post_meta' ) ? (string) get_post_meta( $post_id, PostMetadata::META_VISIBILITY, true ) : '';
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, self::META_ARCHIVED_STATUS, $status );
+				update_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY, $visibility );
+				update_post_meta( $post_id, self::META_LIFECYCLE_STATE, 'archived' );
+				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, 'private' );
+			}
+			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'private' ), true );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			FeedQuery::invalidate_cache();
+			return array( 'native_reference' => UniversalComposerWorkflowStore::native_reference( $post_id ), 'status' => 'archived' );
+		}
+
+		if ( 'restore' === $command ) {
+			if ( 'archived' !== $this->native_lifecycle_state( $post_id ) ) {
+				return $this->error( 'conflict' );
+			}
+			$old_visibility = function_exists( 'get_post_meta' ) ? (string) get_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY, true ) : '';
+			$allowed_visibility = FeedContext::allowed_composer_visibility( Settings::get(), true );
+			$old_visibility = in_array( $old_visibility, $allowed_visibility, true ) ? $old_visibility : 'private';
+			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ), true );
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, $old_visibility );
+				update_post_meta( $post_id, PostMetadata::META_REVIEW_STATE, 'pending' );
+			}
+			if ( function_exists( 'delete_post_meta' ) ) {
+				delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
+				delete_post_meta( $post_id, self::META_ARCHIVED_STATUS );
+				delete_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY );
+			}
+			FeedQuery::invalidate_cache();
+			return array( 'native_reference' => UniversalComposerWorkflowStore::native_reference( $post_id ), 'status' => 'draft' );
+		}
+		return $this->error( 'validation_failed' );
+	}
+
+	/** @param array<string,mixed> $payload */
+	private function lifecycle_payload_allowed( string $command, array $payload ): bool {
+		if ( in_array( $command, array( 'unschedule', 'withdraw', 'archive', 'restore' ), true ) ) {
+			return array() === $payload;
+		}
+		if ( 'correct' === $command ) {
+			$allowed = array( 'title', 'content', 'correction_note' );
+			foreach ( array_keys( $payload ) as $key ) {
+				if ( ! is_string( $key ) || ! in_array( $key, $allowed, true ) ) { return false; }
+			}
+			return true;
+		}
+		if ( in_array( $command, array( 'edit', 'revise', 'schedule' ), true ) ) {
+			$schema = $this->schema();
+			foreach ( array_keys( $payload ) as $key ) {
+				if ( ! is_string( $key ) || ! isset( $schema['fields'][ $key ] ) ) { return false; }
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private function native_lifecycle_state( int $post_id ): string {
+		$state = function_exists( 'get_post_meta' ) ? sanitize_key( (string) get_post_meta( $post_id, self::META_LIFECYCLE_STATE, true ) ) : '';
+		return in_array( $state, array( 'archived', 'withdrawn' ), true ) ? $state : '';
+	}
+
+	private function current_subject_matches( int $user_id ): bool {
+		return $user_id > 0 && function_exists( 'get_current_user_id' ) && (int) get_current_user_id() === $user_id;
+	}
+
+	private function valid_idempotency_key( string $value ): bool {
+		if ( 1 !== preg_match( self::IDEMPOTENCY_PATTERN, $value ) ) {
+			return false;
+		}
+		$parts = explode( ':', strtolower( $value ), 2 );
+		return 2 === count( $parts ) && ! hash_equals( $parts[0], $parts[1] );
 	}
 
 	/** @return array<string,string> */
