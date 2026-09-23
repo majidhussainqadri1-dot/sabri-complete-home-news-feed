@@ -9,6 +9,8 @@ define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'DAY_IN_SECONDS', 86400 );
+define( 'HOUR_IN_SECONDS', 3600 );
+define( 'WEEK_IN_SECONDS', 604800 );
 
 $wp_version = '6.6';
 $sabri_test_options = array();
@@ -340,6 +342,7 @@ function sabri_test_add_post( $args = array(), $meta = array(), $terms = array()
 function get_post( $post_id ) { global $sabri_test_posts; return isset( $sabri_test_posts[ (int) $post_id ] ) ? $sabri_test_posts[ (int) $post_id ] : null; }
 function get_post_field( $field, $post_id ) { $post = get_post( $post_id ); return $post && isset( $post->$field ) ? $post->$field : ''; }
 function get_post_status( $post_id ) { return get_post_field( 'post_status', $post_id ); }
+function get_post_type( $post_id = 0 ) { return get_post_field( 'post_type', $post_id ); }
 function get_post_meta( $post_id, $key = '', $single = false ) { global $sabri_test_post_meta; $post_id = (int) $post_id; if ( '' === $key ) { return isset( $sabri_test_post_meta[ $post_id ] ) ? $sabri_test_post_meta[ $post_id ] : array(); } if ( ! isset( $sabri_test_post_meta[ $post_id ][ $key ] ) ) { return $single ? '' : array(); } return $single ? $sabri_test_post_meta[ $post_id ][ $key ] : array( $sabri_test_post_meta[ $post_id ][ $key ] ); }
 function update_post_meta( $post_id, $key, $value ) { global $sabri_test_post_meta; $sabri_test_post_meta[ (int) $post_id ][ $key ] = $value; return true; }
 function delete_post_meta( $post_id, $key ) { global $sabri_test_post_meta; unset( $sabri_test_post_meta[ (int) $post_id ][ $key ] ); return true; }
