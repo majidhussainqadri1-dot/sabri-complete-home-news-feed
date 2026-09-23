@@ -69,9 +69,9 @@ jobs:
         run: |
           set -euo pipefail
           companion=.github/workflows/file21-latest-companion-exact-contracts.yml
-          grep -Fq 'FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e' "$companion"
-          grep -Fq 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' "$companion"
-          grep -Fq 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' "$companion"
+          grep -Fq 'FILE04_SHA: 4d6266413b377fda451894b1c7076f2ce93f50fc' "$companion"
+          grep -Fq 'FILE20_SHA: 7b4019091d1f83ef4cd9dc3f559abb2b3a95955d' "$companion"
+          grep -Fq 'FILE24_SHA: 2b303722e68869cc59cfd0a621f770e5b2826ebf' "$companion"
           grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
           grep -Fq 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
