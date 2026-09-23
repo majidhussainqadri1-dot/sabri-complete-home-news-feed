@@ -32,7 +32,7 @@ final class File24SecurityManifestBridge {
 	/** @return array<string,mixed> */
 	public static function manifest() {
 		$capabilities = array();
-		foreach ( array( Capabilities::class, NewsCapabilities::class, Phase5Capabilities::class ) as $class_name ) {
+		foreach ( array( Capabilities::class, NewsCapabilities::class, Phase5Contracts::class ) as $class_name ) {
 			if ( class_exists( $class_name ) && is_callable( array( $class_name, 'capabilities' ) ) ) {
 				$values = call_user_func( array( $class_name, 'capabilities' ) );
 				if ( is_array( $values ) ) {
