@@ -669,16 +669,32 @@ class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_
 		}
 
 		if ( 'archive' === $command ) {
-			$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+			$status     = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
 			$visibility = function_exists( 'get_post_meta' ) ? (string) get_post_meta( $post_id, PostMetadata::META_VISIBILITY, true ) : '';
-			if ( function_exists( 'update_post_meta' ) ) {
-				update_post_meta( $post_id, self::META_ARCHIVED_STATUS, $status );
-				update_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY, $visibility );
-				update_post_meta( $post_id, self::META_LIFECYCLE_STATE, 'archived' );
-				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, 'private' );
-			}
-			$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'private' ), true );
+			$updated    = wp_update_post( array( 'ID' => $post_id, 'post_status' => 'private' ), true );
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			if ( ! function_exists( 'update_post_meta' ) || ! function_exists( 'get_post_meta' ) ) {
+				wp_update_post( array( 'ID' => $post_id, 'post_status' => $status ), true );
+				return $this->error( 'temporarily_unavailable' );
+			}
+			update_post_meta( $post_id, self::META_ARCHIVED_STATUS, $status );
+			update_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY, $visibility );
+			update_post_meta( $post_id, self::META_LIFECYCLE_STATE, 'archived' );
+			update_post_meta( $post_id, PostMetadata::META_VISIBILITY, 'private' );
+			$meta_ok = 'archived' === (string) get_post_meta( $post_id, self::META_LIFECYCLE_STATE, true )
+				&& 'private' === (string) get_post_meta( $post_id, PostMetadata::META_VISIBILITY, true )
+				&& $status === (string) get_post_meta( $post_id, self::META_ARCHIVED_STATUS, true )
+				&& $visibility === (string) get_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY, true );
+			if ( ! $meta_ok ) {
+				wp_update_post( array( 'ID' => $post_id, 'post_status' => $status ), true );
+				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, $visibility );
+				if ( function_exists( 'delete_post_meta' ) ) {
+					delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
+					delete_post_meta( $post_id, self::META_ARCHIVED_STATUS );
+					delete_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY );
+				}
 				return $this->error( 'temporarily_unavailable' );
 			}
 			FeedQuery::invalidate_cache();
@@ -696,14 +712,23 @@ class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_
 			if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
 				return $this->error( 'temporarily_unavailable' );
 			}
-			if ( function_exists( 'update_post_meta' ) ) {
-				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, $old_visibility );
-				update_post_meta( $post_id, PostMetadata::META_REVIEW_STATE, 'pending' );
+			if ( ! function_exists( 'update_post_meta' ) || ! function_exists( 'get_post_meta' ) || ! function_exists( 'delete_post_meta' ) ) {
+				wp_update_post( array( 'ID' => $post_id, 'post_status' => 'private' ), true );
+				return $this->error( 'temporarily_unavailable' );
 			}
-			if ( function_exists( 'delete_post_meta' ) ) {
-				delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
-				delete_post_meta( $post_id, self::META_ARCHIVED_STATUS );
-				delete_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY );
+			update_post_meta( $post_id, PostMetadata::META_VISIBILITY, $old_visibility );
+			update_post_meta( $post_id, PostMetadata::META_REVIEW_STATE, 'pending' );
+			delete_post_meta( $post_id, self::META_LIFECYCLE_STATE );
+			delete_post_meta( $post_id, self::META_ARCHIVED_STATUS );
+			delete_post_meta( $post_id, self::META_ARCHIVED_VISIBILITY );
+			$meta_ok = '' === (string) get_post_meta( $post_id, self::META_LIFECYCLE_STATE, true )
+				&& $old_visibility === (string) get_post_meta( $post_id, PostMetadata::META_VISIBILITY, true )
+				&& 'pending' === (string) get_post_meta( $post_id, PostMetadata::META_REVIEW_STATE, true );
+			if ( ! $meta_ok ) {
+				wp_update_post( array( 'ID' => $post_id, 'post_status' => 'private' ), true );
+				update_post_meta( $post_id, self::META_LIFECYCLE_STATE, 'archived' );
+				update_post_meta( $post_id, PostMetadata::META_VISIBILITY, 'private' );
+				return $this->error( 'temporarily_unavailable' );
 			}
 			FeedQuery::invalidate_cache();
 			return array( 'native_reference' => UniversalComposerWorkflowStore::native_reference( $post_id ), 'status' => 'draft' );
