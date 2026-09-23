@@ -33,6 +33,7 @@ if ( false !== $registry ) {
 		"const FILE26_CONNECTOR_SLUG = 'file21-publication';",
 		"const FILE26_CONTRACT_VERSION = '1.0';",
 		"'owner_file' => '21'",
+		"'entity_types' => array( 'post', 'news', 'article' )",
 		"'status' => 'proposed'",
 		"'list_batch' => array( __CLASS__, 'file26_list_batch' )",
 		"'can_view' => array( __CLASS__, 'file26_can_view' )",
