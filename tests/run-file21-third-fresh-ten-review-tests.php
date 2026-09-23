@@ -75,6 +75,8 @@ $assert( ! str_contains( $hardening, 'sun_ingest_domain_event' ), 'read hardenin
 // Round 4 — the continuing current File 20 pin and five-slot boundary remain executable.
 $assert( str_contains( $companions, 'FILE20_SHA: ced23c3acd510105e9ec3dea9f4cd51f496c384e' ), 'current File 20 exact head is pinned' );
 $assert( str_contains( $companions, 'five-exact-slots-fallback-suppressed' ), 'File 20 five-slot File 21 boundary is tested' );
+$assert( str_contains( $companions, 'FILE17_SHA: eb32a9704a3074aa910dad20ac9976a98c164555' ), 'current File 17 exact relationship head is pinned' );
+$assert( str_contains( $companions, 'class-sn-relationships.php' ) && str_contains( $companions, 'SN_Relationships::state' ), 'File 17 relationship/block truth boundary is executable' );
 
 // Round 5 — current File 22 replaces the stale compatibility pin.
 $assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: c3b775b66fbbda4a9dd9891d63c08c74e2178741' ), 'File 22 exact pin is current' );
@@ -96,9 +98,10 @@ $assert( str_contains( $hardening, "'ng30_mutation_conflict'" ) && str_contains(
 $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains( $hardening, 'hash_equals' ), 'cross-request lock uses atomic option creation and owner-token release' );
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
-// Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
+// Round 9 — current File 24 assurance manifest boundary remains exact-pinned.
 $assert( str_contains( $companions, 'FILE24_SHA: 0be43b3f424d7b53865587b2770479ca33f51a0b' ), 'current File 24 exact head is pinned' );
-$assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
+$assert( str_contains( $companions, "apply_filters('spcrc/module_manifests', [])" ), 'File 24 canonical module-manifest registry is checked' );
+$assert( str_contains( $companions, 'class-file24-security-manifest-bridge.php' ) && str_contains( $companions, 'file21_home_news_feed' ), 'File 21 publishes its versioned File 24 module manifest' );
 
 // Round 10 — this historical cycle remains an executable permanent release gate.
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );
