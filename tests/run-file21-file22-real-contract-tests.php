@@ -29,6 +29,8 @@ namespace {
 	}
 	function __( string $text, string $domain = '' ): string { unset( $domain ); return $text; }
 	function sanitize_key( string $key ): string { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( $key ) ) ?? ''; }
+	function sanitize_text_field( mixed $value ): string { return trim(strip_tags((string)$value)); }
+	function sanitize_textarea_field( mixed $value ): string { return trim(strip_tags((string)$value)); }
 	function wp_json_encode( mixed $value ): string|false { return json_encode( $value ); }
 	function home_url( string $path = '' ): string { return 'https://example.test/' . ltrim( $path, '/' ); }
 	function wp_validate_redirect( string $url, string $fallback = '' ): string { return str_starts_with( $url, 'https://example.test/' ) || str_starts_with( $url, '/' ) ? $url : $fallback; }
