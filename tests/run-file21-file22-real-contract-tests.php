@@ -7,7 +7,7 @@ namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
 	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
 		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
@@ -15,6 +15,9 @@ namespace {
 	define( 'SABRI_HNF_VERSION', '1.0.3' );
 	define( 'SABRI_HNF_SLUG', 'sabri-complete-home-news-feed' );
 	define( 'SUPC_WORKFLOW_API_VERSION', '1.0.0' );
+	define( 'SUPC_GOVERNANCE_API_VERSION', '1.0.0' );
+	define( 'SUPC_LIFECYCLE_API_VERSION', '1.0.0' );
+	define( 'DAY_IN_SECONDS', 86400 );
 	define( 'AUTH_SALT', 'real-contract-test-salt' );
 	$GLOBALS['real_options'] = array(); $GLOBALS['real_posts'] = array(); $GLOBALS['real_meta'] = array(); $GLOBALS['real_next_id'] = 400; $GLOBALS['real_current_user'] = 1;
 
@@ -41,6 +44,9 @@ namespace {
 	function delete_option( string $key ): bool { unset( $GLOBALS['real_options'][ $key ] ); return true; }
 	function get_post_type( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['type'] ?? false; }
 	function get_post_status( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['status'] ?? false; }
+	function wp_update_post( array $postarr, bool $wp_error = false ): int|WP_Error { unset( $wp_error ); $id=(int)($postarr['ID']??0); if($id<1||!isset($GLOBALS['real_posts'][$id])) return new WP_Error('not_found'); if(isset($postarr['post_status'])) $GLOBALS['real_posts'][$id]['status']=(string)$postarr['post_status']; if(isset($postarr['post_title'])) $GLOBALS['real_posts'][$id]['title']=(string)$postarr['post_title']; if(isset($postarr['post_content'])) $GLOBALS['real_posts'][$id]['content']=(string)$postarr['post_content']; return $id; }
+	function wp_kses_post( string $value ): string { return $value; }
+	function is_wp_error( mixed $value ): bool { return $value instanceof WP_Error; }
 	function get_post_field( string $field, int $id ): mixed { return 'post_author' === $field ? ( $GLOBALS['real_posts'][ $id ]['author'] ?? 0 ) : ''; }
 	function get_permalink( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['url'] ?? false; }
 	function get_preview_post_link( int $id ): string { return 'https://example.test/?p=' . $id . '&preview=true'; }
@@ -62,7 +68,7 @@ namespace Sabri\UniversalComposer\Core {
 }
 
 namespace Sabri\HomeNewsFeed {
-	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
+	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const GOVERNANCE_API_VERSION = '1.0.0'; public const LIFECYCLE_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
 	final class Settings { public static function get(): array { return array( 'composer' => array( 'public_composer_enabled' => 1, 'drafts_enabled' => 1, 'previews_enabled' => 1, 'scheduling_enabled' => 1, 'allowed_feed_types' => array( 'standard-post', 'founder-update' ) ) ); } }
 	final class SafeMode { public static function feature_enabled( string $feature ): bool { return 'composer' === $feature; } }
 	final class PublicComposerSurface {}
@@ -71,13 +77,17 @@ namespace Sabri\HomeNewsFeed {
 	final class ComposerPermissions { public static function user_can_create( int $id, ?array $settings = null ): bool { unset( $settings ); return $id > 0; } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return (int) ( $GLOBALS['real_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
 	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $valid = '' !== trim( (string) ( $input['content'] ?? '' ) ); return array( 'valid' => $valid, 'errors' => $valid ? array() : array( array( 'code' => 'content_required' ) ), 'data' => $input ); } }
 	final class Composer { public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array { unset( $files ); $id = (int) ( $input['post_id'] ?? 0 ); if ( $id <= 0 ) { $id = ++$GLOBALS['real_next_id']; } $action = (string) ( $input['composer_action'] ?? 'submit' ); $status = array( 'draft' => 'draft', 'submit' => 'pending', 'publish' => 'publish', 'schedule' => 'future' )[ $action ] ?? 'pending'; $GLOBALS['real_posts'][ $id ] = array( 'type' => 'post', 'status' => $status, 'author' => $user_id, 'visibility' => (string) ( $input['visibility'] ?? 'public' ), 'url' => 'https://example.test/post/' . $id . '/' ); return array( 'ok' => true, 'post_id' => $id, 'status' => $status ); } }
-	final class PostMetadata { public static function user_can_view( int $post_id, int $user_id = 0 ): bool { $post = $GLOBALS['real_posts'][ $post_id ] ?? array(); return 'publish' === ( $post['status'] ?? '' ) && ( 'private' !== ( $post['visibility'] ?? 'public' ) || (int) ( $post['author'] ?? 0 ) === $user_id ); } }
+	final class PostMetadata { public const META_VISIBILITY='_sabri_feed_visibility'; public const META_REVIEW_STATE='_sabri_feed_review_state'; public const META_EDITED_AT='_sabri_edited_at'; public static function user_can_view( int $post_id, int $user_id = 0 ): bool { $post = $GLOBALS['real_posts'][ $post_id ] ?? array(); return 'publish' === ( $post['status'] ?? '' ) && ( 'private' !== ( $post['visibility'] ?? 'public' ) || (int) ( $post['author'] ?? 0 ) === $user_id ); } }
+	final class FeedQuery { public static function invalidate_cache(): void {} }
+	final class AuditLog { public static function record( string $event, array $context = array(), string $object_type = '', int $object_id = 0 ): void { unset($event,$context,$object_type,$object_id); } }
 }
 
 namespace {
 	require_once $file22_root . '/includes/contracts/interface-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-diagnostic-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-governed-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-lifecycle-adapter.php';
 	require_once $file22_root . '/includes/core/class-workflow-coordinator.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
@@ -85,9 +95,16 @@ namespace {
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-subject-schema-adapter.php';
 
 	$adapter = new \Sabri\HomeNewsFeed\UniversalComposerSubjectSchemaAdapter();
+	$assert_contract = $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 	$coordinator = new \Sabri\UniversalComposer\Core\Workflow_Coordinator( new \Sabri\UniversalComposer\Core\Registry( $adapter ), new \Sabri\UniversalComposer\Core\Permission_Resolver() );
 	$failures = array();
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
+
+	$assert( $assert_contract, 'Registered File 21 subject adapter does not implement current File 22 Lifecycle_Adapter.' );
+	$assert( '1.0.0' === $adapter->governance_api_version() && '1.0.0' === $adapter->lifecycle_api_version(), 'Current File 22 governance/lifecycle API versions do not match.' );
+	$profile = $adapter->governance_profile();
+	$required_features = array( 'rights_license','accessibility_authoring','translation','corrections','revision_history','scheduling','patient_case_safety','medical_safety','source_evidence','preview_matrix','search_projection','notification_events' );
+	$assert( is_array( $profile ) && empty( array_diff( $required_features, (array) ( $profile['authoring_features'] ?? array() ) ) ), 'File 21 governance profile omits required current File 22 social features.' );
 
 	$health = $coordinator->contract_health( 'social_publication' );
 	$assert( 'pass' === ( $health['status'] ?? '' ) && 'yes' === ( $health['subject_schema_extension'] ?? '' ), 'Static File 21 schema contract was not role-neutral and subject-aware.' );
@@ -115,6 +132,18 @@ namespace {
 	$assert( is_array( $status ) && 'published' === ( $status['status'] ?? '' ), 'Real File 22 coordinator rejected status.' );
 	$url = $coordinator->canonical_url( 1, 'social_publication', $submitted_ref );
 	$assert( is_string( $url ) && str_starts_with( $url, 'https://example.test/' ), 'Real File 22 coordinator rejected canonical URL.' );
+
+	$lifecycle_commands = $adapter->lifecycle_capabilities( 1, $submitted_ref );
+	$assert( is_array( $lifecycle_commands ) && in_array( 'correct', $lifecycle_commands, true ) && in_array( 'archive', $lifecycle_commands, true ), 'Published File 21 object omits current lifecycle capabilities.' );
+	$correction_key = '11111111-1111-4111-8111-111111111111:22222222-2222-4222-8222-222222222222';
+	$corrected = $adapter->execute_lifecycle( 1, $submitted_ref, 'correct', $correction_key, array( 'content' => 'Corrected public content', 'correction_note' => 'Material correction test' ) );
+	$assert( is_array( $corrected ) && 'published' === ( $corrected['status'] ?? '' ), 'File 21 current correction lifecycle failed.' );
+	$archive_key = '33333333-3333-4333-8333-333333333333:44444444-4444-4444-8444-444444444444';
+	$archived = $adapter->execute_lifecycle( 1, $submitted_ref, 'archive', $archive_key, array() );
+	$assert( is_array( $archived ) && 'archived' === ( $archived['status'] ?? '' ), 'File 21 archive lifecycle failed.' );
+	$restore_key = '55555555-5555-4555-8555-555555555555:66666666-6666-4666-8666-666666666666';
+	$restored = $adapter->execute_lifecycle( 1, $submitted_ref, 'restore', $restore_key, array() );
+	$assert( is_array( $restored ) && 'draft' === ( $restored['status'] ?? '' ), 'File 21 restore lifecycle failed.' );
 
 	if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 	echo "Actual File 22 Coordinator and File 21 subject-aware adapter contracts passed.\n";
