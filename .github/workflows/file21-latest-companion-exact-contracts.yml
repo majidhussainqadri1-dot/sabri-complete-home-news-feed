@@ -25,6 +25,7 @@ env:
   FILE00_SHA: 1d507e9d3e241f4457997d2399ef9d91fd00172a
   FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
   FILE04_SHA: 05fd19277974c804204d399b6ec0543342d181cf
+  FILE17_SHA: eb32a9704a3074aa910dad20ac9976a98c164555
   FILE20_SHA: ced23c3acd510105e9ec3dea9f4cd51f496c384e
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
   FILE24_SHA: 0be43b3f424d7b53865587b2770479ca33f51a0b
@@ -70,6 +71,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Check out exact File 17
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/17-sabri-network
+          ref: ${{ env.FILE17_SHA }}
+          path: file17
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Check out exact File 20
         uses: actions/checkout@v4
         with:
@@ -105,6 +115,7 @@ jobs:
           test "$(git -C file00 rev-parse HEAD)" = "${FILE00_SHA}"
           test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
           test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file17 rev-parse HEAD)" = "${FILE17_SHA}"
           test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
           test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
           test "$(git -C file24 rev-parse HEAD)" = "${FILE24_SHA}"
@@ -123,6 +134,16 @@ jobs:
           php -l file04/includes/class-snfla-central-plan.php
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
           grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
+
+          php -l file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'public static function state' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'public static function follow' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'public static function unfollow' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'public static function lists' file17/sabri-network/includes/class-sn-relationships.php
+          php -l file21/includes/class-network-relationship-bridge.php
+          grep -Fq "class_exists( 'SN_Relationships' )" file21/includes/class-network-relationship-bridge.php
+          grep -Fq "SN_Relationships::state" file21/includes/class-network-relationship-bridge.php
+          grep -Fq 'Authenticated Feed output is intentionally no-store to prevent stale block/privacy state.' file21/includes/class-feed-query.php
 
           php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           php -l file20/sabri-unified-application-shell/includes/class-native-content-slots.php
@@ -167,6 +188,7 @@ jobs:
           File 00: ${FILE00_SHA}
           File 02: ${FILE02_SHA}
           File 04: ${FILE04_SHA}
+          File 17: ${FILE17_SHA}
           File 20: ${FILE20_SHA}
           File 23: ${FILE23_SHA}
           File 24: ${FILE24_SHA}
