@@ -8,7 +8,7 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
-use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * File 22 health checks consume schema(), which never invokes current-user
  * identity logic. Interactive File 22 requests call schema_for_user().
  */
-final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+final class UniversalComposerSubjectSchemaAdapter implements Lifecycle_Adapter, Diagnostic_Adapter {
 	private const INSTITUTIONAL_FEED_TYPES = array( 'founder-update', 'platform-news' );
 	private const SUPPORTED_FEED_TYPES = array(
 		'standard-post', 'founder-update', 'classical-homeopathy', 'homeopathy-education',
@@ -46,16 +46,8 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	public function priority(): int { return $this->delegate->priority(); }
 	public function native_module(): string { return $this->delegate->native_module(); }
 	public function minimum_native_version(): string { return $this->delegate->minimum_native_version(); }
-	/**
-	 * File 22's registry performs this check before native can_create().  Keep it
-	 * intentionally coarse so canonical Founder/Administrator authority is not
-	 * rejected merely because an in-place upgrade has not reconciled a legacy
-	 * role capability yet.  This is not an authorization grant: all protected
-	 * creation paths still delegate to File 21 can_create(), which revalidates
-	 * File 00 subject state, suspension, current-session assurance, Safe Mode and
-	 * native publication policy.
-	 */
-	public function required_capability(): string { return 'read'; }
+	/** Exact File 21 creation capability consumed by File 22's central authority gate. */
+	public function required_capability(): string { return $this->delegate->required_capability(); }
 	public function privacy_classification(): string { return $this->delegate->privacy_classification(); }
 	public function is_available(): bool { return $this->delegate->is_available(); }
 	public function can_create( int $user_id ): bool { return $this->delegate->can_create( $user_id ); }
@@ -63,12 +55,12 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 
 	/** @return array<string,mixed> */
 	public function schema(): array {
-		return $this->build_schema( $this->feed_type_choices( 0, false ) );
+		return $this->build_schema( $this->feed_type_choices( 0, false ), $this->action_choices( 0 ) );
 	}
 
 	/** @return array<string,mixed> */
 	public function schema_for_user( int $user_id ): array {
-		return $this->build_schema( $this->feed_type_choices( $user_id, true ) );
+		return $this->build_schema( $this->feed_type_choices( $user_id, true ), $this->action_choices( $user_id ) );
 	}
 
 	public function create_draft( int $user_id, ?string $native_reference, array $payload ) { return $this->delegate->create_draft( $user_id, $native_reference, $payload ); }
@@ -77,6 +69,11 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	public function submit( int $user_id, string $idempotency_key, array $payload ) { return $this->delegate->submit( $user_id, $idempotency_key, $payload ); }
 	public function status( int $user_id, string $native_reference ) { return $this->delegate->status( $user_id, $native_reference ); }
 	public function canonical_url( int $user_id, string $native_reference ): string { return $this->delegate->canonical_url( $user_id, $native_reference ); }
+	public function governance_api_version(): string { return $this->delegate->governance_api_version(); }
+	public function governance_profile(): array { return $this->delegate->governance_profile(); }
+	public function lifecycle_api_version(): string { return $this->delegate->lifecycle_api_version(); }
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) { return $this->delegate->lifecycle_capabilities( $user_id, $native_reference ); }
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ) { return $this->delegate->execute_lifecycle( $user_id, $native_reference, $command, $idempotency_key, $payload ); }
 
 	public function health_report(): array {
 		$health = $this->delegate->health_report();
@@ -89,9 +86,10 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	 * execute current-user identity checks through the delegated adapter.
 	 *
 	 * @param array<string,string> $feed_type_choices Feed-type choices.
+	 * @param array<string,string> $action_choices Publishing actions.
 	 * @return array<string,mixed>
 	 */
-	private function build_schema( array $feed_type_choices ): array {
+	private function build_schema( array $feed_type_choices, array $action_choices ): array {
 		return array(
 			'version' => $this->schema_version(),
 			'fields'  => array(
@@ -109,13 +107,25 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 				'scheduled_date' => array( 'type' => 'datetime', 'label_code' => 'scheduled_date', 'required' => false, 'privacy_class' => 'private' ),
 				'publication_action' => array(
 					'type' => 'select', 'label_code' => 'publication_action', 'required' => true, 'privacy_class' => 'private',
-					'choices' => array( 'submit' => 'action_submit', 'publish' => 'action_publish', 'schedule' => 'action_schedule' ),
+					'choices' => $action_choices,
 				),
 			),
 		);
 	}
 
+
 	/** @return array<string,string> */
+	private function action_choices( int $user_id ): array {
+		if ( $user_id <= 0 ) {
+			return array( 'submit' => 'action_submit', 'publish' => 'action_publish', 'schedule' => 'action_schedule' );
+		}
+		if ( ComposerPermissions::user_can_publish( $user_id, Settings::get() ) ) {
+			return array( 'publish' => 'action_publish', 'schedule' => 'action_schedule' );
+		}
+		return array( 'submit' => 'action_submit' );
+	}
+
+/** @return array<string,string> */
 	private function feed_type_choices( int $user_id, bool $subject_aware ): array {
 		$settings = Settings::get();
 		$allowed = isset( $settings['composer']['allowed_feed_types'] ) && is_array( $settings['composer']['allowed_feed_types'] )
