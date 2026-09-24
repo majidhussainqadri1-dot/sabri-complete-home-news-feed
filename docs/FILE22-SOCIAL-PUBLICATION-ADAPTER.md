@@ -47,7 +47,7 @@ This separation prevents Administrator health checks from being treated as a glo
 
 The direct workflow remains text-first. It declares native reference, title, content, approved Feed type, topic, visibility, language, country/region, comments flag, disclaimer/privacy confirmations, scheduled date, and publication action.
 
-Structured Clinical/Patient Case, structured Research, Polls, uploads, Video, and PDF remain on complete native-owner routes and are not flattened into File 22.
+Structured Clinical/Patient Case, structured Research, and Polls are exposed as first-class File 22 gateway adapters while File 21 remains their sole canonical owner and validator. They are not flattened into a File 22 database. Video, PDF, and other module-owned formats remain on their certified native adapters.
 
 ## Schema-bound payloads
 
@@ -111,7 +111,7 @@ Health output includes controlled adapter/native identity, versions, capability,
 
 ## Fail-soft gateway
 
-File 21 requires exact File 22 Adapter, Workflow, Subject Schema, and public API version/owner/function-ownership markers. It also requires the exact File 20 Create producer contract.
+File 21 requires exact File 22 Adapter, Workflow, Subject Schema, Governance, Lifecycle, and public API version/owner/function-ownership markers. It also requires the exact File 20 Create producer contract.
 
 If File 22 or File 20 is absent, incompatible, colliding, disabled, unavailable, or not ready, File 21 retains `/create-post/` and Home/News fallback actions. A duplicate or foreign adapter key is not successful registration.
 
@@ -120,7 +120,7 @@ If File 22 or File 20 is absent, incompatible, colliding, disabled, unavailable,
 The dedicated real-contract workflow checks out:
 
 - the exact current File 21 corrective PR head;
-- corrected File 22 runtime `d286125e921e3a46f3272071b99eb3f9a874f0b4`.
+- corrected File 22 runtime `4182b8a43c9a37d5c7406f3e64ecfd64c7f68b9f`.
 
 It runs File 22's real interfaces and Workflow Coordinator against the File 21 subject-aware adapter and proves:
 
