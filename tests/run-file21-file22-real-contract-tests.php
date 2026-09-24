@@ -7,7 +7,7 @@ namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
 	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-taxonomy-map.php', 'includes/core/class-policy-engine.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
 		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
@@ -34,6 +34,7 @@ namespace {
 	function wp_parse_url( string $url ): array|false { return parse_url( $url ); }
 	function wp_generate_uuid4(): string { static $i = 0; ++$i; return sprintf( '00000000-0000-4000-8000-%012d', $i ); }
 	function do_action( string $hook, mixed ...$args ): void { unset( $hook, $args ); }
+	function apply_filters( string $hook, mixed $value, mixed ...$args ): mixed { unset( $hook, $args ); return $value; }
 	function get_current_user_id(): int { return (int) $GLOBALS['real_current_user']; }
 	function wp_salt( string $scheme = 'auth' ): string { return AUTH_SALT . '|' . $scheme; }
 	function add_query_arg( array $args, string $url ): string { return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . http_build_query( $args ); }
@@ -82,6 +83,8 @@ namespace {
 	require_once $file22_root . '/includes/contracts/interface-workflow-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-governed-workflow-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-lifecycle-adapter.php';
+	require_once $file22_root . '/includes/core/class-taxonomy-map.php';
+	require_once $file22_root . '/includes/core/class-policy-engine.php';
 	require_once $file22_root . '/includes/core/class-workflow-coordinator.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
