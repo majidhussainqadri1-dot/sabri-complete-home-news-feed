@@ -193,11 +193,12 @@ final class NewsPublicProjector {
 			);
 		}
 		$author_id = isset( $post->post_author ) ? (int) $post->post_author : 0;
-		$name = $author_id > 0 && function_exists( 'get_the_author_meta' ) ? trim( (string) get_the_author_meta( 'display_name', $author_id ) ) : '';
-		if ( '' === $name || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) ) {
+		$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		$name = ! empty( $projection['name'] ) ? (string) $projection['name'] : '';
+		if ( '' === $name ) {
 			$name = '' !== $institution ? $institution : __( 'Sabri Editorial Team', 'sabri-complete-home-news-feed' );
 		}
-		$url = $author_id > 0 && function_exists( 'get_author_posts_url' ) ? self::safe_url( get_author_posts_url( $author_id ) ) : '';
+		$url = ! empty( $projection['profile_url'] ) ? self::safe_url( $projection['profile_url'] ) : '';
 		return array( 'type' => 'author', 'name' => self::clean_text( $name, 120 ), 'url' => $url );
 	}
 
@@ -205,11 +206,12 @@ final class NewsPublicProjector {
 	private static function public_reviewing_editor( $post_id ) {
 		$editor_id = (int) self::meta( $post_id, '_sabri_news_reviewing_editor_id' );
 		$allowed = function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_news_public_reviewing_editor_allowed', false, $post_id, $editor_id ) : false;
-		if ( ! $allowed || $editor_id < 1 || ! function_exists( 'get_the_author_meta' ) ) {
+		if ( ! $allowed || $editor_id < 1 ) {
 			return array();
 		}
-		$name = trim( (string) get_the_author_meta( 'display_name', $editor_id ) );
-		return '' !== $name && false === filter_var( $name, FILTER_VALIDATE_EMAIL ) ? array( 'name' => self::clean_text( $name, 120 ) ) : array();
+		$projection = CanonicalIdentityAdapter::public_projection( $editor_id );
+		$name = ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		return '' !== $name ? array( 'name' => self::clean_text( $name, 120 ) ) : array();
 	}
 
 	/** Public image projection includes approved display data only. */
