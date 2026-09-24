@@ -589,7 +589,7 @@ class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_
 		}
 
 		foreach ( $meta as $key => $value ) {
-			if ( function_exists( 'update_post_meta' ) {
+			if ( function_exists( 'update_post_meta' ) ) {
 				update_post_meta( $post_id, $key, $value );
 			}
 		}
