@@ -82,9 +82,9 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 			'cleanup_policy' => 'native_owner',
 			'search_indexing_policy' => 'conditional_native',
 			'notification_events' => array(
-				'Publishing.DigestCandidatesPrepared',
-				'Publishing.ContentCorrected',
-				'Publishing.ContentRetracted',
+				'publishing.digest_candidates_prepared',
+				'publishing.content_corrected',
+				'publishing.content_retracted',
 			),
 		);
 	}
