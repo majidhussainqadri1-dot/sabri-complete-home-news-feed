@@ -56,7 +56,7 @@ foreach ( array(
 	"'preview_only'     => true",
 	'InteractionPermissions::nonce_valid( $nonce )',
 	'Phase5RateLimiter::allow( \'ng-digest-dispatch\', 4, HOUR_IN_SECONDS, $user_id )',
-	'InteractionPermissions::can_view_post( $post_id, $user_id )',
+	'NextGenerationFeed::strict_public_item( $post_id )',
 ) as $needle ) {
 	$assert( false !== strpos( $hardening, $needle ), 'Hardening contract missing: ' . $needle );
 }
