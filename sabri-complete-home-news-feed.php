@@ -3,7 +3,7 @@
  * Plugin Name: Sabri Complete Home and News Feed
  * Plugin URI: https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed
  * Description: Complete public Home, social Feed, Profile Timeline, Editorial News, publishing, migration, safety, and integration runtime for the Sabri Social Homeopathy Platform.
- * Version: 1.0.6
+ * Version: 1.0.5
  * Author: Dr. Allamah Majid Hussain Sabri Muhaddith Mursheed
  * Text Domain: sabri-complete-home-news-feed
  * Domain Path: /languages
@@ -52,7 +52,7 @@ if ( $sabri_hnf_duplicate_loaded ) {
 		}
 		foreach ( array_filter( array( $current_basename, $loaded_basename ) ) as $basename ) {
 			if ( ! isset( $candidates[ $basename ] ) ) {
-				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.6' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
+				$candidates[ $basename ] = array( 'basename' => $basename, 'version' => $basename === $current_basename ? '1.0.5' : '0.0.0', 'canonical' => 0 === strpos( $basename, 'sabri-complete-home-news-feed/' ) ? 1 : 0 );
 			}
 		}
 		if ( empty( $candidates ) ) { return; }
@@ -85,13 +85,13 @@ if ( $sabri_hnf_duplicate_loaded ) {
 }
 
 /*
- * Package 1.0.6 remains the governed current release line. The Founder-approved
+ * Package 1.0.5 remains the governed current release line. The Founder-approved
  * next-generation 30-feature amendment is implemented at exact-head without a
- * database migration; File 21 runtime/API is 1.0.4 and
+ * database migration, while stable File 21 runtime/API remains 1.0.3 and
  * database schema remains 1.0.0.
  */
-define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.6' );
-define( 'SABRI_HNF_VERSION', '1.0.4' );
+define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );
+define( 'SABRI_HNF_VERSION', '1.0.3' );
 define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );
 define( 'SABRI_HNF_FILE', __FILE__ );
 define( 'SABRI_HNF_PATH', function_exists( 'plugin_dir_path' ) ? plugin_dir_path( __FILE__ ) : dirname( __FILE__ ) . DIRECTORY_SEPARATOR );
