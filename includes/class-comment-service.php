@@ -68,13 +68,13 @@ final class CommentService {
 			return InteractionResult::error( 'comment_user_unavailable', 'The commenting account is unavailable.', array(), 400 );
 		}
 
-		$public_identity = CanonicalIdentityAdapter::public_projection( $user_id );
-		$comment_author  = ! empty( $public_identity['name'] ) ? sanitize_text_field( (string) $public_identity['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 		$now_local = function_exists( 'current_time' ) ? current_time( 'mysql' ) : gmdate( 'Y-m-d H:i:s' );
 		$now_gmt   = function_exists( 'current_time' ) ? current_time( 'mysql', true ) : gmdate( 'Y-m-d H:i:s' );
+		$projection = class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ? CanonicalIdentityAdapter::public_projection( $user_id ) : array();
+		$public_name = is_array( $projection ) && ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 		$data      = array(
 			'comment_post_ID'      => $post_id,
-			'comment_author'       => $comment_author,
+			'comment_author'       => $public_name,
 			'comment_author_email' => isset( $user->user_email ) && function_exists( 'sanitize_email' ) ? sanitize_email( $user->user_email ) : ( isset( $user->user_email ) ? sanitize_text_field( $user->user_email ) : '' ),
 			'comment_author_url'   => '',
 			'comment_content'      => $content,
@@ -302,8 +302,9 @@ final class CommentService {
 		$approved   = self::is_approved( $comment );
 		$depth      = self::depth( $comment_id );
 		$user_id    = (int) $user_id;
-		$public_identity = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
-		$author_name = ! empty( $public_identity['name'] ) ? sanitize_text_field( (string) $public_identity['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
+
+		$projection  = $author_id > 0 && class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		$author_name = is_array( $projection ) && ! empty( $projection['name'] ) ? sanitize_text_field( $projection['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 
 		return array(
 			'id'          => $comment_id,
