@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.5 — File 03 Exact Timeline Contract Reconciliation — 2026-09-24
+
+- Added the exact File 03 consumer hooks `sabri_file21_profile_timeline_provider_health_v1` and `sabri_file21_profile_timeline_items_v1`.
+- Reuses File 21 canonical publication truth and revalidates author identity, publication state and viewer authorization before projection.
+- Publishes only bounded public-safe timeline fields; no private metadata or duplicate timeline store is introduced.
+- Existing File 21/UI contracts remain intact. Repository-source correction only; staging/live status is unchanged.
+
+
 ## 1.0.5 NG30 Amendment — Next-Generation Home and News Feed: 30 Founder-Approved Features — 2026-08-08
 
 - Added the complete 30-feature File 21 expansion in one governed amendment while preserving canonical ownership and the frozen fourteen-control Home bar.
