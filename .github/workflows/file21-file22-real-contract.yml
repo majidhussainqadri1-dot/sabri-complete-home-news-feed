@@ -20,7 +20,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a
+  FILE22_RUNTIME_SHA: c3f805d70d64f6ae1f1bc929b00f3a3cbf750210
 
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
