@@ -22,12 +22,13 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE00_SHA: 3a84c32a6ddad151f2ed09d244fa8aa536a58108
-  FILE02_SHA: e352aab7e3bd32bbbe82fc26424a3623b9c71a56
-  FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e
-  FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2
+  FILE00_SHA: 1d507e9d3e241f4457997d2399ef9d91fd00172a
+  FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
+  FILE04_SHA: 05fd19277974c804204d399b6ec0543342d181cf
+  FILE20_SHA: ced23c3acd510105e9ec3dea9f4cd51f496c384e
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
-  FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea
+  FILE24_SHA: 0be43b3f424d7b53865587b2770479ca33f51a0b
+  FILE17_SHA: 8b03562e672eb7d46cf9d5975d9d97a6b0d25398
 
 jobs:
   exact-current-companions:
@@ -70,6 +71,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Check out exact File 17
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/17-sabri-network
+          ref: ${{ env.FILE17_SHA }}
+          path: file17
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Check out exact File 20
         uses: actions/checkout@v4
         with:
@@ -105,6 +115,7 @@ jobs:
           test "$(git -C file00 rev-parse HEAD)" = "${FILE00_SHA}"
           test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
           test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file17 rev-parse HEAD)" = "${FILE17_SHA}"
           test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
           test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
           test "$(git -C file24 rev-parse HEAD)" = "${FILE24_SHA}"
@@ -124,6 +135,11 @@ jobs:
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
           grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
 
+          php -l file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'class SN_Relationships' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq "do_action('sn_network_follow_changed'" file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq "do_action('sn_network_block_changed'" file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
+
           php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq "'21' => array( 'Complete Home and News Feed'" file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq 'five-exact-slots-fallback-suppressed' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
@@ -135,6 +151,9 @@ jobs:
           grep -Fq 'Production writes require `production_accepted`' file23/docs/ADAPTER-CONTRACT.md
           grep -Fq 'Generic unregistered action strings are prohibited' file23/docs/ADAPTER-CONTRACT.md
 
+          grep -Fq "add_action('spcrc/register_module_manifest'" file24/plugin/sabri-security-center/src/Registry/ModuleRegistry.php
+          grep -Fq "add_filter( 'spcrc/module_manifests'" file21/includes/class-file24-assurance-adapter.php
+          grep -Fq "'module_key'             => 'file21-home-news-feed'" file21/includes/class-file24-assurance-adapter.php
           grep -Eqi 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' file24/docs/ARCHITECTURE.md file24/README.md
           grep -Eqi 'single point of failure|fail.safe|fail-closed' file24/docs/ARCHITECTURE.md file24/README.md
 
@@ -158,6 +177,7 @@ jobs:
           File 00: ${FILE00_SHA}
           File 02: ${FILE02_SHA}
           File 04: ${FILE04_SHA}
+          File 17: ${FILE17_SHA}
           File 20: ${FILE20_SHA}
           File 23: ${FILE23_SHA}
           File 24: ${FILE24_SHA}

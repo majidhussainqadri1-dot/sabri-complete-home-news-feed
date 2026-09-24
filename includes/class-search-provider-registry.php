@@ -104,7 +104,7 @@ final class SearchProviderRegistry {
 				'slug' => self::FILE26_CONNECTOR_SLUG,
 				'owner_file' => '21',
 				'contract_version' => self::FILE26_CONTRACT_VERSION,
-				'entity_types' => array( 'post', 'news' ),
+				'entity_types' => array( 'post', 'news', 'article' ),
 				'privacy_classes' => array( 'public' ),
 				'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' ),
 				'deletion_semantics' => 'tombstone',

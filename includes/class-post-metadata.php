@@ -334,7 +334,7 @@ final class PostMetadata {
 			$html .= self::render_structured_section( __( 'Research', 'sabri-complete-home-news-feed' ), self::structured( $post_id, 'research' ) );
 		}
 
-		$attachments = function_exists( 'get_post_meta' ) ? get_post_meta( $post_id, self::META_ATTACHMENTS, true ) : array();
+		$attachments = class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::media_transfer_suppressed() ? array() : ( function_exists( 'get_post_meta' ) ? get_post_meta( $post_id, self::META_ATTACHMENTS, true ) : array() );
 		if ( is_array( $attachments ) && ! empty( $attachments ) ) {
 			$settings = Settings::get();
 			$limit = isset( $settings['media']['max_items'] ) ? max( 1, (int) $settings['media']['max_items'] ) : 4;

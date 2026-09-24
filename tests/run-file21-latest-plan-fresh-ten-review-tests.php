@@ -28,7 +28,7 @@ $check( false !== strpos( $files['privacy'], 'NextGenerationFeed::USER_META' ) &
 
 // Round 3: article/News visibility uses the canonical cross-domain gate.
 $check( false === strpos( $files['feed'], 'PostMetadata::user_can_view(' ), 'Round 3: legacy social-only visibility call remains in NG30 runtime.' );
-$check( substr_count( $files['feed'], 'InteractionPermissions::can_view_post(' ) >= 8, 'Round 3: canonical cross-domain visibility not applied comprehensively.' );
+$check( substr_count( $files['feed'], 'InteractionPermissions::can_view_post(' ) >= 7 && substr_count( $files['feed'], 'strict_public_item(' ) >= 8, 'Round 3: canonical cross-domain visibility not applied comprehensively.' );
 
 // Round 4: read-heavy public/private REST surfaces have bounded rate gates.
 foreach ( array( 'ng-read-post-context', 'ng-read-compare', 'ng-read-share-card', 'ng-read-stories', 'ng-read-offline-pack', 'ng-read-digest' ) as $bucket ) {
