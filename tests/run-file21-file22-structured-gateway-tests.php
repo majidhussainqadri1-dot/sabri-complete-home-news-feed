@@ -26,7 +26,7 @@ $assert( false !== strpos( (string) $sources['case'], "return 'patient_case';" )
 $assert( false !== strpos( (string) $sources['case'], "return 'clinical-case';" ), 'Patient Case native feed mapping missing.' );
 $assert( false !== strpos( (string) $sources['research'], "return 'research_publication';" ), 'Research gateway key missing.' );
 $assert( false !== strpos( (string) $sources['poll'], "return 'poll';" ), 'Poll gateway key missing.' );
-$assert( false !== strpos( (string) $sources['base'], "$payload['feed_type']" ), 'Structured adapters do not force native File 21 feed ownership.' );
+$assert( false !== strpos( (string) $sources['base'], '\$payload[\'feed_type\']' ), 'Structured adapters do not force native File 21 feed ownership.' );
 $assert( false !== strpos( (string) $sources['bridge'], 'new UniversalComposerClinicalCaseAdapter()' ), 'Patient Case adapter is not registered.' );
 $assert( false !== strpos( (string) $sources['bridge'], 'new UniversalComposerResearchAdapter()' ), 'Research adapter is not registered.' );
 $assert( false !== strpos( (string) $sources['bridge'], 'new UniversalComposerPollAdapter()' ), 'Poll adapter is not registered.' );
