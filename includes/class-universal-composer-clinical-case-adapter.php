@@ -21,7 +21,13 @@ final class UniversalComposerClinicalCaseAdapter extends UniversalComposerStruct
 	protected function adapter_icon(): string { return 'clipboard'; }
 
 	protected function special_fields(): array {
-		$fields = array();
+		$fields = array(
+			'anonymized' => array( 'type' => 'checkbox', 'label_code' => 'patient_anonymized', 'required' => true, 'privacy_class' => 'sensitive' ),
+			'consent_reference' => array( 'type' => 'text', 'label_code' => 'patient_consent_reference', 'required' => true, 'privacy_class' => 'sensitive' ),
+			'references' => array( 'type' => 'textarea', 'label_code' => 'medical_references', 'required' => true, 'privacy_class' => 'private' ),
+			'medical_safety_acknowledged' => array( 'type' => 'checkbox', 'label_code' => 'medical_safety_acknowledged', 'required' => true, 'privacy_class' => 'private' ),
+			'patient_privacy_confirmed' => array( 'type' => 'checkbox', 'label_code' => 'patient_privacy_confirmed', 'required' => true, 'privacy_class' => 'sensitive' ),
+		);
 		foreach ( ComposerValidation::clinical_fields() as $key => $label ) {
 			unset( $label );
 			$fields['clinical_' . $key] = array(
