@@ -73,8 +73,20 @@ final class CanonicalIdentityAdapter {
 			return false;
 		}
 		$assertions = self::membership_assertions( $user_id );
-		return self::assertions_are_active( $assertions )
-			&& ! empty( $assertions['two_factor_ready'] )
+		if ( ! self::assertions_are_active( $assertions ) ) {
+			return false;
+		}
+		/*
+		 * File 00 retired MFA as an authorization prerequisite. When its
+		 * canonical assertion explicitly says MFA is not required, active
+		 * membership identity is the File 00 side of the action gate. If a
+		 * future File 00 contract re-enables MFA, require the fresh session
+		 * factors again instead of silently weakening the gate.
+		 */
+		if ( array_key_exists( 'mfa_required', $assertions ) && empty( $assertions['mfa_required'] ) ) {
+			return true;
+		}
+		return ! empty( $assertions['two_factor_ready'] )
 			&& ! empty( $assertions['session_two_factor'] );
 	}
 
