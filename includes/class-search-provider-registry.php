@@ -17,7 +17,7 @@ final class SearchProviderRegistry {
 	const MAX_QUERY_LENGTH = 120;
 	const MAX_RESULTS_PER_PROVIDER = 20;
 	const FILE26_CONNECTOR_SLUG = 'file21-publication';
-	const FILE26_CONTRACT_VERSION = '1.0';
+	const FILE26_CONTRACT_VERSION = '1.1.0';
 
 	/** Register legacy read adapters plus the canonical File 26 owner connector. */
 	public static function register() {
@@ -102,12 +102,12 @@ final class SearchProviderRegistry {
 		return sabri_file26_register_connector(
 			array(
 				'slug' => self::FILE26_CONNECTOR_SLUG,
-				'owner_file' => '21',
+				'owner_file' => 'File 21',
 				'contract_version' => self::FILE26_CONTRACT_VERSION,
-				'entity_types' => array( 'post', 'news' ),
+				'entity_types' => array( 'post', 'news', 'article' ),
 				'privacy_classes' => array( 'public' ),
 				'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' ),
-				'deletion_semantics' => 'tombstone',
+				'deletion_semantics' => 'versioned_tombstone',
 				'status' => 'proposed',
 				'list_batch' => array( __CLASS__, 'file26_list_batch' ),
 				'can_view' => array( __CLASS__, 'file26_can_view' ),
@@ -178,7 +178,7 @@ final class SearchProviderRegistry {
 	public static function file26_health() {
 		return array(
 			'state' => function_exists( 'sabri_file26_register_connector' ) ? 'healthy' : 'degraded',
-			'owner_file' => '21',
+			'owner_file' => 'File 21',
 			'connector' => self::FILE26_CONNECTOR_SLUG,
 			'contract_version' => self::FILE26_CONTRACT_VERSION,
 			'package_version' => defined( 'SABRI_HNF_PACKAGE_VERSION' ) ? SABRI_HNF_PACKAGE_VERSION : '',

@@ -84,7 +84,7 @@ jobs:
           SABRI_PLAYGROUND_PHP: '8.3'
         run: |
           set -euo pipefail
-          package="release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip"
+          package="release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip"
           test -f "$package"
           export SABRI_PLUGIN_ZIP="$package"
           suites=(

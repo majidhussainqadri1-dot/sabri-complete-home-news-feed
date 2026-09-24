@@ -75,12 +75,18 @@ final class LegacyPublicationMigration {
 				'target' => 'auto',
 				'migrate_interactions' => false,
 				'interaction_provider' => '',
+				'require_file04_context' => false,
+				'author_identity_context' => array(),
+				'media_preflight_context' => array(),
 			),
 			$options
 		);
 		$options['target'] = in_array( sanitize_key( $options['target'] ), array( 'auto', 'post', 'sabri_news' ), true ) ? sanitize_key( $options['target'] ) : 'auto';
 		$options['interaction_provider'] = sanitize_key( $options['interaction_provider'] );
 		$options['migrate_interactions'] = ! empty( $options['migrate_interactions'] );
+		$options['require_file04_context'] = ! empty( $options['require_file04_context'] );
+		$options['author_identity_context'] = is_array( $options['author_identity_context'] ) ? $options['author_identity_context'] : array();
+		$options['media_preflight_context'] = is_array( $options['media_preflight_context'] ) ? $options['media_preflight_context'] : array();
 		Snapshot::capture_before_mutation( 'legacy_file04_publication_migration' );
 		$migrated = array();
 		$skipped = array();
@@ -95,11 +101,21 @@ final class LegacyPublicationMigration {
 				$skipped[ $legacy_id ] = 'invalid_legacy_publication';
 				continue;
 			}
+			$author_context = self::resolve_file04_author_context( $legacy_id, $legacy, $options );
+			if ( is_wp_error( $author_context ) ) {
+				$skipped[ $legacy_id ] = $author_context->get_error_code();
+				continue;
+			}
+			$media_context = self::resolve_file04_media_context( $legacy_id, $options );
+			if ( is_wp_error( $media_context ) ) {
+				$skipped[ $legacy_id ] = $media_context->get_error_code();
+				continue;
+			}
 			$target_type = self::target_type( $legacy, $options );
 			$postarr = array(
 				'post_type' => $target_type,
 				'post_status' => self::target_status( $legacy, $target_type ),
-				'post_author' => (int) $legacy->post_author,
+				'post_author' => (int) $author_context['user_id'],
 				'post_title' => (string) $legacy->post_title,
 				'post_content' => (string) $legacy->post_content,
 				'post_excerpt' => (string) $legacy->post_excerpt,
@@ -117,6 +133,12 @@ final class LegacyPublicationMigration {
 				continue;
 			}
 			$target_id = (int) $target_id;
+			$context_recorded = self::record_file04_context( $legacy_id, $target_id, $author_context, $media_context );
+			if ( is_wp_error( $context_recorded ) ) {
+				if ( function_exists( 'wp_delete_post' ) ) { wp_delete_post( $target_id, true ); }
+				$skipped[ $legacy_id ] = $context_recorded->get_error_code();
+				continue;
+			}
 			self::copy_public_metadata( $legacy_id, $target_id, $target_type );
 			self::copy_terms( $legacy_id, $target_id, $target_type );
 			$comment_map = ! empty( $options['copy_comments'] ) ? self::copy_comments( $legacy_id, $target_id ) : array();
@@ -289,6 +311,94 @@ final class LegacyPublicationMigration {
 			);
 		}
 		return LegacyInteractionMigrationAdapter::migrate( $legacy_id, $target_id, $actor_id, $options['interaction_provider'] );
+	}
+
+
+	private static function resolve_file04_author_context( $legacy_id, $legacy, array $options ) {
+		if ( empty( $options['require_file04_context'] ) ) {
+			return array( 'user_id' => (int) $legacy->post_author, 'platform_uuid' => '', 'placeholder' => false );
+		}
+		$row = $options['author_identity_context'][ $legacy_id ] ?? $options['author_identity_context'][ (string) $legacy_id ] ?? null;
+		if ( ! is_array( $row ) ) {
+			return new \WP_Error( 'file21_file04_author_context_missing', 'File 04 migration author context is required.' );
+		}
+		$user_id = isset( $row['user_id'] ) ? (int) $row['user_id'] : 0;
+		$uuid = strtolower( trim( (string) ( $row['platform_uuid'] ?? '' ) ) );
+		if ( $user_id <= 0 || ! get_userdata( $user_id ) || 1 !== preg_match( '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', $uuid ) ) {
+			return new \WP_Error( 'file21_file04_author_context_invalid', 'File 04 author identity context is invalid.' );
+		}
+		$current_uuid = apply_filters(
+			'sabri_file00_platform_uuid_v1',
+			'',
+			$user_id,
+			array( 'file_number' => '04', 'legacy_id' => $legacy_id, 'purpose' => 'legacy_publication_migration' )
+		);
+		$current_uuid = strtolower( trim( (string) $current_uuid ) );
+		if ( '' === $current_uuid || ! hash_equals( $uuid, $current_uuid ) ) {
+			return new \WP_Error( 'file21_file04_author_context_stale', 'File 00 no longer confirms the supplied author UUID.' );
+		}
+		return array( 'user_id' => $user_id, 'platform_uuid' => $uuid, 'placeholder' => ! empty( $row['placeholder'] ) );
+	}
+
+	private static function resolve_file04_media_context( $legacy_id, array $options ) {
+		if ( empty( $options['require_file04_context'] ) ) {
+			return array( 'provider_id' => '', 'reference_count' => 0, 'references' => array(), 'source_signature' => '', 'request_digest' => '' );
+		}
+		$row = $options['media_preflight_context'][ $legacy_id ] ?? $options['media_preflight_context'][ (string) $legacy_id ] ?? null;
+		if ( ! is_array( $row ) ) {
+			return new \WP_Error( 'file21_file04_media_context_missing', 'File 04 media preflight context is required.' );
+		}
+		$count = isset( $row['reference_count'] ) ? (int) $row['reference_count'] : -1;
+		$references = isset( $row['references'] ) && is_array( $row['references'] ) ? array_values( $row['references'] ) : array();
+		if ( $count < 0 || $count !== count( $references ) || $count > File04MigrationContracts::MAX_REFERENCES ) {
+			return new \WP_Error( 'file21_file04_media_context_invalid', 'File 04 media preflight count is invalid.' );
+		}
+		if ( 0 === $count ) {
+			return array( 'provider_id' => sanitize_key( (string) ( $row['provider_id'] ?? 'file04_no_media' ) ), 'reference_count' => 0, 'references' => array(), 'source_signature' => '', 'request_digest' => '' );
+		}
+		$source_signature = strtolower( trim( (string) ( $row['source_signature'] ?? '' ) ) );
+		$request_digest = strtolower( trim( (string) ( $row['request_digest'] ?? '' ) ) );
+		if ( File04MigrationContracts::PROVIDER_ID !== sanitize_key( (string) ( $row['provider_id'] ?? '' ) )
+			|| 1 !== preg_match( '/^[a-f0-9]{64}$/', $source_signature )
+			|| 1 !== preg_match( '/^[a-f0-9]{64}$/', $request_digest ) ) {
+			return new \WP_Error( 'file21_file04_media_context_unbound', 'File 04 media context is not bound to the canonical File 21 attestation.' );
+		}
+		return array(
+			'provider_id' => File04MigrationContracts::PROVIDER_ID,
+			'reference_count' => $count,
+			'references' => $references,
+			'source_signature' => $source_signature,
+			'request_digest' => $request_digest,
+		);
+	}
+
+	private static function record_file04_context( $legacy_id, $target_id, array $author, array $media ) {
+		if ( ! function_exists( 'update_post_meta' ) || ! function_exists( 'get_post_meta' ) ) { return true; }
+		if ( '' !== (string) ( $author['platform_uuid'] ?? '' ) ) {
+			update_post_meta( $target_id, '_sabri_hnf_legacy_author_platform_uuid', (string) $author['platform_uuid'] );
+			update_post_meta( $target_id, '_sabri_hnf_legacy_author_placeholder', ! empty( $author['placeholder'] ) ? '1' : '0' );
+			if ( ! hash_equals( (string) $author['platform_uuid'], (string) get_post_meta( $target_id, '_sabri_hnf_legacy_author_platform_uuid', true ) ) ) {
+				return new \WP_Error( 'file21_file04_author_context_persist_failed', 'Canonical author migration evidence could not be persisted.' );
+			}
+		}
+		$reference_ids = array();
+		foreach ( (array) ( $media['references'] ?? array() ) as $reference ) {
+			if ( is_array( $reference ) && ! empty( $reference['reference_id'] ) ) { $reference_ids[] = sanitize_text_field( (string) $reference['reference_id'] ); }
+		}
+		$attestation = array(
+			'legacy_id' => (int) $legacy_id,
+			'provider_id' => sanitize_key( (string) ( $media['provider_id'] ?? '' ) ),
+			'source_signature' => (string) ( $media['source_signature'] ?? '' ),
+			'preflight_request_digest' => (string) ( $media['request_digest'] ?? '' ),
+			'reference_ids' => array_values( array_unique( $reference_ids ) ),
+			'recorded_at_utc' => gmdate( 'Y-m-d H:i:s' ),
+		);
+		update_post_meta( $target_id, '_sabri_hnf_legacy_media_attestation_v1', $attestation );
+		$stored = get_post_meta( $target_id, '_sabri_hnf_legacy_media_attestation_v1', true );
+		if ( ! is_array( $stored ) || (int) ( $stored['legacy_id'] ?? 0 ) !== (int) $legacy_id ) {
+			return new \WP_Error( 'file21_file04_media_context_persist_failed', 'Canonical media migration evidence could not be persisted.' );
+		}
+		return true;
 	}
 
 	/** Target post type chosen by explicit option or legacy editorial markers. */

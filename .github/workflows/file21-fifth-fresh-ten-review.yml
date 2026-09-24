@@ -21,7 +21,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE
 
 jobs:
   fifth-fresh-ten-round:
@@ -125,8 +125,8 @@ jobs:
           No-new-File21-defect rounds: 1,5,6,7
           External dependency blocker: File 00 exact current head remains independently not production-ready
           Round 10 exact-head CI defect: stale historical File 04/20/24 companion-pin assertions corrected
-          Package: 1.0.5
-          Runtime/API: 1.0.3
+          Package: 1.0.6
+          Runtime/API: 1.0.4
           Schema: 1.0.0
           Database migration: NONE
           General-member social publication over-authorization: FAIL-CLOSED
@@ -144,9 +144,9 @@ jobs:
           path: |
             fifth-fresh-ten-round-evidence.txt
             fifth-review-package-entries.txt
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
           if-no-files-found: warn
           retention-days: 30

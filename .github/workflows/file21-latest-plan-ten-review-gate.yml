@@ -15,7 +15,7 @@ permissions:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  PACKAGE: release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
+  PACKAGE: release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip
 
 jobs:
   latest-plan-source-package-gate:

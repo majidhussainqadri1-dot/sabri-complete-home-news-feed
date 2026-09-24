@@ -22,7 +22,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE
+  CANONICAL_BASE: 21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE
 
 jobs:
   third-fresh-ten-round:
@@ -99,8 +99,8 @@ jobs:
           Review rounds: 10
           Defect-bearing rounds: 2,3,4,5,6,7,8,10
           No-new-defect rounds: 1,9
-          Package: 1.0.5
-          Runtime/API: 1.0.3
+          Package: 1.0.6
+          Runtime/API: 1.0.4
           Schema: 1.0.0
           Database migration: NONE
           Digest GET side effect: REMOVED
@@ -116,9 +116,9 @@ jobs:
           path: |
             third-fresh-ten-round-evidence.txt
             third-review-package-entries.txt
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.zip
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
-            release/21-sabri-complete-home-news-feed-1.0.5-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.zip
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-MANIFEST.sha256
+            release/21-sabri-complete-home-news-feed-1.0.6-CONTROLLED-STAGING-CANDIDATE-TEST-REPORT.md
           if-no-files-found: warn
           retention-days: 30
