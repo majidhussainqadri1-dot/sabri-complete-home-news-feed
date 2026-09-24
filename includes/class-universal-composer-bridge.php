@@ -20,6 +20,8 @@ final class UniversalComposerBridge {
 	const ADAPTER_API_VERSION            = '1.0.0';
 	const WORKFLOW_API_VERSION           = '1.0.0';
 	const SUBJECT_SCHEMA_API_VERSION     = '1.0.0';
+	const GOVERNANCE_API_VERSION         = '1.0.0';
+	const LIFECYCLE_API_VERSION          = '1.0.0';
 	const PUBLIC_API_VERSION             = '1.0.0';
 	const PUBLIC_API_OWNER               = 'sabri-universal-post-composer';
 	const ADAPTER_KEY                    = 'social_publication';
@@ -54,21 +56,30 @@ final class UniversalComposerBridge {
 		}
 
 		try {
-			$result = supc_register_adapter( new UniversalComposerSubjectSchemaAdapter() );
-			if ( true === $result ) {
-				self::$registered = true;
+			$adapters = array(
+				new UniversalComposerSubjectSchemaAdapter(),
+				new UniversalComposerClinicalCaseAdapter(),
+				new UniversalComposerResearchAdapter(),
+				new UniversalComposerPollAdapter(),
+			);
+			foreach ( $adapters as $adapter ) {
+				$result = supc_register_adapter( $adapter );
+				if ( true === $result ) {
+					continue;
+				}
+				if ( function_exists( 'do_action' ) ) {
+					$code = 'registration_rejected';
+					if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
+						$native_code = sanitize_key( (string) $result->get_error_code() );
+						$allowed = array( 'supc_duplicate_key', 'supc_api_mismatch', 'supc_invalid_key', 'supc_registration_exception' );
+						$code = in_array( $native_code, $allowed, true ) ? $native_code : $code;
+					}
+					do_action( 'sabri_hnf_file22_adapter_registration_error', $code );
+				}
 				return;
 			}
-
-			if ( function_exists( 'do_action' ) ) {
-				$code = 'registration_rejected';
-				if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
-					$native_code = sanitize_key( (string) $result->get_error_code() );
-					$allowed     = array( 'supc_duplicate_key', 'supc_api_mismatch', 'supc_invalid_key', 'supc_registration_exception' );
-					$code        = in_array( $native_code, $allowed, true ) ? $native_code : $code;
-				}
-				do_action( 'sabri_hnf_file22_adapter_registration_error', $code );
-			}
+			self::$registered = true;
+			return;
 		} catch ( \Throwable $error ) {
 			unset( $error );
 			if ( function_exists( 'do_action' ) ) {
@@ -134,6 +145,10 @@ final class UniversalComposerBridge {
 			&& self::WORKFLOW_API_VERSION === (string) SUPC_WORKFLOW_API_VERSION
 			&& defined( 'SUPC_SUBJECT_SCHEMA_API_VERSION' )
 			&& self::SUBJECT_SCHEMA_API_VERSION === (string) SUPC_SUBJECT_SCHEMA_API_VERSION
+			&& defined( 'SUPC_GOVERNANCE_API_VERSION' )
+			&& self::GOVERNANCE_API_VERSION === (string) SUPC_GOVERNANCE_API_VERSION
+			&& defined( 'SUPC_LIFECYCLE_API_VERSION' )
+			&& self::LIFECYCLE_API_VERSION === (string) SUPC_LIFECYCLE_API_VERSION
 			&& defined( 'SUPC_PUBLIC_API_VERSION' )
 			&& self::PUBLIC_API_VERSION === (string) SUPC_PUBLIC_API_VERSION
 			&& defined( 'SUPC_PUBLIC_API_OWNER' )
@@ -142,8 +157,13 @@ final class UniversalComposerBridge {
 			&& true === SUPC_PUBLIC_API_FUNCTIONS_OWNED
 			&& function_exists( 'supc_register_adapter' )
 			&& function_exists( 'supc_adapter_matches' )
+			&& function_exists( 'supc_adapter_governance' )
+			&& function_exists( 'supc_lifecycle_capabilities' )
+			&& function_exists( 'supc_execute_lifecycle' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Workflow_Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Governed_Workflow_Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Lifecycle_Adapter' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Diagnostic_Adapter' );
 	}
 
