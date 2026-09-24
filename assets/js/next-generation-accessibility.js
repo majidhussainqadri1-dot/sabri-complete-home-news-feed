@@ -64,6 +64,16 @@
 		textarea.setAttribute('aria-describedby', titleId);
 		label.appendChild(textarea);
 
+		var sourcesTextarea = null;
+		if ('expert-context' === action) {
+			var sourcesLabel = document.createElement('label');
+			sourcesLabel.textContent = 'Sources (optional, one http/https URL per line)';
+			sourcesTextarea = document.createElement('textarea');
+			sourcesTextarea.rows = 3;
+			sourcesTextarea.maxLength = 5000;
+			sourcesLabel.appendChild(sourcesTextarea);
+		}
+
 		var actions = document.createElement('div');
 		actions.className = 'sabri-hnf-ng-dialog-actions';
 		var submit = document.createElement('button');
@@ -78,6 +88,7 @@
 		actions.appendChild(cancel);
 		form.appendChild(title);
 		form.appendChild(label);
+		if (sourcesTextarea) { form.appendChild(sourcesLabel); }
 		form.appendChild(actions);
 		dialog.appendChild(form);
 		document.body.appendChild(dialog);
@@ -103,6 +114,11 @@
 			submit.disabled = true;
 			var payload = { post_id: postId, text: text };
 			if ('qna-answer' === action) { payload.question_id = questionId; }
+			if ('expert-context' === action && sourcesTextarea) {
+				payload.sources = sourcesTextarea.value.split(/\r?\n/).map(function (url) {
+					return url.trim();
+				}).filter(Boolean).slice(0, 10);
+			}
 			postAction(action, payload).then(function () {
 				setStatus((config.i18n && config.i18n.saved) || 'Saved.', false);
 				close();
