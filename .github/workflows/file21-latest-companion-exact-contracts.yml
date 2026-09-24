@@ -28,7 +28,7 @@ env:
   FILE20_SHA: ced23c3acd510105e9ec3dea9f4cd51f496c384e
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
   FILE24_SHA: 0be43b3f424d7b53865587b2770479ca33f51a0b
-  FILE17_SHA: eb32a9704a3074aa910dad20ac9976a98c164555
+  FILE17_SHA: 8b03562e672eb7d46cf9d5975d9d97a6b0d25398
 
 jobs:
   exact-current-companions:
@@ -138,6 +138,7 @@ jobs:
           php -l file17/sabri-network/includes/class-sn-relationships.php
           grep -Fq 'class SN_Relationships' file17/sabri-network/includes/class-sn-relationships.php
           grep -Fq "do_action('sn_network_follow_changed'" file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq "do_action('sn_network_block_changed'" file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
 
           php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq "'21' => array( 'Complete Home and News Feed'" file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
