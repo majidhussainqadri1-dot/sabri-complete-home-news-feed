@@ -31,7 +31,7 @@ $assert( false !== $feed_css, 'File 21 public feed CSS must be readable.' );
 if ( false !== $registry ) {
 	$required = array(
 		"const FILE26_CONNECTOR_SLUG = 'file21-publication';",
-		"const FILE26_CONTRACT_VERSION = '1.0';",
+		"const FILE26_CONTRACT_VERSION = '1.1';",
 		"'owner_file' => 'File 21'",
 		"'entity_types' => array( 'post', 'news', 'article' )",
 		"'status' => 'proposed'",
