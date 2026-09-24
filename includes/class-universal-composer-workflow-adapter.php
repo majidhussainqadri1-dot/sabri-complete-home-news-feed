@@ -22,6 +22,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Workflow_Adapter, Lifecycle_Adapter, Diagnostic_Adapter {
 	private const SCHEMA_VERSION               = '1.0.1';
 	private const IDEMPOTENCY_PATTERN          = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
+	private const LIFECYCLE_IDEMPOTENCY_PATTERN = '/^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$/D';
+	private const LIFECYCLE_STATE_META           = '_sabri_hnf_file22_lifecycle_state';
+	private const LIFECYCLE_IDEMPOTENCY_META     = '_sabri_hnf_file22_lifecycle_idempotency';
+	private const LIFECYCLE_CORRECTED_AT_META     = '_sabri_hnf_file22_corrected_at_utc';
 	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
 	private const INSTITUTIONAL_FEED_TYPES      = array( 'founder-update', 'platform-news' );
 	private const SUPPORTED_FEED_TYPES          = array(
@@ -99,23 +103,29 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error( 'permission_denied' );
 		}
-		$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
-		$commands = array();
-		if ( 'draft' === $status ) {
-			$commands = array( 'edit', 'revise', 'schedule' );
-		} elseif ( 'future' === $status ) {
-			$commands = array( 'edit', 'revise', 'unschedule' );
-		} elseif ( 'publish' === $status ) {
-			$commands = array( 'revise', 'correct', 'withdraw', 'archive' );
-		} elseif ( in_array( $status, array( 'pending', 'private' ), true ) ) {
-			$commands = array( 'revise', 'withdraw' );
+		$raw_status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+		$state      = $this->lifecycle_state( $post_id );
+		if ( 'withdrawn' === $state && 'draft' === $raw_status ) {
+			return array( 'restore' );
 		}
-		return $commands;
+		if ( 'archived' === $state && 'private' === $raw_status ) {
+			return array( 'restore' );
+		}
+		if ( 'draft' === $raw_status ) {
+			return array( 'edit', 'revise', 'schedule' );
+		}
+		if ( 'future' === $raw_status ) {
+			return array( 'edit', 'revise', 'unschedule' );
+		}
+		if ( 'publish' === $raw_status ) {
+			return array( 'revise', 'correct', 'withdraw', 'archive' );
+		}
+		return array();
 	}
 
 	/**
-	 * Execute only bounded native lifecycle transitions. Content-bearing edits
-	 * remain in the native Composer; File 22 never receives direct database power.
+	 * Execute one native lifecycle command idempotently. File 22 orchestrates,
+	 * while File 21 revalidates the subject, object, state and native policy.
 	 */
 	public function execute_lifecycle(
 		int $user_id,
@@ -124,19 +134,42 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 		string $idempotency_key,
 		array $payload
 	) {
-		if ( 1 !== preg_match( self::IDEMPOTENCY_PATTERN, $idempotency_key ) ) {
-			return $this->error( 'invalid_reference' );
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		$command = function_exists( 'sanitize_key' ) ? sanitize_key( $command ) : strtolower( preg_replace( '/[^a-z0-9_-]/i', '', $command ) );
+		if (
+			$post_id <= 0 ||
+			! $this->user_can_manage_reference( $user_id, $post_id ) ||
+			1 !== preg_match( self::LIFECYCLE_IDEMPOTENCY_PATTERN, $idempotency_key )
+		) {
+			return $this->error( 'permission_denied' );
 		}
+		$encoded = function_exists( 'wp_json_encode' ) ? wp_json_encode( $payload ) : json_encode( $payload );
+		if ( ! is_string( $encoded ) || strlen( $encoded ) > 1048576 ) {
+			return $this->error( 'validation_failed' );
+		}
+		$fingerprint = hash( 'sha256', $native_reference . '|' . $command . '|' . $encoded );
+		$replay      = $this->lifecycle_replay( $post_id, $idempotency_key, $fingerprint );
+		if ( $replay instanceof \WP_Error || is_array( $replay ) ) {
+			return $replay;
+		}
+
 		$allowed = $this->lifecycle_capabilities( $user_id, $native_reference );
 		if ( $allowed instanceof \WP_Error || ! in_array( $command, $allowed, true ) ) {
 			return $allowed instanceof \WP_Error ? $allowed : $this->error( 'permission_denied' );
 		}
-		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
-		if ( $post_id <= 0 ) {
-			return $this->error( 'invalid_reference' );
-		}
+
 		if ( in_array( $command, array( 'edit', 'revise', 'correct' ), true ) ) {
-			$input = $this->normalize_payload( $payload, 'draft', $post_id, $user_id );
+			$raw_status = (string) get_post_status( $post_id );
+			$action     = 'draft';
+			if ( 'publish' === $raw_status ) {
+				$action = 'publish';
+			} elseif ( 'future' === $raw_status ) {
+				$action = 'schedule';
+				if ( empty( $payload['scheduled_date'] ) && function_exists( 'get_post_field' ) ) {
+					$payload['scheduled_date'] = (string) get_post_field( 'post_date', $post_id );
+				}
+			}
+			$input = $this->normalize_payload( $payload, $action, $post_id, $user_id );
 			if ( $input instanceof \WP_Error ) {
 				return $input;
 			}
@@ -144,8 +177,19 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 			if ( empty( $result['ok'] ) ) {
 				return $this->result_error( $result );
 			}
-			return $this->status_envelope( $post_id, UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? 'draft' ) ), $user_id );
+			$this->clear_lifecycle_state( $post_id );
+			if ( 'correct' === $command && function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, self::LIFECYCLE_CORRECTED_AT_META, gmdate( 'c' ) );
+				if ( function_exists( 'do_action' ) ) {
+					do_action( 'sabri_hnf_publication_corrected', $post_id, $user_id );
+				}
+			}
+			$status = UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? '' ) );
+			$output = $this->status_envelope( $post_id, $status, $user_id );
+			$this->store_lifecycle_result( $post_id, $idempotency_key, $fingerprint, $output );
+			return $output;
 		}
+
 		if ( 'schedule' === $command ) {
 			$input = $this->normalize_payload( $payload, 'schedule', $post_id, $user_id );
 			if ( $input instanceof \WP_Error ) {
@@ -155,24 +199,87 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 			if ( empty( $result['ok'] ) ) {
 				return $this->result_error( $result );
 			}
-			return $this->status_envelope( $post_id, UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? 'scheduled' ) ), $user_id );
+			$this->clear_lifecycle_state( $post_id );
+			$output = $this->status_envelope( $post_id, UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? '' ) ), $user_id );
+			$this->store_lifecycle_result( $post_id, $idempotency_key, $fingerprint, $output );
+			return $output;
 		}
+
 		if ( ! function_exists( 'wp_update_post' ) ) {
 			return $this->error( 'temporarily_unavailable' );
 		}
 		$target = '';
-		if ( 'unschedule' === $command ) { $target = 'draft'; }
-		if ( 'withdraw' === $command ) { $target = 'pending'; }
-		if ( 'archive' === $command ) { $target = 'private'; }
+		$semantic_status = '';
+		if ( 'unschedule' === $command ) { $target = 'draft'; $semantic_status = 'draft'; }
+		if ( 'withdraw' === $command ) { $target = 'draft'; $semantic_status = 'withdrawn'; }
+		if ( 'archive' === $command ) { $target = 'private'; $semantic_status = 'archived'; }
+		if ( 'restore' === $command ) { $target = 'draft'; $semantic_status = 'draft'; }
 		if ( '' === $target ) {
 			return $this->error( 'temporarily_unavailable' );
 		}
 		$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => $target ), true );
-		if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+		if ( ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) || ! $updated ) {
 			return $this->error( 'temporarily_unavailable' );
 		}
-		$status = UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) );
-		return $this->status_envelope( $post_id, $status, $user_id );
+		if ( in_array( $semantic_status, array( 'withdrawn', 'archived' ), true ) ) {
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, self::LIFECYCLE_STATE_META, $semantic_status );
+			}
+		} else {
+			$this->clear_lifecycle_state( $post_id );
+		}
+		if ( function_exists( 'do_action' ) ) {
+			do_action( 'sabri_hnf_publication_lifecycle_changed', $post_id, $semantic_status, $user_id );
+		}
+		$output = $this->status_envelope( $post_id, $semantic_status, $user_id );
+		$this->store_lifecycle_result( $post_id, $idempotency_key, $fingerprint, $output );
+		return $output;
+	}
+
+	/** Return a completed idempotent lifecycle result, null for first use, or conflict. */
+	private function lifecycle_replay( int $post_id, string $idempotency_key, string $fingerprint ) {
+		if ( ! function_exists( 'get_post_meta' ) ) {
+			return null;
+		}
+		$records = get_post_meta( $post_id, self::LIFECYCLE_IDEMPOTENCY_META, true );
+		$records = is_array( $records ) ? $records : array();
+		$key     = hash( 'sha256', $idempotency_key );
+		if ( ! isset( $records[ $key ] ) || ! is_array( $records[ $key ] ) ) {
+			return null;
+		}
+		$record = $records[ $key ];
+		if ( empty( $record['fingerprint'] ) || ! hash_equals( (string) $record['fingerprint'], $fingerprint ) ) {
+			return $this->error( 'conflict' );
+		}
+		return isset( $record['result'] ) && is_array( $record['result'] ) ? $record['result'] : $this->error( 'temporarily_unavailable' );
+	}
+
+	/** Persist a bounded per-object replay ledger; raw idempotency keys are never stored. */
+	private function store_lifecycle_result( int $post_id, string $idempotency_key, string $fingerprint, array $result ): void {
+		if ( ! function_exists( 'get_post_meta' ) || ! function_exists( 'update_post_meta' ) ) {
+			return;
+		}
+		$records = get_post_meta( $post_id, self::LIFECYCLE_IDEMPOTENCY_META, true );
+		$records = is_array( $records ) ? $records : array();
+		$key     = hash( 'sha256', $idempotency_key );
+		$records[ $key ] = array( 'fingerprint' => $fingerprint, 'result' => $result, 'created_at' => time() );
+		uasort( $records, static function ( $left, $right ) { return (int) ( $left['created_at'] ?? 0 ) <=> (int) ( $right['created_at'] ?? 0 ); } );
+		$records = array_slice( $records, -50, 50, true );
+		update_post_meta( $post_id, self::LIFECYCLE_IDEMPOTENCY_META, $records );
+	}
+
+	private function lifecycle_state( int $post_id ): string {
+		if ( ! function_exists( 'get_post_meta' ) ) {
+			return '';
+		}
+		$state = sanitize_key( (string) get_post_meta( $post_id, self::LIFECYCLE_STATE_META, true ) );
+		return in_array( $state, array( 'withdrawn', 'archived' ), true ) ? $state : '';
+	}
+
+	private function clear_lifecycle_state( int $post_id ): void {
+		if ( function_exists( 'delete_post_meta' ) ) {
+			delete_post_meta( $post_id, self::LIFECYCLE_STATE_META );
+		}
 	}
 
 	public function schema_version(): string {
