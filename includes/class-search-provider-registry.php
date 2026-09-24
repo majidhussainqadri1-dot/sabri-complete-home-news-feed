@@ -102,7 +102,7 @@ final class SearchProviderRegistry {
 		return sabri_file26_register_connector(
 			array(
 				'slug' => self::FILE26_CONNECTOR_SLUG,
-				'owner_file' => '21',
+				'owner_file' => 'File 21',
 				'contract_version' => self::FILE26_CONTRACT_VERSION,
 				'entity_types' => array( 'post', 'news', 'article' ),
 				'privacy_classes' => array( 'public' ),
@@ -178,7 +178,7 @@ final class SearchProviderRegistry {
 	public static function file26_health() {
 		return array(
 			'state' => function_exists( 'sabri_file26_register_connector' ) ? 'healthy' : 'degraded',
-			'owner_file' => '21',
+			'owner_file' => 'File 21',
 			'connector' => self::FILE26_CONNECTOR_SLUG,
 			'contract_version' => self::FILE26_CONTRACT_VERSION,
 			'package_version' => defined( 'SABRI_HNF_PACKAGE_VERSION' ) ? SABRI_HNF_PACKAGE_VERSION : '',
