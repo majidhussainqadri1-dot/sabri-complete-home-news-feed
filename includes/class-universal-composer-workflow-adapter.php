@@ -8,6 +8,8 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
+use Sabri\UniversalComposer\Contracts\Governed_Workflow_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -17,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * File 22 orchestrates; File 21 remains the sole writer and permanent owner.
  */
-class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Workflow_Adapter, Lifecycle_Adapter, Diagnostic_Adapter {
 	private const SCHEMA_VERSION               = '1.0.1';
 	private const IDEMPOTENCY_PATTERN          = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
@@ -48,6 +50,129 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 
 	public function workflow_api_version(): string {
 		return UniversalComposerBridge::WORKFLOW_API_VERSION;
+	}
+
+	public function governance_api_version(): string {
+		return UniversalComposerBridge::GOVERNANCE_API_VERSION;
+	}
+
+	public function lifecycle_api_version(): string {
+		return UniversalComposerBridge::LIFECYCLE_API_VERSION;
+	}
+
+	/** Declarative File 22 governance profile; all mutable truth remains native to File 21. */
+	public function governance_profile(): array {
+		return array(
+			'authoring_features' => array(
+				'rights_license',
+				'accessibility_authoring',
+				'translation',
+				'corrections',
+				'revision_history',
+				'scheduling',
+				'patient_case_safety',
+				'medical_safety',
+				'source_evidence',
+				'preview_matrix',
+				'search_projection',
+				'notification_events',
+			),
+			'media_rules' => 'file21_native_media_policy',
+			'edit_capability' => 'sabri_feed_edit_own_posts',
+			'cleanup_policy' => 'native_owner',
+			'search_indexing_policy' => 'conditional_native',
+			'notification_events' => array(
+				'Publishing.DigestCandidatesPrepared',
+				'Publishing.ContentCorrected',
+				'Publishing.ContentRetracted',
+			),
+		);
+	}
+
+	/**
+	 * Return only lifecycle commands that File 21 can prove safe for this exact
+	 * current subject/object. The interface is complete even when a state exposes
+	 * no mutation, which keeps File 22 fail-closed instead of fabricating writes.
+	 */
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+		$commands = array();
+		if ( 'draft' === $status ) {
+			$commands = array( 'edit', 'revise', 'schedule' );
+		} elseif ( 'future' === $status ) {
+			$commands = array( 'edit', 'revise', 'unschedule' );
+		} elseif ( 'publish' === $status ) {
+			$commands = array( 'revise', 'correct', 'withdraw', 'archive' );
+		} elseif ( in_array( $status, array( 'pending', 'private' ), true ) ) {
+			$commands = array( 'revise', 'withdraw' );
+		}
+		return $commands;
+	}
+
+	/**
+	 * Execute only bounded native lifecycle transitions. Content-bearing edits
+	 * remain in the native Composer; File 22 never receives direct database power.
+	 */
+	public function execute_lifecycle(
+		int $user_id,
+		string $native_reference,
+		string $command,
+		string $idempotency_key,
+		array $payload
+	) {
+		if ( 1 !== preg_match( self::IDEMPOTENCY_PATTERN, $idempotency_key ) ) {
+			return $this->error( 'invalid_reference' );
+		}
+		$allowed = $this->lifecycle_capabilities( $user_id, $native_reference );
+		if ( $allowed instanceof \WP_Error || ! in_array( $command, $allowed, true ) ) {
+			return $allowed instanceof \WP_Error ? $allowed : $this->error( 'permission_denied' );
+		}
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $post_id <= 0 ) {
+			return $this->error( 'invalid_reference' );
+		}
+		if ( in_array( $command, array( 'edit', 'revise', 'correct' ), true ) ) {
+			$input = $this->normalize_payload( $payload, 'draft', $post_id, $user_id );
+			if ( $input instanceof \WP_Error ) {
+				return $input;
+			}
+			$result = Composer::create_or_update_from_request( $input, array(), $user_id );
+			if ( empty( $result['ok'] ) ) {
+				return $this->result_error( $result );
+			}
+			return $this->status_envelope( $post_id, UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? 'draft' ) ), $user_id );
+		}
+		if ( 'schedule' === $command ) {
+			$input = $this->normalize_payload( $payload, 'schedule', $post_id, $user_id );
+			if ( $input instanceof \WP_Error ) {
+				return $input;
+			}
+			$result = Composer::create_or_update_from_request( $input, array(), $user_id );
+			if ( empty( $result['ok'] ) ) {
+				return $this->result_error( $result );
+			}
+			return $this->status_envelope( $post_id, UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? 'scheduled' ) ), $user_id );
+		}
+		if ( ! function_exists( 'wp_update_post' ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		$target = '';
+		if ( 'unschedule' === $command ) { $target = 'draft'; }
+		if ( 'withdraw' === $command ) { $target = 'pending'; }
+		if ( 'archive' === $command ) { $target = 'private'; }
+		if ( '' === $target ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		$updated = wp_update_post( array( 'ID' => $post_id, 'post_status' => $target ), true );
+		if ( function_exists( 'is_wp_error' ) && is_wp_error( $updated ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		$status = UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) );
+		return $this->status_envelope( $post_id, $status, $user_id );
 	}
 
 	public function schema_version(): string {
