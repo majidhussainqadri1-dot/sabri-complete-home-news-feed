@@ -17,7 +17,7 @@ final class SearchProviderRegistry {
 	const MAX_QUERY_LENGTH = 120;
 	const MAX_RESULTS_PER_PROVIDER = 20;
 	const FILE26_CONNECTOR_SLUG = 'file21-publication';
-	const FILE26_CONTRACT_VERSION = '1.0';
+	const FILE26_CONTRACT_VERSION = '1.1';
 
 	/** Register legacy read adapters plus the canonical File 26 owner connector. */
 	public static function register() {
