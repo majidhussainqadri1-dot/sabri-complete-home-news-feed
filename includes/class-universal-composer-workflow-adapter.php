@@ -8,7 +8,7 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
-use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * File 22 orchestrates; File 21 remains the sole writer and permanent owner.
  */
-class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_Adapter {
 	private const SCHEMA_VERSION               = '1.0.1';
 	private const IDEMPOTENCY_PATTERN          = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
@@ -48,6 +48,32 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 
 	public function workflow_api_version(): string {
 		return UniversalComposerBridge::WORKFLOW_API_VERSION;
+	}
+
+	/** Exact File 22 governance API implemented by this native owner. */
+	public function governance_api_version(): string {
+		return defined( 'SUPC_GOVERNANCE_API_VERSION' ) ? (string) SUPC_GOVERNANCE_API_VERSION : '1.0.0';
+	}
+
+	/** Exact File 22 lifecycle API implemented by this native owner. */
+	public function lifecycle_api_version(): string {
+		return defined( 'SUPC_LIFECYCLE_API_VERSION' ) ? (string) SUPC_LIFECYCLE_API_VERSION : '1.0.0';
+	}
+
+	/** Public-safe declaration of File 21-owned authoring capabilities. */
+	public function governance_profile(): array {
+		return array(
+			'authoring_features' => array(
+				'rights_license', 'accessibility_authoring', 'translation', 'corrections',
+				'revision_history', 'scheduling', 'patient_case_safety', 'medical_safety',
+				'source_evidence', 'preview_matrix', 'search_projection', 'notification_events',
+			),
+			'media_rules'            => 'file21_native_media_policy',
+			'edit_capability'        => 'sabri_feed_create_posts',
+			'cleanup_policy'         => 'reversible_native',
+			'search_indexing_policy' => 'conditional_native',
+			'notification_events'    => array( 'publishing.digest_candidates_prepared' ),
+		);
 	}
 
 	public function schema_version(): string {
@@ -414,6 +440,67 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 			return '';
 		}
 		return function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
+	}
+
+	/** Return only lifecycle commands that are natively safe for the current object state. */
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $user_id < 1 || $post_id < 1 || ! $this->is_native_post( $post_id ) || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+		if ( 'draft' === $status ) {
+			return array( 'edit', 'revise', 'schedule' );
+		}
+		if ( 'future' === $status ) {
+			return array( 'unschedule' );
+		}
+		return array();
+	}
+
+	/** Execute bounded lifecycle transitions through File 21 only. */
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ) {
+		if ( 1 !== preg_match( self::IDEMPOTENCY_PATTERN, $idempotency_key ) ) {
+			return $this->error( 'invalid_reference' );
+		}
+		$allowed = $this->lifecycle_capabilities( $user_id, $native_reference );
+		if ( $allowed instanceof \WP_Error || ! in_array( $command, $allowed, true ) ) {
+			return $allowed instanceof \WP_Error ? $allowed : $this->error( 'permission_denied' );
+		}
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		$replay_key = 'sabri_hnf_lifecycle_' . substr( hash( 'sha256', $user_id . '|' . $native_reference . '|' . $command . '|' . $idempotency_key ), 0, 40 );
+		if ( function_exists( 'get_option' ) ) {
+			$replay = get_option( $replay_key, null );
+			if ( is_array( $replay ) && isset( $replay['native_reference'], $replay['status'] ) ) {
+				return $replay;
+			}
+		}
+
+		if ( 'unschedule' === $command ) {
+			$result = function_exists( 'wp_update_post' ) ? wp_update_post( array( 'ID' => $post_id, 'post_status' => 'draft' ), true ) : 0;
+			if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) || (int) $result !== $post_id ) {
+				return $this->error( 'temporarily_unavailable' );
+			}
+			$response = array( 'native_reference' => $native_reference, 'status' => 'draft' );
+		} else {
+			$action = 'schedule' === $command ? 'schedule' : 'draft';
+			$input = $this->normalize_payload( $payload, $action, $post_id, $user_id );
+			if ( $input instanceof \WP_Error ) {
+				return $input;
+			}
+			$result = Composer::create_or_update_from_request( $input, array(), $user_id );
+			if ( empty( $result['ok'] ) ) {
+				return $this->result_error( $result );
+			}
+			$status = UniversalComposerWorkflowStore::normalize_status( (string) ( $result['status'] ?? '' ) );
+			$response = array( 'native_reference' => $native_reference, 'status' => $status );
+		}
+		if ( function_exists( 'update_option' ) ) {
+			update_option( $replay_key, $response, false );
+		}
+		FeedQuery::invalidate_cache();
+		AuditLog::record( 'file22_lifecycle_executed', array( 'post_id' => $post_id, 'command' => $command ) );
+		return $response;
 	}
 
 	/** @return array<string,mixed> */
