@@ -31,7 +31,7 @@ $check( false !== strpos( $files['privacy'], 'NextGenerationFeed::USER_META' ) &
 $check( false === strpos( $files['feed'], 'PostMetadata::user_can_view(' ), 'Round 3: legacy social-only visibility call remains in NG30 runtime.' );
 $check( substr_count( $files['feed'], 'self::strict_public_item(' ) >= 8, 'Round 3: strict public cross-domain gate is not applied comprehensively.' );
 $check( false !== strpos( $files['feed'], 'FourthFreshReviewHardening::public_source_is_shareable' ), 'Round 3: strict public helper is not delegated to the canonical shareability gate.' );
-$check( false !== strpos( $files['hardening4'], 'InteractionPermissions::can_view_post( $post_id, 0 )' ) && false !== strpos( $files['hardening4'], "NewsPolicy::can_public_read( $post_id, 'single' )" ), 'Round 3: canonical public visibility owner checks are incomplete.' );
+$check( false !== strpos( $files['hardening4'], 'InteractionPermissions::can_view_post( $post_id, 0 )' ) && false !== strpos( $files['hardening4'], "NewsPolicy::can_public_read( \\$post_id, 'single' )" ), 'Round 3: canonical public visibility owner checks are incomplete.' );
 
 // Round 4: read-heavy public/private REST surfaces have bounded rate gates.
 foreach ( array( 'ng-read-post-context', 'ng-read-compare', 'ng-read-share-card', 'ng-read-stories', 'ng-read-offline-pack', 'ng-read-digest' ) as $bucket ) {
