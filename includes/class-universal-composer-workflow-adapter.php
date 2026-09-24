@@ -78,7 +78,7 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 				'notification_events',
 			),
 			'media_rules' => 'file21_native_media_policy',
-			'edit_capability' => 'sabri_feed_edit_own_posts',
+			'edit_capability' => 'sabri_feed_create_posts',
 			'cleanup_policy' => 'native_owner',
 			'search_indexing_policy' => 'conditional_native',
 			'notification_events' => array(
