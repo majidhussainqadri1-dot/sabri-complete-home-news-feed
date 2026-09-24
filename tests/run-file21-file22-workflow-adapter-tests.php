@@ -111,7 +111,7 @@ namespace Sabri\HomeNewsFeed {
 
 	$assert( '1.0.1' === $adapter->schema_version(), 'Corrected schema version is missing.' );
 	$assert( $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter, 'Lifecycle contract is missing.' );
-	$assert( 'read' === $adapter->required_capability(), 'File 22 registry gate must stay coarse and native-authorized.' );
+	$assert( 'sabri_feed_create_posts' === $adapter->required_capability(), 'Native File 21 workflow adapter must expose its exact create capability.' );
 	$profile = $adapter->governance_profile();
 	$assert( in_array( 'patient_case_safety', $profile['authoring_features'] ?? array(), true ) && in_array( 'notification_events', $profile['authoring_features'] ?? array(), true ), 'Governance profile is incomplete.' );
 	$GLOBALS['file21_test_current_user'] = 2;
