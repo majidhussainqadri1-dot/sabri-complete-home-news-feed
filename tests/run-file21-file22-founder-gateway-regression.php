@@ -34,8 +34,8 @@ $assert( false !== $permissions, 'Composer permissions policy must be readable.'
 
 if ( false !== $wrapper ) {
 	$assert(
-		false !== strpos( $wrapper, "public function required_capability(): string { return 'read'; }" ),
-		'File 22 wrapper must expose only the coarse authenticated read gate.'
+		false !== strpos( $wrapper, 'public function required_capability(): string { return $this->delegate->required_capability(); }' ),
+		'File 22 wrapper must expose the exact native File 21 capability.'
 	);
 	$assert(
 		false !== strpos( $wrapper, 'public function can_create( int $user_id ): bool { return $this->delegate->can_create( $user_id ); }' ),
