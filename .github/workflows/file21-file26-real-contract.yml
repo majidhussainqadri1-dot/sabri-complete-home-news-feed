@@ -88,7 +88,7 @@ jobs:
           set -euo pipefail
           registry=file21/includes/class-search-provider-registry.php
           grep -Fq "'slug' => self::FILE26_CONNECTOR_SLUG" "$registry"
-          grep -Fq "'owner_file' => '21'" "$registry"
+          grep -Fq "'owner_file' => 'File 21'" "$registry"
           grep -Fq "'contract_version' => self::FILE26_CONTRACT_VERSION" "$registry"
           grep -Fq "'entity_types' => array( 'post', 'news', 'article' )" "$registry"
           grep -Fq "'privacy_classes' => array( 'public' )" "$registry"
