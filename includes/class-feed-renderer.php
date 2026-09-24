@@ -168,9 +168,8 @@ final class FeedRenderer {
 	}
 	private static function author_name( $post_id ) {
 		$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
-		$name      = function_exists( 'get_the_author_meta' ) ? trim( (string) get_the_author_meta( 'display_name', $author_id ) ) : '';
-		$is_email  = '' !== $name && ( ( function_exists( 'is_email' ) && is_email( $name ) ) || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) );
-		return '' !== $name && ! $is_email ? $name : __( 'Sabri member', 'sabri-complete-home-news-feed' );
+		$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		return ! empty( $projection['name'] ) ? (string) $projection['name'] : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 	}
 	private static function author_label( $post_id ) {
 		$settings = Settings::get(); $author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
