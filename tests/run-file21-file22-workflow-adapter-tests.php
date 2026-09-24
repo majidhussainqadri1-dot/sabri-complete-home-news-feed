@@ -74,16 +74,18 @@ namespace Sabri\UniversalComposer\Contracts {
 	interface Adapter { public function api_version(): string; public function key(): string; public function label(): string; public function description(): string; public function group(): string; public function icon(): string; public function priority(): int; public function native_module(): string; public function minimum_native_version(): string; public function required_capability(): string; public function privacy_classification(): string; public function is_available(): bool; public function can_create( int $user_id ): bool; public function start_url( int $user_id ): string; }
 	interface Diagnostic_Adapter extends Adapter { public function health_report(): array; }
 	interface Workflow_Adapter extends Adapter { public function workflow_api_version(): string; public function schema_version(): string; public function supports_native_drafts(): bool; public function schema(): array; public function create_draft( int $user_id, ?string $native_reference, array $payload ); public function validate( int $user_id, array $payload ); public function preview( int $user_id, array $payload ); public function submit( int $user_id, string $idempotency_key, array $payload ); public function status( int $user_id, string $native_reference ); public function canonical_url( int $user_id, string $native_reference ): string; }
+	interface Governed_Workflow_Adapter extends Workflow_Adapter { public function governance_api_version(): string; public function governance_profile(): array; }
+	interface Lifecycle_Adapter extends Governed_Workflow_Adapter { public function lifecycle_api_version(): string; public function lifecycle_capabilities( int $user_id, string $native_reference ); public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ); }
 }
 
 namespace Sabri\HomeNewsFeed {
-	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
+	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const GOVERNANCE_API_VERSION = '1.0.0'; public const LIFECYCLE_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
 	final class Settings { public static function get(): array { return array( 'composer' => array( 'public_composer_enabled' => 1, 'drafts_enabled' => 1, 'previews_enabled' => 1, 'scheduling_enabled' => 1, 'allowed_feed_types' => array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ) ) ); } }
 	final class SafeMode { public static function feature_enabled( string $feature ): bool { return 'composer' === $feature; } }
 	final class PublicComposerSurface {}
 	final class CanonicalIdentityAdapter { public static function current_action_ready( int $user_id = 0 ): bool { return in_array( $user_id, array( 1, 2, 99 ), true ); } public static function is_founder( int $user_id ): bool { return 1 === $user_id; } public static function is_administrator( int $user_id ): bool { return 99 === $user_id; } }
 	final class FeedContext { public static function allowed_composer_visibility( ?array $settings = null, bool $include_private = true ): array { unset( $settings ); return $include_private ? array( 'public', 'members', 'private' ) : array( 'public', 'members' ); } }
-	final class ComposerPermissions { public static function user_can_create( int $user_id, ?array $settings = null ): bool { unset( $settings ); return in_array( $user_id, array( 1, 2, 99 ), true ); } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return 99 === $user_id || (int) ( $GLOBALS['file21_test_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
+	final class ComposerPermissions { public static function user_can_publish( int $user_id, ?array $settings = null ): bool { unset( $settings ); return in_array( $user_id, array( 1, 99 ), true ); } public static function user_can_moderate(): bool { return 99 === (int) $GLOBALS['file21_test_current_user']; } public static function user_can_create( int $user_id, ?array $settings = null ): bool { unset( $settings ); return in_array( $user_id, array( 1, 2, 99 ), true ); } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return 99 === $user_id || (int) ( $GLOBALS['file21_test_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
 	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $errors = array(); if ( ! in_array( (string) ( $input['feed_type'] ?? '' ), array( 'standard-post', 'founder-update', 'nutrition', 'platform-news' ), true ) ) { $errors[] = array( 'code' => 'invalid_feed_type' ); } if ( 'draft' !== (string) ( $input['composer_action'] ?? '' ) && '' === trim( (string) ( $input['content'] ?? '' ) ) ) { $errors[] = array( 'code' => 'content_required' ); } return array( 'valid' => array() === $errors, 'errors' => $errors, 'data' => $input ); } }
 	final class Composer {
 		public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array {
@@ -108,6 +110,10 @@ namespace Sabri\HomeNewsFeed {
 	$payload = array( 'title' => 'Test', 'content' => 'Native File 21 content', 'feed_type' => 'standard_post', 'visibility' => 'public', 'publication_action' => 'publish' );
 
 	$assert( '1.0.1' === $adapter->schema_version(), 'Corrected schema version is missing.' );
+	$assert( $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter, 'Lifecycle contract is missing.' );
+	$assert( 'sabri_feed_create_posts' === $adapter->required_capability(), 'Exact File 21 create capability is missing.' );
+	$profile = $adapter->governance_profile();
+	$assert( in_array( 'patient_case_safety', $profile['authoring_features'] ?? array(), true ) && in_array( 'notification_events', $profile['authoring_features'] ?? array(), true ), 'Governance profile is incomplete.' );
 	$GLOBALS['file21_test_current_user'] = 2;
 	$assert( ! isset( $adapter->schema()['fields']['feed_type']['choices']['founder_update'] ), 'Doctor schema exposes Founder Update.' );
 	$GLOBALS['file21_test_current_user'] = 1;
@@ -151,7 +157,7 @@ namespace Sabri\HomeNewsFeed {
 	$concurrent_ref = is_array( $concurrent_draft ) ? (string) $concurrent_draft['native_reference'] : '';
 	$concurrent_id = UniversalComposerWorkflowStore::post_id_from_reference( $concurrent_ref );
 	$concurrent_payload = array_merge( $payload, array( 'native_reference' => $concurrent_ref ) );
-	$normalized = array( 'post_id' => $concurrent_id, 'composer_action' => 'publish', 'title' => 'Test', 'content' => 'Native File 21 content', 'feed_type' => 'standard-post', 'topic' => '', 'visibility' => 'public', 'language' => '', 'country_region' => '', 'comments_enabled' => false, 'medical_disclaimer_confirmed' => false, 'patient_privacy_confirmed' => false, 'scheduled_date' => '', 'attachments' => array(), 'gallery' => array(), 'clinical_case' => array(), 'research' => array() );
+	$normalized = array( 'post_id' => $concurrent_id, 'composer_action' => 'publish', 'title' => 'Test', 'content' => 'Native File 21 content', 'feed_type' => 'standard-post', 'topic' => '', 'visibility' => 'public', 'language' => '', 'country_region' => '', 'comments_enabled' => false, 'medical_disclaimer_confirmed' => false, 'patient_privacy_confirmed' => false, 'scheduled_date' => '', 'attachments' => array(), 'gallery' => array(), 'clinical_case' => array(), 'research' => array(), 'poll' => array() );
 	$concurrent_hash = UniversalComposerWorkflowStore::key_hash( $concurrent_key );
 	$concurrent_fingerprint = hash( 'sha256', (string) wp_json_encode( $normalized ) );
 	$concurrent_option = UniversalComposerWorkflowStore::option_key( 1, $concurrent_hash );
