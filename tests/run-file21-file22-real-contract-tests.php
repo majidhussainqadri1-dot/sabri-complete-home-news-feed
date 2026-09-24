@@ -7,7 +7,7 @@ namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
 	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-taxonomy-map.php', 'includes/core/class-policy-engine.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
 		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
@@ -34,6 +34,7 @@ namespace {
 	function wp_parse_url( string $url ): array|false { return parse_url( $url ); }
 	function wp_generate_uuid4(): string { static $i = 0; ++$i; return sprintf( '00000000-0000-4000-8000-%012d', $i ); }
 	function do_action( string $hook, mixed ...$args ): void { unset( $hook, $args ); }
+	function apply_filters( string $hook, mixed $value, mixed ...$args ): mixed { unset( $hook, $args ); return $value; }
 	function get_current_user_id(): int { return (int) $GLOBALS['real_current_user']; }
 	function wp_salt( string $scheme = 'auth' ): string { return AUTH_SALT . '|' . $scheme; }
 	function add_query_arg( array $args, string $url ): string { return $url . ( str_contains( $url, '?' ) ? '&' : '?' ) . http_build_query( $args ); }
@@ -82,6 +83,8 @@ namespace {
 	require_once $file22_root . '/includes/contracts/interface-workflow-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-governed-workflow-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-lifecycle-adapter.php';
+	require_once $file22_root . '/includes/core/class-taxonomy-map.php';
+	require_once $file22_root . '/includes/core/class-policy-engine.php';
 	require_once $file22_root . '/includes/core/class-workflow-coordinator.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
@@ -89,9 +92,17 @@ namespace {
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-subject-schema-adapter.php';
 
 	$adapter = new \Sabri\HomeNewsFeed\UniversalComposerSubjectSchemaAdapter();
+	$assert_governed = $adapter instanceof \Sabri\UniversalComposer\Contracts\Governed_Workflow_Adapter;
+	$assert_lifecycle = $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 	$coordinator = new \Sabri\UniversalComposer\Core\Workflow_Coordinator( new \Sabri\UniversalComposer\Core\Registry( $adapter ), new \Sabri\UniversalComposer\Core\Permission_Resolver() );
 	$failures = array();
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
+	$assert( $assert_governed, 'File 21 adapter does not implement the current governed workflow contract.' );
+	$assert( $assert_lifecycle, 'File 21 adapter does not implement the current lifecycle contract.' );
+	$profile = $adapter->governance_profile();
+	$assert( '1.0.0' === $adapter->governance_api_version() && '1.0.0' === $adapter->lifecycle_api_version(), 'File 21 governance/lifecycle API versions do not match File 22.' );
+	$assert( is_array( $profile ) && count( (array) ( $profile['authoring_features'] ?? array() ) ) >= 12, 'File 21 governance profile is incomplete.' );
+	foreach ( (array) ( $profile['notification_events'] ?? array() ) as $event_code ) { $assert( is_string( $event_code ) && 1 === preg_match( '/^[a-z][a-z0-9_.:-]{0,63}$/D', $event_code ), 'File 21 governance notification event code is invalid.' ); }
 
 	$health = $coordinator->contract_health( 'social_publication' );
 	$assert( 'pass' === ( $health['status'] ?? '' ) && 'yes' === ( $health['subject_schema_extension'] ?? '' ), 'Static File 21 schema contract was not role-neutral and subject-aware.' );
