@@ -193,10 +193,12 @@ final class FeedRenderer {
 		return $created > 0 && $modified > $created;
 	}
 	private static function featured_image( $post_id, array $settings ) {
+		if ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::media_transfer_suppressed() ) { return ''; }
 		if ( empty( $settings['feed']['show_media'] ) || ! function_exists( 'has_post_thumbnail' ) || ! has_post_thumbnail( $post_id ) || ! function_exists( 'get_the_post_thumbnail' ) ) { return ''; }
 		return get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'sabri-hnf-card__featured', 'loading' => 'lazy' ) );
 	}
 	private static function media_gallery( $post_id, array $settings ) {
+		if ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::media_transfer_suppressed() ) { return ''; }
 		if ( empty( $settings['feed']['show_media'] ) || ! function_exists( 'get_post_meta' ) ) { return ''; }
 		$ids = get_post_meta( $post_id, PostMetadata::META_ATTACHMENTS, true );
 		if ( ! is_array( $ids ) || empty( $ids ) ) { $ids = get_post_meta( $post_id, PostMetadata::META_GALLERY, true ); }
