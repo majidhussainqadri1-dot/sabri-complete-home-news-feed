@@ -7,7 +7,7 @@ namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
 	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
 		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
@@ -15,6 +15,8 @@ namespace {
 	define( 'SABRI_HNF_VERSION', '1.0.3' );
 	define( 'SABRI_HNF_SLUG', 'sabri-complete-home-news-feed' );
 	define( 'SUPC_WORKFLOW_API_VERSION', '1.0.0' );
+	define( 'SUPC_GOVERNANCE_API_VERSION', '1.0.0' );
+	define( 'SUPC_LIFECYCLE_API_VERSION', '1.0.0' );
 	define( 'AUTH_SALT', 'real-contract-test-salt' );
 	$GLOBALS['real_options'] = array(); $GLOBALS['real_posts'] = array(); $GLOBALS['real_meta'] = array(); $GLOBALS['real_next_id'] = 400; $GLOBALS['real_current_user'] = 1;
 
@@ -78,6 +80,8 @@ namespace {
 	require_once $file22_root . '/includes/contracts/interface-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-diagnostic-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-governed-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-lifecycle-adapter.php';
 	require_once $file22_root . '/includes/core/class-workflow-coordinator.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
