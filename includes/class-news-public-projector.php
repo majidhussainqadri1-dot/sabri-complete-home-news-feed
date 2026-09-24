@@ -192,13 +192,13 @@ final class NewsPublicProjector {
 				'url'  => $institution_url,
 			);
 		}
-		$author_id = isset( $post->post_author ) ? (int) $post->post_author : 0;
-		$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
-		$name = ! empty( $projection['name'] ) ? (string) $projection['name'] : '';
-		if ( '' === $name ) {
+		$author_id  = isset( $post->post_author ) ? (int) $post->post_author : 0;
+		$projection = $author_id > 0 && class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		$name       = is_array( $projection ) && ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		if ( '' === $name || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) ) {
 			$name = '' !== $institution ? $institution : __( 'Sabri Editorial Team', 'sabri-complete-home-news-feed' );
 		}
-		$url = ! empty( $projection['profile_url'] ) ? self::safe_url( $projection['profile_url'] ) : '';
+		$url = is_array( $projection ) && ! empty( $projection['profile_url'] ) ? self::safe_url( $projection['profile_url'] ) : $institution_url;
 		return array( 'type' => 'author', 'name' => self::clean_text( $name, 120 ), 'url' => $url );
 	}
 
@@ -206,12 +206,12 @@ final class NewsPublicProjector {
 	private static function public_reviewing_editor( $post_id ) {
 		$editor_id = (int) self::meta( $post_id, '_sabri_news_reviewing_editor_id' );
 		$allowed = function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_news_public_reviewing_editor_allowed', false, $post_id, $editor_id ) : false;
-		if ( ! $allowed || $editor_id < 1 ) {
+		if ( ! $allowed || $editor_id < 1 || ! class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ) {
 			return array();
 		}
 		$projection = CanonicalIdentityAdapter::public_projection( $editor_id );
-		$name = ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
-		return '' !== $name ? array( 'name' => self::clean_text( $name, 120 ) ) : array();
+		$name       = is_array( $projection ) && ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		return '' !== $name && false === filter_var( $name, FILTER_VALIDATE_EMAIL ) ? array( 'name' => self::clean_text( $name, 120 ) ) : array();
 	}
 
 	/** Public image projection includes approved display data only. */
