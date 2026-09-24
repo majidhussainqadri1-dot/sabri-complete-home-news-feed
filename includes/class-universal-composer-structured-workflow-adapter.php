@@ -52,7 +52,7 @@ abstract class UniversalComposerStructuredWorkflowAdapter implements Lifecycle_A
 	public function priority(): int { return $this->adapter_priority(); }
 	public function native_module(): string { return $this->delegate->native_module(); }
 	public function minimum_native_version(): string { return $this->delegate->minimum_native_version(); }
-	public function required_capability(): string { return $this->delegate->required_capability(); }
+	public function required_capability(): string { return 'read'; }
 	public function privacy_classification(): string { return $this->adapter_privacy(); }
 
 	public function is_available(): bool {
