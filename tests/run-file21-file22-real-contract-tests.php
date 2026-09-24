@@ -44,6 +44,7 @@ namespace {
 	function delete_option( string $key ): bool { unset( $GLOBALS['real_options'][ $key ] ); return true; }
 	function get_post_type( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['type'] ?? false; }
 	function get_post_status( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['status'] ?? false; }
+	function wp_update_post( array $postarr, bool $wp_error = false ): int|WP_Error { $id = (int) ( $postarr['ID'] ?? 0 ); if ( $id <= 0 || ! isset( $GLOBALS['real_posts'][ $id ] ) ) { return $wp_error ? new WP_Error( 'missing_post' ) : 0; } if ( isset( $postarr['post_status'] ) ) { $GLOBALS['real_posts'][ $id ]['status'] = (string) $postarr['post_status']; } return $id; }
 	function get_post_field( string $field, int $id ): mixed { return 'post_author' === $field ? ( $GLOBALS['real_posts'][ $id ]['author'] ?? 0 ) : ''; }
 	function get_permalink( int $id ): string|false { return $GLOBALS['real_posts'][ $id ]['url'] ?? false; }
 	function get_preview_post_link( int $id ): string { return 'https://example.test/?p=' . $id . '&preview=true'; }
@@ -130,6 +131,20 @@ namespace {
 	$assert( is_array( $status ) && 'published' === ( $status['status'] ?? '' ), 'Real File 22 coordinator rejected status.' );
 	$url = $coordinator->canonical_url( 1, 'social_publication', $submitted_ref );
 	$assert( is_string( $url ) && str_starts_with( $url, 'https://example.test/' ), 'Real File 22 coordinator rejected canonical URL.' );
+
+	$lifecycle_caps = $adapter->lifecycle_capabilities( 1, $submitted_ref );
+	$assert( is_array( $lifecycle_caps ) && in_array( 'archive', $lifecycle_caps, true ) && in_array( 'correct', $lifecycle_caps, true ), 'Published File 21 lifecycle capabilities are incomplete.' );
+	$lifecycle_key = $coordinator->generate_idempotency_key();
+	$archived = $adapter->execute_lifecycle( 1, $submitted_ref, 'archive', $lifecycle_key, array() );
+	$assert( is_array( $archived ) && 'archived' === ( $archived['status'] ?? '' ), 'File 21 native archive lifecycle failed.' );
+	$replayed = $adapter->execute_lifecycle( 1, $submitted_ref, 'archive', $lifecycle_key, array() );
+	$assert( $replayed === $archived, 'File 21 lifecycle idempotency replay changed its result.' );
+	$archived_status = $adapter->status( 1, $submitted_ref );
+	$assert( is_array( $archived_status ) && 'archived' === ( $archived_status['status'] ?? '' ), 'File 21 lifecycle status did not preserve archived semantics.' );
+	$restore_caps = $adapter->lifecycle_capabilities( 1, $submitted_ref );
+	$assert( is_array( $restore_caps ) && array( 'restore' ) === array_values( $restore_caps ), 'Archived File 21 object did not expose only restore.' );
+	$restored = $adapter->execute_lifecycle( 1, $submitted_ref, 'restore', $coordinator->generate_idempotency_key(), array() );
+	$assert( is_array( $restored ) && 'draft' === ( $restored['status'] ?? '' ), 'File 21 restore lifecycle did not fail safely to draft.' );
 
 	if ( $failures ) { fwrite( STDERR, implode( PHP_EOL, $failures ) . PHP_EOL ); exit( 1 ); }
 	echo "Actual File 22 Coordinator and File 21 subject-aware adapter contracts passed.\n";
