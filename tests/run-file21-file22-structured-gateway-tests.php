@@ -24,8 +24,10 @@ foreach ( $files as $key => $path ) {
 }
 $assert( false !== strpos( (string) $sources['case'], "return 'patient_case';" ), 'Patient Case gateway key missing.' );
 $assert( false !== strpos( (string) $sources['case'], "return 'clinical-case';" ), 'Patient Case native feed mapping missing.' );
-$assert( false !== strpos( (string) $sources['research'], "return 'research_publication';" ), 'Research gateway key missing.' );
+$assert( false !== strpos( (string) $sources['research'], "return 'research';" ), 'Research gateway key missing.' );
 $assert( false !== strpos( (string) $sources['poll'], "return 'poll';" ), 'Poll gateway key missing.' );
+$assert( false !== strpos( (string) $sources['case'], "'consent_reference'" ) && false !== strpos( (string) $sources['case'], "'anonymized'" ), 'Patient Case privacy/consent policy fields are missing.' );
+$assert( false !== strpos( (string) $sources['research'], "'medical_safety_acknowledged'" ) && false !== strpos( (string) $sources['research'], "'references'" ), 'Research medical/reference policy fields are missing.' );
 $assert( false !== strpos( (string) $sources['base'], '\$payload[\'feed_type\']' ), 'Structured adapters do not force native File 21 feed ownership.' );
 $assert( false !== strpos( (string) $sources['bridge'], 'new UniversalComposerClinicalCaseAdapter()' ), 'Patient Case adapter is not registered.' );
 $assert( false !== strpos( (string) $sources['bridge'], 'new UniversalComposerResearchAdapter()' ), 'Research adapter is not registered.' );
