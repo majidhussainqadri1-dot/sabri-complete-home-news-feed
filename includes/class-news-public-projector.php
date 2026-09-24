@@ -192,13 +192,12 @@ final class NewsPublicProjector {
 				'url'  => $institution_url,
 			);
 		}
-		$author_id  = isset( $post->post_author ) ? (int) $post->post_author : 0;
-		$projection = $author_id > 0 && class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
-		$name       = is_array( $projection ) && ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		$author_id = isset( $post->post_author ) ? (int) $post->post_author : 0;
+		$name = $author_id > 0 && function_exists( 'get_the_author_meta' ) ? trim( (string) get_the_author_meta( 'display_name', $author_id ) ) : '';
 		if ( '' === $name || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) ) {
 			$name = '' !== $institution ? $institution : __( 'Sabri Editorial Team', 'sabri-complete-home-news-feed' );
 		}
-		$url = is_array( $projection ) && ! empty( $projection['profile_url'] ) ? self::safe_url( $projection['profile_url'] ) : $institution_url;
+		$url = $author_id > 0 && function_exists( 'get_author_posts_url' ) ? self::safe_url( get_author_posts_url( $author_id ) ) : '';
 		return array( 'type' => 'author', 'name' => self::clean_text( $name, 120 ), 'url' => $url );
 	}
 
@@ -206,11 +205,10 @@ final class NewsPublicProjector {
 	private static function public_reviewing_editor( $post_id ) {
 		$editor_id = (int) self::meta( $post_id, '_sabri_news_reviewing_editor_id' );
 		$allowed = function_exists( 'apply_filters' ) ? (bool) apply_filters( 'sabri_news_public_reviewing_editor_allowed', false, $post_id, $editor_id ) : false;
-		if ( ! $allowed || $editor_id < 1 || ! class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' ) ) {
+		if ( ! $allowed || $editor_id < 1 || ! function_exists( 'get_the_author_meta' ) ) {
 			return array();
 		}
-		$projection = CanonicalIdentityAdapter::public_projection( $editor_id );
-		$name       = is_array( $projection ) && ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		$name = trim( (string) get_the_author_meta( 'display_name', $editor_id ) );
 		return '' !== $name && false === filter_var( $name, FILTER_VALIDATE_EMAIL ) ? array( 'name' => self::clean_text( $name, 120 ) ) : array();
 	}
 
