@@ -20,7 +20,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a
+  FILE22_RUNTIME_SHA: c3f805d70d64f6ae1f1bc929b00f3a3cbf750210
 
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
@@ -58,10 +58,17 @@ jobs:
           php -l file22/includes/core/class-contract-boundary.php
           php -l file22/includes/core/class-workflow-validator.php
           php -l file22/includes/core/class-workflow-coordinator.php
+          php -l file22/includes/core/class-governing-plan-runtime.php
+          php -l file22/includes/contracts/interface-governed-workflow-adapter.php
+          php -l file22/includes/contracts/interface-lifecycle-adapter.php
           php -l file21/includes/class-universal-composer-workflow-store.php
           php -l file21/includes/class-universal-composer-workflow-maintenance.php
           php -l file21/includes/class-universal-composer-execution-lock-maintenance.php
           php -l file21/includes/class-universal-composer-workflow-adapter.php
+          grep -Fq 'implements Lifecycle_Adapter, Diagnostic_Adapter' file21/includes/class-universal-composer-workflow-adapter.php
+          grep -Fq 'function governance_profile' file21/includes/class-universal-composer-workflow-adapter.php
+          grep -Fq 'function lifecycle_capabilities' file21/includes/class-universal-composer-workflow-adapter.php
+          grep -Fq 'function execute_lifecycle' file21/includes/class-universal-composer-workflow-adapter.php
           php -l file21/includes/class-universal-composer-publication-adapter.php
           php -l file21/includes/class-universal-composer-subject-schema-adapter.php
           php -l file21/tests/run-file21-file22-real-contract-tests.php
