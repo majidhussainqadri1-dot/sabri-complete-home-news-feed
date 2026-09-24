@@ -25,6 +25,7 @@ env:
   FILE00_SHA: 1d507e9d3e241f4457997d2399ef9d91fd00172a
   FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
   FILE04_SHA: ec50f4a08c703a7bec3f157f48f9aeb97116a30c
+  FILE17_SHA: 8b03562e672eb7d46cf9d5975d9d97a6b0d25398
   FILE20_SHA: ced23c3acd510105e9ec3dea9f4cd51f496c384e
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
   FILE24_SHA: f97d67d036756cb3406b350dd257d02385384125
@@ -70,6 +71,15 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Check out exact File 17
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/17-sabri-network
+          ref: ${{ env.FILE17_SHA }}
+          path: file17
+          fetch-depth: 1
+          persist-credentials: false
+
       - name: Check out exact File 20
         uses: actions/checkout@v4
         with:
@@ -105,6 +115,7 @@ jobs:
           test "$(git -C file00 rev-parse HEAD)" = "${FILE00_SHA}"
           test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
           test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file17 rev-parse HEAD)" = "${FILE17_SHA}"
           test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
           test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
           test "$(git -C file24 rev-parse HEAD)" = "${FILE24_SHA}"
@@ -124,6 +135,15 @@ jobs:
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
           grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
 
+          php -l file17/sabri-network/includes/class-sn-relationships.php
+          php -l file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
+          grep -Fq 'public static function state' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq 'public static function lists' file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq "do_action('sn_network_follow_changed'" file17/sabri-network/includes/class-sn-relationships.php
+          grep -Fq "do_action('sn_network_block_changed'" file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
+          grep -Fq 'SN_Relationships::state' file21/includes/class-network-relationship-bridge.php
+          grep -Fq 'SN_Relationships::lists' file21/includes/class-network-relationship-bridge.php
+
           php -l file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq "'21' => array( 'Complete Home and News Feed'" file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
           grep -Fq 'five-exact-slots-fallback-suppressed' file20/sabri-unified-application-shell/includes/class-central-plan-contract.php
@@ -137,6 +157,11 @@ jobs:
 
           grep -Eqi 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' file24/docs/ARCHITECTURE.md file24/README.md
           grep -Eqi 'single point of failure|fail.safe|fail-closed' file24/docs/ARCHITECTURE.md file24/README.md
+          grep -Fq "apply_filters('spcrc/module_manifests'" file24/plugin/sabri-security-center/src/Registry/ModuleRegistry.php
+          grep -Fq "do_action('spcrc/module_registry_ready'" file24/plugin/sabri-security-center/src/Registry/ModuleRegistry.php
+          php -l file21/includes/class-security-assurance-integration.php
+          grep -Fq "'module_key' => 'file21-home-news-feed'" file21/includes/class-security-assurance-integration.php
+          grep -Fq "'canonical_data_owner' => 'File 21'" file21/includes/class-security-assurance-integration.php
 
       - name: Verify File 21 side remains within current boundaries
         shell: bash
@@ -158,14 +183,17 @@ jobs:
           File 00: ${FILE00_SHA}
           File 02: ${FILE02_SHA}
           File 04: ${FILE04_SHA}
+          File 17: ${FILE17_SHA}
           File 20: ${FILE20_SHA}
           File 23: ${FILE23_SHA}
           File 24: ${FILE24_SHA}
           Current identity/auth boundary: PASS
           Legacy cutover/no-new-owner boundary: PASS
+          File 17 relationship/block runtime boundary: PASS
           Shell five-slot/canonical-owner boundary: PASS
           Dashboard native-owner boundary: PASS
           Security assurance/native-enforcement boundary: PASS
+          File 21 -> File 24 module manifest contract: PASS
           Fifth-review social-publication and Editorial News share hardening: PASS
           Hostinger staging acceptance: NOT CLAIMED
           REPORT
