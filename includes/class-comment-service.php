@@ -68,11 +68,13 @@ final class CommentService {
 			return InteractionResult::error( 'comment_user_unavailable', 'The commenting account is unavailable.', array(), 400 );
 		}
 
+		$public_identity = CanonicalIdentityAdapter::public_projection( $user_id );
+		$comment_author  = ! empty( $public_identity['name'] ) ? sanitize_text_field( (string) $public_identity['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 		$now_local = function_exists( 'current_time' ) ? current_time( 'mysql' ) : gmdate( 'Y-m-d H:i:s' );
 		$now_gmt   = function_exists( 'current_time' ) ? current_time( 'mysql', true ) : gmdate( 'Y-m-d H:i:s' );
 		$data      = array(
 			'comment_post_ID'      => $post_id,
-			'comment_author'       => isset( $user->display_name ) ? sanitize_text_field( $user->display_name ) : 'Sabri member',
+			'comment_author'       => $comment_author,
 			'comment_author_email' => isset( $user->user_email ) && function_exists( 'sanitize_email' ) ? sanitize_email( $user->user_email ) : ( isset( $user->user_email ) ? sanitize_text_field( $user->user_email ) : '' ),
 			'comment_author_url'   => '',
 			'comment_content'      => $content,
@@ -300,13 +302,15 @@ final class CommentService {
 		$approved   = self::is_approved( $comment );
 		$depth      = self::depth( $comment_id );
 		$user_id    = (int) $user_id;
+		$public_identity = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		$author_name = ! empty( $public_identity['name'] ) ? sanitize_text_field( (string) $public_identity['name'] ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 
 		return array(
 			'id'          => $comment_id,
 			'post_id'     => isset( $comment->comment_post_ID ) ? (int) $comment->comment_post_ID : 0,
 			'parent_id'   => isset( $comment->comment_parent ) ? (int) $comment->comment_parent : 0,
 			'user_id'     => $author_id,
-			'author_name' => isset( $comment->comment_author ) ? sanitize_text_field( $comment->comment_author ) : 'Sabri member',
+			'author_name' => $author_name,
 			'avatar'      => function_exists( 'get_avatar' ) ? get_avatar( $author_id, 40, '', '', array( 'class' => 'sabri-hnf-comment__avatar-image' ) ) : '',
 			'content'     => $deleted ? __( 'Comment removed.', 'sabri-complete-home-news-feed' ) : ( isset( $comment->comment_content ) ? sanitize_textarea_field( $comment->comment_content ) : '' ),
 			'date_gmt'    => isset( $comment->comment_date_gmt ) ? sanitize_text_field( $comment->comment_date_gmt ) : '',
