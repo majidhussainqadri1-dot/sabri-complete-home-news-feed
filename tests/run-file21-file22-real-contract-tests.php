@@ -7,7 +7,7 @@ namespace {
 	$file22_root = getenv( 'FILE22_ROOT' );
 	if ( ! is_string( $file22_root ) || '' === $file22_root ) { fwrite( STDERR, "FILE22_ROOT is required.\n" ); exit( 1 ); }
 	$file22_root = rtrim( $file22_root, '/\\' );
-	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
+	foreach ( array( 'includes/contracts/interface-adapter.php', 'includes/contracts/interface-diagnostic-adapter.php', 'includes/contracts/interface-workflow-adapter.php', 'includes/contracts/interface-governed-workflow-adapter.php', 'includes/contracts/interface-lifecycle-adapter.php', 'includes/core/class-workflow-coordinator.php' ) as $relative ) {
 		if ( ! is_file( $file22_root . '/' . $relative ) ) { fwrite( STDERR, 'Missing File 22 source: ' . $relative . PHP_EOL ); exit( 1 ); }
 	}
 
@@ -15,6 +15,8 @@ namespace {
 	define( 'SABRI_HNF_VERSION', '1.0.3' );
 	define( 'SABRI_HNF_SLUG', 'sabri-complete-home-news-feed' );
 	define( 'SUPC_WORKFLOW_API_VERSION', '1.0.0' );
+	define( 'SUPC_GOVERNANCE_API_VERSION', '1.0.0' );
+	define( 'SUPC_LIFECYCLE_API_VERSION', '1.0.0' );
 	define( 'AUTH_SALT', 'real-contract-test-salt' );
 	$GLOBALS['real_options'] = array(); $GLOBALS['real_posts'] = array(); $GLOBALS['real_meta'] = array(); $GLOBALS['real_next_id'] = 400; $GLOBALS['real_current_user'] = 1;
 
@@ -62,13 +64,13 @@ namespace Sabri\UniversalComposer\Core {
 }
 
 namespace Sabri\HomeNewsFeed {
-	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
+	final class UniversalComposerBridge { public const ADAPTER_API_VERSION = '1.0.0'; public const WORKFLOW_API_VERSION = '1.0.0'; public const GOVERNANCE_API_VERSION = '1.0.0'; public const LIFECYCLE_API_VERSION = '1.0.0'; public const ADAPTER_KEY = 'social_publication'; }
 	final class Settings { public static function get(): array { return array( 'composer' => array( 'public_composer_enabled' => 1, 'drafts_enabled' => 1, 'previews_enabled' => 1, 'scheduling_enabled' => 1, 'allowed_feed_types' => array( 'standard-post', 'founder-update' ) ) ); } }
 	final class SafeMode { public static function feature_enabled( string $feature ): bool { return 'composer' === $feature; } }
 	final class PublicComposerSurface {}
 	final class CanonicalIdentityAdapter { public static function current_action_ready( int $id = 0 ): bool { return in_array( $id, array( 1, 2, 99 ), true ); } public static function is_founder( int $id ): bool { return 1 === $id; } public static function is_administrator( int $id ): bool { return 99 === $id; } }
 	final class FeedContext { public static function allowed_composer_visibility( ?array $settings = null, bool $private = true ): array { unset( $settings ); return $private ? array( 'public', 'private' ) : array( 'public' ); } }
-	final class ComposerPermissions { public static function user_can_create( int $id, ?array $settings = null ): bool { unset( $settings ); return $id > 0; } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return (int) ( $GLOBALS['real_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
+	final class ComposerPermissions { public static function user_can_publish( int $id, ?array $settings = null ): bool { unset( $settings ); return in_array( $id, array( 1, 99 ), true ); } public static function user_can_moderate(): bool { return 99 === (int) $GLOBALS['real_current_user']; } public static function user_can_create( int $id, ?array $settings = null ): bool { unset( $settings ); return $id > 0; } public static function user_can_edit_post( int $post_id, int $user_id = 0 ): bool { return (int) ( $GLOBALS['real_posts'][ $post_id ]['author'] ?? 0 ) === $user_id; } }
 	final class ComposerValidation { public static function validate( array $input, int $user_id = 0, ?array $settings = null ): array { unset( $user_id, $settings ); $valid = '' !== trim( (string) ( $input['content'] ?? '' ) ); return array( 'valid' => $valid, 'errors' => $valid ? array() : array( array( 'code' => 'content_required' ) ), 'data' => $input ); } }
 	final class Composer { public static function create_or_update_from_request( array $input, array $files = array(), int $user_id = 0 ): array { unset( $files ); $id = (int) ( $input['post_id'] ?? 0 ); if ( $id <= 0 ) { $id = ++$GLOBALS['real_next_id']; } $action = (string) ( $input['composer_action'] ?? 'submit' ); $status = array( 'draft' => 'draft', 'submit' => 'pending', 'publish' => 'publish', 'schedule' => 'future' )[ $action ] ?? 'pending'; $GLOBALS['real_posts'][ $id ] = array( 'type' => 'post', 'status' => $status, 'author' => $user_id, 'visibility' => (string) ( $input['visibility'] ?? 'public' ), 'url' => 'https://example.test/post/' . $id . '/' ); return array( 'ok' => true, 'post_id' => $id, 'status' => $status ); } }
 	final class PostMetadata { public static function user_can_view( int $post_id, int $user_id = 0 ): bool { $post = $GLOBALS['real_posts'][ $post_id ] ?? array(); return 'publish' === ( $post['status'] ?? '' ) && ( 'private' !== ( $post['visibility'] ?? 'public' ) || (int) ( $post['author'] ?? 0 ) === $user_id ); } }
@@ -78,6 +80,8 @@ namespace {
 	require_once $file22_root . '/includes/contracts/interface-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-diagnostic-adapter.php';
 	require_once $file22_root . '/includes/contracts/interface-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-governed-workflow-adapter.php';
+	require_once $file22_root . '/includes/contracts/interface-lifecycle-adapter.php';
 	require_once $file22_root . '/includes/core/class-workflow-coordinator.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-store.php';
 	require_once dirname( __DIR__ ) . '/includes/class-universal-composer-workflow-adapter.php';
@@ -89,6 +93,10 @@ namespace {
 	$failures = array();
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
 
+	$assert( $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter, 'Current File 21 adapter does not implement the exact File 22 lifecycle contract.' );
+	$assert( 'sabri_feed_create_posts' === $adapter->required_capability(), 'Current File 21 adapter does not expose the exact File 21 create capability.' );
+	$governance = $adapter->governance_profile();
+	$assert( in_array( 'corrections', $governance['authoring_features'] ?? array(), true ) && in_array( 'patient_case_safety', $governance['authoring_features'] ?? array(), true ), 'Current File 21 governance profile is incomplete.' );
 	$health = $coordinator->contract_health( 'social_publication' );
 	$assert( 'pass' === ( $health['status'] ?? '' ) && 'yes' === ( $health['subject_schema_extension'] ?? '' ), 'Static File 21 schema contract was not role-neutral and subject-aware.' );
 	$GLOBALS['real_current_user'] = 2;
