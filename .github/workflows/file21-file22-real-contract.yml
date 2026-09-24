@@ -20,7 +20,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a
+  FILE22_RUNTIME_SHA: 4182b8a43c9a37d5c7406f3e64ecfd64c7f68b9f
 
 concurrency:
   group: file21-file22-real-${{ github.event.pull_request.number || github.ref }}
@@ -57,6 +57,8 @@ jobs:
           php -l file22/includes/core/class-version.php
           php -l file22/includes/core/class-contract-boundary.php
           php -l file22/includes/core/class-workflow-validator.php
+          php -l file22/includes/contracts/interface-governed-workflow-adapter.php
+          php -l file22/includes/contracts/interface-lifecycle-adapter.php
           php -l file22/includes/core/class-workflow-coordinator.php
           php -l file21/includes/class-universal-composer-workflow-store.php
           php -l file21/includes/class-universal-composer-workflow-maintenance.php
@@ -64,6 +66,11 @@ jobs:
           php -l file21/includes/class-universal-composer-workflow-adapter.php
           php -l file21/includes/class-universal-composer-publication-adapter.php
           php -l file21/includes/class-universal-composer-subject-schema-adapter.php
+          php -l file21/includes/class-universal-composer-structured-workflow-adapter.php
+          php -l file21/includes/class-universal-composer-clinical-case-adapter.php
+          php -l file21/includes/class-universal-composer-research-adapter.php
+          php -l file21/includes/class-universal-composer-poll-adapter.php
+          php -l file21/tests/run-file21-file22-structured-gateway-tests.php
           php -l file21/tests/run-file21-file22-real-contract-tests.php
           php -l file21/tests/run-file21-file22-maintenance-tests.php
           php -l file21/tests/run-file21-file22-lock-maintenance-tests.php
@@ -91,6 +98,7 @@ jobs:
         run: |
           set -euo pipefail
           FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-file22-founder-gateway-regression.php
+          php file21/tests/run-file21-file22-structured-gateway-tests.php
           FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
 
       - name: Run bounded retention and maintenance tests
