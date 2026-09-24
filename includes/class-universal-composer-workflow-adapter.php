@@ -633,7 +633,10 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 		if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error( 'permission_denied' );
 		}
-		$status = function_exists( 'get_post_status' ) ? UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) ) : '';
+		$lifecycle_state = $this->lifecycle_state( $post_id );
+		$status = in_array( $lifecycle_state, array( 'withdrawn', 'archived' ), true )
+			? $lifecycle_state
+			: ( function_exists( 'get_post_status' ) ? UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) ) : '' );
 		return '' !== $status ? $this->status_envelope( $post_id, $status, $user_id ) : $this->error( 'not_found' );
 	}
 
@@ -642,7 +645,7 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Governed_Wor
 		if ( ! $this->can_create( $user_id ) || $post_id <= 0 || ! $this->is_native_post( $post_id ) ) {
 			return '';
 		}
-		if ( 'publish' !== (string) get_post_status( $post_id ) || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
+		if ( '' !== $this->lifecycle_state( $post_id ) || 'publish' !== (string) get_post_status( $post_id ) || ! PostMetadata::user_can_view( $post_id, $user_id ) ) {
 			return '';
 		}
 		return function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
