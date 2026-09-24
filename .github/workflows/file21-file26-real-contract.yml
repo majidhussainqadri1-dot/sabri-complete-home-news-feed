@@ -90,7 +90,7 @@ jobs:
           grep -Fq "'slug' => self::FILE26_CONNECTOR_SLUG" "$registry"
           grep -Fq "'owner_file' => '21'" "$registry"
           grep -Fq "'contract_version' => self::FILE26_CONTRACT_VERSION" "$registry"
-          grep -Fq "'entity_types' => array( 'post', 'news' )" "$registry"
+          grep -Fq "'entity_types' => array( 'post', 'news', 'article' )" "$registry"
           grep -Fq "'privacy_classes' => array( 'public' )" "$registry"
           grep -Fq "'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' )" "$registry"
           grep -Fq "'deletion_semantics' => 'tombstone'" "$registry"
