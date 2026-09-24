@@ -58,6 +58,8 @@ jobs:
           php -l file22/includes/core/class-contract-boundary.php
           php -l file22/includes/core/class-workflow-validator.php
           php -l file22/includes/core/class-workflow-coordinator.php
+          php -l file22/includes/core/class-taxonomy-map.php
+          php -l file22/includes/core/class-policy-engine.php
           php -l file22/includes/core/class-governing-plan-runtime.php
           php -l file22/includes/contracts/interface-governed-workflow-adapter.php
           php -l file22/includes/contracts/interface-lifecycle-adapter.php
