@@ -20,6 +20,8 @@ final class UniversalComposerBridge {
 	const ADAPTER_API_VERSION            = '1.0.0';
 	const WORKFLOW_API_VERSION           = '1.0.0';
 	const SUBJECT_SCHEMA_API_VERSION     = '1.0.0';
+	const GOVERNANCE_API_VERSION         = '1.0.0';
+	const LIFECYCLE_API_VERSION          = '1.0.0';
 	const PUBLIC_API_VERSION             = '1.0.0';
 	const PUBLIC_API_OWNER               = 'sabri-universal-post-composer';
 	const ADAPTER_KEY                    = 'social_publication';
@@ -134,6 +136,10 @@ final class UniversalComposerBridge {
 			&& self::WORKFLOW_API_VERSION === (string) SUPC_WORKFLOW_API_VERSION
 			&& defined( 'SUPC_SUBJECT_SCHEMA_API_VERSION' )
 			&& self::SUBJECT_SCHEMA_API_VERSION === (string) SUPC_SUBJECT_SCHEMA_API_VERSION
+			&& defined( 'SUPC_GOVERNANCE_API_VERSION' )
+			&& self::GOVERNANCE_API_VERSION === (string) SUPC_GOVERNANCE_API_VERSION
+			&& defined( 'SUPC_LIFECYCLE_API_VERSION' )
+			&& self::LIFECYCLE_API_VERSION === (string) SUPC_LIFECYCLE_API_VERSION
 			&& defined( 'SUPC_PUBLIC_API_VERSION' )
 			&& self::PUBLIC_API_VERSION === (string) SUPC_PUBLIC_API_VERSION
 			&& defined( 'SUPC_PUBLIC_API_OWNER' )
@@ -144,6 +150,8 @@ final class UniversalComposerBridge {
 			&& function_exists( 'supc_adapter_matches' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Adapter' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Workflow_Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Governed_Workflow_Adapter' )
+			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Lifecycle_Adapter' )
 			&& interface_exists( '\\Sabri\\UniversalComposer\\Contracts\\Diagnostic_Adapter' );
 	}
 
