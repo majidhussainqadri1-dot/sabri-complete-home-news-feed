@@ -157,6 +157,12 @@ final class NextGenerationFeed {
 		return $required;
 	}
 
+	/** Whether the current user explicitly requested media-transfer suppression. */
+	public static function media_transfer_suppressed( $user_id = 0 ) {
+		$state = self::user_state( $user_id );
+		return ! empty( $state['low_bandwidth'] ) || ! empty( $state['data_saver'] );
+	}
+
 	/** Add explicit data-saving state classes; never infer these preferences. */
 	public static function body_classes( $classes ) {
 		$classes = is_array( $classes ) ? $classes : array();
