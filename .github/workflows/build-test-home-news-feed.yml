@@ -70,6 +70,7 @@ jobs:
             tests/run-file21-file22-founder-gateway-regression.php
             tests/run-file21-file23-provider-integration-tests.php
             tests/run-file21-file26-connector-contract-tests.php
+            tests/run-file21-file03-profile-timeline-contract.php
             tests/run-file21-four-plan-final-completion-tests.php
             tests/run-file21-four-plan-audit-1.0.5.php
             tests/run-file21-next-generation-30-tests.php
