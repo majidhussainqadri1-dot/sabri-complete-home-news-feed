@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 final class UniversalComposerResearchAdapter extends UniversalComposerStructuredWorkflowAdapter {
-	protected function adapter_key(): string { return 'research_publication'; }
+	protected function adapter_key(): string { return 'research'; }
 	protected function feed_type(): string { return 'research'; }
 	protected function display_label(): string { return __( 'Research Publication', 'sabri-complete-home-news-feed' ); }
 	protected function display_description(): string { return __( 'Create a structured research publication with evidence and source fields in File 21.', 'sabri-complete-home-news-feed' ); }
@@ -31,9 +31,14 @@ final class UniversalComposerResearchAdapter extends UniversalComposerStructured
 		}
 		$fields = array(
 			'research_evidence_level' => array( 'type' => 'select', 'label_code' => 'research_evidence_level', 'required' => true, 'privacy_class' => 'public', 'choices' => $choices ),
+			'references' => array( 'type' => 'textarea', 'label_code' => 'medical_references', 'required' => true, 'privacy_class' => 'public' ),
+			'medical_safety_acknowledged' => array( 'type' => 'checkbox', 'label_code' => 'medical_safety_acknowledged', 'required' => true, 'privacy_class' => 'private' ),
 		);
 		foreach ( ComposerValidation::research_fields() as $key => $label ) {
 			unset( $label );
+			if ( 'references' === $key ) {
+				continue;
+			}
 			$fields['research_' . $key] = array(
 				'type' => 'textarea',
 				'label_code' => 'research_' . sanitize_key( (string) $key ),
@@ -51,6 +56,10 @@ final class UniversalComposerResearchAdapter extends UniversalComposerStructured
 		unset( $payload['research_evidence_level'] );
 		foreach ( ComposerValidation::research_fields() as $key => $label ) {
 			unset( $label );
+			if ( 'references' === $key ) {
+				$research['references'] = isset( $payload['references'] ) && is_scalar( $payload['references'] ) ? (string) $payload['references'] : '';
+				continue;
+			}
 			$field = 'research_' . $key;
 			$research[ $key ] = isset( $payload[ $field ] ) && is_scalar( $payload[ $field ] ) ? (string) $payload[ $field ] : '';
 			unset( $payload[ $field ] );
