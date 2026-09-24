@@ -1,3 +1,12 @@
+## 1.0.6 — File 04 Migration and Cross-Repository Contract Parity — 2026-09-24
+
+- Added canonical File 21 providers for File 04 media/reference preflight and post-migration verification.
+- Consumed File 04's File 00-bound author UUID/placeholder context and persisted migration evidence on the canonical target.
+- Stopped File 21 from resurrecting retired File 00 MFA when the current File 00 contract explicitly reports `mfa_required=false`.
+- Aligned the File 21 search connector with File 26's current owner contract: owner `File 21`, entity types `post/news/article`, governed lifecycle remains proposed until File 26 promotes it.
+- Advanced package identity to `1.0.6` and runtime/API to `1.0.4`; schema remains `1.0.0`.
+- Hostinger staging, live deployment and operational acceptance remain separate gates.
+
 # Changelog
 
 ## 1.0.5 NG30 Amendment — Next-Generation Home and News Feed: 30 Founder-Approved Features — 2026-08-08

@@ -66,16 +66,28 @@ final class CanonicalIdentityAdapter {
 		return self::assertions_are_active( self::membership_assertions( $user_id ) );
 	}
 
-	/** Whether the current actor has a fresh File 00 action assurance. */
+	/** Whether the current actor has current File 00 membership assurance.
+	 *
+	 * File 00 retired MFA by Founder change-control. When its current contract
+	 * explicitly says MFA is not required, File 21 must not resurrect the
+	 * retired factor by demanding legacy two_factor_ready/session_two_factor
+	 * flags. If a future File 00 contract marks MFA required again, both legacy
+	 * assurance flags remain mandatory until a newer authentication-owner
+	 * contract is adopted here.
+	 */
 	public static function current_action_ready( $user_id ) {
 		$user_id = self::positive_id( $user_id );
 		if ( $user_id <= 0 || ! function_exists( 'get_current_user_id' ) || (int) get_current_user_id() !== $user_id ) {
 			return false;
 		}
 		$assertions = self::membership_assertions( $user_id );
-		return self::assertions_are_active( $assertions )
-			&& ! empty( $assertions['two_factor_ready'] )
-			&& ! empty( $assertions['session_two_factor'] );
+		if ( ! self::assertions_are_active( $assertions ) ) {
+			return false;
+		}
+		if ( empty( $assertions['mfa_required'] ) ) {
+			return true;
+		}
+		return ! empty( $assertions['two_factor_ready'] ) && ! empty( $assertions['session_two_factor'] );
 	}
 
 	public static function is_founder( $user_id ) {

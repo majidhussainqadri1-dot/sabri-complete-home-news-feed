@@ -4,7 +4,7 @@ Tags: home feed, editorial news, profile timeline, moderation, homeopathy
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 8.1
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 Text Domain: sabri-complete-home-news-feed
 
@@ -12,7 +12,7 @@ Canonical public Home, social Feed, Editorial News, publication lifecycle, safet
 
 == Description ==
 
-Package 1.0.5 is the current governed File 21 release line. The Founder-approved next-generation 30-feature amendment is implemented at the current exact head while stable File 21 runtime/API remains 1.0.3 and database schema remains 1.0.0; no database migration is introduced.
+Package 1.0.6 is the current governed File 21 release line. It preserves the Founder-approved next-generation 30-feature amendment and adds exact File 04 authorship/media migration contracts plus current File 26 owner-connector parity. File 21 runtime/API is 1.0.4 and database schema remains 1.0.0; no database migration is introduced.
 
 File 21 remains the canonical owner of Home, social posts, Editorial News, publication lifecycle and native interactions. File 20 owns the application shell, File 22 the role-aware creation facade, File 23 the publishing workspace/dashboard, File 25 the global visual system and File 26 the canonical federated Search/Discovery/Recommendations/Ranking layer. File 16 remains the AI owner and File 19 remains the notification/digest-delivery owner.
 
@@ -32,7 +32,7 @@ The next-generation 30-feature amendment adds:
 * A public 30-feature manifest and bounded REST contracts for user-owned preferences and approved post context.
 * The established fourteen canonical Home controls remain frozen; next-generation controls are supplemental and do not create a second Shell or navigation system.
 
-Package 1.0.5 also preserves the completed four-plan/current-wave reconciliation:
+Package 1.0.6 also preserves the completed four-plan/current-wave reconciliation:
 
 * Preserves exactly fourteen canonical Home controls while Following remains an auxiliary user-choice Feed mode.
 * Adds Following / Latest / For You choices, “Why am I seeing this?”, reduced personalization, Not interested, bounded author/topic snoozes, topic reduction and one-action Feed preference reset.
@@ -56,8 +56,8 @@ Editorial News gates remain disabled until an authorized administrator completes
 == Installation ==
 
 1. Take a verified files-and-database backup.
-2. Install the exact package 1.0.5 candidate on Hostinger staging first.
-3. Confirm that WordPress displays Version 1.0.5, stable runtime/API 1.0.3 and schema 1.0.0.
+2. Install the exact package 1.0.6 candidate on Hostinger staging first.
+3. Confirm that WordPress displays Version 1.0.6, runtime/API 1.0.4 and schema 1.0.0.
 4. If Safe Boot is recorded, select Retry Safe Boot after replacement.
 5. Visit one WordPress administration page so bounded File 21 capability reconciliation runs.
 6. Confirm System Check, duplicate-copy status, File 20 native-slot status, authenticated REST status/schema routes, File 22 workflow health, File 23 provider health and File 26 connector registration.
@@ -74,6 +74,14 @@ Public GET requests do not perform recovery migrations or post-meta normalizatio
 Donation/payment status does not create an undisclosed organic ranking advantage or reduce core access. File 21 does not create a second global Search/Ranking backend, AI engine, notification transport, Shell, Composer, Publishing Dashboard or visual design system.
 
 == Changelog ==
+
+= 1.0.6 =
+* Added canonical File 04 media preflight and post-migration verification contracts.
+* File 04 author identity context is now consumed by File 21; governed File 00 UUID/placeholder evidence determines the migrated post author instead of blindly copying a legacy author ID.
+* Honored File 00's current mfa_required=false assertion instead of resurrecting retired File 00 MFA.
+* Aligned the File 21 -> File 26 owner connector with the current File 21 owner identity and post/news/article contract.
+* Package 1.0.6, runtime/API 1.0.4, schema 1.0.0. Staging/live/operational acceptance remain separate.
+
 
 = 1.0.5 =
 * Added all 30 Founder-approved next-generation File 21 Home and News Feed features at the current exact head while preserving package 1.0.5, stable runtime/API 1.0.3 and schema 1.0.0.

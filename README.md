@@ -1,7 +1,7 @@
 # Sabri Complete Home and News Feed
 
 Package Version: 1.0.4  
-Stable Runtime/API: 1.0.3  
+Stable Runtime/API: 1.0.4  
 Schema: 1.0.0
 
 Plugin slug: `sabri-complete-home-news-feed`
@@ -9,6 +9,10 @@ Plugin slug: `sabri-complete-home-news-feed`
 Text domain: `sabri-complete-home-news-feed`
 
 Sabri Complete Home and News Feed is the canonical public Home, social Feed, Editorial News, Newsroom, publication lifecycle, interaction, migration, diagnostics and distribution module for the Sabri Social Homeopathy Platform. File 20 remains the application-shell owner, File 22 the role-aware creation facade, File 23 the publishing workspace/dashboard, File 25 the global visual-system owner, and File 26 the canonical federated Search/Discovery/Recommendations/Ranking owner.
+
+## Current package 1.0.6 — File 04 migration parity
+
+Package 1.0.6 adds the governed File 04 migration boundary: File 00-bound authorship context is consumed by File 21, media/reference preflight and post-migration verification are canonical File 21 contracts, and the File 21 source connector matches File 26's current owner registry. File 00's explicit MFA-retirement assertion is respected. Database schema remains 1.0.0; staging/live/operational acceptance remain separate.
 
 ## Governing-plan reconciliation in package 1.0.4
 

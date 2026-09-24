@@ -1,5 +1,5 @@
 <?php
-/** File 21 1.0.5 four-plan current-wave completion audit. */
+/** File 21 1.0.6 four-plan current-wave completion audit (historical filename retained). */
 
 $root = getenv( 'FILE21_ROOT' );
 $root = $root ? rtrim( $root, '/\\' ) : dirname( __DIR__ );
@@ -30,9 +30,9 @@ foreach ( array(
 
 $bootstrap = $read( 'sabri-complete-home-news-feed.php' );
 foreach ( array(
-	'* Version: 1.0.5',
-	"define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.5' );",
-	"define( 'SABRI_HNF_VERSION', '1.0.3' );",
+	'* Version: 1.0.6',
+	"define( 'SABRI_HNF_PACKAGE_VERSION', '1.0.6' );",
+	"define( 'SABRI_HNF_VERSION', '1.0.4' );",
 	"define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' );",
 ) as $needle ) {
 	$assert( false !== strpos( $bootstrap, $needle ), 'Release identity mismatch: ' . $needle );
@@ -140,6 +140,8 @@ foreach ( array( 'FILE26_CONNECTOR_SLUG', "'status' => 'proposed'", "'global_sea
 	$assert( false !== strpos( $search, $needle ), 'File 26 canonical search/ranking boundary missing: ' . $needle );
 }
 $assert( false === strpos( $search, "'status' => 'active'" ), 'File 21 must not self-activate its File 26 connector.' );
+$assert( false !== strpos( $search, "'owner_file' => 'File 21'" ), 'File 26 connector owner identity must match the canonical owner registry.' );
+$assert( false !== strpos( $search, "'entity_types' => array( 'post', 'news', 'article' )" ), 'File 26 connector must satisfy the current post/news/article owner contract.' );
 
 $file23 = $read( 'includes/class-file23-publishing-dashboard-bridge.php' );
 $assert( false !== strpos( $file23, 'spdb/register_adapters' ), 'File 23 provider registration contract regressed.' );
@@ -149,8 +151,8 @@ $assert( false !== strpos( $file23_runtime, 'file21_spdb_write_not_accepted' ), 
 
 $build = $read( 'tools/build-release.py' );
 foreach ( array(
-	'PACKAGE_VERSION = "1.0.5"',
-	'RUNTIME_VERSION = "1.0.3"',
+	'PACKAGE_VERSION = "1.0.6"',
+	'RUNTIME_VERSION = "1.0.4"',
 	'Founder-approved File 21 next-generation 30-feature expansion: implemented',
 	'File 26 Why Trending/related-knowledge integration: versioned adapter; File 26 remains global owner',
 	'Hostinger staging accepted: NO',
@@ -166,4 +168,4 @@ if ( $failures ) {
 	exit( 1 );
 }
 
-echo "File 21 1.0.5 four-plan current-wave audit contracts passed with Founder-approved NG30 amendment.\n";
+echo "File 21 1.0.6 four-plan current-wave audit contracts passed with File 04 cross-repository parity.\n";
