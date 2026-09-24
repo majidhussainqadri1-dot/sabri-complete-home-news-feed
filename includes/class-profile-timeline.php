@@ -13,8 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /** Supplies bounded author timelines without owning the final File 22 design. */
 final class ProfileTimeline {
-	const MAX_PER_PAGE = 20;
-	const MAX_SCAN     = 500;
+	const MAX_PER_PAGE              = 20;
+	const MAX_SCAN                  = 500;
+	const FILE03_PROVIDER_MAX       = 250;
+	const FILE03_PROVIDER_CONTRACT  = '1.0.0';
 
 	/** Register the profile hook and compatibility bridge. */
 	public static function register() {
@@ -23,6 +25,10 @@ final class ProfileTimeline {
 		}
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'do_shortcode_tag', array( __CLASS__, 'append_to_profile_shortcode' ), 20, 4 );
+			// Exact File 03 consumer contract. File 21 remains the publication owner;
+			// this adapter exposes only viewer-authorized, public-safe projection data.
+			add_filter( 'sabri_file21_profile_timeline_provider_health_v1', array( __CLASS__, 'file03_provider_health' ), 10, 3 );
+			add_filter( 'sabri_file21_profile_timeline_items_v1', array( __CLASS__, 'file03_provider_items' ), 10, 3 );
 		}
 	}
 
@@ -109,6 +115,104 @@ final class ProfileTimeline {
 			'scan_limit'        => self::MAX_SCAN,
 			'items'             => $items,
 		);
+	}
+
+
+	/** File 03 provider health claim with bounded freshness. */
+	public static function file03_provider_health( $claim = null, $user_id = 0, $consumer_contract = '' ) {
+		unset( $claim, $consumer_contract );
+		$user_id   = absint( $user_id );
+		$available = $user_id > 0 && CorrectivePublicSettings::enabled( 'profile_timeline_enabled' ) && ! SafeMode::public_features_disabled();
+		$now       = time();
+		return array(
+			'contract_version' => self::FILE03_PROVIDER_CONTRACT,
+			'owner'            => 'file21',
+			'user_id'          => $user_id,
+			'status'           => $available ? 'available' : 'unavailable',
+			'generated_at'     => gmdate( 'c', $now ),
+			'valid_until'      => gmdate( 'c', $now + 300 ),
+		);
+	}
+
+	/**
+	 * Exact File 03 timeline projection.
+	 *
+	 * The projection never exposes File 21 private metadata and never lets an
+	 * extension filter widen author, publication-state, or viewer authorization.
+	 */
+	public static function file03_provider_items( $items, $user_id, $args = array() ) {
+		unset( $items );
+		$user_id = absint( $user_id );
+		$args    = is_array( $args ) ? $args : array();
+		$viewer  = absint( $args['viewer_id'] ?? 0 );
+		$limit   = max( 1, min( self::FILE03_PROVIDER_MAX, absint( $args['limit'] ?? 20 ) ) );
+		if ( $user_id <= 0 || ! CorrectivePublicSettings::enabled( 'profile_timeline_enabled' ) || SafeMode::public_features_disabled() ) {
+			return array();
+		}
+
+		$query_args = array(
+			'post_type'           => 'post',
+			'post_status'         => array( 'publish' ),
+			'author'              => $user_id,
+			'posts_per_page'      => $limit,
+			'paged'               => 1,
+			'ignore_sticky_posts' => true,
+			'orderby'             => 'date',
+			'order'               => 'DESC',
+			'no_found_rows'       => true,
+			'meta_query'          => array(
+				'relation' => 'AND',
+				PostMetadata::visibility_meta_clause(),
+				PostMetadata::review_state_meta_clause(),
+			),
+		);
+		if ( function_exists( 'apply_filters' ) ) {
+			$query_args = apply_filters( 'sabri_hnf_profile_timeline_query_args', $query_args, $user_id, $viewer );
+		}
+		// Reassert immutable owner/security bounds after extension callbacks.
+		$query_args['post_type']      = 'post';
+		$query_args['post_status']    = array( 'publish' );
+		$query_args['author']         = $user_id;
+		$query_args['posts_per_page'] = $limit;
+		$query_args['paged']          = 1;
+		$query_args['no_found_rows']  = true;
+
+		$candidates = array();
+		if ( class_exists( 'WP_Query' ) ) {
+			$query      = new \WP_Query( $query_args );
+			$candidates = (array) $query->posts;
+		} elseif ( function_exists( 'apply_filters' ) ) {
+			$candidates = apply_filters( 'sabri_hnf_profile_timeline_test_posts', array(), $query_args );
+			$candidates = is_array( $candidates ) ? array_slice( $candidates, 0, $limit ) : array();
+		}
+
+		$output = array();
+		foreach ( array_slice( $candidates, 0, $limit ) as $post ) {
+			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : absint( $post );
+			if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id, $viewer ) ) { continue; }
+			$author_id = function_exists( 'get_post_field' ) ? absint( get_post_field( 'post_author', $post_id ) ) : $user_id;
+			if ( $author_id !== $user_id ) { continue; }
+			$serialized = self::serialize_post( $post, $viewer );
+			if ( empty( $serialized ) || empty( $serialized['url'] ) || empty( $serialized['date_gmt'] ) ) { continue; }
+			$modified = function_exists( 'get_post_modified_time' ) ? absint( get_post_modified_time( 'U', true, $post_id ) ) : 0;
+			$thumb    = function_exists( 'get_the_post_thumbnail_url' ) ? (string) get_the_post_thumbnail_url( $post_id, 'medium' ) : '';
+			$output[] = array(
+				'author_user_id' => $user_id,
+				'contract_version' => self::FILE03_PROVIDER_CONTRACT,
+				'canonical_id'   => 'file21-post:' . $post_id,
+				'owner_version'   => (string) max( 1, $modified ?: $post_id ),
+				'type'            => PostMetadata::feed_type( $post_id ),
+				'title'           => (string) $serialized['title'],
+				'excerpt'         => (string) $serialized['excerpt'],
+				'url'             => (string) $serialized['url'],
+				'published_at'    => (string) $serialized['date_gmt'],
+				'visibility'      => PostMetadata::visibility( $post_id ),
+				'status'          => 'published',
+				'thumbnail_url'   => $thumb,
+				'correction'      => '',
+			);
+		}
+		return $output;
 	}
 
 	/** Render the basic functional timeline surface. */
