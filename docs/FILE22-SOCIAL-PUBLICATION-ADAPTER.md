@@ -120,7 +120,7 @@ If File 22 or File 20 is absent, incompatible, colliding, disabled, unavailable,
 The dedicated real-contract workflow checks out:
 
 - the exact current File 21 corrective PR head;
-- corrected File 22 runtime `4182b8a43c9a37d5c7406f3e64ecfd64c7f68b9f`.
+- corrected File 22 runtime `e9ecd7be44118afcc5ba4717a678b26e238cc55e`.
 
 It runs File 22's real interfaces and Workflow Coordinator against the File 21 subject-aware adapter and proves:
 
