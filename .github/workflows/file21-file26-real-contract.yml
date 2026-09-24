@@ -79,7 +79,7 @@ jobs:
           grep -Fq "'deletion_semantics'," file26/includes/class-file26-connectors.php
           grep -Fq "'proposed', 'contract_tested', 'shadow', 'approved', 'active'" file26/includes/class-file26-connectors.php
           grep -Fq "array( 'shadow', 'approved', 'active' )" file26/includes/class-file26-connectors.php
-          grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
+          grep -Fq "call_user_func(\$connector['list_batch']" file26/includes/class-file26-indexer.php
           grep -Fq 'Forbidden financial, advertising and favoritism signals are never read.' file26/includes/class-file26-ranking.php
 
       - name: Verify File 21 manifest and local ranking boundary match File 26 contract
