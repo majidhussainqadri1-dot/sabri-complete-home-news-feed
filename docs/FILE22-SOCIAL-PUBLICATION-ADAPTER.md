@@ -16,8 +16,9 @@ File 22 receives only approved metadata, schema declarations, opaque references,
 | Subject Schema API | `1.0.0` |
 | Schema version | `1.0.1` |
 | Minimum File 21 | `1.0.3` |
-| Central capability | `sabri_feed_create_posts` |
-| Contracts | `Workflow_Adapter`, `Diagnostic_Adapter`, subject-aware schema extension |
+| File 22 registry gate | `read` (coarse authenticated gate) |
+| Native File 21 create capability | `sabri_feed_create_posts` |
+| Contracts | `Lifecycle_Adapter` → `Governed_Workflow_Adapter` → `Workflow_Adapter`, plus `Diagnostic_Adapter` and subject-aware schema extension |
 | Group | `publishing` |
 | Priority | `10` |
 | Privacy | `public` |
@@ -26,9 +27,9 @@ File 22 receives only approved metadata, schema declarations, opaque references,
 ## Authorization and availability
 
 1. File 22 binds the request to the authenticated subject.
-2. Membership Core eligibility and `sabri_feed_create_posts` run first.
-3. File 21 native availability is evaluated before adapter-specific authorization.
-4. `ComposerPermissions::user_can_create()` may narrow but never expand permission.
+2. Membership Core eligibility and the coarse authenticated `read` registry gate run first; that gate is intentionally not treated as native publishing authority.
+3. File 21 native availability and `ComposerPermissions::user_can_create()` then make the canonical create decision, including Founder/Administrator and professional-state rules.
+4. The native workflow contract continues to declare `sabri_feed_create_posts` as File 21's exact publishing capability; File 22 does not use a stale role capability to override File 21's canonical identity decision.
 5. Reference operations recheck post type, exact state, ownership/edit authority, or visibility.
 6. Student, patient, suspended, rejected, expired-document, logged-out, Safe Mode, and emergency-disable denials remain controlling.
 
@@ -107,7 +108,7 @@ A canonical URL is returned only for a published native post after File 21 visib
 
 File 21 returns only File 22-approved codes. Raw Composer messages, validation narratives, stack traces, exception classes/messages, option names, raw keys, IDs, references, payloads, content, patient data, and secrets do not cross the boundary.
 
-Health output includes controlled adapter/native identity, versions, capability, privacy, Workflow/schema versions, native-draft support, subject-schema scope, preview-expiry enforcement, recovery readiness, retention, feature settings, native-route availability, and current availability.
+Health output includes controlled adapter/native identity, package/runtime/schema versions, the native workflow capability, privacy, Workflow/Governance/Lifecycle/schema versions, native-draft support, subject-schema scope, preview-expiry enforcement, recovery readiness, retention, feature settings, native-route availability, and current availability.
 
 ## Fail-soft gateway
 
