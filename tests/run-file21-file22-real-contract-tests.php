@@ -57,10 +57,11 @@ namespace Sabri\UniversalComposer\Core {
 	final class Registry {
 		public function __construct( private object $adapter ) {}
 		public function get( string $key ): ?object { return 'social_publication' === $key ? $this->adapter : null; }
-		public function workflow_contract( string $key ): ?array { return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'sabri_feed_create_posts', 'supports_native_drafts' => true, 'subject_schema_extension' => true ) : null; }
+		public function workflow_contract( string $key ): ?array { return 'social_publication' === $key ? array( 'workflow_api_version' => '1.0.0', 'required_capability' => 'read', 'supports_native_drafts' => true, 'subject_schema_extension' => true ) : null; }
 	}
-	final class Permission_Resolver { public function account_is_eligible( int $user_id ): bool { return $user_id > 0; } public function can_use_capability( int $user_id, string $capability ): bool { return $user_id > 0 && 'sabri_feed_create_posts' === $capability; } }
+	final class Permission_Resolver { public function account_is_eligible( int $user_id ): bool { return $user_id > 0; } public function can_use_capability( int $user_id, string $capability ): bool { return $user_id > 0 && 'read' === $capability; } }
 	final class Safe_Mode { public static function disabled(): bool { return false; } }
+	final class Policy_Engine { public function evaluate( int $user_id, string $adapter_key, array $payload, string $phase ) { unset( $user_id, $adapter_key, $payload, $phase ); return array( 'hold_state' => 'clear', 'codes' => array() ); } }
 }
 
 namespace Sabri\HomeNewsFeed {
@@ -94,7 +95,7 @@ namespace {
 	$assert = static function ( bool $condition, string $message ) use ( &$failures ): void { if ( ! $condition ) { $failures[] = $message; } };
 
 	$assert( $adapter instanceof \Sabri\UniversalComposer\Contracts\Lifecycle_Adapter, 'Current File 21 adapter does not implement the exact File 22 lifecycle contract.' );
-	$assert( 'sabri_feed_create_posts' === $adapter->required_capability(), 'Current File 21 adapter does not expose the exact File 21 create capability.' );
+	$assert( 'read' === $adapter->required_capability(), 'Current File 21 adapter does not preserve the coarse File 22 registry gate.' );
 	$governance = $adapter->governance_profile();
 	$assert( in_array( 'corrections', $governance['authoring_features'] ?? array(), true ) && in_array( 'patient_case_safety', $governance['authoring_features'] ?? array(), true ), 'Current File 21 governance profile is incomplete.' );
 	$health = $coordinator->contract_health( 'social_publication' );
