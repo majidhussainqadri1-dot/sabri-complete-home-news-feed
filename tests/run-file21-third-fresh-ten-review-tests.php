@@ -77,7 +77,7 @@ $assert( str_contains( $companions, 'FILE20_SHA: 3e9c65373d88332e050628f27f08010
 $assert( str_contains( $companions, 'five-exact-slots-fallback-suppressed' ), 'File 20 five-slot File 21 boundary is tested' );
 
 // Round 5 — current File 22 replaces the stale compatibility pin.
-$assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' ), 'File 22 exact pin is current' );
+$assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: e9ecd7be44118afcc5ba4717a678b26e238cc55e' ), 'File 22 exact pin is current' );
 $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 'stale File 22 pin is removed' );
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 

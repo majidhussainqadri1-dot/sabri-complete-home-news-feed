@@ -117,7 +117,7 @@ $assert( false === strpos( $file22_bridge, 'get_class( $error )' ), 'Adapter dia
 foreach ( array( 'extends UniversalComposerWorkflowAdapter', 'EXECUTION_LOCK_PREFIX', 'acquire_execution_lock', 'release_execution_lock', 'record_acquired', "'processing' === \$state", 'finally', 'Final submission is idempotent only after File 22 has obtained' ) as $needle ) {
 	$assert( false !== strpos( $file22_legacy, $needle ), 'Concurrency-hardened adapter contract missing: ' . $needle );
 }
-foreach ( array( 'implements Workflow_Adapter, Diagnostic_Adapter', "SCHEMA_VERSION               = '1.0.1'", 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', "return '1.0.3'", "return 'sabri_feed_create_posts'", 'preview_expiry_enforced', 'idempotency_recovery_ready', 'UniversalComposerWorkflowStore::attach_native_marker', 'record_is_expired', "'draft' === (string) get_post_status", 'user_can_publish_institutional_type' ) as $needle ) {
+foreach ( array( 'implements Lifecycle_Adapter, Diagnostic_Adapter', "SCHEMA_VERSION               = '1.0.1'", 'create_draft', 'public function validate', 'public function preview', 'public function submit', 'public function status', 'canonical_url( int $user_id', "return '1.0.3'", "return 'sabri_feed_create_posts'", 'preview_expiry_enforced', 'idempotency_recovery_ready', 'UniversalComposerWorkflowStore::attach_native_marker', 'record_is_expired', "'draft' === (string) get_post_status", 'user_can_publish_institutional_type' ) as $needle ) {
 	$assert( false !== strpos( $file22_adapter, $needle ), 'Corrected File 22 workflow adapter contract missing: ' . $needle );
 }
 foreach ( array( 'PREVIEW_SIGNATURE', 'preview_token_is_valid', 'enforce_preview_token', 'PROCESSING_TTL', 'COMPLETED_TTL', 'RECOVERABLE_TTL', 'attach_native_marker', 'find_native_post', 'check_admin_referer', 'wp_schedule_event', 'manage_options' ) as $needle ) {
@@ -131,9 +131,9 @@ foreach ( array( 'LOCK_PREFIX', 'cleanup_expired', 'expires_at', 'delete_option'
 }
 $assert( false !== strpos( $uninstall, 'sabri_hnf_file22_idem_' ) && false !== strpos( $uninstall, 'sabri_hnf_file22_exec_' ), 'Destructive uninstall does not cover both workflow option prefixes.' );
 $assert( false === strpos( $file22_adapter, 'wp_insert_post' ), 'Adapter must use File 21 Composer rather than duplicate native writes.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'clinical-case'," ), 'Structured Clinical Case must remain native-only.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'research'," ), 'Structured Research must remain native-only.' );
-$assert( false === strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must remain native-only.' );
+$assert( false !== strpos( $file22_adapter, "\n\t\t'clinical-case'," ), 'Structured Clinical Case must be routable through File 22 while File 21 remains native owner.' );
+$assert( false !== strpos( $file22_adapter, "\n\t\t'research'," ), 'Structured Research must be routable through File 22 while File 21 remains native owner.' );
+$assert( false !== strpos( $file22_adapter, "\n\t\t'poll'," ), 'Poll must be routable through File 22 while File 21 remains native owner.' );
 
 $workflow_test = $root . '/tests/run-file21-file22-workflow-adapter-tests.php';
 $assert( is_file( $workflow_test ), 'Corrected File 21/File 22 runtime test is missing.' );

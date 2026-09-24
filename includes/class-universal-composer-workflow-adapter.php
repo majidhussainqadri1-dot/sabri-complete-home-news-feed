@@ -8,7 +8,7 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
-use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * File 22 orchestrates; File 21 remains the sole writer and permanent owner.
  */
-class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_Adapter {
 	private const SCHEMA_VERSION               = '1.0.1';
 	private const IDEMPOTENCY_PATTERN          = '/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i';
 	private const SUPPORTED_PUBLICATION_ACTIONS = array( 'submit', 'publish', 'schedule' );
@@ -40,6 +40,9 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 		'homeopathy-philosophy',
 		'event',
 		'clinic-announcement',
+		'clinical-case',
+		'research',
+		'poll',
 	);
 
 	public function api_version(): string {
@@ -401,7 +404,7 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 		if ( ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
 			return $this->error( 'permission_denied' );
 		}
-		$status = function_exists( 'get_post_status' ) ? UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) ) : '';
+		$status = $this->native_status( $post_id );
 		return '' !== $status ? $this->status_envelope( $post_id, $status, $user_id ) : $this->error( 'not_found' );
 	}
 
@@ -416,7 +419,199 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 		return function_exists( 'get_permalink' ) ? (string) get_permalink( $post_id ) : '';
 	}
 
+
+	public function governance_api_version(): string {
+		return UniversalComposerBridge::GOVERNANCE_API_VERSION;
+	}
+
 	/** @return array<string,mixed> */
+	public function governance_profile(): array {
+		return array(
+			'authoring_features' => array(
+				'rights_license',
+				'accessibility_authoring',
+				'translation',
+				'corrections',
+				'revision_history',
+				'scheduling',
+				'patient_case_safety',
+				'medical_safety',
+				'source_evidence',
+				'preview_matrix',
+				'search_projection',
+				'notification_events',
+			),
+			'media_rules' => 'file21_native_media_policy',
+			'edit_capability' => 'read',
+			'cleanup_policy' => 'reversible_native',
+			'search_indexing_policy' => 'conditional_native',
+			'notification_events' => array(
+				'publication_submitted',
+				'publication_scheduled',
+				'publication_published',
+				'publication_corrected',
+				'publication_withdrawn',
+				'publication_retracted',
+			),
+		);
+	}
+
+	public function lifecycle_api_version(): string {
+		return UniversalComposerBridge::LIFECYCLE_API_VERSION;
+	}
+
+	/** @return array<int,string>|\WP_Error */
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$status       = $this->native_status( $post_id );
+		$can_publish  = method_exists( ComposerPermissions::class, 'user_can_publish' ) && ComposerPermissions::user_can_publish( $user_id, Settings::get() );
+		$can_moderate = method_exists( ComposerPermissions::class, 'user_can_moderate' ) && ComposerPermissions::user_can_moderate();
+		$commands     = array();
+
+		if ( 'draft' === $status ) {
+			$commands = array( 'edit', 'archive' );
+			if ( $can_publish ) {
+				$commands[] = 'schedule';
+			}
+		} elseif ( 'pending_review' === $status ) {
+			$commands = array( 'edit', 'revise', 'withdraw' );
+			if ( $can_moderate ) {
+				$commands[] = 'archive';
+			}
+		} elseif ( 'scheduled' === $status && $can_publish ) {
+			$commands = array( 'edit', 'unschedule', 'archive' );
+		} elseif ( 'published' === $status && ( $can_publish || $can_moderate ) ) {
+			$commands = array( 'edit', 'correct', 'retract', 'archive' );
+		} elseif ( in_array( $status, array( 'hidden', 'archived' ), true ) && ( $can_publish || $can_moderate ) ) {
+			$commands = array( 'restore' );
+		}
+		return array_values( array_unique( $commands ) );
+	}
+
+	/**
+	 * Execute a bounded File 22 lifecycle command without transferring ownership.
+	 *
+	 * @param array<string,mixed> $payload Command payload.
+	 * @return array<string,mixed>|\WP_Error
+	 */
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ) {
+		$post_id = UniversalComposerWorkflowStore::post_id_from_reference( $native_reference );
+		if ( $post_id <= 0 || ! $this->user_can_manage_reference( $user_id, $post_id ) || 1 !== preg_match( self::IDEMPOTENCY_PATTERN, $idempotency_key ) ) {
+			return $this->error( 'permission_denied' );
+		}
+		$allowed = $this->lifecycle_capabilities( $user_id, $native_reference );
+		if ( $allowed instanceof \WP_Error || ! in_array( $command, $allowed, true ) ) {
+			return $this->error( 'permission_denied' );
+		}
+
+		$payload_hash = $this->lifecycle_payload_hash( $payload );
+		$receipt_key = '_sabri_hnf_file22_lifecycle_' . substr( hash( 'sha256', $idempotency_key ), 0, 24 );
+		$existing    = function_exists( 'get_post_meta' ) ? get_post_meta( $post_id, $receipt_key, true ) : array();
+		if ( is_array( $existing ) && ! empty( $existing['command'] ) ) {
+			if ( $command !== (string) $existing['command'] || ! hash_equals( (string) ( $existing['payload_hash'] ?? '' ), $payload_hash ) ) {
+				return $this->error( 'conflict' );
+			}
+			$current = $this->native_status( $post_id );
+			return '' !== $current ? $this->status_envelope( $post_id, $current, $user_id ) : $this->error( 'not_found' );
+		}
+
+		$wp_status = function_exists( 'get_post_status' ) ? (string) get_post_status( $post_id ) : '';
+		$postarr   = array( 'ID' => $post_id );
+		$meta      = array();
+
+		if ( in_array( $command, array( 'edit', 'revise', 'correct' ), true ) ) {
+			if ( isset( $payload['title'] ) && is_scalar( $payload['title'] ) ) {
+				$postarr['post_title'] = function_exists( 'sanitize_text_field' ) ? sanitize_text_field( (string) $payload['title'] ) : trim( strip_tags( (string) $payload['title'] ) );
+			}
+			if ( isset( $payload['content'] ) && is_scalar( $payload['content'] ) ) {
+				$postarr['post_content'] = function_exists( 'wp_kses_post' ) ? wp_kses_post( (string) $payload['content'] ) : strip_tags( (string) $payload['content'], '<p><br><strong><em><b><i><ul><ol><li><a><blockquote><code><pre>' );
+			}
+			if ( 1 === count( $postarr ) ) {
+				return $this->error( 'validation_failed' );
+			}
+			if ( 'correct' === $command ) {
+				$note = isset( $payload['reason'] ) && is_scalar( $payload['reason'] ) ? trim( (string) $payload['reason'] ) : '';
+				if ( '' === $note ) {
+					return $this->error( 'validation_failed' );
+				}
+				$meta['_sabri_hnf_file22_correction_note'] = function_exists( 'sanitize_textarea_field' ) ? sanitize_textarea_field( $note ) : strip_tags( $note );
+				$meta['_sabri_hnf_file22_corrected_at']    = gmdate( 'Y-m-d H:i:s' );
+			}
+		} elseif ( 'withdraw' === $command || 'unschedule' === $command ) {
+			$postarr['post_status'] = 'draft';
+		} elseif ( 'schedule' === $command ) {
+			$date     = isset( $payload['scheduled_date'] ) && is_scalar( $payload['scheduled_date'] ) ? (string) $payload['scheduled_date'] : '';
+			$decision = method_exists( ComposerPermissions::class, 'resolve_status_for_action' ) ? ComposerPermissions::resolve_status_for_action( 'schedule', $user_id, Settings::get(), $date ) : array( 'allowed' => false );
+			if ( empty( $decision['allowed'] ) || 'future' !== (string) ( $decision['status'] ?? '' ) ) {
+				return $this->error( 'permission_denied' );
+			}
+			$postarr['post_status'] = 'future';
+			$postarr['post_date']   = $date;
+		} elseif ( 'archive' === $command ) {
+			$meta['_sabri_hnf_file22_restore_status']     = $wp_status;
+			$meta['_sabri_hnf_file22_publication_state'] = 'archived';
+			$postarr['post_status'] = 'private';
+		} elseif ( 'retract' === $command ) {
+			$reason = isset( $payload['reason'] ) && is_scalar( $payload['reason'] ) ? trim( (string) $payload['reason'] ) : '';
+			if ( '' === $reason ) {
+				return $this->error( 'validation_failed' );
+			}
+			$meta['_sabri_hnf_file22_restore_status']      = $wp_status;
+			$meta['_sabri_hnf_file22_publication_state']  = 'hidden';
+			$meta['_sabri_hnf_file22_retraction_reason']  = function_exists( 'sanitize_textarea_field' ) ? sanitize_textarea_field( $reason ) : strip_tags( $reason );
+			$meta['_sabri_hnf_file22_retracted_at']       = gmdate( 'Y-m-d H:i:s' );
+			$postarr['post_status'] = 'private';
+		} elseif ( 'restore' === $command ) {
+			$restore = function_exists( 'get_post_meta' ) ? sanitize_key( (string) get_post_meta( $post_id, '_sabri_hnf_file22_restore_status', true ) ) : 'draft';
+			if ( ! in_array( $restore, array( 'draft', 'pending', 'publish', 'future' ), true ) ) {
+				$restore = 'draft';
+			}
+			if ( in_array( $restore, array( 'publish', 'future' ), true ) && ! ComposerPermissions::user_can_publish( $user_id, Settings::get() ) ) {
+				$restore = 'draft';
+			}
+			$postarr['post_status'] = $restore;
+		} else {
+			return $this->error( 'validation_failed' );
+		}
+
+		if ( ! function_exists( 'wp_update_post' ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		$result = wp_update_post( $postarr, true );
+		if ( function_exists( 'is_wp_error' ) && is_wp_error( $result ) ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+		if ( (int) $result !== $post_id ) {
+			return $this->error( 'temporarily_unavailable' );
+		}
+
+		foreach ( $meta as $key => $value ) {
+			if ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, $key, $value );
+			}
+		}
+		if ( 'restore' === $command && function_exists( 'delete_post_meta' ) ) {
+			delete_post_meta( $post_id, '_sabri_hnf_file22_publication_state' );
+			delete_post_meta( $post_id, '_sabri_hnf_file22_restore_status' );
+		}
+		if ( function_exists( 'update_post_meta' ) ) {
+			update_post_meta( $post_id, $receipt_key, array( 'command' => $command, 'payload_hash' => $payload_hash, 'created_at' => time() ) );
+		}
+		if ( class_exists( __NAMESPACE__ . '\\FeedQuery' ) && is_callable( array( FeedQuery::class, 'invalidate_cache' ) ) ) {
+			FeedQuery::invalidate_cache();
+		}
+		if ( class_exists( __NAMESPACE__ . '\\AuditLog' ) && is_callable( array( AuditLog::class, 'record' ) ) ) {
+			AuditLog::record( 'file22_lifecycle_' . $command, array(), 'post', $post_id );
+		}
+
+		$status = $this->native_status( $post_id );
+		return '' !== $status ? $this->status_envelope( $post_id, $status, $user_id ) : $this->error( 'temporarily_unavailable' );
+	}
+
+/** @return array<string,mixed> */
 	public function health_report(): array {
 		$settings  = Settings::get();
 		$available = $this->is_available();
@@ -426,6 +621,11 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 			'adapter_key' => $this->key(),
 			'native_module' => $this->native_module(),
 			'actual_native_version' => defined( 'SABRI_HNF_VERSION' ) ? (string) SABRI_HNF_VERSION : '',
+			'native_runtime_version' => defined( 'SABRI_HNF_VERSION' ) ? (string) SABRI_HNF_VERSION : '',
+			'native_package_version' => defined( 'SABRI_HNF_PACKAGE_VERSION' ) ? (string) SABRI_HNF_PACKAGE_VERSION : '',
+			'native_schema_version' => defined( 'SABRI_HNF_SCHEMA_VERSION' ) ? (string) SABRI_HNF_SCHEMA_VERSION : '',
+			'governance_api_version' => $this->governance_api_version(),
+			'lifecycle_api_version' => $this->lifecycle_api_version(),
 			'minimum_native_version' => $this->minimum_native_version(),
 			'required_capability' => $this->required_capability(),
 			'privacy_classification' => $this->privacy_classification(),
@@ -496,8 +696,9 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 			'scheduled_date' => $this->scalar( $payload, 'scheduled_date' ),
 			'attachments' => array(),
 			'gallery' => array(),
-			'clinical_case' => array(),
-			'research' => array(),
+			'clinical_case' => isset( $payload['clinical_case'] ) && is_array( $payload['clinical_case'] ) ? $payload['clinical_case'] : array(),
+			'research' => isset( $payload['research'] ) && is_array( $payload['research'] ) ? $payload['research'] : array(),
+			'poll' => isset( $payload['poll'] ) && is_array( $payload['poll'] ) ? $payload['poll'] : array(),
 		);
 	}
 
@@ -565,7 +766,36 @@ class UniversalComposerWorkflowAdapter implements Workflow_Adapter, Diagnostic_A
 		return $envelope;
 	}
 
-	private function user_can_manage_reference( int $user_id, int $post_id ): bool {
+
+	private function native_status( int $post_id ): string {
+		if ( function_exists( 'get_post_meta' ) ) {
+			$override = sanitize_key( (string) get_post_meta( $post_id, '_sabri_hnf_file22_publication_state', true ) );
+			if ( in_array( $override, array( 'hidden', 'archived' ), true ) ) {
+				return $override;
+			}
+		}
+		return function_exists( 'get_post_status' ) ? UniversalComposerWorkflowStore::normalize_status( (string) get_post_status( $post_id ) ) : '';
+	}
+
+	/** @param array<string,mixed> $payload */
+	private function lifecycle_payload_hash( array $payload ): string {
+		$normalize = static function ( $value ) use ( &$normalize ) {
+			if ( ! is_array( $value ) ) {
+				return $value;
+			}
+			if ( array_keys( $value ) !== range( 0, count( $value ) - 1 ) ) {
+				ksort( $value );
+			}
+			foreach ( $value as $key => $item ) {
+				$value[ $key ] = $normalize( $item );
+			}
+			return $value;
+		};
+		$encoded = function_exists( 'wp_json_encode' ) ? wp_json_encode( $normalize( $payload ) ) : json_encode( $normalize( $payload ) );
+		return is_string( $encoded ) ? hash( 'sha256', $encoded ) : hash( 'sha256', '' );
+	}
+
+private function user_can_manage_reference( int $user_id, int $post_id ): bool {
 		return $this->is_native_post( $post_id ) && ComposerPermissions::user_can_edit_post( $post_id, $user_id );
 	}
 

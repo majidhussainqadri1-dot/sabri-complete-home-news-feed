@@ -40,6 +40,9 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 		'homeopathy-philosophy',
 		'event',
 		'clinic-announcement',
+		'clinical-case',
+		'research',
+		'poll',
 	);
 
 	/**
@@ -275,8 +278,9 @@ final class UniversalComposerPublicationAdapter extends UniversalComposerWorkflo
 			'scheduled_date' => $this->scalar_value( $payload, 'scheduled_date' ),
 			'attachments' => array(),
 			'gallery' => array(),
-			'clinical_case' => array(),
-			'research' => array(),
+			'clinical_case' => isset( $payload['clinical_case'] ) && is_array( $payload['clinical_case'] ) ? $payload['clinical_case'] : array(),
+			'research' => isset( $payload['research'] ) && is_array( $payload['research'] ) ? $payload['research'] : array(),
+			'poll' => isset( $payload['poll'] ) && is_array( $payload['poll'] ) ? $payload['poll'] : array(),
 		);
 	}
 

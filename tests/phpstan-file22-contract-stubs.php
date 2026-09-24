@@ -43,3 +43,16 @@ interface Workflow_Adapter extends Adapter {
 	public function status( int $user_id, string $native_reference );
 	public function canonical_url( int $user_id, string $native_reference ): string;
 }
+
+
+interface Governed_Workflow_Adapter extends Workflow_Adapter {
+	public function governance_api_version(): string;
+	/** @return array<string,mixed> */
+	public function governance_profile(): array;
+}
+
+interface Lifecycle_Adapter extends Governed_Workflow_Adapter {
+	public function lifecycle_api_version(): string;
+	public function lifecycle_capabilities( int $user_id, string $native_reference );
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload );
+}

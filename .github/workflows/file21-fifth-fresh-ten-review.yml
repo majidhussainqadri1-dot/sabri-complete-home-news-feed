@@ -74,7 +74,7 @@ jobs:
           grep -Fq 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' "$companion"
           grep -Fq 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' "$companion"
           grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
-          grep -Fq 'FILE22_RUNTIME_SHA: 1274e380268c2ab235c66fd21906cf4b1bcadf9a' .github/workflows/file21-file22-real-contract.yml
+          grep -Fq 'FILE22_RUNTIME_SHA: e9ecd7be44118afcc5ba4717a678b26e238cc55e' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
 
       - name: Static fifth-review invariants
