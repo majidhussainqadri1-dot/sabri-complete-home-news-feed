@@ -8,6 +8,8 @@
 namespace Sabri\HomeNewsFeed;
 
 use Sabri\UniversalComposer\Contracts\Diagnostic_Adapter;
+use Sabri\UniversalComposer\Contracts\Governed_Workflow_Adapter;
+use Sabri\UniversalComposer\Contracts\Lifecycle_Adapter;
 use Sabri\UniversalComposer\Contracts\Workflow_Adapter;
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -18,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * File 22 health checks consume schema(), which never invokes current-user
  * identity logic. Interactive File 22 requests call schema_for_user().
  */
-final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, Diagnostic_Adapter {
+final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, Governed_Workflow_Adapter, Lifecycle_Adapter, Diagnostic_Adapter {
 	private const INSTITUTIONAL_FEED_TYPES = array( 'founder-update', 'platform-news' );
 	private const SUPPORTED_FEED_TYPES = array(
 		'standard-post', 'founder-update', 'classical-homeopathy', 'homeopathy-education',
@@ -36,6 +38,9 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 
 	public function api_version(): string { return $this->delegate->api_version(); }
 	public function workflow_api_version(): string { return $this->delegate->workflow_api_version(); }
+	public function governance_api_version(): string { return $this->delegate->governance_api_version(); }
+	public function lifecycle_api_version(): string { return $this->delegate->lifecycle_api_version(); }
+	public function governance_profile(): array { return $this->delegate->governance_profile(); }
 	public function schema_version(): string { return $this->delegate->schema_version(); }
 	public function supports_native_drafts(): bool { return $this->delegate->supports_native_drafts(); }
 	public function key(): string { return $this->delegate->key(); }
@@ -77,6 +82,8 @@ final class UniversalComposerSubjectSchemaAdapter implements Workflow_Adapter, D
 	public function submit( int $user_id, string $idempotency_key, array $payload ) { return $this->delegate->submit( $user_id, $idempotency_key, $payload ); }
 	public function status( int $user_id, string $native_reference ) { return $this->delegate->status( $user_id, $native_reference ); }
 	public function canonical_url( int $user_id, string $native_reference ): string { return $this->delegate->canonical_url( $user_id, $native_reference ); }
+	public function lifecycle_capabilities( int $user_id, string $native_reference ) { return $this->delegate->lifecycle_capabilities( $user_id, $native_reference ); }
+	public function execute_lifecycle( int $user_id, string $native_reference, string $command, string $idempotency_key, array $payload ) { return $this->delegate->execute_lifecycle( $user_id, $native_reference, $command, $idempotency_key, $payload ); }
 
 	public function health_report(): array {
 		$health = $this->delegate->health_report();
