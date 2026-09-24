@@ -442,7 +442,7 @@ class UniversalComposerWorkflowAdapter implements Lifecycle_Adapter, Diagnostic_
 				'notification_events',
 			),
 			'media_rules' => 'file21_native_media_policy',
-			'edit_capability' => 'sabri_feed_create_posts',
+			'edit_capability' => 'read',
 			'cleanup_policy' => 'reversible_native',
 			'search_indexing_policy' => 'conditional_native',
 			'notification_events' => array(
