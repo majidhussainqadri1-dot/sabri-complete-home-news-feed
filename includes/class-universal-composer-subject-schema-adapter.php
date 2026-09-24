@@ -46,8 +46,12 @@ final class UniversalComposerSubjectSchemaAdapter implements Lifecycle_Adapter, 
 	public function priority(): int { return $this->delegate->priority(); }
 	public function native_module(): string { return $this->delegate->native_module(); }
 	public function minimum_native_version(): string { return $this->delegate->minimum_native_version(); }
-	/** Exact File 21 creation capability consumed by File 22's central authority gate. */
-	public function required_capability(): string { return $this->delegate->required_capability(); }
+	/**
+	 * File 22 uses only a coarse authenticated capability at registry level.
+	 * Native File 21 can_create()/lifecycle checks remain the final authority,
+	 * so Founder/Administrator policy cannot be preempted by a stale role cap.
+	 */
+	public function required_capability(): string { return 'read'; }
 	public function privacy_classification(): string { return $this->delegate->privacy_classification(); }
 	public function is_available(): bool { return $this->delegate->is_available(); }
 	public function can_create( int $user_id ): bool { return $this->delegate->can_create( $user_id ); }
