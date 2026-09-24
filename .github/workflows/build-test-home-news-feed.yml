@@ -125,6 +125,7 @@ jobs:
             sabri-complete-home-news-feed/includes/class-home-composition-registry.php \
             sabri-complete-home-news-feed/includes/class-integrations.php \
             sabri-complete-home-news-feed/includes/class-search-provider-registry.php \
+            sabri-complete-home-news-feed/includes/class-security-assurance-integration.php \
             sabri-complete-home-news-feed/includes/class-file23-publishing-dashboard-bridge.php \
             sabri-complete-home-news-feed/includes/class-network-relationship-bridge.php \
             sabri-complete-home-news-feed/includes/class-feed-user-agency.php \
