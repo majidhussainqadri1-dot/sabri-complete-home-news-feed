@@ -34,7 +34,7 @@ final class File24AssuranceAdapter {
 			'posture'                => 'accepted',
 			'data_classes'           => array( 'publications', 'editorial_news', 'comments', 'engagement', 'private_user_state' ),
 			'public_routes'          => array( '/', '/news/', '/create-post/' ),
-			'private_routes'         => array( '/wp-admin/admin.php?page=sabri-home-news-feed', '/wp-admin/admin.php?page=sabri-newsroom' ),
+			'private_routes'         => array( '/wp-admin/' ),
 			'capabilities'           => class_exists( __NAMESPACE__ . '\\Capabilities' ) ? Capabilities::capabilities() : array(),
 			'external_vendors'       => array(),
 			'privacy_operations'     => array( 'export', 'erase', 'retention' ),
