@@ -31,5 +31,5 @@ final class Plugin {
 		foreach($modules as$module){if(!SafeBoot::register_module($module)){return;}}
 		if(function_exists('is_admin')&&is_admin()){foreach(array(Admin::class,CorrectiveAdmin::class,ReportAdmin::class,NewsComposerAccessRecovery::class,EditorialNewsPublicationBridge::class,NewsroomAdmin::class,Phase5NewsroomAdmin::class)as$module){if(!SafeBoot::register_module($module)){return;}}}
 	}
-	public static function identity(){return array('name'=>'Sabri Complete Home and News Feed','version'=>SABRI_HNF_VERSION,'slug'=>SABRI_HNF_SLUG,'text_domain'=>SABRI_HNF_TEXT_DOMAIN,'schema_version'=>SABRI_HNF_SCHEMA_VERSION);}
+	public static function identity(){return array('name'=>'Sabri Complete Home and News Feed','version'=>SABRI_HNF_VERSION,'runtime_version'=>SABRI_HNF_VERSION,'package_version'=>defined('SABRI_HNF_PACKAGE_VERSION')?SABRI_HNF_PACKAGE_VERSION:SABRI_HNF_VERSION,'slug'=>SABRI_HNF_SLUG,'text_domain'=>SABRI_HNF_TEXT_DOMAIN,'schema_version'=>SABRI_HNF_SCHEMA_VERSION);}
 }
