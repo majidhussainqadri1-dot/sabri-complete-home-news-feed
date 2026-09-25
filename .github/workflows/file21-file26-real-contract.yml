@@ -23,7 +23,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8
+  FILE26_RUNTIME_SHA: bbea3aad466792a4a6a62b53532bbd45c7c592de
 
 jobs:
   exact-contract:
