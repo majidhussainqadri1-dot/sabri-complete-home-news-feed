@@ -28,7 +28,8 @@ $check( false !== strpos( $files['privacy'], 'NextGenerationFeed::USER_META' ) &
 
 // Round 3: article/News visibility uses the canonical cross-domain gate.
 $check( false === strpos( $files['feed'], 'PostMetadata::user_can_view(' ), 'Round 3: legacy social-only visibility call remains in NG30 runtime.' );
-$check( substr_count( $files['feed'], 'InteractionPermissions::can_view_post(' ) >= 8, 'Round 3: canonical cross-domain visibility not applied comprehensively.' );
+$check( false !== strpos( $files['feed'], 'function strict_public_item' ), 'Round 3: strict-public cross-domain visibility boundary missing.' );
+$check( substr_count( $files['feed'], 'self::strict_public_item(' ) >= 8, 'Round 3: strict-public cross-domain visibility not applied comprehensively.' );
 
 // Round 4: read-heavy public/private REST surfaces have bounded rate gates.
 foreach ( array( 'ng-read-post-context', 'ng-read-compare', 'ng-read-share-card', 'ng-read-stories', 'ng-read-offline-pack', 'ng-read-digest' ) as $bucket ) {
@@ -62,7 +63,7 @@ $check( false !== strpos( $files['feed'], 'assets_required_on_current_request' )
 $check( false !== strpos( $files['hardening'], 'NextGenerationFeed::assets_required_on_current_request()' ), 'Round 6: hardening assets bypass conditional policy.' );
 
 // Round 7: File 25 remains the visual renderer; File 21 remains semantic payload owner.
-$check( false !== strpos( $files['integrations'], 'sabri_file25_shareable_knowledge_card' ), 'Round 7: File 25 visual handoff missing.' );
+$check( false !== strpos( $files['integrations'], 'sabri_visual_experience/content_cards' ) && false !== strpos( $files['integrations'], "'renderer'" ), 'Round 7: current File 25 content-card contract missing.' );
 $check( false !== strpos( $files['feed'], "'file25_rendered'" ), 'Round 7: File 25 render projection not exposed.' );
 
 // Round 8: File 26 remains global discovery owner and File 21 only consumes versioned adapter hooks.
