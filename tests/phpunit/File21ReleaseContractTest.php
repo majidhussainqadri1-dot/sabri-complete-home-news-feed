@@ -73,7 +73,8 @@ final class File21ReleaseContractTest extends TestCase
     {
         $registry = $this->source('includes/class-search-provider-registry.php');
         self::assertStringContainsString("FILE26_CONNECTOR_SLUG = 'file21-publication'", $registry);
-        self::assertStringContainsString("'owner_file' => '21'", $registry);
+        self::assertStringContainsString("'owner_file' => 'File 21'", $registry);
+        self::assertStringContainsString("'entity_types' => array( 'post', 'news', 'article' )", $registry);
         self::assertStringContainsString("'status' => 'proposed'", $registry);
         self::assertStringNotContainsString("'status' => 'active'", $registry);
         self::assertStringContainsString("'global_search_owner' => '26'", $registry);
