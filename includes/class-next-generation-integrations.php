@@ -219,10 +219,49 @@ final class NextGenerationIntegrations {
 	public static function share_card( array $payload ) {
 		$rendered = '';
 		if ( function_exists( 'apply_filters' ) ) {
-			$rendered = apply_filters( 'sabri_file25_shareable_knowledge_card', '', $payload );
-		}
-		if ( ! is_string( $rendered ) ) {
-			return '';
+			$contract = apply_filters( 'sabri_visual_experience/content_cards', array() );
+			if (
+				is_array( $contract )
+				&& ! empty( $contract['contract_version'] )
+				&& version_compare( (string) $contract['contract_version'], '1.2.0', '>=' )
+				&& ! empty( $contract['renderer'] )
+				&& is_callable( $contract['renderer'] )
+				&& empty( $contract['owns_native_data'] )
+			) {
+				$warning = isset( $payload['warning'] ) && is_array( $payload['warning'] ) ? $payload['warning'] : array();
+				$evidence = isset( $payload['evidence'] ) && is_array( $payload['evidence'] ) ? $payload['evidence'] : array();
+				$meta = array();
+				if ( ! empty( $evidence['level'] ) ) {
+					$meta[] = sprintf( __( 'Evidence: %s', 'sabri-complete-home-news-feed' ), self::bounded_text( $evidence['level'], 100 ) );
+				}
+				if ( ! empty( $warning['warn'] ) && ! empty( $warning['message'] ) ) {
+					$meta[] = self::bounded_text( $warning['message'], 140 );
+				}
+				$card = array(
+					'type' => 'article',
+					'title' => self::bounded_text( isset( $payload['title'] ) ? $payload['title'] : '', 240 ),
+					'url' => isset( $payload['url'] ) ? NextGenerationFeed::safe_web_url( $payload['url'] ) : '',
+					'excerpt' => self::bounded_text( isset( $payload['excerpt'] ) ? $payload['excerpt'] : '', 900 ),
+					'eyebrow' => self::bounded_text( isset( $payload['source_label'] ) ? $payload['source_label'] : '', 100 ),
+					'badge' => ! empty( $warning['warn'] ) ? __( 'Sharing warning', 'sabri-complete-home-news-feed' ) : '',
+					'badge_tone' => ! empty( $warning['warn'] ) ? 'warning' : 'neutral',
+					'meta' => array_slice( $meta, 0, 6 ),
+					'action_label' => __( 'Read', 'sabri-complete-home-news-feed' ),
+					'compact' => false,
+				);
+				try {
+					$rendered = (string) call_user_func( $contract['renderer'], $card );
+				} catch ( \Throwable $error ) {
+					unset( $error );
+					$rendered = '';
+				}
+			}
+			// Compatibility for an older File 25 bridge. The current contract above
+			// remains authoritative whenever it is available.
+			if ( '' === $rendered ) {
+				$legacy = apply_filters( 'sabri_file25_shareable_knowledge_card', '', $payload );
+				$rendered = is_string( $legacy ) ? $legacy : '';
+			}
 		}
 		return self::text_slice( $rendered, 20000 );
 	}
