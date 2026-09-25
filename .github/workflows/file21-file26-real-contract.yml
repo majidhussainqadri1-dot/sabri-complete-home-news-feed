@@ -23,7 +23,7 @@ permissions:
 
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8
+  FILE26_RUNTIME_SHA: bbea3aad466792a4a6a62b53532bbd45c7c592de
 
 jobs:
   exact-contract:
@@ -78,7 +78,7 @@ jobs:
           grep -Fq "'visibility_fields'," file26/includes/class-file26-connectors.php
           grep -Fq "'deletion_semantics'," file26/includes/class-file26-connectors.php
           grep -Fq "'proposed', 'contract_tested', 'shadow', 'approved', 'active'" file26/includes/class-file26-connectors.php
-          grep -Fq "array( 'active', 'approved', 'shadow' )" file26/includes/class-file26-connectors.php
+          grep -Fq "array( 'shadow', 'approved', 'active' )" file26/includes/class-file26-connectors.php
           grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
           grep -Fq 'Donation, payment, purchase, advertising spend and Founder favoritism' file26/includes/class-file26-ranking.php
 
@@ -88,9 +88,9 @@ jobs:
           set -euo pipefail
           registry=file21/includes/class-search-provider-registry.php
           grep -Fq "'slug' => self::FILE26_CONNECTOR_SLUG" "$registry"
-          grep -Fq "'owner_file' => '21'" "$registry"
+          grep -Fq "'owner_file' => 'File 21'" "$registry"
           grep -Fq "'contract_version' => self::FILE26_CONTRACT_VERSION" "$registry"
-          grep -Fq "'entity_types' => array( 'post', 'news' )" "$registry"
+          grep -Fq "'entity_types' => array( 'post', 'news', 'article' )" "$registry"
           grep -Fq "'privacy_classes' => array( 'public' )" "$registry"
           grep -Fq "'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' )" "$registry"
           grep -Fq "'deletion_semantics' => 'tombstone'" "$registry"

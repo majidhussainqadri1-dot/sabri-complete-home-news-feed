@@ -60,8 +60,8 @@ $assert( str_contains( $main, "define( 'SABRI_HNF_VERSION', '1.0.3' )" ), 'runti
 $assert( str_contains( $main, "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' )" ), 'schema stays 1.0.0' );
 
 // Round 2 — current File 00 and File 02 exact-head compatibility is permanently pinned.
-$assert( str_contains( $companions, 'FILE00_SHA: 3a84c32a6ddad151f2ed09d244fa8aa536a58108' ), 'current File 00 exact head is pinned' );
-$assert( str_contains( $companions, 'FILE02_SHA: e352aab7e3bd32bbbe82fc26424a3623b9c71a56' ), 'current File 02 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE00_SHA: 2fa7c022ee9cd1b65432e900579512f304532442' ), 'current File 00 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8' ), 'current File 02 exact head is pinned' );
 $assert( str_contains( $companions, 'class-smc-contracts.php' ) && str_contains( $companions, 'class-sa-membership-adapter.php' ), 'identity/auth owner boundary is executable' );
 
 // Round 3 — safe GET digest cannot reach the existing File 19 ingestion callback.
@@ -73,16 +73,16 @@ $assert( str_contains( $hardening, "'preview_only'       => true" ) && str_conta
 $assert( ! str_contains( $hardening, 'sun_ingest_domain_event' ), 'read hardening never invokes File 19 ingestion' );
 
 // Round 4 — the continuing current File 20 pin and five-slot boundary remain executable.
-$assert( str_contains( $companions, 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' ), 'current File 20 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca' ), 'current File 20 exact head is pinned' );
 $assert( str_contains( $companions, 'five-exact-slots-fallback-suppressed' ), 'File 20 five-slot File 21 boundary is tested' );
 
 // Round 5 — current File 22 replaces the stale compatibility pin.
-$assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: e9ecd7be44118afcc5ba4717a678b26e238cc55e' ), 'File 22 exact pin is current' );
+$assert( str_contains( $file22, 'FILE22_RUNTIME_SHA: 9bc79b1b5b48c4c513ec9036126af5c00e9ae315' ), 'File 22 exact pin is current' );
 $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 'stale File 22 pin is removed' );
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
 // Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE04_SHA: ec50f4a08c703a7bec3f157f48f9aeb97116a30c' ), 'current File 04 exact head is pinned' );
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
@@ -97,8 +97,9 @@ $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains(
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
-$assert( str_contains( $companions, 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE24_SHA: 0d9a969d935e474de0cc54bf5dcd26eb5ad2eee5' ), 'current File 24 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
+$assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'File 21 current File 24 manifest contract is asserted' );
 
 // Round 10 — this historical cycle remains an executable permanent release gate.
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );

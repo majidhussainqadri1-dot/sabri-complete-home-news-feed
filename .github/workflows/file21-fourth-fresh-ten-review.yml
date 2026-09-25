@@ -69,12 +69,12 @@ jobs:
         run: |
           set -euo pipefail
           companion=.github/workflows/file21-latest-companion-exact-contracts.yml
-          grep -Fq 'FILE04_SHA: 54253e6de2dc68c2c57f7e0d4fd474bd0622de8e' "$companion"
-          grep -Fq 'FILE20_SHA: 3e9c65373d88332e050628f27f0801092d417da2' "$companion"
-          grep -Fq 'FILE24_SHA: 0dbd461a7a78328c0d134b711ef7a538023028ea' "$companion"
-          grep -Fq 'FILE19_CONTRACT_SHA: 5cb83d399f35ae1636415fb83373b6ba282e3685' .github/workflows/file21-file19-exact-contract.yml
-          grep -Fq 'FILE22_RUNTIME_SHA: e9ecd7be44118afcc5ba4717a678b26e238cc55e' .github/workflows/file21-file22-real-contract.yml
-          grep -Fq 'FILE26_RUNTIME_SHA: 253f0ec47dd8aa1aff5926b387e980de409859b8' .github/workflows/file21-file26-real-contract.yml
+          grep -Fq 'FILE04_SHA: ec50f4a08c703a7bec3f157f48f9aeb97116a30c' "$companion"
+          grep -Fq 'FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca' "$companion"
+          grep -Fq 'FILE24_SHA: 0d9a969d935e474de0cc54bf5dcd26eb5ad2eee5' "$companion"
+          grep -Fq 'FILE19_CONTRACT_SHA: 942bff557c020617c805b5cd982f69ec8a717fac' .github/workflows/file21-file19-exact-contract.yml
+          grep -Fq 'FILE22_RUNTIME_SHA: 9bc79b1b5b48c4c513ec9036126af5c00e9ae315' .github/workflows/file21-file22-real-contract.yml
+          grep -Fq 'FILE26_RUNTIME_SHA: bbea3aad466792a4a6a62b53532bbd45c7c592de' .github/workflows/file21-file26-real-contract.yml
 
       - name: Deterministic canonical package regression
         shell: bash
