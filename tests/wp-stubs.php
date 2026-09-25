@@ -8,9 +8,9 @@
 define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'ARRAY_A', 'ARRAY_A' );
 define( 'MINUTE_IN_SECONDS', 60 );
-define( 'DAY_IN_SECONDS', 86400 );
-define( 'HOUR_IN_SECONDS', 3600 );
-define( 'WEEK_IN_SECONDS', 604800 );
+if ( ! defined( 'DAY_IN_SECONDS' ) ) { define( 'DAY_IN_SECONDS', 86400 ); }
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) { define( 'HOUR_IN_SECONDS', 3600 ); }
+if ( ! defined( 'WEEK_IN_SECONDS' ) ) { define( 'WEEK_IN_SECONDS', 604800 ); }
 
 $wp_version = '6.6';
 $sabri_test_options = array();
