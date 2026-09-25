@@ -64,7 +64,12 @@ final class FeedRenderer {
 			return class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) ? NewsPublicRuntime::render_card( $post ) : '';
 		}
 		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
-		if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id ) ) { return ''; }
+		if ( $post_id <= 0 ) { return ''; }
+		if ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) ) {
+			if ( ! NextGenerationFeed::strict_public_item( $post_id ) ) { return ''; }
+		} elseif ( ! PostMetadata::user_can_view( $post_id ) ) {
+			return '';
+		}
 		$type = PostMetadata::feed_type( $post_id );
 		return self::template(
 			'feed-card',
@@ -167,22 +172,24 @@ final class FeedRenderer {
 		return function_exists( 'get_avatar' ) ? get_avatar( $author_id, 48, '', '', array( 'class' => 'sabri-hnf-card__avatar-img' ) ) : '';
 	}
 	private static function author_name( $post_id ) {
-		$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
-		$name      = function_exists( 'get_the_author_meta' ) ? trim( (string) get_the_author_meta( 'display_name', $author_id ) ) : '';
-		$is_email  = '' !== $name && ( ( function_exists( 'is_email' ) && is_email( $name ) ) || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) );
-		return '' !== $name && ! $is_email ? $name : __( 'Sabri member', 'sabri-complete-home-news-feed' );
+		$author_id  = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
+		$projection = $author_id > 0 ? CanonicalIdentityAdapter::public_projection( $author_id ) : array();
+		$name       = is_array( $projection ) && ! empty( $projection['name'] ) ? trim( (string) $projection['name'] ) : '';
+		$is_email   = '' !== $name && ( ( function_exists( 'is_email' ) && is_email( $name ) ) || false !== filter_var( $name, FILTER_VALIDATE_EMAIL ) );
+		return '' !== $name && ! $is_email ? sanitize_text_field( $name ) : __( 'Sabri member', 'sabri-complete-home-news-feed' );
 	}
 	private static function author_label( $post_id ) {
-		$settings = Settings::get(); $author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
-		if ( ComposerPermissions::user_has_role_group( $author_id, 'founder_roles', $settings ) ) { return __( 'Founder', 'sabri-complete-home-news-feed' ); }
-		if ( ComposerPermissions::user_has_role_group( $author_id, 'verified_doctor_roles', $settings ) ) { return __( 'Verified doctor', 'sabri-complete-home-news-feed' ); }
-		if ( ComposerPermissions::user_has_role_group( $author_id, 'unverified_doctor_roles', $settings ) ) { return __( 'Doctor', 'sabri-complete-home-news-feed' ); }
+		$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
+		if ( CanonicalIdentityAdapter::is_founder( $author_id ) ) { return __( 'Founder', 'sabri-complete-home-news-feed' ); }
+		if ( CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) { return __( 'Verified doctor', 'sabri-complete-home-news-feed' ); }
+		if ( CanonicalIdentityAdapter::is_unverified_doctor( $author_id ) ) { return __( 'Doctor', 'sabri-complete-home-news-feed' ); }
 		return __( 'Author', 'sabri-complete-home-news-feed' );
 	}
 	private static function author_badges( $post_id ) {
-		$settings = Settings::get(); $author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0; $badges = array();
-		if ( ComposerPermissions::user_has_role_group( $author_id, 'founder_roles', $settings ) ) { $badges[] = __( 'Founder', 'sabri-complete-home-news-feed' ); }
-		if ( ComposerPermissions::user_has_role_group( $author_id, 'verified_doctor_roles', $settings ) ) { $badges[] = __( 'Verified', 'sabri-complete-home-news-feed' ); }
+		$author_id = function_exists( 'get_post_field' ) ? (int) get_post_field( 'post_author', $post_id ) : 0;
+		$badges    = array();
+		if ( CanonicalIdentityAdapter::is_founder( $author_id ) ) { $badges[] = __( 'Founder', 'sabri-complete-home-news-feed' ); }
+		if ( CanonicalIdentityAdapter::is_verified_doctor( $author_id ) ) { $badges[] = __( 'Verified', 'sabri-complete-home-news-feed' ); }
 		return $badges;
 	}
 	private static function feed_type_label( $type ) { $terms = Taxonomies::feed_type_terms(); return isset( $terms[ $type ] ) ? $terms[ $type ] : __( 'Post', 'sabri-complete-home-news-feed' ); }
@@ -194,11 +201,11 @@ final class FeedRenderer {
 		return $created > 0 && $modified > $created;
 	}
 	private static function featured_image( $post_id, array $settings ) {
-		if ( empty( $settings['feed']['show_media'] ) || ! function_exists( 'has_post_thumbnail' ) || ! has_post_thumbnail( $post_id ) || ! function_exists( 'get_the_post_thumbnail' ) ) { return ''; }
+		if ( ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::media_transfer_suppressed() ) || empty( $settings['feed']['show_media'] ) || ! function_exists( 'has_post_thumbnail' ) || ! has_post_thumbnail( $post_id ) || ! function_exists( 'get_the_post_thumbnail' ) ) { return ''; }
 		return get_the_post_thumbnail( $post_id, 'large', array( 'class' => 'sabri-hnf-card__featured', 'loading' => 'lazy' ) );
 	}
 	private static function media_gallery( $post_id, array $settings ) {
-		if ( empty( $settings['feed']['show_media'] ) || ! function_exists( 'get_post_meta' ) ) { return ''; }
+		if ( ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::media_transfer_suppressed() ) || empty( $settings['feed']['show_media'] ) || ! function_exists( 'get_post_meta' ) ) { return ''; }
 		$ids = get_post_meta( $post_id, PostMetadata::META_ATTACHMENTS, true );
 		if ( ! is_array( $ids ) || empty( $ids ) ) { $ids = get_post_meta( $post_id, PostMetadata::META_GALLERY, true ); }
 		if ( ! is_array( $ids ) || empty( $ids ) ) { return ''; }
