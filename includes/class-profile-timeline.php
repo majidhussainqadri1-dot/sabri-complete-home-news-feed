@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-/** Supplies bounded author timelines without owning the final File 22 design. */
+/** Supplies bounded File 21 publication timelines for File 03 profiles; File 25 retains visual-system ownership. */
 final class ProfileTimeline {
 	const MAX_PER_PAGE             = 20;
 	const MAX_SCAN                 = 500;
@@ -276,7 +276,7 @@ final class ProfileTimeline {
 		return false === $position ? $output . $timeline : substr_replace( $output, $timeline . '</main>', $position, 7 );
 	}
 
-	/** Action bridge for profile plugins and File 22. */
+	/** Action bridge for File 03 profile surfaces and File 25-compatible presentation consumers. */
 	public static function render_action( $user_id, $args = array() ) {
 		echo self::render( $user_id, is_array( $args ) ? $args : array() ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 	}
