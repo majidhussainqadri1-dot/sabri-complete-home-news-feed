@@ -41,9 +41,9 @@ foreach ( array(
 	$check( false !== strpos( $source, $needle ), 'Missing File04 migration-completeness invariant: ' . $needle );
 }
 
-$check( false !== strpos( $source, "absint( get_post_meta( $legacy_id, '_thumbnail_id', true ) ) === $attachment_id" ), 'Featured-media preflight must bind to the legacy thumbnail relation.' );
-$check( false !== strpos( $source, "absint( get_post_meta( $target_id, '_thumbnail_id', true ) ) !== self::positive_id" ), 'Post-migration verification must bind the canonical featured-media relation.' );
-$check( false !== strpos( $source, "array_keys( $normalized ) !== array_keys( $current )" ), 'Unsafe or partially mappable legacy metadata must fail closed.' );
+$check( false !== strpos( $source, "absint( get_post_meta( \$legacy_id, '_thumbnail_id', true ) ) === \$attachment_id" ), 'Featured-media preflight must bind to the legacy thumbnail relation.' );
+$check( false !== strpos( $source, "absint( get_post_meta( \$target_id, '_thumbnail_id', true ) ) !== self::positive_id" ), 'Post-migration verification must bind the canonical featured-media relation.' );
+$check( false !== strpos( $source, "array_keys( \$normalized ) !== array_keys( \$current )" ), 'Unsafe or partially mappable legacy metadata must fail closed.' );
 
 if ( $fail ) {
 	fwrite( STDERR, "File21/File04 migration completeness FAILED:\n- " . implode( "\n- ", $fail ) . "\n" );
