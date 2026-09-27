@@ -32,12 +32,12 @@ if ( false !== $integration ) {
 		"'privacy_operations' => array( 'export', 'erase', 'retention' )",
 		"'release_gate'",
 		"'degraded_behavior'",
-		"'last_security_test' => $last_test",
+		"'last_security_test' => \$last_test",
 	) as $needle ) {
 		$assert( false !== strpos( $integration, $needle ), 'Missing File 24 assurance invariant: ' . $needle );
 	}
 	$assert(
-		false !== strpos( $integration, "'posture' => '' !== trim( $last_test ) ? 'foundation' : 'unassessed'"),
+		false !== strpos( $integration, "'posture' => '' !== trim( \$last_test ) ? 'foundation' : 'unassessed'"),
 		'File 21 must not claim assessed File 24 posture without environment/security-test evidence.'
 	);
 }
