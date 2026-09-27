@@ -80,7 +80,18 @@ jobs:
           grep -Fq "'proposed', 'contract_tested', 'shadow', 'approved', 'active'" file26/includes/class-file26-connectors.php
           grep -Fq "array( 'shadow', 'approved', 'active' )" file26/includes/class-file26-connectors.php
           grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
-          grep -Fq 'Donation, payment, purchase, advertising spend and Founder favoritism' file26/includes/class-file26-ranking.php
+          php -r '
+            $src = file_get_contents("file26/includes/class-file26-ranking.php");
+            $code = "";
+            foreach (token_get_all($src) as $token) {
+              if (is_array($token) && in_array($token[0], array(T_COMMENT, T_DOC_COMMENT), true)) { continue; }
+              $code .= is_array($token) ? $token[1] : $token;
+            }
+            $code = strtolower(str_replace(array("_", "-"), " ", $code));
+            foreach (array("donation", "donor", "payment", "paid promotion", "advertising spend", "founder favoritism") as $forbidden) {
+              if (false !== strpos($code, $forbidden)) { fwrite(STDERR, "Forbidden File 26 ranking signal: {$forbidden}\\n"); exit(1); }
+            }
+          '
 
       - name: Verify File 21 manifest and local ranking boundary match File 26 contract
         shell: bash
