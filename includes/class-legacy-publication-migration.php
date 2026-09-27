@@ -26,6 +26,8 @@ final class LegacyPublicationMigration {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'sabri_file21_legacy_media_preflight_v1', array( __CLASS__, 'file04_media_preflight' ), 10, 2 );
 			add_filter( 'sabri_file21_verify_migrated_legacy_media_v1', array( __CLASS__, 'file04_verify_migrated_media' ), 10, 2 );
+			add_filter( 'sabri_file21_legacy_metadata_preflight_v1', array( __CLASS__, 'file04_metadata_preflight' ), 10, 2 );
+			add_filter( 'sabri_file21_verify_migrated_legacy_metadata_v1', array( __CLASS__, 'file04_verify_migrated_metadata' ), 10, 2 );
 		}
 	}
 
@@ -83,6 +85,7 @@ final class LegacyPublicationMigration {
 				'interaction_provider' => '',
 				'author_identity_context' => array(),
 				'media_preflight_context' => array(),
+				'legacy_metadata_context' => array(),
 			),
 			$options
 		);
@@ -108,6 +111,11 @@ final class LegacyPublicationMigration {
 				$skipped[ $legacy_id ] = $author_context->get_error_code();
 				continue;
 			}
+			$metadata_context = self::resolve_legacy_metadata_context( $legacy_id, $options );
+			if ( is_wp_error( $metadata_context ) ) {
+				$skipped[ $legacy_id ] = $metadata_context->get_error_code();
+				continue;
+			}
 			$target_type = self::target_type( $legacy, $options );
 			$postarr = array(
 				'post_type' => $target_type,
@@ -131,7 +139,7 @@ final class LegacyPublicationMigration {
 			}
 			$target_id = (int) $target_id;
 			$media_context = isset( $options['media_preflight_context'][ $legacy_id ] ) && is_array( $options['media_preflight_context'][ $legacy_id ] ) ? $options['media_preflight_context'][ $legacy_id ] : array();
-			self::copy_public_metadata( $legacy_id, $target_id, $target_type, $author_context, $media_context );
+			self::copy_public_metadata( $legacy_id, $target_id, $target_type, $author_context, $media_context, $metadata_context );
 			self::copy_terms( $legacy_id, $target_id, $target_type );
 			$comment_map = ! empty( $options['copy_comments'] ) ? self::copy_comments( $legacy_id, $target_id ) : array();
 			$interaction_report = self::interaction_report( $legacy_id, $target_id, $actor_id, $options );
@@ -203,7 +211,7 @@ final class LegacyPublicationMigration {
 	}
 
 	/** Copy only public-safe and required metadata. */
-	private static function copy_public_metadata( $legacy_id, $target_id, $target_type, array $author_context = array(), array $media_context = array() ) {
+	private static function copy_public_metadata( $legacy_id, $target_id, $target_type, array $author_context = array(), array $media_context = array(), array $metadata_context = array() ) {
 		if ( ! function_exists( 'get_post_meta' ) || ! function_exists( 'update_post_meta' ) ) {
 			return;
 		}
@@ -234,6 +242,31 @@ final class LegacyPublicationMigration {
 				'copied_at_utc'     => gmdate( 'Y-m-d H:i:s' ),
 			);
 			update_post_meta( $target_id, '_sabri_hnf_legacy_media_reference_manifest_v1', $manifest );
+		}
+		if ( ! empty( $metadata_context['fields'] ) && is_array( $metadata_context['fields'] ) ) {
+			$fields = self::normalize_legacy_metadata_fields( $metadata_context['fields'] );
+			$provenance = array(
+				'provider_id'      => sanitize_key( (string) ( $metadata_context['provider_id'] ?? '' ) ),
+				'source_signature' => strtolower( (string) ( $metadata_context['source_signature'] ?? '' ) ),
+				'request_digest'   => strtolower( (string) ( $metadata_context['request_digest'] ?? '' ) ),
+				'fields'           => $fields,
+				'copied_at_utc'    => gmdate( 'Y-m-d H:i:s' ),
+			);
+			update_post_meta( $target_id, '_sabri_hnf_legacy_metadata_v1', $provenance );
+			if ( isset( $fields['_snp_language'] ) ) {
+				if ( 'post' === $target_type ) {
+					update_post_meta( $target_id, PostMetadata::META_LANGUAGE, (string) $fields['_snp_language'] );
+				} elseif ( class_exists( __NAMESPACE__ . '\\Phase4Contracts' ) && Phase4Contracts::POST_TYPE === $target_type ) {
+					update_post_meta( $target_id, '_sabri_news_language', (string) $fields['_snp_language'] );
+				}
+			}
+			if ( 'post' === $target_type ) {
+				if ( array_key_exists( '_snp_featured', $fields ) ) { update_post_meta( $target_id, PostMetadata::META_FEATURED, $fields['_snp_featured'] ? 1 : 0 ); }
+				if ( array_key_exists( '_snp_pinned', $fields ) ) { update_post_meta( $target_id, PostMetadata::META_PINNED, $fields['_snp_pinned'] ? 1 : 0 ); }
+				if ( ! empty( $fields['_snp_tags'] ) && function_exists( 'wp_set_object_terms' ) ) {
+					wp_set_object_terms( $target_id, (array) $fields['_snp_tags'], 'post_tag', true );
+				}
+			}
 		}
 		if ( 'post' === $target_type ) {
 			update_post_meta( $target_id, PostMetadata::META_REVIEW_STATE, 'publish' === get_post_status( $target_id ) ? 'approved' : 'pending' );
