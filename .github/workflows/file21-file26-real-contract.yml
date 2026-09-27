@@ -81,7 +81,7 @@ jobs:
             grep -Eq "['\"]${lifecycle_state}['\"]" file26/includes/class-file26-connectors.php
           done
           grep -Fq "array( 'shadow', 'approved', 'active' )" file26/includes/class-file26-connectors.php
-          grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
+          grep -Fq "call_user_func(\$connector['list_batch']" file26/includes/class-file26-indexer.php
           php -r '
             $src = file_get_contents("file26/includes/class-file26-ranking.php");
             $code = "";
