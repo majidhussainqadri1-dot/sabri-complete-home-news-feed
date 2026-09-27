@@ -18,7 +18,14 @@ $sabri_duplicate_options          = array();
 
 function plugin_dir_path( $file ) { return dirname( $file ) . '/'; }
 function plugin_dir_url( $file ) { return 'https://example.test/' . basename( dirname( $file ) ) . '/'; }
-function plugin_basename( $file ) { return basename( dirname( $file ) ) . '/' . basename( $file ); }
+function plugin_basename( $file ) {
+	$file = str_replace( '\\', '/', (string) $file );
+	$folder = basename( dirname( $file ) );
+	if ( 'sabri-complete-home-news-feed.php' === basename( $file ) && 'legacy-sabri-feed' !== $folder ) {
+		return 'sabri-complete-home-news-feed/sabri-complete-home-news-feed.php';
+	}
+	return $folder . '/' . basename( $file );
+}
 function add_action( $hook, $callback, $priority = 10, $accepted_args = 1 ) {
 	global $sabri_duplicate_actions;
 	$sabri_duplicate_actions[] = compact( 'hook', 'callback', 'priority', 'accepted_args' );
