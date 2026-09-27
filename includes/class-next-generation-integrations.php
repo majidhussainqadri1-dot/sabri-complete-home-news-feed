@@ -59,9 +59,9 @@ final class NextGenerationIntegrations {
 				'owner'     => 'file-16',
 				'generated' => true,
 				'label'     => __( 'AI-generated summary', 'sabri-complete-home-news-feed' ),
-				'text'      => self::clean_textarea( $cached['text'] ),
+				'text'      => self::bounded_textarea( $cached['text'], 5000 ),
 				'sources'   => self::clean_url_list( isset( $cached['sources'] ) ? $cached['sources'] : array() ),
-				'updated'   => self::clean_text( isset( $cached['updated'] ) ? $cached['updated'] : '' ),
+				'updated'   => self::bounded_text( isset( $cached['updated'] ) ? $cached['updated'] : '', 100 ),
 			);
 		}
 
@@ -85,9 +85,9 @@ final class NextGenerationIntegrations {
 			'owner'     => 'file-16',
 			'generated' => true,
 			'label'     => __( 'AI-generated summary', 'sabri-complete-home-news-feed' ),
-			'text'      => self::clean_textarea( $payload['text'] ),
+			'text'      => self::bounded_textarea( $payload['text'], 5000 ),
 			'sources'   => self::clean_url_list( isset( $payload['sources'] ) ? $payload['sources'] : array() ),
-			'updated'   => self::clean_text( isset( $payload['updated'] ) ? $payload['updated'] : '' ),
+			'updated'   => self::bounded_text( isset( $payload['updated'] ) ? $payload['updated'] : '', 100 ),
 		);
 	}
 
@@ -98,13 +98,14 @@ final class NextGenerationIntegrations {
 		if ( function_exists( 'apply_filters' ) ) {
 			$payload = apply_filters( 'sabri_file16_ask_article_contract', array(), $post_id );
 		}
-		if ( ! is_array( $payload ) || empty( $payload['url'] ) ) {
+		$url = is_array( $payload ) && ! empty( $payload['url'] ) ? NextGenerationFeed::safe_web_url( $payload['url'] ) : '';
+		if ( '' === $url ) {
 			return array( 'available' => false, 'owner' => 'file-16', 'url' => '', 'scope' => 'article-only' );
 		}
 		return array(
 			'available' => true,
 			'owner'     => 'file-16',
-			'url'       => esc_url_raw( $payload['url'] ),
+			'url'       => $url,
 			'scope'     => 'article-only',
 		);
 	}
@@ -112,31 +113,47 @@ final class NextGenerationIntegrations {
 	/** File 16/service-owned translation projection with File 21 relation metadata. */
 	public static function translation_options( $post_id ) {
 		$post_id = absint( $post_id );
+		$original_url = function_exists( 'get_permalink' ) ? NextGenerationFeed::safe_web_url( get_permalink( $post_id ) ) : '';
+		$original_lang = function_exists( 'get_post_meta' ) ? self::clean_key( get_post_meta( $post_id, PostMetadata::META_LANGUAGE, true ) ) : '';
+		$original_lang = '' !== $original_lang ? substr( $original_lang, 0, 35 ) : 'original';
+		$out = array();
+		if ( '' !== $original_url ) {
+			$out[] = array(
+				'language' => $original_lang,
+				'url'      => $original_url,
+				'method'   => 'original',
+				'label'    => __( 'Original', 'sabri-complete-home-news-feed' ),
+			);
+		}
+
 		$options = self::post_array_meta( $post_id, NextGenerationFeed::META_TRANSLATIONS );
 		if ( function_exists( 'apply_filters' ) ) {
 			$options = apply_filters( 'sabri_file16_translation_options', $options, $post_id );
 		}
 		if ( ! is_array( $options ) ) {
-			return array();
+			return $out;
 		}
-		$out = array();
+		$options = array_slice( $options, 0, 50 );
 		foreach ( $options as $item ) {
 			if ( ! is_array( $item ) ) {
 				continue;
 			}
-			$lang = self::clean_key( isset( $item['language'] ) ? $item['language'] : '' );
-			$url  = isset( $item['url'] ) ? esc_url_raw( $item['url'] ) : '';
-			if ( '' === $lang || '' === $url ) {
+			$lang = substr( self::clean_key( isset( $item['language'] ) ? $item['language'] : '' ), 0, 35 );
+			$url  = isset( $item['url'] ) ? NextGenerationFeed::safe_web_url( $item['url'] ) : '';
+			if ( '' === $lang || '' === $url || $url === $original_url ) {
 				continue;
 			}
 			$out[] = array(
 				'language' => $lang,
 				'url'      => $url,
 				'method'   => in_array( isset( $item['method'] ) ? $item['method'] : '', array( 'human', 'machine' ), true ) ? $item['method'] : 'machine',
-				'label'    => self::clean_text( isset( $item['label'] ) ? $item['label'] : strtoupper( $lang ) ),
+				'label'    => self::bounded_text( isset( $item['label'] ) ? $item['label'] : strtoupper( $lang ), 100 ),
 			);
+			if ( count( $out ) >= 12 ) {
+				break;
+			}
 		}
-		return array_slice( $out, 0, 12 );
+		return $out;
 	}
 
 	/** File 26-owned global why-trending explanation. */
@@ -150,8 +167,8 @@ final class NextGenerationIntegrations {
 			return array(
 				'available'    => true,
 				'owner'        => 'file-26',
-				'reason'       => self::clean_textarea( $payload['reason'] ),
-				'time_window'  => self::clean_text( isset( $payload['time_window'] ) ? $payload['time_window'] : '' ),
+				'reason'       => self::bounded_textarea( $payload['reason'], 2000 ),
+				'time_window'  => self::bounded_text( isset( $payload['time_window'] ) ? $payload['time_window'] : '', 100 ),
 				'source_count' => absint( isset( $payload['source_count'] ) ? $payload['source_count'] : 0 ),
 			);
 		}
@@ -175,16 +192,21 @@ final class NextGenerationIntegrations {
 		if ( ! is_array( $items ) ) {
 			return array();
 		}
+		$items = array_slice( $items, 0, 100 );
 		$out = array();
 		foreach ( $items as $item ) {
 			if ( ! is_array( $item ) || empty( $item['url'] ) || empty( $item['title'] ) ) {
 				continue;
 			}
+			$url = NextGenerationFeed::safe_web_url( $item['url'] );
+			if ( '' === $url ) {
+				continue;
+			}
 			$out[] = array(
-				'title' => self::clean_text( $item['title'] ),
-				'url'   => esc_url_raw( $item['url'] ),
-				'type'  => self::clean_key( isset( $item['type'] ) ? $item['type'] : 'knowledge' ),
-				'owner' => self::clean_key( isset( $item['owner'] ) ? $item['owner'] : 'file-26' ),
+				'title' => self::bounded_text( $item['title'], 300 ),
+				'url'   => $url,
+				'type'  => substr( self::clean_key( isset( $item['type'] ) ? $item['type'] : 'knowledge' ), 0, 64 ),
+				'owner' => substr( self::clean_key( isset( $item['owner'] ) ? $item['owner'] : 'file-26' ), 0, 64 ),
 			);
 			if ( count( $out ) >= $limit ) {
 				break;
@@ -199,7 +221,10 @@ final class NextGenerationIntegrations {
 		if ( function_exists( 'apply_filters' ) ) {
 			$rendered = apply_filters( 'sabri_file25_shareable_knowledge_card', '', $payload );
 		}
-		return is_string( $rendered ) ? $rendered : '';
+		if ( ! is_string( $rendered ) ) {
+			return '';
+		}
+		return self::text_slice( $rendered, 20000 );
 	}
 
 	/**
@@ -213,15 +238,7 @@ final class NextGenerationIntegrations {
 		$frequency = in_array( $frequency, array( 'daily', 'weekly' ), true ) ? $frequency : 'daily';
 		$items     = array_slice( $items, 0, 20 );
 		$window    = 'weekly' === $frequency ? gmdate( 'o-\\WW' ) : gmdate( 'Y-m-d' );
-		$item_ids  = array();
-
-		foreach ( $items as $item ) {
-			if ( is_array( $item ) && ! empty( $item['id'] ) ) {
-				$item_ids[] = absint( $item['id'] );
-			}
-		}
-
-		$fingerprint     = implode( '|', array( self::FILE19_PRODUCER, $user_id, $frequency, $window, implode( ',', $item_ids ) ) );
+		$fingerprint     = implode( '|', array( self::FILE19_PRODUCER, $user_id, $frequency, $window ) );
 		$idempotency_key = 'f21-digest-' . substr( hash( 'sha256', $fingerprint ), 0, 32 );
 		$trace_id        = 'f21-trace-' . substr( hash( 'sha256', 'trace|' . $fingerprint ), 0, 32 );
 		$occurred_at     = gmdate( 'c' );
@@ -303,7 +320,7 @@ final class NextGenerationIntegrations {
 			$response['ingest_error_code'] = $error_code;
 		}
 		if ( is_array( $ingest ) && ! empty( $ingest['event_public_id'] ) ) {
-			$response['notification_event_id'] = self::clean_text( $ingest['event_public_id'] );
+			$response['notification_event_id'] = self::bounded_text( $ingest['event_public_id'], 200 );
 		}
 
 		return $response;
@@ -317,10 +334,10 @@ final class NextGenerationIntegrations {
 
 	/** Sanitize URL list. */
 	private static function clean_url_list( $values ) {
-		$values = is_array( $values ) ? $values : array();
+		$values = is_array( $values ) ? array_slice( $values, 0, 100 ) : array();
 		$out    = array();
 		foreach ( $values as $value ) {
-			$url = esc_url_raw( $value );
+			$url = NextGenerationFeed::safe_web_url( $value );
 			if ( '' !== $url ) {
 				$out[] = $url;
 			}
@@ -334,6 +351,20 @@ final class NextGenerationIntegrations {
 
 	private static function clean_textarea( $value ) {
 		return function_exists( 'sanitize_textarea_field' ) ? sanitize_textarea_field( $value ) : trim( strip_tags( (string) $value ) );
+	}
+
+	private static function text_slice( $value, $max_length ) {
+		$value = (string) $value;
+		$max = max( 1, absint( $max_length ) );
+		return function_exists( 'mb_substr' ) ? mb_substr( $value, 0, $max, 'UTF-8' ) : substr( $value, 0, $max );
+	}
+
+	private static function bounded_text( $value, $max_length ) {
+		return self::text_slice( self::clean_text( $value ), $max_length );
+	}
+
+	private static function bounded_textarea( $value, $max_length ) {
+		return self::text_slice( self::clean_textarea( $value ), $max_length );
 	}
 
 	private static function clean_key( $value ) {

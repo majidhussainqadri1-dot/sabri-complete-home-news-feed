@@ -142,7 +142,7 @@ final class RestNextGeneration {
 	/** Public-safe post context. */
 	public static function post_context( $request ) {
 		$post_id = self::param_int( $request, 'id' );
-		if ( $post_id < 1 || ! PostMetadata::user_can_view( $post_id ) ) {
+		if ( $post_id < 1 || ! NextGenerationFeed::strict_public_item( $post_id ) ) {
 			return self::error( 'post_not_found', __( 'The post is unavailable.', 'sabri-complete-home-news-feed' ), 404 );
 		}
 		return self::response(
@@ -187,7 +187,11 @@ final class RestNextGeneration {
 				$result = NextGenerationFeed::editor_update( self::param_int( $request, 'post_id' ), isset( $input['fields'] ) && is_array( $input['fields'] ) ? $input['fields'] : array() );
 				break;
 			case 'expert-context':
-				$result = NextGenerationFeed::add_expert_context( self::param_int( $request, 'post_id' ), self::param_textarea( $request, 'text' ) );
+				$result = NextGenerationFeed::add_expert_context(
+					self::param_int( $request, 'post_id' ),
+					self::param_textarea( $request, 'text' ),
+					isset( $input['sources'] ) && is_array( $input['sources'] ) ? $input['sources'] : array()
+				);
 				break;
 			case 'qna-question':
 				$result = NextGenerationFeed::qna_action( self::param_int( $request, 'post_id' ), 'question', self::param_textarea( $request, 'text' ) );
@@ -245,7 +249,10 @@ final class RestNextGeneration {
 	/** Compare 2-4 posts/news items. */
 	public static function compare( $request ) {
 		$raw = self::param( $request, 'ids' );
-		$ids = is_array( $raw ) ? $raw : preg_split( '/[\s,]+/', (string) $raw );
+		if ( ! is_array( $raw ) && strlen( (string) $raw ) > 256 ) {
+			return self::error( 'compare_invalid', __( 'The comparison request is too large.', 'sabri-complete-home-news-feed' ), 413 );
+		}
+		$ids = is_array( $raw ) ? array_slice( $raw, 0, 5 ) : preg_split( '/[\s,]+/', (string) $raw );
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
 		if ( count( $ids ) < 2 || count( $ids ) > 4 ) {
 			return self::error( 'compare_invalid', __( 'Choose between two and four items to compare.', 'sabri-complete-home-news-feed' ), 400 );
