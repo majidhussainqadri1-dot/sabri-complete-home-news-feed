@@ -72,9 +72,9 @@ jobs:
           companion=.github/workflows/file21-latest-companion-exact-contracts.yml
           grep -Fq 'FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd' "$companion"
           grep -Fq 'FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca' "$companion"
-          grep -Fq 'FILE24_SHA: 0d9a969d935e474de0cc54bf5dcd26eb5ad2eee5' "$companion"
-          grep -Fq 'FILE19_CONTRACT_SHA: 942bff557c020617c805b5cd982f69ec8a717fac' .github/workflows/file21-file19-exact-contract.yml
-          grep -Fq 'FILE22_RUNTIME_SHA: 9bc79b1b5b48c4c513ec9036126af5c00e9ae315' .github/workflows/file21-file22-real-contract.yml
+          grep -Fq 'FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3' "$companion"
+          grep -Fq 'FILE19_CONTRACT_SHA: c2881b12fc7e91c050782f7b17bda00d1d69b2f2' .github/workflows/file21-file19-exact-contract.yml
+          grep -Fq 'FILE22_RUNTIME_SHA: b7a7f2e69411cbd32f0574fd12d766fb70c01b7a' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: bbea3aad466792a4a6a62b53532bbd45c7c592de' .github/workflows/file21-file26-real-contract.yml
 
       - name: Static fifth-review invariants

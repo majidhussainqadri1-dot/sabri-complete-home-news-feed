@@ -77,7 +77,9 @@ jobs:
           grep -Fq "'privacy_classes'," file26/includes/class-file26-connectors.php
           grep -Fq "'visibility_fields'," file26/includes/class-file26-connectors.php
           grep -Fq "'deletion_semantics'," file26/includes/class-file26-connectors.php
-          grep -Fq "'proposed', 'contract_tested', 'shadow', 'approved', 'active'" file26/includes/class-file26-connectors.php
+          for lifecycle_state in proposed contract_tested shadow approved active; do
+            grep -Eq "['\"]${lifecycle_state}['\"]" file26/includes/class-file26-connectors.php
+          done
           grep -Fq "array( 'shadow', 'approved', 'active' )" file26/includes/class-file26-connectors.php
           grep -Fq "call_user_func( \$connector['list_batch']" file26/includes/class-file26-indexer.php
           php -r '
