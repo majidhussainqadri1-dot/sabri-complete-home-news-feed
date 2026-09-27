@@ -82,7 +82,7 @@ $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
 // Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: ec50f4a08c703a7bec3f157f48f9aeb97116a30c' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd' ), 'current File 04 exact head is pinned' );
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
