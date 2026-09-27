@@ -501,6 +501,181 @@ final class LegacyPublicationMigration {
 		);
 	}
 
+
+	/** Return the exact known legacy fields governed by the File 21 mapping contract. */
+	private static function legacy_metadata_source_fields( $legacy_id ) {
+		$fields = array();
+		if ( ! function_exists( 'get_post_meta' ) ) { return $fields; }
+		foreach ( array( '_snp_tags', '_snp_language', '_snp_featured', '_snp_pinned', '_snp_video_url' ) as $key ) {
+			$value = get_post_meta( $legacy_id, $key, true );
+			$present = is_array( $value ) ? ! empty( $value ) : ( is_scalar( $value ) && '' !== trim( (string) $value ) );
+			if ( $present ) { $fields[ $key ] = self::canonicalize_legacy_value( $value ); }
+		}
+		ksort( $fields );
+		return $fields;
+	}
+
+	private static function canonicalize_legacy_value( $value ) {
+		if ( is_array( $value ) ) {
+			$out = array();
+			foreach ( $value as $key => $item ) { $out[ $key ] = self::canonicalize_legacy_value( $item ); }
+			if ( ! empty( $out ) && array_keys( $out ) !== range( 0, count( $out ) - 1 ) ) { ksort( $out, SORT_STRING ); }
+			return $out;
+		}
+		if ( is_bool( $value ) || is_int( $value ) || is_float( $value ) || null === $value ) { return $value; }
+		return is_scalar( $value ) ? (string) $value : '';
+	}
+
+	private static function normalize_legacy_boolean( $value ) {
+		if ( true === $value || 1 === $value ) { return 1; }
+		if ( false === $value || 0 === $value ) { return 0; }
+		if ( ! is_scalar( $value ) ) { return null; }
+		$value = strtolower( trim( (string) $value ) );
+		if ( in_array( $value, array( '1', 'true', 'yes', 'on' ), true ) ) { return 1; }
+		if ( in_array( $value, array( '0', 'false', 'no', 'off' ), true ) ) { return 0; }
+		return null;
+	}
+
+	private static function normalize_legacy_tags( $value ) {
+		$raw = is_array( $value ) ? $value : preg_split( '/[,;\r\n]+/', (string) $value );
+		$tags = array();
+		foreach ( (array) $raw as $item ) {
+			if ( ! is_scalar( $item ) ) { return null; }
+			$item = sanitize_text_field( (string) $item );
+			if ( '' === $item ) { continue; }
+			if ( strlen( $item ) > 100 ) { return null; }
+			$tags[] = $item;
+			if ( count( $tags ) > 50 ) { return null; }
+		}
+		$tags = array_values( array_unique( $tags ) );
+		sort( $tags, SORT_NATURAL | SORT_FLAG_CASE );
+		return $tags;
+	}
+
+	private static function normalize_legacy_metadata_fields( array $fields ) {
+		$normalized = array();
+		foreach ( $fields as $key => $value ) {
+			$key = sanitize_key( (string) $key );
+			switch ( $key ) {
+				case '_snp_tags':
+					$tags = self::normalize_legacy_tags( $value );
+					if ( null !== $tags && ! empty( $tags ) ) { $normalized[ $key ] = $tags; }
+					break;
+				case '_snp_language':
+					$language = is_scalar( $value ) ? trim( (string) $value ) : '';
+					if ( '' !== $language && strlen( $language ) <= 20 && 1 === preg_match( '/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/D', $language ) ) { $normalized[ $key ] = $language; }
+					break;
+				case '_snp_featured':
+				case '_snp_pinned':
+					$boolean = self::normalize_legacy_boolean( $value );
+					if ( null !== $boolean ) { $normalized[ $key ] = $boolean; }
+					break;
+				case '_snp_video_url':
+					$url = is_scalar( $value ) ? trim( (string) $value ) : '';
+					$parts = '' !== $url && strlen( $url ) <= 2048 ? ( function_exists( 'wp_parse_url' ) ? wp_parse_url( $url ) : parse_url( $url ) ) : false;
+					$scheme = is_array( $parts ) ? strtolower( (string) ( $parts['scheme'] ?? '' ) ) : '';
+					$host = is_array( $parts ) ? trim( (string) ( $parts['host'] ?? '' ) ) : '';
+					if ( in_array( $scheme, array( 'http', 'https' ), true ) && '' !== $host ) {
+						$normalized[ $key ] = function_exists( 'esc_url_raw' ) ? esc_url_raw( $url, array( 'http', 'https' ) ) : $url;
+					}
+					break;
+			}
+		}
+		ksort( $normalized );
+		return $normalized;
+	}
+
+	/**
+	 * Require a File 04 supplied metadata context whenever governed legacy fields
+	 * are present. Direct privileged File 21 calls cannot silently drop them.
+	 */
+	private static function resolve_legacy_metadata_context( $legacy_id, array $options ) {
+		$current = self::legacy_metadata_source_fields( $legacy_id );
+		$contexts = isset( $options['legacy_metadata_context'] ) && is_array( $options['legacy_metadata_context'] ) ? $options['legacy_metadata_context'] : array();
+		$row = isset( $contexts[ $legacy_id ] ) && is_array( $contexts[ $legacy_id ] ) ? $contexts[ $legacy_id ] : array();
+		if ( empty( $current ) ) { return array( 'verified' => true, 'fields' => array() ); }
+		if ( empty( $row ) || empty( $row['provider_id'] ) || ! self::valid_hash( (string) ( $row['source_signature'] ?? '' ) ) || ! self::valid_hash( (string) ( $row['request_digest'] ?? '' ) ) ) {
+			return new \WP_Error( 'file21_legacy_metadata_context_required', 'Complete File 04 legacy metadata mapping evidence is required.' );
+		}
+		$supplied = isset( $row['fields'] ) && is_array( $row['fields'] ) ? self::canonicalize_legacy_value( $row['fields'] ) : array();
+		if ( serialize( $current ) !== serialize( $supplied ) ) {
+			return new \WP_Error( 'file21_legacy_metadata_context_changed', 'Legacy metadata changed after preflight.' );
+		}
+		$normalized = self::normalize_legacy_metadata_fields( $current );
+		if ( array_keys( $normalized ) !== array_keys( $current ) ) {
+			return new \WP_Error( 'file21_legacy_metadata_invalid', 'One or more legacy metadata values cannot be mapped safely.' );
+		}
+		$row['fields'] = $current;
+		$row['verified'] = true;
+		return $row;
+	}
+
+	/** File 21 attestation that all present known legacy publication fields are safely mappable. */
+	public static function file04_metadata_preflight( $existing, $request ) {
+		if ( is_array( $existing ) && ! empty( $existing['verified'] ) ) { return $existing; }
+		$request = is_array( $request ) ? $request : array();
+		$legacy_id = self::positive_id( $request['legacy_id'] ?? 0 );
+		$source_signature = strtolower( trim( (string) ( $request['source_signature'] ?? '' ) ) );
+		$request_digest = strtolower( trim( (string) ( $request['request_digest'] ?? '' ) ) );
+		$requested = isset( $request['fields'] ) && is_array( $request['fields'] ) ? self::canonicalize_legacy_value( $request['fields'] ) : array();
+		$current = $legacy_id > 0 ? self::legacy_metadata_source_fields( $legacy_id ) : array();
+		$normalized = self::normalize_legacy_metadata_fields( $current );
+		$valid = $legacy_id > 0 && self::valid_hash( $source_signature ) && self::valid_hash( $request_digest )
+			&& ! empty( $current ) && serialize( $current ) === serialize( $requested ) && array_keys( $normalized ) === array_keys( $current );
+		return array(
+			'verified'         => $valid,
+			'provider_id'      => 'file21_legacy_metadata_v1',
+			'legacy_id'        => $legacy_id,
+			'source_signature' => $source_signature,
+			'request_digest'   => $request_digest,
+			'accepted_fields'  => $valid ? array_keys( $current ) : array(),
+			'verified_at_utc'  => gmdate( 'Y-m-d H:i:s' ),
+		);
+	}
+
+	/** Verify that mapped legacy fields and their provenance survived canonical migration. */
+	public static function file04_verify_migrated_metadata( $existing, $request ) {
+		if ( is_array( $existing ) && ! empty( $existing['verified'] ) ) { return $existing; }
+		$request = is_array( $request ) ? $request : array();
+		$legacy_id = self::positive_id( $request['legacy_id'] ?? 0 );
+		$target_id = self::positive_id( $request['target_id'] ?? 0 );
+		$request_digest = strtolower( trim( (string) ( $request['request_digest'] ?? '' ) ) );
+		$source_signature = strtolower( trim( (string) ( $request['source_signature'] ?? '' ) ) );
+		$fields = isset( $request['fields'] ) && is_array( $request['fields'] ) ? self::canonicalize_legacy_value( $request['fields'] ) : array();
+		$expected = self::normalize_legacy_metadata_fields( $fields );
+		$target = $target_id > 0 && function_exists( 'get_post' ) ? get_post( $target_id ) : null;
+		$provenance = $target_id > 0 && function_exists( 'get_post_meta' ) ? get_post_meta( $target_id, '_sabri_hnf_legacy_metadata_v1', true ) : array();
+		$stored_fields = is_array( $provenance ) && is_array( $provenance['fields'] ?? null ) ? self::normalize_legacy_metadata_fields( $provenance['fields'] ) : array();
+		$verified = $legacy_id > 0 && $target_id > 0 && self::valid_hash( $request_digest ) && self::valid_hash( $source_signature )
+			&& is_object( $target ) && ! empty( $expected ) && serialize( $expected ) === serialize( $stored_fields )
+			&& absint( get_post_meta( $target_id, '_sabri_hnf_legacy_source_id', true ) ) === $legacy_id
+			&& is_array( $provenance ) && hash_equals( $source_signature, strtolower( (string) ( $provenance['source_signature'] ?? '' ) ) );
+
+		if ( $verified && 'post' === (string) $target->post_type ) {
+			if ( isset( $expected['_snp_language'] ) ) { $verified = $verified && (string) get_post_meta( $target_id, PostMetadata::META_LANGUAGE, true ) === (string) $expected['_snp_language']; }
+			if ( array_key_exists( '_snp_featured', $expected ) ) { $verified = $verified && absint( get_post_meta( $target_id, PostMetadata::META_FEATURED, true ) ) === (int) $expected['_snp_featured']; }
+			if ( array_key_exists( '_snp_pinned', $expected ) ) { $verified = $verified && absint( get_post_meta( $target_id, PostMetadata::META_PINNED, true ) ) === (int) $expected['_snp_pinned']; }
+			if ( ! empty( $expected['_snp_tags'] ) && function_exists( 'wp_get_object_terms' ) ) {
+				$actual_tags = wp_get_object_terms( $target_id, 'post_tag', array( 'fields' => 'names' ) );
+				$actual_tags = is_wp_error( $actual_tags ) ? array() : array_map( 'sanitize_text_field', (array) $actual_tags );
+				foreach ( (array) $expected['_snp_tags'] as $tag ) { if ( ! in_array( $tag, $actual_tags, true ) ) { $verified = false; break; } }
+			}
+		} elseif ( $verified && class_exists( __NAMESPACE__ . '\\Phase4Contracts' ) && Phase4Contracts::POST_TYPE === (string) $target->post_type && isset( $expected['_snp_language'] ) ) {
+			$verified = (string) get_post_meta( $target_id, '_sabri_news_language', true ) === (string) $expected['_snp_language'];
+		}
+
+		return array(
+			'verified'         => $verified,
+			'provider_id'      => 'file21_legacy_metadata_v1',
+			'legacy_id'        => $legacy_id,
+			'target_id'        => $target_id,
+			'source_signature' => $source_signature,
+			'request_digest'   => $request_digest,
+			'verified_fields'  => $verified ? array_keys( $expected ) : array(),
+			'verified_at_utc'  => gmdate( 'Y-m-d H:i:s' ),
+		);
+	}
+
 	private static function valid_hash( $value ) {
 		return is_string( $value ) && 1 === preg_match( '/^[a-f0-9]{64}$/i', $value );
 	}
