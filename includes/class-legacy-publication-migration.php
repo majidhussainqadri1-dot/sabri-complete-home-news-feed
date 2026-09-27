@@ -487,7 +487,16 @@ final class LegacyPublicationMigration {
 		$expected = array_values( array_unique( array_filter( $expected ) ) ); sort( $expected );
 		$actual = is_array( $manifest ) ? array_values( array_unique( array_filter( array_map( 'sanitize_text_field', (array) ( $manifest['reference_ids'] ?? array() ) ) ) ) ) : array(); sort( $actual );
 		$provenance = function_exists( 'get_post_meta' ) ? absint( get_post_meta( $target_id, '_sabri_hnf_legacy_source_id', true ) ) : 0;
-		$verified = is_object( $target ) && $provenance === $legacy_id && $expected === $actual && ! empty( $expected )
+		$relation_verified = true;
+		foreach ( (array) ( $request['references'] ?? array() ) as $ref ) {
+			if ( ! is_array( $ref ) || 'attachment' !== sanitize_key( (string) ( $ref['type'] ?? '' ) ) ) { continue; }
+			$relations = array_values( array_unique( array_map( 'sanitize_key', (array) ( $ref['relations'] ?? array( 'child' ) ) ) ) );
+			if ( in_array( 'featured', $relations, true ) && absint( get_post_meta( $target_id, '_thumbnail_id', true ) ) !== self::positive_id( $ref['attachment_id'] ?? 0 ) ) {
+				$relation_verified = false;
+				break;
+			}
+		}
+		$verified = is_object( $target ) && $provenance === $legacy_id && $expected === $actual && ! empty( $expected ) && $relation_verified
 			&& is_array( $manifest ) && hash_equals( $source_signature, strtolower( (string) ( $manifest['source_signature'] ?? '' ) ) );
 		return array(
 			'verified'                 => $verified,
