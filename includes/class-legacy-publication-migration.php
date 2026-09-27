@@ -422,7 +422,15 @@ final class LegacyPublicationMigration {
 				$attachment = $attachment_id > 0 && function_exists( 'get_post' ) ? get_post( $attachment_id ) : null;
 				$file = $attachment_id > 0 && function_exists( 'get_attached_file' ) ? get_attached_file( $attachment_id, true ) : '';
 				$hash = is_string( $file ) && is_file( $file ) ? hash_file( 'sha256', $file ) : '';
-				if ( ! is_object( $attachment ) || 'attachment' !== (string) $attachment->post_type || absint( $attachment->post_parent ?? 0 ) !== $legacy_id || ! self::valid_hash( $hash ) || ! hash_equals( strtolower( $hash ), strtolower( (string) ( $ref['sha256'] ?? '' ) ) ) ) {
+				$relations = array_values( array_unique( array_intersect( array_map( 'sanitize_key', (array) ( $ref['relations'] ?? array( 'child' ) ) ), array( 'child', 'featured' ) ) ) );
+				$relation_valid = ! empty( $relations );
+				if ( in_array( 'child', $relations, true ) ) {
+					$relation_valid = $relation_valid && absint( $attachment->post_parent ?? 0 ) === $legacy_id;
+				}
+				if ( in_array( 'featured', $relations, true ) ) {
+					$relation_valid = $relation_valid && function_exists( 'get_post_meta' ) && absint( get_post_meta( $legacy_id, '_thumbnail_id', true ) ) === $attachment_id;
+				}
+				if ( ! is_object( $attachment ) || 'attachment' !== (string) $attachment->post_type || ! $relation_valid || ! self::valid_hash( $hash ) || ! hash_equals( strtolower( $hash ), strtolower( (string) ( $ref['sha256'] ?? '' ) ) ) ) {
 					$ownership = false; $broken++; continue;
 				}
 				$mime = (string) ( $attachment->post_mime_type ?? '' );
