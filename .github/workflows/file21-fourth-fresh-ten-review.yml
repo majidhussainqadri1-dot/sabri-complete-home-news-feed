@@ -72,7 +72,7 @@ jobs:
           grep -Fq 'FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd' "$companion"
           grep -Fq 'FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca' "$companion"
           grep -Fq 'FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3' "$companion"
-          grep -Fq 'FILE19_CONTRACT_SHA: 059bacfcb989fedd6d7404c8b54f4f9f062fae0a' .github/workflows/file21-file19-exact-contract.yml
+          grep -Fq 'FILE19_CONTRACT_SHA: 04078025b643ab7696e4cb4e37826bf152defa18' .github/workflows/file21-file19-exact-contract.yml
           grep -Fq 'FILE22_RUNTIME_SHA: b7a7f2e69411cbd32f0574fd12d766fb70c01b7a' .github/workflows/file21-file22-real-contract.yml
           grep -Fq 'FILE26_RUNTIME_SHA: bbea3aad466792a4a6a62b53532bbd45c7c592de' .github/workflows/file21-file26-real-contract.yml
 
