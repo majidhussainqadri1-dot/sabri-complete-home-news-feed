@@ -15,7 +15,7 @@ permissions:
 
 env:
   TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-  FILE19_CONTRACT_SHA: 059bacfcb989fedd6d7404c8b54f4f9f062fae0a
+  FILE19_CONTRACT_SHA: 04078025b643ab7696e4cb4e37826bf152defa18
 
 jobs:
   file21-file19-contract:
