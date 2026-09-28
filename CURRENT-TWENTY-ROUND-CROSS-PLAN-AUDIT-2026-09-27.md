@@ -11,7 +11,7 @@ This ledger is bound to the exact corrective-branch commit containing it. It est
 | 03 | `695329cced81a1b2ee5c59e3b4a92c9809a2564b` |
 | 04 | `00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd` |
 | 17 | `8ae656e51796d1f05865d8be5dca2480443d79ca` |
-| 19 | `059bacfcb989fedd6d7404c8b54f4f9f062fae0a` |
+| 19 | `04078025b643ab7696e4cb4e37826bf152defa18` |
 | 20 | `8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca` |
 | 22 | `b7a7f2e69411cbd32f0574fd12d766fb70c01b7a` |
 | 23 | `a8a8c805f4730998ccb44bd95c87591836561759` |
@@ -56,6 +56,11 @@ This ledger is bound to the exact corrective-branch commit containing it. It est
 
 ## 2026-09-28 exact-current refresh
 
-A fresh twenty-round sequential review found no runtime/source contract defect in rounds 1–18 or 20. During the final release-truth freeze, File 19 `main` advanced from `c2881b12fc7e91c050782f7b17bda00d1d69b2f2` to `059bacfcb989fedd6d7404c8b54f4f9f062fae0a`. The upstream diff changes release checksum/status evidence only and leaves the runtime contract unchanged. Round 19 therefore recorded one repository-owned exact-head CI defect: the immutable File 19 workflow pin was stale. The same corrective branch refreshes that pin and uses the existing executable File 19 cross-repository contract gate as regression coverage. Final green status remains conditional on all exact-head workflows succeeding for the commit containing this correction.
+A fresh twenty-round sequential review found no runtime/source contract defect in rounds 1–18 or 20. During the final release-truth freeze, File 19 `main` advanced from `c2881b12fc7e91c050782f7b17bda00d1d69b2f2` to `04078025b643ab7696e4cb4e37826bf152defa18`. The upstream diff changes release checksum/status evidence only and leaves the runtime contract unchanged. Round 19 therefore recorded one repository-owned exact-head CI defect: the immutable File 19 workflow pin was stale. The same corrective branch refreshes that pin and uses the existing executable File 19 cross-repository contract gate as regression coverage. Final green status remains conditional on all exact-head workflows succeeding for the commit containing this correction.
 
 No staging, deployed/live, database, migration, or operational state is inferred from this repository evidence.
+
+
+### Second File 19 release-evidence advance
+
+Before final freeze, File 19 advanced again to `04078025b643ab7696e4cb4e37826bf152defa18`. Its two-commit diff changes only `STATUS.md` to eliminate a self-referential exact-HEAD claim; runtime code, schema, and package checksum are unchanged. File 21 therefore refreshed all File 19 immutable-pin assertions to this current head and requires the same executable cross-repository gate to pass on the resulting corrective HEAD.
