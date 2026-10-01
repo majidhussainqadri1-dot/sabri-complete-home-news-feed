@@ -5,10 +5,10 @@
  * @package SabriCompleteHomeNewsFeed
  */
 
-define( 'ABSPATH', dirname( __DIR__ ) . '/' );
-define( 'ARRAY_A', 'ARRAY_A' );
-define( 'MINUTE_IN_SECONDS', 60 );
-define( 'DAY_IN_SECONDS', 86400 );
+if ( ! defined( 'ABSPATH' ) ) { define( 'ABSPATH', dirname( __DIR__ ) . '/' ); }
+if ( ! defined( 'ARRAY_A' ) ) { define( 'ARRAY_A', 'ARRAY_A' ); }
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) { define( 'MINUTE_IN_SECONDS', 60 ); }
+if ( ! defined( 'DAY_IN_SECONDS' ) ) { define( 'DAY_IN_SECONDS', 86400 ); }
 
 $wp_version = '6.6';
 $sabri_test_options = array();
@@ -340,6 +340,7 @@ function sabri_test_add_post( $args = array(), $meta = array(), $terms = array()
 function get_post( $post_id ) { global $sabri_test_posts; return isset( $sabri_test_posts[ (int) $post_id ] ) ? $sabri_test_posts[ (int) $post_id ] : null; }
 function get_post_field( $field, $post_id ) { $post = get_post( $post_id ); return $post && isset( $post->$field ) ? $post->$field : ''; }
 function get_post_status( $post_id ) { return get_post_field( 'post_status', $post_id ); }
+function get_post_type( $post_id = 0 ) { $post_id = $post_id ? (int) $post_id : get_the_ID(); return get_post_field( 'post_type', $post_id ); }
 function get_post_meta( $post_id, $key = '', $single = false ) { global $sabri_test_post_meta; $post_id = (int) $post_id; if ( '' === $key ) { return isset( $sabri_test_post_meta[ $post_id ] ) ? $sabri_test_post_meta[ $post_id ] : array(); } if ( ! isset( $sabri_test_post_meta[ $post_id ][ $key ] ) ) { return $single ? '' : array(); } return $single ? $sabri_test_post_meta[ $post_id ][ $key ] : array( $sabri_test_post_meta[ $post_id ][ $key ] ); }
 function update_post_meta( $post_id, $key, $value ) { global $sabri_test_post_meta; $sabri_test_post_meta[ (int) $post_id ][ $key ] = $value; return true; }
 function delete_post_meta( $post_id, $key ) { global $sabri_test_post_meta; unset( $sabri_test_post_meta[ (int) $post_id ][ $key ] ); return true; }

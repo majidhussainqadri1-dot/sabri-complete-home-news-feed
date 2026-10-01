@@ -102,9 +102,9 @@ final class SearchProviderRegistry {
 		return sabri_file26_register_connector(
 			array(
 				'slug' => self::FILE26_CONNECTOR_SLUG,
-				'owner_file' => '21',
+				'owner_file' => 'File 21',
 				'contract_version' => self::FILE26_CONTRACT_VERSION,
-				'entity_types' => array( 'post', 'news' ),
+				'entity_types' => array( 'post', 'news', 'article' ),
 				'privacy_classes' => array( 'public' ),
 				'visibility_fields' => array( 'state', 'visibility', 'review_state', 'workflow_state' ),
 				'deletion_semantics' => 'tombstone',
@@ -159,10 +159,10 @@ final class SearchProviderRegistry {
 		}
 		$post_id = isset( $document['object_id'] ) ? absint( $document['object_id'] ) : 0;
 		$type = isset( $document['entity_type'] ) ? sanitize_key( $document['entity_type'] ) : '';
-		if ( $post_id < 1 || ! in_array( $type, array( 'post', 'news' ), true ) ) {
+		if ( $post_id < 1 || ! in_array( $type, array( 'post', 'news', 'article' ), true ) ) {
 			return false;
 		}
-		if ( 'post' === $type ) {
+		if ( in_array( $type, array( 'post', 'article' ), true ) ) {
 			// General File 26 indexing is public-only. Member/private feed scopes stay
 			// native to File 21 and must never be broadened by search availability.
 			return 'publish' === get_post_status( $post_id )
@@ -178,7 +178,7 @@ final class SearchProviderRegistry {
 	public static function file26_health() {
 		return array(
 			'state' => function_exists( 'sabri_file26_register_connector' ) ? 'healthy' : 'degraded',
-			'owner_file' => '21',
+			'owner_file' => 'File 21',
 			'connector' => self::FILE26_CONNECTOR_SLUG,
 			'contract_version' => self::FILE26_CONTRACT_VERSION,
 			'package_version' => defined( 'SABRI_HNF_PACKAGE_VERSION' ) ? SABRI_HNF_PACKAGE_VERSION : '',

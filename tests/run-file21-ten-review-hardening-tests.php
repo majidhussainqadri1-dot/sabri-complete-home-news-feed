@@ -34,6 +34,7 @@ $share_js = $read( 'assets/js/next-generation-share.js' );
 $a11y_js = $read( 'assets/js/next-generation-accessibility.js' );
 $hardening = $read( 'includes/class-next-generation-hardening.php' );
 $plugin = $read( 'includes/class-plugin.php' );
+$feed = $read( 'includes/class-next-generation-feed.php' );
 
 $assert( false !== strpos( $main_js, 'a[href*="/next-generation/offline-pack"]' ), 'Offline pack link is not intercepted for nonce-bearing authenticated export.' );
 $assert( false !== strpos( $main_js, "headers: { 'X-WP-Nonce': config.nonce || '' }" ), 'Offline export fetch does not send the WordPress REST nonce.' );
@@ -56,11 +57,12 @@ foreach ( array(
 	"'preview_only'     => true",
 	'InteractionPermissions::nonce_valid( $nonce )',
 	'Phase5RateLimiter::allow( \'ng-digest-dispatch\', 4, HOUR_IN_SECONDS, $user_id )',
-	'InteractionPermissions::can_view_post( $post_id, $user_id )',
+	'NextGenerationFeed::strict_public_item( $post_id )',
 ) as $needle ) {
 	$assert( false !== strpos( $hardening, $needle ), 'Hardening contract missing: ' . $needle );
 }
 
+$assert( false !== strpos( $feed, 'InteractionPermissions::can_view_post( $post_id, $user_id )' ), 'Authenticated/private NG30 projections no longer revalidate object visibility.' );
 $assert( false !== strpos( $plugin, 'NextGenerationHardening::class' ), 'Plugin coordinator does not register NextGenerationHardening.' );
 $assert( false !== strpos( $hardening, "assets/js/next-generation-share.js" ), 'Share-card enhancement is not enqueued.' );
 $assert( false !== strpos( $hardening, "assets/js/next-generation-accessibility.js" ), 'Accessibility enhancement is not enqueued.' );

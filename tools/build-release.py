@@ -39,6 +39,8 @@ REQUIRED_FILES = {
     "includes/class-integrations.php",
     "includes/class-rest-foundation.php",
     "includes/class-search-provider-registry.php",
+    "includes/class-security-assurance-integration.php",
+    "includes/class-file01-reconciliation-adapter.php",
     "includes/class-file23-publishing-dashboard-bridge.php",
     "includes/class-network-relationship-bridge.php",
     "includes/class-feed-user-agency.php",

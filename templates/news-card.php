@@ -8,6 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 $image = ! empty( $item['image'] ) && is_array( $item['image'] ) ? $item['image'] : array();
+if ( class_exists( '\\Sabri\\HomeNewsFeed\\NextGenerationFeed' ) && \Sabri\HomeNewsFeed\NextGenerationFeed::media_transfer_suppressed() ) {
+	$image = array();
+}
 $section = ! empty( $item['section'][0] ) && is_array( $item['section'][0] ) ? $item['section'][0] : array();
 ?>
 <article class="sabri-news-card" data-sabri-global-key="<?php echo esc_attr( $item['global_key'] ); ?>">
