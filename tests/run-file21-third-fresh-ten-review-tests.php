@@ -82,7 +82,7 @@ $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
 // Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE04_SHA: a27119a7d006ae25896e5d0b24f14c11727a7c54' ), 'current File 04 exact head is pinned' );
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
@@ -97,7 +97,7 @@ $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains(
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
-$assert( str_contains( $companions, 'FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb' ), 'current File 24 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'File 21 current File 24 manifest contract is asserted' );
 
