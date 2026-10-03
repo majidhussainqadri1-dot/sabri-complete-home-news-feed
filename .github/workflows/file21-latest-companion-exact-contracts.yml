@@ -25,12 +25,12 @@ env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   FILE00_SHA: 2fa7c022ee9cd1b65432e900579512f304532442
   FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
-  FILE03_SHA: 6ed5c0ee5b518a62d961a0d12378adc2960871e7
-  FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd
+  FILE03_SHA: 636e3ef965423887f810718abec3cd1c11c3659d0
+  FILE04_SHA: a27119a7d006ae25896e5d0b24f14c11727a7c54
   FILE17_SHA: 8ae656e51796d1f05865d8be5dca2480443d79ca
   FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca
   FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
-  FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3
+  FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
   FILE25_SHA: 59927df876dc92c7461351420c7b7c95c65c6a93
 
 jobs:
@@ -161,10 +161,18 @@ jobs:
           grep -Fq 'sabri_file21_profile_timeline_items_v1' file03/includes/class-spd-timeline.php
           php -l file21/includes/class-profile-timeline.php
           php file21/tests/run-file21-file03-profile-timeline-contract.php
+          php file21/tests/run-file21-file04-migration-completeness-tests.php
 
           php -l file04/includes/class-snfla-central-plan.php
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
           grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
+          php -l file04/includes/class-snfla-file21-adapter.php
+          php -l file04/includes/class-snfla-plan-completion.php
+          grep -Fq 'sabri_file21_legacy_metadata_preflight_v1' file04/includes/class-snfla-plan-completion.php
+          grep -Fq 'sabri_file21_verify_migrated_legacy_metadata_v1' file04/includes/class-snfla-plan-completion.php
+          grep -Fq "'legacy_metadata_context'=> \$metadata_context" file04/includes/class-snfla-file21-adapter.php
+          grep -Fq 'spdb/file04_migration_state' file04/includes/class-snfla-cross-file-contracts.php
+          python3 file04/tests/run-runtime-contract-regressions.py
 
           php -l file17/sabri-network/includes/class-sn-relationships.php
           php -l file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
