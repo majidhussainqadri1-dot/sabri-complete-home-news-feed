@@ -80,10 +80,10 @@
 
 .sabri-hnf-composer button {
 	min-height: 40px;
-	border: 1px solid #1f7a55;
+	border: 1px solid var(--sabri-shell-primary, #087a4e);
 	border-radius: 8px;
 	padding: 8px 14px;
-	background: #1f7a55;
+	background: var(--sabri-shell-primary, #087a4e);
 	color: #ffffff;
 	cursor: pointer;
 	font-weight: 700;
@@ -92,7 +92,7 @@
 .sabri-hnf-composer button[name="composer_action"][value="preview"],
 .sabri-hnf-composer button[name="composer_action"][value="draft"] {
 	background: #ffffff;
-	color: #1f7a55;
+	color: var(--sabri-shell-primary, #087a4e);
 }
 
 .sabri-hnf-composer input:focus-visible,
