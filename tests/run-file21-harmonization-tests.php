@@ -71,7 +71,7 @@ preg_match_all( "/^\s*'[^']+'\s*=>\s*array\(/m", $control_source, $control_match
 $assert( 14 === count( $control_matches[0] ), 'Canonical Home composition must define exactly fourteen controls.' );
 
 $home_css = file_get_contents( $root . '/assets/css/home-composition.css' );
-foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', 'var(--sabri-shell-primary, #087a4e)', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
+foreach ( array( '.sabri-hnf-home-control', '.sabri-hnf-home-row__items', '.sabri-hnf-home-row__empty', '.is-unavailable', 'var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e))', '@media (max-width: 900px)', '@media (max-width: 600px)', ':focus-visible', 'prefers-reduced-motion' ) as $needle ) {
 	$assert( false !== strpos( $home_css, $needle ), 'Responsive/accessibility/current-green Home CSS missing: ' . $needle );
 }
 $assert( false === stripos( $home_css, '#ff8a1f' ), 'Superseded orange primary token remains in Home CSS.' );
