@@ -60,6 +60,7 @@ jobs:
             tests/run-wordpress-option-filter-compatibility-tests.php
             tests/run-duplicate-plugin-compat-tests.php
             tests/run-file21-settings-recursion-tests.php
+            tests/run-file01-reconciliation-adapter.php
             tests/run-file21-production-rejection-tests.php
             tests/run-file21-public-visibility-tests.php
             tests/run-file21-harmonization-tests.php
