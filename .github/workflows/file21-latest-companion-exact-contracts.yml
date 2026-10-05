@@ -218,6 +218,7 @@ jobs:
           grep -Fq 'public static function get_live_status' file07/doctors-directory/includes/class-sdd-directory.php
           grep -Fq 'public static function public_dto' file07/doctors-directory/includes/class-sdd-directory.php
           grep -Fq 'eligible=1' file07/doctors-directory/includes/class-sdd-directory.php
+          python3 file07/tests/source-contracts.py
 
           # File 09 remains doctor-verification truth; File 21 must consume its current projection through the File 03 verification bridge.
           grep -Fq "const VERSION = '1.1.0'" file09/includes/class-gdo-integration-contracts.php
@@ -228,6 +229,7 @@ jobs:
           grep -Fq 'gdo_validate_public_projection' file03/includes/class-spd-verification-adapter.php
           grep -Fq 'SPD_Verification_Adapter::directory_eligible' file21/includes/class-canonical-identity-adapter.php
           grep -Fq 'SPD_Verification_Adapter::approved_fields' file21/includes/class-canonical-identity-adapter.php
+          php file09/tests/cross-file-contracts.php
 
           php -l file17/sabri-network/includes/class-sn-relationships.php
           php -l file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
