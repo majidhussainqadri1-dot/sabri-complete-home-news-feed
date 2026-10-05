@@ -28,15 +28,17 @@ env:
   FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
   FILE03_SHA: 636e3ef965423887f810718abec3cd1c11c3659d
   FILE04_SHA: a27119a7d006ae25896e5d0b24f14c11727a7c54
+  FILE07_SHA: 67c32ec4af45a7de6e3d9c1dbf0f8614d6b5a844
+  FILE09_SHA: a9ab697c671129be023414f5a3c32186567cb2bf
   FILE17_SHA: 8ae656e51796d1f05865d8be5dca2480443d79ca
   FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca
-  FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
+  FILE23_SHA: dcae138e6073f4d0ff596623deb05b9940b8271b
   FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
   FILE25_SHA: 59927df876dc92c7461351420c7b7c95c65c6a93
 
 jobs:
   exact-current-companions:
-    name: Exact current File 00/01/02/03/04/17/20/23/24/25 contracts
+    name: Exact current File 00/01/02/03/04/07/09/17/20/23/24/25 contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -90,6 +92,24 @@ jobs:
           repository: majidhussainqadri1-dot/04-sabri-news-feed-and-publishing
           ref: ${{ env.FILE04_SHA }}
           path: file04
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 07
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/07-doctors-directory-and-discovery
+          ref: ${{ env.FILE07_SHA }}
+          path: file07
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 09
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/09-global-doctor-onboarding-and-verification-completion
+          ref: ${{ env.FILE09_SHA }}
+          path: file09
           fetch-depth: 1
           persist-credentials: false
 
@@ -149,6 +169,8 @@ jobs:
           test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
           test "$(git -C file03 rev-parse HEAD)" = "${FILE03_SHA}"
           test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file07 rev-parse HEAD)" = "${FILE07_SHA}"
+          test "$(git -C file09 rev-parse HEAD)" = "${FILE09_SHA}"
           test "$(git -C file17 rev-parse HEAD)" = "${FILE17_SHA}"
           test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
           test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
@@ -190,6 +212,22 @@ jobs:
           grep -Fq "'legacy_metadata_context'=> \$metadata_context" file04/includes/class-snfla-file21-adapter.php
           grep -Fq 'spdb/file04_migration_state' file04/includes/class-snfla-cross-file-contracts.php
           python3 file04/tests/run-runtime-contract-regressions.py
+
+          # File 07 remains the public doctor-directory/discovery owner; File 21 may consume only public-safe current projections.
+          grep -Fq 'DoctorDirectoryEligibilityChanged.v1' file07/docs/API-CONTRACTS.md
+          grep -Fq 'public static function get_live_status' file07/doctors-directory/includes/class-sdd-directory.php
+          grep -Fq 'public static function public_dto' file07/doctors-directory/includes/class-sdd-directory.php
+          grep -Fq 'eligible=1' file07/doctors-directory/includes/class-sdd-directory.php
+
+          # File 09 remains doctor-verification truth; File 21 must consume its current projection through the File 03 verification bridge.
+          grep -Fq "const VERSION = '1.1.0'" file09/includes/class-gdo-integration-contracts.php
+          grep -Fq "const FILE21 = 'gdo.file21.publishing-eligibility'" file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'function gdo_file21_publishing_eligibility' file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'sabri_doctor_verification_public_projection_v1' file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'sabri_doctor_verification_public_projection_v1' file03/includes/class-spd-verification-adapter.php
+          grep -Fq 'gdo_validate_public_projection' file03/includes/class-spd-verification-adapter.php
+          grep -Fq 'SPD_Verification_Adapter::directory_eligible' file21/includes/class-canonical-identity-adapter.php
+          grep -Fq 'SPD_Verification_Adapter::approved_fields' file21/includes/class-canonical-identity-adapter.php
 
           php -l file17/sabri-network/includes/class-sn-relationships.php
           php -l file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
@@ -249,6 +287,8 @@ jobs:
           File 02: ${FILE02_SHA}
           File 03: ${FILE03_SHA}
           File 04: ${FILE04_SHA}
+          File 07: ${FILE07_SHA}
+          File 09: ${FILE09_SHA}
           File 17: ${FILE17_SHA}
           File 20: ${FILE20_SHA}
           File 23: ${FILE23_SHA}
@@ -258,6 +298,8 @@ jobs:
           File 01 Home/News reconciliation owner contract: PASS
           File 03 profile timeline owner contract: PASS
           Legacy cutover/no-new-owner boundary: PASS
+          File 07 doctor-directory public projection boundary: PASS
+          File 09 current verification -> File 03 -> File 21 authority chain: PASS
           File 17 relationship/block runtime boundary: PASS
           Shell five-slot/canonical-owner boundary: PASS
           Dashboard native-owner boundary: PASS
