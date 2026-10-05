@@ -177,23 +177,18 @@ final class HomeCompositionRegistry {
 	}
 
 	/**
-	 * Allow bounded configuration of canonical registry entries without permitting
-	 * filters to add, remove, reorder or rename the Founder-approved keys.
+	 * Preserve the Founder-approved registry exactly.
+	 *
+	 * The historical filters are dispatched for observer/backward compatibility,
+	 * but their return value is deliberately ignored: keys, order, labels, kinds,
+	 * providers, routes and default limits are governing-plan constants. Extension
+	 * modules customize row contents through sabri_hnf_home_row_items_* instead.
 	 */
 	private static function bounded_registry_filter( $hook, array $canonical ) {
-		if ( ! function_exists( 'apply_filters' ) ) {
-			return $canonical;
+		if ( function_exists( 'apply_filters' ) ) {
+			apply_filters( $hook, $canonical );
 		}
-		$filtered = apply_filters( $hook, $canonical );
-		if ( ! is_array( $filtered ) ) {
-			return $canonical;
-		}
-		$out = array();
-		foreach ( $canonical as $key => $defaults ) {
-			$candidate = isset( $filtered[ $key ] ) && is_array( $filtered[ $key ] ) ? $filtered[ $key ] : array();
-			$out[ $key ] = array_merge( $defaults, array_intersect_key( $candidate, $defaults ) );
-		}
-		return $out;
+		return $canonical;
 	}
 
 	/** Reset request-local rows markup for tests. */
