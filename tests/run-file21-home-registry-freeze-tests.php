@@ -29,11 +29,11 @@ namespace Sabri\HomeNewsFeed {
 	$rows=HomeCompositionRegistry::rows();
 	$ok(14===count($controls),'Control registry must remain exactly 14 after hostile filter.');
 	$ok(isset($controls['latest'])&&!isset($controls['rogue-control']),'Canonical control keys cannot be removed or added.');
-	$ok('For You (configured)'===($controls['for-you']['label']??''),'Existing control fields may be safely configured.');
+	$ok('For You'===($controls['for-you']['label']??''),'Canonical control labels cannot be changed by runtime filters.');
 	$ok(!isset($controls['for-you']['rogue_field']),'Unknown control fields must be discarded.');
 	$ok(10===count($rows),'Home row registry must remain exactly 10 after hostile filter.');
 	$ok(isset($rows['latest-news'])&&!isset($rows['rogue-row']),'Canonical row keys cannot be removed or added.');
-	$ok(5===($rows['most-viral-now']['limit']??0),'Existing row fields may be safely configured.');
+	$ok(6===($rows['most-viral-now']['limit']??0),'Canonical row defaults cannot be changed by runtime filters.');
 	$ok(!isset($rows['most-viral-now']['rogue_field']),'Unknown row fields must be discarded.');
 	if($fail){fwrite(STDERR,"File 21 Home registry freeze failures:\n- ".implode("\n- ",$fail)."\n");exit(1);}
 	echo "File 21 Home registry freeze: PASS\n";
