@@ -6,7 +6,7 @@ This is a new, independent twenty-round repository/source audit requested after 
 
 - Repository main frozen at review start: `f2eb7e95ddea327af36ea725ffb923b029f885e6`
 - Prior corrective head at review start: `31f5c30c1e2d615a716ce39a625a4581cf2a5ef2`
-- Pre-ledger corrected source head: `4ba00d4924796839b648bef83568db0f1bf7fa67`
+- Final corrected source head before this documentation refresh: `6f20b2e1533139972fe538e0adc4c8d7a074f29d`
 - Corrective branch: `fix/file21-post-merge-current-audit-20261003`
 - Corrective PR: #54
 
@@ -53,7 +53,7 @@ The comparison basis is:
 
 | Round | Review domain | Initial result | Correction / final source verdict |
 |---:|---|---|---|
-| 1 | File 21 canonical Home controls and Home rows | **DEFECT** | Runtime filters could add/remove/reorder the plan-frozen 14 controls or 10 rows even though static source tests counted 14/10. Added a bounded registry filter that preserves exact canonical keys/order and accepts only fields already present in each canonical entry. Added a hostile-filter regression and canonical-CI execution. **GREEN after correction.** |
+| 1 | File 21 canonical Home controls and Home rows | **DEFECT** | Runtime filters could add/remove/reorder the plan-frozen 14 controls or 10 rows even though static source tests counted 14/10. Added an immutable registry boundary: legacy filters may still execute for observer/backward compatibility, but cannot change canonical keys, order, labels, kinds, providers, routes or default limits. Extension modules remain limited to the dedicated row-item provider filters. Added a hostile-filter regression and canonical-CI execution. **GREEN after correction.** |
 | 2 | Central brand / visual-token law | **DEFECT** | Several File 21 CSS surfaces and effective settings still used legacy green `#1f7a55`, while the current central/File 25 visual contract uses Sabri Green `#087A4E`. Updated effective accent to `#087A4E`; public CSS now prefers File 25 `--sabri-visual-primary`, then File 20 `--sabri-shell-primary`, then canonical `#087a4e`. Updated regressions and removed the legacy token from active File 21 source. **GREEN after correction.** |
 | 3 | File 00 identity + File 03 profile + File 09 verification authority chain | **DEFECT (evidence coverage)** | Runtime already consumed File 09 through File 03's current verification adapter, but File 21's latest-companion exact gate did not pin File 09 even though File 21 DoD requires File 00/03/07/09/19 contracts. Added exact File 09 pin and executable source-chain checks through File 09 → File 03 → File 21. **GREEN after correction.** |
 | 4 | File 07 doctor-directory/discovery boundary | **DEFECT (evidence coverage)** | File 07 was required by the plan but absent from File 21's exact-companion gate. Added exact File 07 pin and checks for current eligibility/public projection surfaces. File 21 still does not write File 07 truth. **GREEN after correction.** |
@@ -76,7 +76,7 @@ The comparison basis is:
 
 ## Corrective changes made in this audit
 
-1. Frozen runtime Home composition to the exact 14 controls and 10 Home rows.
+1. Frozen runtime Home composition to the exact 14 controls and 10 Home rows, including immutable labels, kinds/providers, routes and default limits.
 2. Added hostile-filter executable regression and canonical CI execution.
 3. Replaced active legacy `#1f7a55` usage with the current File 25/File 20/canonical Sabri Green token chain.
 4. Updated effective admin accent to `#087A4E`.
