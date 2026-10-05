@@ -50,7 +50,7 @@
 }
 
 .sabri-hnf-filter__link.is-active {
-	border-color: #1f7a55;
+	border-color: var(--sabri-shell-primary, #087a4e);
 	background: #e9f6ef;
 	color: #0f3e2a;
 	font-weight: 600;
@@ -107,7 +107,7 @@
 .sabri-hnf-feed-agency__mode.is-active,
 .sabri-hnf-feed-agency__button:hover,
 .sabri-hnf-card-agency__actions button:hover {
-	border-color: #1f7a55;
+	border-color: var(--sabri-shell-primary, #087a4e);
 	background: #e9f6ef;
 	color: #0f3e2a;
 }
@@ -306,10 +306,10 @@
 
 .sabri-hnf-load-more {
 	min-height: 44px;
-	border: 1px solid #1f7a55;
+	border: 1px solid var(--sabri-shell-primary, #087a4e);
 	border-radius: 8px;
 	padding: 8px 14px;
-	background: #1f7a55;
+	background: var(--sabri-shell-primary, #087a4e);
 	color: #ffffff;
 	cursor: pointer;
 }
