@@ -111,7 +111,7 @@
 .sabri-hnf-comment-form button,
 .sabri-hnf-comment__actions button {
 	min-height: 44px;
-	border: 1px solid #1f7a55;
+	border: 1px solid var(--sabri-shell-primary, #087a4e);
 	border-radius: 8px;
 	padding: 7px 12px;
 	background: #ffffff;
@@ -122,7 +122,7 @@
 }
 
 .sabri-hnf-comment-submit {
-	background: #1f7a55 !important;
+	background: var(--sabri-shell-primary, #087a4e) !important;
 	color: #ffffff !important;
 }
 
@@ -206,7 +206,7 @@
 	gap: 4px;
 	margin: 10px 0 0;
 	padding: 9px 11px;
-	border-left: 3px solid #1f7a55;
+	border-left: 3px solid var(--sabri-shell-primary, #087a4e);
 	background: #f5faf7;
 	color: #43584d;
 	font-size: 0.86rem;
