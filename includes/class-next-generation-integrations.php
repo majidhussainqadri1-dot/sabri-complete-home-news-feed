@@ -42,9 +42,10 @@ final class NextGenerationIntegrations {
 		return (bool) sun_register_notification_producer(
 			self::FILE19_PRODUCER,
 			array(
-				'owner'           => 'File 21',
-				'event_types'     => array( self::FILE19_EVENT_TYPE ),
-				'schema_versions' => array( self::FILE19_SCHEMA_VERSION ),
+				'owner'               => 'File 21',
+				'event_types'         => array( self::FILE19_EVENT_TYPE ),
+				'schema_versions'     => array( self::FILE19_SCHEMA_VERSION ),
+				'allowed_data_fields' => array( 'action_name', 'object_name', 'summary', 'frequency', 'candidate_window', 'items' ),
 			)
 		);
 	}
