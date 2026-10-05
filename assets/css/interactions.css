@@ -57,7 +57,7 @@
 }
 
 .sabri-hnf-action.is-active {
-	border-color: var(--sabri-shell-primary, #087a4e);
+	border-color: var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
 	background: #e9f6ef;
 	color: #0f4f34;
 }
@@ -263,9 +263,9 @@
 .sabri-hnf-following__login {
 	display: inline-flex;
 	margin-top: 12px;
-	border: 1px solid var(--sabri-shell-primary, #087a4e);
+	border: 1px solid var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
 	border-radius: 8px;
-	background: var(--sabri-shell-primary, #087a4e);
+	background: var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
 	color: #ffffff;
 }
 
