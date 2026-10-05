@@ -84,7 +84,7 @@ $assert( false !== strpos( $harmonized, "founder_priority'] = 0" ), 'Founder pri
 
 $home_css = strtolower( $read( 'assets/css/home-composition.css' ) );
 $assert( false === strpos( $home_css, '#ff8a1f' ) && false === strpos( $home_css, '#f26100' ), 'Superseded orange brand token remains in Home composition CSS.' );
-$assert( false !== strpos( $home_css, 'var(--sabri-shell-primary, #087a4e)' ), 'Current green Home accent is missing.' );
+$assert( false !== strpos( $home_css, 'var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e))' ), 'Current green Home accent is missing.' );
 
 $rest_feed = $read( 'includes/class-rest-feed.php' );
 foreach ( array( '/feed/preferences', 'private_write_permission', 'InteractionPermissions::nonce_valid', 'self::request_nonce( $request )' ) as $needle ) {
