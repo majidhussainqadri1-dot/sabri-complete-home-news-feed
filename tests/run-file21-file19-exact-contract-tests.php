@@ -51,7 +51,13 @@ foreach ( array( 'producer', 'owner', 'event_id', 'event_type', 'schema_version'
 $check( false !== strpos( $file21, 'sun_register_notification_producer' ), 'File 21 does not register its File 19 producer.' );
 $check( false !== strpos( $file21, "'event_types'" ), 'File 21 producer declaration is not event-type bounded.' );
 $check( false !== strpos( $file21, "'schema_version'" ), 'File 21 event envelope is not schema-versioned.' );
-$check( false !== strpos( $file21, "'owner'           => 'File 21'" ), 'File 21 producer owner does not match its event owner.' );
+$check( false !== strpos( $file21, "'owner'               => 'File 21'" ), 'File 21 producer owner does not match its event owner.' );
+$producer_registration = substr( $file21, strpos( $file21, 'public static function register_file19_producer' ), 2200 );
+foreach ( array( 'action_name', 'object_name', 'summary', 'frequency', 'candidate_window', 'items' ) as $field ) {
+	$check( false !== strpos( $producer_registration, "'{$field}'" ), 'File 21 producer allowlist is missing emitted data field ' . $field . '.' );
+}
+$check( false !== strpos( $producer_registration, "'allowed_data_fields'" ), 'File 21 must explicitly register its File 19 data-field allowlist.' );
+$check( false !== strpos( $file19['validator'], "\$config['allowed_data_fields']" ), 'Pinned File 19 validator no longer honors producer-specific data-field allowlists.' );
 
 // The pinned producer registry authorizes event types; schema version belongs to the event validator/envelope.
 $check(
