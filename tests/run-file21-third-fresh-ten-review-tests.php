@@ -86,7 +86,7 @@ $assert( str_contains( $companions, 'FILE04_SHA: a27119a7d006ae25896e5d0b24f14c1
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
-$assert( str_contains( $companions, 'FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759' ), 'current File 23 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE23_SHA: dcae138e6073f4d0ff596623deb05b9940b8271b' ), 'current File 23 exact head is pinned' );
 $assert( str_contains( $companions, 'Native data and native state remain authoritative' ), 'File 23 native-owner invariant is asserted' );
 $assert( str_contains( $companions, 'Production writes require `production_accepted`' ), 'File 23 production write gate is asserted' );
 
