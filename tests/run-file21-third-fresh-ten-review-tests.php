@@ -62,6 +62,7 @@ $assert( str_contains( $main, "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' )" ),
 // Round 2 — current File 00 and File 02 exact-head compatibility is permanently pinned.
 $assert( str_contains( $companions, 'FILE00_SHA: 2fa7c022ee9cd1b65432e900579512f304532442' ), 'current File 00 exact head is pinned' );
 $assert( str_contains( $companions, 'FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8' ), 'current File 02 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE07_SHA: 2f4a89707724fd2b9946600afe10ddab27ec3c2d' ), 'current File 07 exact head is pinned' );
 $assert( str_contains( $companions, 'class-smc-contracts.php' ) && str_contains( $companions, 'class-sa-membership-adapter.php' ), 'identity/auth owner boundary is executable' );
 
 // Round 3 — safe GET digest cannot reach the existing File 19 ingestion callback.
@@ -98,8 +99,8 @@ $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contain
 
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
 $assert( str_contains( $companions, 'FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb' ), 'current File 24 exact head is pinned' );
-$assert( str_contains( $companions, 'FILE09_SHA: 9639f75ba046ac1a36e39d5e9aae56c7bae3279b' ), 'current File 09 exact head is pinned' );
-$assert( str_contains( $companions, 'FILE25_SHA: 2d02c93356b050313e30e29aeceb57080771c2a5' ), 'current File 25 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE09_SHA: cfc5f781a766330314dc98c42abeca0eb7786eba' ), 'current File 09 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE25_SHA: e35563b7f3d8ebf0acbbc80982b7bcf2e1b78c0a' ), 'current File 25 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'File 21 current File 24 manifest contract is asserted' );
 
