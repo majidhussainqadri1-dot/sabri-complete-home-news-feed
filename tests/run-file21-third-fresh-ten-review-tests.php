@@ -20,6 +20,8 @@ $files = array(
 	'file22'     => $root . '/.github/workflows/file21-file22-real-contract.yml',
 	'companions' => $root . '/.github/workflows/file21-latest-companion-exact-contracts.yml',
 	'workflow'   => $root . '/.github/workflows/file21-third-fresh-ten-review.yml',
+	'phase5'     => $root . '/.github/workflows/phase5-final-completion-tests.yml',
+	'phase5soak' => $root . '/.github/workflows/phase5-two-hour-visible-qa-v3.yml',
 	'report'     => $root . '/docs/FILE21-THIRD-FRESH-TEN-ROUND-REVIEW-2026-08-08.md',
 	'main'       => $root . '/sabri-complete-home-news-feed.php',
 );
@@ -51,6 +53,8 @@ $integrate  = $read( $files['integrate'] );
 $file22     = $read( $files['file22'] );
 $companions = $read( $files['companions'] );
 $workflow   = $read( $files['workflow'] );
+$phase5     = $read( $files['phase5'] );
+$phase5soak = $read( $files['phase5soak'] );
 $report     = $read( $files['report'] );
 $main       = $read( $files['main'] );
 
@@ -108,6 +112,13 @@ $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'Fi
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );
 $assert( str_contains( $workflow, 'run-file21-third-fresh-ten-review-tests.php' ), 'third-review executable test is wired into CI' );
 $assert( str_contains( $workflow, 'python3 tools/build-release.py --source-sha' ), 'third-review CI includes deterministic package regression' );
+foreach ( array( 'Phase 5 completion' => $phase5, 'Phase 5 soak' => $phase5soak ) as $label => $identity_workflow ) {
+	$assert( str_contains( $identity_workflow, "Version: 1.0.5" ), "{$label} workflow checks current package header" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_PACKAGE_VERSION', '1.0.5'" ), "{$label} workflow checks package identity" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_VERSION', '1.0.3'" ), "{$label} workflow checks runtime/API identity" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_SCHEMA_VERSION', '1.0.0'" ), "{$label} workflow keeps schema identity" );
+	$assert( ! str_contains( $identity_workflow, "Version: 1.0.0" ), "{$label} workflow removes obsolete package assertion" );
+}
 
 $rounds = array();
 if ( preg_match_all( '/^\|\s*(\d{1,2})\s*\|/m', $report, $matches ) ) {
