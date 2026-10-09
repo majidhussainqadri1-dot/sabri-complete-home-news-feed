@@ -64,7 +64,7 @@ if ( false !== $sources['file26'] ) {
 
 if ( false !== $sources['feed_css'] ) {
 	$assert( false === stripos( $sources['feed_css'], '#ff8a1f' ), 'Deprecated orange primary token must not appear in File 21 feed CSS.' );
-	$assert( false !== stripos( $sources['feed_css'], '#1f7a55' ), 'Green primary action/accent token is required in File 21 feed CSS.' );
+	$assert( false !== stripos( $sources['feed_css'], 'var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e))' ), 'Current File 25/File 20/canonical Sabri Green token chain is required in File 21 feed CSS.' );
 }
 
 if ( false !== $sources['bootstrap'] && false !== $sources['builder'] ) {

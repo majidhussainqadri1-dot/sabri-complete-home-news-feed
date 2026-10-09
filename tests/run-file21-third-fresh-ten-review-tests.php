@@ -20,6 +20,8 @@ $files = array(
 	'file22'     => $root . '/.github/workflows/file21-file22-real-contract.yml',
 	'companions' => $root . '/.github/workflows/file21-latest-companion-exact-contracts.yml',
 	'workflow'   => $root . '/.github/workflows/file21-third-fresh-ten-review.yml',
+	'phase5'     => $root . '/.github/workflows/phase5-final-completion-tests.yml',
+	'phase5soak' => $root . '/.github/workflows/phase5-two-hour-visible-qa-v3.yml',
 	'report'     => $root . '/docs/FILE21-THIRD-FRESH-TEN-ROUND-REVIEW-2026-08-08.md',
 	'main'       => $root . '/sabri-complete-home-news-feed.php',
 );
@@ -51,6 +53,8 @@ $integrate  = $read( $files['integrate'] );
 $file22     = $read( $files['file22'] );
 $companions = $read( $files['companions'] );
 $workflow   = $read( $files['workflow'] );
+$phase5     = $read( $files['phase5'] );
+$phase5soak = $read( $files['phase5soak'] );
 $report     = $read( $files['report'] );
 $main       = $read( $files['main'] );
 
@@ -62,6 +66,7 @@ $assert( str_contains( $main, "define( 'SABRI_HNF_SCHEMA_VERSION', '1.0.0' )" ),
 // Round 2 — current File 00 and File 02 exact-head compatibility is permanently pinned.
 $assert( str_contains( $companions, 'FILE00_SHA: 2fa7c022ee9cd1b65432e900579512f304532442' ), 'current File 00 exact head is pinned' );
 $assert( str_contains( $companions, 'FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8' ), 'current File 02 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE07_SHA: 2f4a89707724fd2b9946600afe10ddab27ec3c2d' ), 'current File 07 exact head is pinned' );
 $assert( str_contains( $companions, 'class-smc-contracts.php' ) && str_contains( $companions, 'class-sa-membership-adapter.php' ), 'identity/auth owner boundary is executable' );
 
 // Round 3 — safe GET digest cannot reach the existing File 19 ingestion callback.
@@ -82,11 +87,11 @@ $assert( ! str_contains( $file22, '4d4f17ff11810d3048c7f6d5c8fd10a5ac506385' ), 
 $assert( str_contains( $file22, "- main\n      - 'file21-**'" ), 'File 22 contract reruns on main and review branches' );
 
 // Round 6 — the continuing current File 04 migration-only contract remains exact-pinned.
-$assert( str_contains( $companions, 'FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd' ), 'current File 04 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE04_SHA: a27119a7d006ae25896e5d0b24f14c11727a7c54' ), 'current File 04 exact head is pinned' );
 $assert( str_contains( $companions, 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' ), 'legacy migration/write-disable boundary is asserted' );
 
 // Round 7 — current File 23 native-owner/write-acceptance contract is exact-pinned.
-$assert( str_contains( $companions, 'FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759' ), 'current File 23 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE23_SHA: dcae138e6073f4d0ff596623deb05b9940b8271b' ), 'current File 23 exact head is pinned' );
 $assert( str_contains( $companions, 'Native data and native state remain authoritative' ), 'File 23 native-owner invariant is asserted' );
 $assert( str_contains( $companions, 'Production writes require `production_accepted`' ), 'File 23 production write gate is asserted' );
 
@@ -97,7 +102,9 @@ $assert( str_contains( $hardening, 'add_option( $key, $value' ) && str_contains(
 $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contains( $hardening, "return 'user-' . \$user_id" ), 'post and user shared-meta scopes are independently serialized' );
 
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
-$assert( str_contains( $companions, 'FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb' ), 'current File 24 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE09_SHA: cfc5f781a766330314dc98c42abeca0eb7786eba' ), 'current File 09 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE25_SHA: 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e' ), 'current File 25 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'File 21 current File 24 manifest contract is asserted' );
 
@@ -105,6 +112,13 @@ $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'Fi
 $assert( str_contains( $plugin, 'ThirdFreshReviewHardening::class' ), 'third-review runtime hardening is registered' );
 $assert( str_contains( $workflow, 'run-file21-third-fresh-ten-review-tests.php' ), 'third-review executable test is wired into CI' );
 $assert( str_contains( $workflow, 'python3 tools/build-release.py --source-sha' ), 'third-review CI includes deterministic package regression' );
+foreach ( array( 'Phase 5 completion' => $phase5, 'Phase 5 soak' => $phase5soak ) as $label => $identity_workflow ) {
+	$assert( str_contains( $identity_workflow, "Version: 1.0.5" ), "{$label} workflow checks current package header" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_PACKAGE_VERSION', '1.0.5'" ), "{$label} workflow checks package identity" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_VERSION', '1.0.3'" ), "{$label} workflow checks runtime/API identity" );
+	$assert( str_contains( $identity_workflow, "SABRI_HNF_SCHEMA_VERSION', '1.0.0'" ), "{$label} workflow keeps schema identity" );
+	$assert( ! str_contains( $identity_workflow, "Version: 1.0.0" ), "{$label} workflow removes obsolete package assertion" );
+}
 
 $rounds = array();
 if ( preg_match_all( '/^\|\s*(\d{1,2})\s*\|/m', $report, $matches ) ) {

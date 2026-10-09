@@ -79,12 +79,12 @@ foreach ( array( 'no Founder favoritism', 'donation', 'paid promotion', 'File 26
 $assert( false === strpos( $ranking, 'is_founder( $author_id )' ), 'Founder identity still creates an organic rank bonus.' );
 
 $harmonized = $read( 'includes/class-harmonized-settings.php' );
-$assert( false !== strpos( $harmonized, "admin_accent_hex'] = '#1f7a55'" ), 'Current green brand is not enforced in effective settings.' );
+$assert( false !== strpos( $harmonized, "admin_accent_hex'] = '#087A4E'" ), 'Current green brand is not enforced in effective settings.' );
 $assert( false !== strpos( $harmonized, "founder_priority'] = 0" ), 'Founder priority is not neutralized in effective settings.' );
 
 $home_css = strtolower( $read( 'assets/css/home-composition.css' ) );
 $assert( false === strpos( $home_css, '#ff8a1f' ) && false === strpos( $home_css, '#f26100' ), 'Superseded orange brand token remains in Home composition CSS.' );
-$assert( false !== strpos( $home_css, '#1f7a55' ), 'Current green Home accent is missing.' );
+$assert( false !== strpos( $home_css, 'var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e))' ), 'Current green Home accent is missing.' );
 
 $rest_feed = $read( 'includes/class-rest-feed.php' );
 foreach ( array( '/feed/preferences', 'private_write_permission', 'InteractionPermissions::nonce_valid', 'self::request_nonce( $request )' ) as $needle ) {

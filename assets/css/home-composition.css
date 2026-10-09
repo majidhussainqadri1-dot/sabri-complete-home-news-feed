@@ -19,14 +19,14 @@
 }
 
 .sabri-hnf-home-control .sabri-hnf-filter__link:hover {
-	border-color: #1f7a55;
+	border-color: var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
 	background: #e9f6ef;
 	color: #0f3e2a;
 }
 
 .sabri-hnf-home-control .sabri-hnf-filter__link.is-active {
-	border-color: #1f7a55;
-	background: #1f7a55;
+	border-color: var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
+	background: var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e));
 	color: #ffffff;
 	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }

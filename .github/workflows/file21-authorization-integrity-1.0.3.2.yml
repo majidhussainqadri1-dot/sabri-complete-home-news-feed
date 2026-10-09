@@ -75,7 +75,7 @@ jobs:
           ! grep -Fq "'status' => 'active'" includes/class-search-provider-registry.php
           grep -Fq 'SN_Relationships' includes/class-network-relationship-bridge.php
           ! grep -Eq 'SN_DB|sn_follows|sn_blocks|wp_sn_' includes/class-network-relationship-bridge.php
-          grep -Fq "admin_accent_hex'] = '#1f7a55'" includes/class-harmonized-settings.php
+          grep -Fq "admin_accent_hex'] = '#087A4E'" includes/class-harmonized-settings.php
           grep -Fq "founder_priority'] = 0" includes/class-harmonized-settings.php
           php tests/run-file00-authorization-integrity.php
           php tests/run-file21-file22-founder-gateway-regression.php

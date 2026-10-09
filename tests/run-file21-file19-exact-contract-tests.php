@@ -51,7 +51,25 @@ foreach ( array( 'producer', 'owner', 'event_id', 'event_type', 'schema_version'
 $check( false !== strpos( $file21, 'sun_register_notification_producer' ), 'File 21 does not register its File 19 producer.' );
 $check( false !== strpos( $file21, "'event_types'" ), 'File 21 producer declaration is not event-type bounded.' );
 $check( false !== strpos( $file21, "'schema_version'" ), 'File 21 event envelope is not schema-versioned.' );
-$check( false !== strpos( $file21, "'owner'           => 'File 21'" ), 'File 21 producer owner does not match its event owner.' );
+$check( false !== strpos( $file21, "'owner'               => 'File 21'" ), 'File 21 producer owner does not match its event owner.' );
+$producer_registration = substr( $file21, strpos( $file21, 'public static function register_file19_producer' ), 2200 );
+$check( false !== strpos( $producer_registration, "'allowed_data_fields'" ), 'File 21 must explicitly register its File 19 data-field allowlist.' );
+$check( false !== strpos( $file19['validator'], "\$config['allowed_data_fields']" ), 'Pinned File 19 validator no longer honors producer-specific data-field allowlists.' );
+
+$dispatch_start = strpos( $file21, 'public static function dispatch_digest_candidates' );
+$dispatch_source = false === $dispatch_start ? '' : substr( $file21, $dispatch_start, 9000 );
+$data_fields = array();
+if ( preg_match( "/'data'\\s*=>\\s*array\\((.*?)\\n\\t\\t\\t\\),/s", $dispatch_source, $data_match ) ) {
+	preg_match_all( "/'([a-z0-9_]+)'\\s*=>/i", $data_match[1], $field_matches );
+	$data_fields = array_values( array_unique( $field_matches[1] ) );
+}
+$check( ! empty( $data_fields ), 'File 21 digest data fields could not be extracted for exact contract verification.' );
+foreach ( $data_fields as $field ) {
+	$check( false !== strpos( $producer_registration, "'{$field}'" ), 'File 21 producer allowlist is missing emitted data field ' . $field . '.' );
+}
+foreach ( array( 'action_name', 'object_name', 'summary', 'frequency', 'candidate_window', 'items' ) as $required_digest_field ) {
+	$check( in_array( $required_digest_field, $data_fields, true ), 'File 21 digest payload is missing required field ' . $required_digest_field . '.' );
+}
 
 // The pinned producer registry authorizes event types; schema version belongs to the event validator/envelope.
 $check(

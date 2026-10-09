@@ -46,7 +46,7 @@ final class HomeCompositionRegistry {
 			'clinics'              => array( 'label' => __( 'Clinics', 'sabri-complete-home-news-feed' ), 'kind' => 'module', 'module' => 'appointments', 'path' => '/worldwide-clinic/' ),
 			'marketplace'          => array( 'label' => __( 'Marketplace', 'sabri-complete-home-news-feed' ), 'kind' => 'module', 'module' => 'marketplace', 'path' => '/marketplace/' ),
 		);
-		return function_exists( 'apply_filters' ) ? (array) apply_filters( 'sabri_hnf_home_control_items', $items ) : $items;
+		return self::bounded_registry_filter( 'sabri_hnf_home_control_items', $items );
 	}
 
 	/** Render the complete control bar without passing module links into FeedQuery. */
@@ -79,7 +79,7 @@ final class HomeCompositionRegistry {
 			'clinics'                    => array( 'label' => __( 'Worldwide Clinics', 'sabri-complete-home-news-feed' ), 'provider' => 'appointments', 'limit' => 6 ),
 			'marketplace'                => array( 'label' => __( 'Marketplace', 'sabri-complete-home-news-feed' ), 'provider' => 'marketplace', 'limit' => 6 ),
 		);
-		return function_exists( 'apply_filters' ) ? (array) apply_filters( 'sabri_hnf_home_rows', $rows ) : $rows;
+		return self::bounded_registry_filter( 'sabri_hnf_home_rows', $rows );
 	}
 
 	/** Render all ten rows; unavailable providers produce an explicit empty state. */
@@ -174,6 +174,21 @@ final class HomeCompositionRegistry {
 		$url = function_exists( 'home_url' ) ? home_url( $path ) : $path;
 		if ( function_exists( 'apply_filters' ) ) { $url = apply_filters( 'sabri_hnf_module_url_' . $module, $url, $item ); }
 		return is_scalar( $url ) ? (string) $url : '';
+	}
+
+	/**
+	 * Preserve the Founder-approved registry exactly.
+	 *
+	 * The historical filters are dispatched for observer/backward compatibility,
+	 * but their return value is deliberately ignored: keys, order, labels, kinds,
+	 * providers, routes and default limits are governing-plan constants. Extension
+	 * modules customize row contents through sabri_hnf_home_row_items_* instead.
+	 */
+	private static function bounded_registry_filter( $hook, array $canonical ) {
+		if ( function_exists( 'apply_filters' ) ) {
+			apply_filters( $hook, $canonical );
+		}
+		return $canonical;
 	}
 
 	/** Reset request-local rows markup for tests. */
