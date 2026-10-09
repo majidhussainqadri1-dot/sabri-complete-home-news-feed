@@ -104,7 +104,7 @@ $assert( str_contains( $hardening, "return 'post-' . \$post_id" ) && str_contain
 // Round 9 — the continuing current File 24 assurance boundary remains exact-pinned.
 $assert( str_contains( $companions, 'FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb' ), 'current File 24 exact head is pinned' );
 $assert( str_contains( $companions, 'FILE09_SHA: cfc5f781a766330314dc98c42abeca0eb7786eba' ), 'current File 09 exact head is pinned' );
-$assert( str_contains( $companions, 'FILE25_SHA: e35563b7f3d8ebf0acbbc80982b7bcf2e1b78c0a' ), 'current File 25 exact head is pinned' );
+$assert( str_contains( $companions, 'FILE25_SHA: 3075224089506fed19af1441ebf3556c2d5230b5' ), 'current File 25 exact head is pinned' );
 $assert( str_contains( $companions, 'native enforcement|native module|native authorization|Native modules own.*object-level authorization' ), 'File 24 assurance/native-enforcement boundary is checked' );
 $assert( str_contains( $companions, "MANIFEST_CONTRACT_VERSION = '1.2.0'" ), 'File 21 current File 24 manifest contract is asserted' );
 
