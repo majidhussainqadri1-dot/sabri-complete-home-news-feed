@@ -34,7 +34,7 @@ env:
   FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca
   FILE23_SHA: dcae138e6073f4d0ff596623deb05b9940b8271b
   FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
-  FILE25_SHA: 3075224089506fed19af1441ebf3556c2d5230b5
+  FILE25_SHA: 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e
 
 jobs:
   exact-current-companions:
