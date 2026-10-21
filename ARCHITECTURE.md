@@ -2,7 +2,7 @@
 
 ## Scope
 
-Phase 2 implements the real Home Feed and public Composer runtime while preserving the Phase 1 foundation. Social Interactions, complete editorial News, Moderation workflow UI, and Analytics remain deferred.
+Package 1.0.5 implements the governed Home, social Feed, Profile Timeline provider, Editorial News, publication lifecycle, interactions, moderation, analytics foundations, next-generation feature set, and bounded companion integrations. File 20 remains the application-shell owner, File 22 the role-aware creation facade, File 23 the publishing workspace, File 25 the visual-system owner, and File 26 the global Search/Discovery/Recommendations/Ranking owner.
 
 ## Bootstrap
 
@@ -46,6 +46,6 @@ Phase 2 renders the Home Feed and public Composer through `[sabri_complete_home_
 
 Unknown future keys are preserved during tab updates.
 
-## Future Phase Boundary
+## Current Governance Boundary
 
-Phase 3 should begin with social interaction runtimes: likes, dislikes, comments, replies, saves, follows, reports, and polls. Phase 4 should implement the complete editorial News system.
+Future work must extend the existing native owners and versioned contracts. File 21 must not create a second application shell, global visual system, universal composer, publishing dashboard, identity authority, notification transport, or global search/ranking backend. Repository completion remains distinct from staging acceptance, deployed/live state, database state, migration completion, rollback rehearsal, and operational acceptance.

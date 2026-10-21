@@ -42,7 +42,7 @@ final class HarmonizedSettings {
 			$value['composer'] = isset( $value['composer'] ) && is_array( $value['composer'] ) ? $value['composer'] : array();
 
 			/* Latest Founder governance: green is central; orange legacy values cannot survive reads/writes. */
-			$value['general']['admin_accent_hex'] = '#1f7a55';
+			$value['general']['admin_accent_hex'] = '#087A4E';
 
 			/* Founder identity grants authority, never organic ranking preference. */
 			$value['feed']['founder_priority'] = 0;

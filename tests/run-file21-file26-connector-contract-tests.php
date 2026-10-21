@@ -89,7 +89,7 @@ foreach ( array( 'donation', 'donor', 'premium', 'advertising spend', 'paid prom
 
 if ( false !== $feed_css ) {
 	$assert( false === stripos( $feed_css, '#ff8a1f' ), 'Superseded orange primary token must not return in File 21 public feed CSS.' );
-	$assert( false !== stripos( $feed_css, '#1f7a55' ), 'Current File 21 public feed must retain a green primary action/accent token.' );
+	$assert( false !== stripos( $feed_css, 'var(--sabri-visual-primary, var(--sabri-shell-primary, #087a4e))' ), 'Current File 21 public feed must inherit the canonical Sabri Green visual token with the File 20 shell fallback.' );
 }
 
 if ( $failures ) {

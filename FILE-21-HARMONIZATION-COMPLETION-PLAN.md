@@ -18,7 +18,7 @@ This line reconciles the original Foundation Master Plan, later Founder decision
 10. Public Feed-card author projection: profile URL, role, verification, specialty, country and clinic.
 11. Exact approved human-author topics separated from system-generated content types.
 12. Global search-provider contracts for authorized Posts and approved Editorial News.
-13. Unified release identity: plugin `1.0.1`, schema `1.0.0`.
+13. Unified current release identity: package `1.0.5`, stable runtime/API `1.0.3`, schema `1.0.0`; no schema migration is introduced by this reconciliation.
 14. Activation Wizard, Migration UI, System Check and acceptance evidence updated for every new contract.
 15. Source, package, security, privacy, migration, integration, WordPress and continuous-QA acceptance.
 

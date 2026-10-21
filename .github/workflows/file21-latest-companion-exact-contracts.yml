@@ -24,18 +24,21 @@ permissions:
 env:
   FILE21_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
   FILE00_SHA: 2fa7c022ee9cd1b65432e900579512f304532442
+  FILE01_SHA: adf6dbb9980a85f25f7cf4c2ee679b52703c2e71
   FILE02_SHA: 224c39bcb8c28f77504c7348dbad41226753c7e8
-  FILE03_SHA: 695329cced81a1b2ee5c59e3b4a92c9809a2564b
-  FILE04_SHA: 00ea021c8b89b233fbf6be18459e0fd7fb6bfbcd
+  FILE03_SHA: 636e3ef965423887f810718abec3cd1c11c3659d
+  FILE04_SHA: a27119a7d006ae25896e5d0b24f14c11727a7c54
+  FILE07_SHA: 2f4a89707724fd2b9946600afe10ddab27ec3c2d
+  FILE09_SHA: cfc5f781a766330314dc98c42abeca0eb7786eba
   FILE17_SHA: 8ae656e51796d1f05865d8be5dca2480443d79ca
   FILE20_SHA: 8a4dbcaf4fef8e926b9b834ecfde16c21a0f00ca
-  FILE23_SHA: a8a8c805f4730998ccb44bd95c87591836561759
-  FILE24_SHA: ed86814e40ad7edba7a265a29ea5b44f4fd8f8c3
-  FILE25_SHA: 59927df876dc92c7461351420c7b7c95c65c6a93
+  FILE23_SHA: dcae138e6073f4d0ff596623deb05b9940b8271b
+  FILE24_SHA: a5b8d49968a7a5a7d6f3f4655bea541bf38a9acb
+  FILE25_SHA: 347a4ff4d4c233c5ea6cd82c7786ee5398ea9d1e
 
 jobs:
   exact-current-companions:
-    name: Exact current File 00/02/03/04/17/20/23/24/25 contracts
+    name: Exact current File 00/01/02/03/04/07/09/17/20/23/24/25 contracts
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -53,6 +56,15 @@ jobs:
           repository: majidhussainqadri1-dot/00-sabri-membership-core
           ref: ${{ env.FILE00_SHA }}
           path: file00
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 01
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/01-sabri-platform-foundation
+          ref: ${{ env.FILE01_SHA }}
+          path: file01
           fetch-depth: 1
           persist-credentials: false
 
@@ -80,6 +92,24 @@ jobs:
           repository: majidhussainqadri1-dot/04-sabri-news-feed-and-publishing
           ref: ${{ env.FILE04_SHA }}
           path: file04
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 07
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/07-doctors-directory-and-discovery
+          ref: ${{ env.FILE07_SHA }}
+          path: file07
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 09
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/09-global-doctor-onboarding-and-verification-completion
+          ref: ${{ env.FILE09_SHA }}
+          path: file09
           fetch-depth: 1
           persist-credentials: false
 
@@ -135,9 +165,12 @@ jobs:
           set -euo pipefail
           test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
           test "$(git -C file00 rev-parse HEAD)" = "${FILE00_SHA}"
+          test "$(git -C file01 rev-parse HEAD)" = "${FILE01_SHA}"
           test "$(git -C file02 rev-parse HEAD)" = "${FILE02_SHA}"
           test "$(git -C file03 rev-parse HEAD)" = "${FILE03_SHA}"
           test "$(git -C file04 rev-parse HEAD)" = "${FILE04_SHA}"
+          test "$(git -C file07 rev-parse HEAD)" = "${FILE07_SHA}"
+          test "$(git -C file09 rev-parse HEAD)" = "${FILE09_SHA}"
           test "$(git -C file17 rev-parse HEAD)" = "${FILE17_SHA}"
           test "$(git -C file20 rev-parse HEAD)" = "${FILE20_SHA}"
           test "$(git -C file23 rev-parse HEAD)" = "${FILE23_SHA}"
@@ -151,6 +184,12 @@ jobs:
           php -l file00/source/sabri-membership-core/includes/class-smc-contracts.php
           grep -Fq 'class SMC_Contracts' file00/source/sabri-membership-core/includes/class-smc-contracts.php
 
+          php -l file01/includes/class-spf-reconciler.php
+          grep -Fq "'spf_owner_reconciliation_plan'" file01/includes/class-spf-reconciler.php
+          grep -Fq "'spf_execute_owner_reconciliation'" file01/includes/class-spf-reconciler.php
+          grep -Fq "'spf_rollback_owner_reconciliation'" file01/includes/class-spf-reconciler.php
+          php file21/tests/run-file01-reconciliation-adapter.php
+
           php -l file02/includes/class-sa-membership-adapter.php
           ! grep -Eq 'class[[:space:]]+SA_.*(Membership|Identity).*(Authority|Owner)' file02/includes/class-sa-membership-adapter.php
           grep -Eqi 'membership|File 00|SMC_' file02/includes/class-sa-membership-adapter.php
@@ -161,10 +200,36 @@ jobs:
           grep -Fq 'sabri_file21_profile_timeline_items_v1' file03/includes/class-spd-timeline.php
           php -l file21/includes/class-profile-timeline.php
           php file21/tests/run-file21-file03-profile-timeline-contract.php
+          php file21/tests/run-file21-file04-migration-completeness-tests.php
 
           php -l file04/includes/class-snfla-central-plan.php
           grep -Eqi 'File 21|file.?21|canonical' file04/includes/class-snfla-central-plan.php
           grep -Eqi 'read.only|write.*disable|migration|cutover|legacy_writes.*forbidden' file04/includes/class-snfla-central-plan.php
+          php -l file04/includes/class-snfla-file21-adapter.php
+          php -l file04/includes/class-snfla-plan-completion.php
+          grep -Fq 'sabri_file21_legacy_metadata_preflight_v1' file04/includes/class-snfla-plan-completion.php
+          grep -Fq 'sabri_file21_verify_migrated_legacy_metadata_v1' file04/includes/class-snfla-plan-completion.php
+          grep -Fq "'legacy_metadata_context'=> \$metadata_context" file04/includes/class-snfla-file21-adapter.php
+          grep -Fq 'spdb/file04_migration_state' file04/includes/class-snfla-cross-file-contracts.php
+          python3 file04/tests/run-runtime-contract-regressions.py
+
+          # File 07 remains the public doctor-directory/discovery owner; File 21 may consume only public-safe current projections.
+          grep -Fq 'DoctorDirectoryEligibilityChanged.v1' file07/docs/API-CONTRACTS.md
+          grep -Fq 'public static function get_live_status' file07/doctors-directory/includes/class-sdd-directory.php
+          grep -Fq 'public static function public_dto' file07/doctors-directory/includes/class-sdd-directory.php
+          grep -Fq 'eligible=1' file07/doctors-directory/includes/class-sdd-directory.php
+          python3 file07/tests/source-contracts.py
+
+          # File 09 remains doctor-verification truth; File 21 must consume its current projection through the File 03 verification bridge.
+          grep -Fq "const VERSION = '1.1.0'" file09/includes/class-gdo-integration-contracts.php
+          grep -Fq "const FILE21 = 'gdo.file21.publishing-eligibility'" file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'function gdo_file21_publishing_eligibility' file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'sabri_doctor_verification_public_projection_v1' file09/includes/class-gdo-integration-contracts.php
+          grep -Fq 'sabri_doctor_verification_public_projection_v1' file03/includes/class-spd-verification-adapter.php
+          grep -Fq 'gdo_validate_public_projection' file03/includes/class-spd-verification-adapter.php
+          grep -Fq 'SPD_Verification_Adapter::directory_eligible' file21/includes/class-canonical-identity-adapter.php
+          grep -Fq 'SPD_Verification_Adapter::approved_fields' file21/includes/class-canonical-identity-adapter.php
+          php file09/tests/cross-file-contracts.php
 
           php -l file17/sabri-network/includes/class-sn-relationships.php
           php -l file17/sabri-network/includes/class-sn-relationship-runtime-hardening.php
@@ -220,17 +285,23 @@ jobs:
           cat > latest-companion-contracts.txt <<REPORT
           File 21: ${FILE21_EXPECTED_SHA}
           File 00: ${FILE00_SHA}
+          File 01: ${FILE01_SHA}
           File 02: ${FILE02_SHA}
           File 03: ${FILE03_SHA}
           File 04: ${FILE04_SHA}
+          File 07: ${FILE07_SHA}
+          File 09: ${FILE09_SHA}
           File 17: ${FILE17_SHA}
           File 20: ${FILE20_SHA}
           File 23: ${FILE23_SHA}
           File 24: ${FILE24_SHA}
           File 25: ${FILE25_SHA}
           Current identity/auth boundary: PASS
+          File 01 Home/News reconciliation owner contract: PASS
           File 03 profile timeline owner contract: PASS
           Legacy cutover/no-new-owner boundary: PASS
+          File 07 doctor-directory public projection boundary: PASS
+          File 09 current verification -> File 03 -> File 21 authority chain: PASS
           File 17 relationship/block runtime boundary: PASS
           Shell five-slot/canonical-owner boundary: PASS
           Dashboard native-owner boundary: PASS
