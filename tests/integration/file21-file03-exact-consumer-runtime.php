@@ -156,7 +156,7 @@ function get_the_date( $format, $id ) { return ''; }
 function get_post_modified_time( $format, $gmt, $id ) { return strtotime( get_post( $id )->post_modified_gmt . ' UTC' ); }
 function get_the_post_thumbnail_url( $id, $size ) { return ''; }
 
-require_once dirname( __DIR__ ) . '/includes/class-profile-timeline.php';
+require_once dirname( __DIR__, 2 ) . '/includes/class-profile-timeline.php';
 $external = getenv( 'FILE03_ROOT' );
 if ( ! is_string( $external ) || ! is_file( $external . '/includes/class-spd-timeline.php' ) ) {
 	fwrite( STDERR, "FAIL: Exact File 03 source checkout required.\n" );
