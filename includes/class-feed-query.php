@@ -116,7 +116,93 @@ final class FeedQuery {
 			$doctor_ids = CanonicalIdentityAdapter::verified_doctor_ids();
 			$args['author__in'] = $doctor_ids ? $doctor_ids : array( 0 );
 		}
-		return function_exists( 'apply_filters' ) ? apply_filters( 'sabri_hnf_feed_query_args', $args, $mode, $user_id, $settings ) : $args;
+		$extended = function_exists( 'apply_filters' )
+			? apply_filters( 'sabri_hnf_feed_query_args', $args, $mode, $user_id, $settings )
+			: $args;
+		return self::enforce_source_query_contract( $args, $extended, $mode, $user_id, $settings );
+	}
+
+
+	/**
+	 * Reassert owner-owned, immutable publishing/audience constraints after
+	 * every untrusted Home Feed query extension, including late callbacks.
+	 *
+	 * Extensions may narrow via their own tax/meta/author exclusions; they may
+	 * never replace the approved-review, viewer-visibility, published-core-post,
+	 * configured-type, following or private mute/hidden policy boundaries.
+	 *
+	 * A malformed extension fails closed to ID 0, never to an unbounded query.
+	 */
+	public static function enforce_source_query_contract( array $required, $extended, $mode, $user_id, array $settings ) {
+		$invalid = ! is_array( $extended );
+		$query = $invalid ? $required : $extended;
+
+		foreach ( array( 'post_type', 'post_status', 'posts_per_page', 'paged', 'no_found_rows', 'has_password', 'orderby', 'order', 'ignore_sticky_posts' ) as $key ) {
+			if ( array_key_exists( $key, $required ) ) {
+				$query[ $key ] = $required[ $key ];
+			}
+		}
+		$query['suppress_filters'] = false;
+		$query['nopaging']         = false;
+		$query['fields']           = 'all';
+		unset( $query['offset'], $query['posts_per_archive_page'] );
+
+		$source_meta  = isset( $required['meta_query'] ) && is_array( $required['meta_query'] ) ? $required['meta_query'] : array();
+		$extra_meta   = isset( $query['meta_query'] ) && is_array( $query['meta_query'] ) ? $query['meta_query'] : array();
+		$query['meta_query'] = $source_meta === $extra_meta || ! $extra_meta
+			? $source_meta
+			: array( 'relation' => 'AND', $source_meta, $extra_meta );
+
+		$source_tax = isset( $required['tax_query'] ) && is_array( $required['tax_query'] ) ? $required['tax_query'] : array();
+		$extra_tax  = isset( $query['tax_query'] ) && is_array( $query['tax_query'] ) ? $query['tax_query'] : array();
+		$query['tax_query'] = $source_tax === $extra_tax || ! $extra_tax
+			? $source_tax
+			: ( ! $source_tax ? $extra_tax : array( 'relation' => 'AND', $source_tax, $extra_tax ) );
+
+		// Founder and Doctor feed eligibility comes from File 00/09, not from
+		// extension-supplied labels/author IDs.
+		if ( in_array( $mode, array( 'founder-updates', 'doctors-posts' ), true ) ) {
+			$owner_ids = isset( $required['author__in'] ) && is_array( $required['author__in'] )
+				? array_values( array_unique( array_map( 'absint', $required['author__in'] ) ) ) : array();
+			$extension_ids = isset( $extended['author__in'] ) && is_array( $extended['author__in'] )
+				? array_values( array_unique( array_map( 'absint', $extended['author__in'] ) ) ) : $owner_ids;
+			$allowed_ids = array_values( array_intersect( $owner_ids, $extension_ids ) );
+			$query['author__in'] = $allowed_ids ? $allowed_ids : array( 0 );
+		}
+
+		// Reapply File 21's own current private user choice and canonical
+		// File 17 Following projection after any later extension callback.
+		if ( class_exists( __NAMESPACE__ . '\\FeedUserAgency' ) ) {
+			$agency = FeedUserAgency::filter_query_args( array(), $mode, $user_id, $settings );
+			if ( is_array( $agency ) ) {
+				if ( 'following' === $mode ) {
+					$following_ids = isset( $agency['author__in'] ) && is_array( $agency['author__in'] ) ? $agency['author__in'] : array( 0 );
+					$extension_ids = isset( $query['author__in'] ) && is_array( $query['author__in'] ) ? $query['author__in'] : $following_ids;
+					$allowed_ids = array_values( array_intersect( array_map( 'absint', $following_ids ), array_map( 'absint', $extension_ids ) ) );
+					$query['author__in'] = $allowed_ids ? $allowed_ids : array( 0 );
+				}
+
+				foreach ( array( 'post__not_in', 'author__not_in' ) as $key ) {
+					$owned_ids = isset( $agency[ $key ] ) && is_array( $agency[ $key ] ) ? $agency[ $key ] : array();
+					if ( $owned_ids ) {
+						$extra_ids = isset( $query[ $key ] ) && is_array( $query[ $key ] ) ? $query[ $key ] : array();
+						$query[ $key ] = array_values( array_unique( array_filter( array_map( 'absint', array_merge( $extra_ids, $owned_ids ) ) ) ) );
+					}
+				}
+
+				$agency_tax = isset( $agency['tax_query'] ) && is_array( $agency['tax_query'] ) ? $agency['tax_query'] : array();
+				if ( $agency_tax ) {
+					$query['tax_query'] = ! empty( $query['tax_query'] )
+						? array( 'relation' => 'AND', $query['tax_query'], $agency_tax )
+						: $agency_tax;
+				}
+			}
+		}
+
+		if ( $invalid ) {
+			$query['post__in'] = array( 0 );
+		}
+		return $query;
 	}
 
 	public static function invalidate_cache() { if ( function_exists( 'update_option' ) ) { update_option( self::CACHE_VERSION_OPTION, self::cache_version() + 1, false ); } }
