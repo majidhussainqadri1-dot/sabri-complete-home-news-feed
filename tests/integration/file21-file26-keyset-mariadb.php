@@ -48,8 +48,8 @@ try {
 	fwrite( STDERR, 'FAIL: ephemeral MariaDB connection unavailable: ' . $e->getMessage() . PHP_EOL );
 	exit( 1 );
 }
-$pdo->exec( 'DROP TABLE IF EXISTS wp_posts' ); // isolated throwaway CI database ONLY
-$pdo->exec( "CREATE TABLE wp_posts (
+$pdo->query( 'DROP TABLE IF EXISTS wp_posts' ); // isolated throwaway CI database ONLY
+$pdo->query( "CREATE TABLE wp_posts (
 	ID BIGINT UNSIGNED NOT NULL PRIMARY KEY,
 	post_status VARCHAR(25) NOT NULL,
 	post_type VARCHAR(32) NOT NULL,
@@ -108,13 +108,13 @@ foreach( array(10,20,30,40) as $id ) { insert_post( $pdo, $id ); }
 $one = Registry::file26_list_batch( '', 2, array( 'connector' => Registry::FILE26_CONNECTOR_SLUG ) );
 ensure( is_array( $one ) && ids( $one ) === array( 10,20 ) && $one['next_cursor'] === 'v1:id:20', 'Real MariaDB first page is ID based.' );
 
-$pdo->exec( "UPDATE wp_posts SET post_status='draft' WHERE ID=10" );
+$pdo->query( "UPDATE wp_posts SET post_status='draft' WHERE ID=10" );
 $two = Registry::file26_list_batch( $one['next_cursor'], 2 );
 ensure( is_array( $two ) && ids( $two ) === array( 30,40 ) && $two['next_cursor'] === 'v1:id:40', 'Real MariaDB draft transition does not skip ID30.' );
 
-$pdo->exec( "UPDATE wp_posts SET post_status='publish' WHERE ID=10" );
+$pdo->query( "UPDATE wp_posts SET post_status='publish' WHERE ID=10" );
 $one = Registry::file26_list_batch( '', 2 );
-$pdo->exec( 'DELETE FROM wp_posts WHERE ID=10' );
+$pdo->query( 'DELETE FROM wp_posts WHERE ID=10' );
 $two = Registry::file26_list_batch( $one['next_cursor'], 2 );
 ensure( ids( $two ) === array( 30,40 ), 'Real MariaDB physical deletion does not skip later ID.' );
 
@@ -136,7 +136,7 @@ $legacy = Registry::file26_list_batch( '2', 2 );
 ensure( $legacy instanceof WP_Error && $legacy->get_error_code() === 'file21_file26_legacy_cursor_rejected', 'Legacy numeric offset is not mistaken for a source ID.' );
 $partial = Registry::file26_list_batch( '', 2, array( 'object_id' => '30', 'connector' => Registry::FILE26_CONNECTOR_SLUG ) );
 ensure( $partial instanceof WP_Error && $partial->get_error_code() === 'file21_file26_unsupported_scope', 'Unapproved partial staging is rejected.' );
-$pdo->exec( 'DROP TABLE wp_posts' );
+$pdo->query( 'DROP TABLE wp_posts' );
 $broken = Registry::file26_list_batch( '', 2 );
 ensure( $broken instanceof WP_Error && $broken->get_error_code() === 'file21_file26_query_failed', 'Real MariaDB SQL error fails closed.' );
 
