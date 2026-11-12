@@ -49,7 +49,7 @@ class File21ProfileDB {
 		}
 		$this->last_error = '';
 		preg_match( '/post_author = ([0-9]+)/', $sql, $author );
-		preg_match( '/post_date_gmt (?:<=|<) \'([^']{19})\'/', $sql, $cutoff );
+		preg_match( "/post_date_gmt (?:<=|<) '([^']{19})'/", $sql, $cutoff );
 		preg_match( '/LIMIT ([0-9]+)/', $sql, $limit );
 		if ( !isset( $author[1], $cutoff[1], $limit[1] ) || !str_contains( $sql, "post_status = 'publish'" ) ) {
 			$this->last_error = 'unexpected_query';
