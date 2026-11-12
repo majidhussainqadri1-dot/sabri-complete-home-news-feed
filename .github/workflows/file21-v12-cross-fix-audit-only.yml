@@ -1,0 +1,173 @@
+name: File21 V12.1 Cross-Fix Source Integration Audit Only
+
+on:
+  push:
+    branches:
+      - audit/file21-v12-1-cross-fix-integration-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AUDIT_SHA: ${{ github.sha }}
+  FILE03_SOURCE_SHA: bf317e5521ec79f9f16d21353f402571fcd4f84c
+  FILE26_SOURCE_SHA: 1b064c6ea9f81195611ed001d5457e8ced65460a
+
+jobs:
+  combined-source-contracts:
+    name: Combined exact File21/File03/File26 PHP regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUDIT_SHA }}
+          path: file21
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/03-sabri-profiles-and-doctors
+          ref: ${{ env.FILE03_SOURCE_SHA }}
+          path: file03
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/26-search-discovery-recommendations-knowledge-graph-classification
+          ref: ${{ env.FILE26_SOURCE_SHA }}
+          path: file26
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Exact-SHA and combined source lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${AUDIT_SHA}"
+          test "$(git -C file03 rev-parse HEAD)" = "${FILE03_SOURCE_SHA}"
+          test "$(git -C file26 rev-parse HEAD)" = "${FILE26_SOURCE_SHA}"
+          php -l file21/includes/class-feed-query.php
+          php -l file21/includes/class-feed-renderer.php
+          php -l file21/includes/class-profile-timeline.php
+          php -l file21/includes/class-search-provider-registry.php
+          php -l file03/includes/class-spd-timeline.php
+          php -l file26/includes/class-file26-indexer.php
+          grep -Fq 'function file26_advance_object_version' file21/includes/class-search-provider-registry.php
+          grep -Fq 'function file26_decode_keyset_cursor' file21/includes/class-search-provider-registry.php
+
+      - name: Real combined source tests and exact consumer
+        shell: bash
+        working-directory: file21
+        run: |
+          set -euo pipefail
+          php tests/run-file21-feed-viewer-card-runtime.php
+          php tests/run-file21-feed-source-policy-runtime.php
+          php tests/run-file21-file03-profile-timeline-contract.php
+          php tests/run-file21-file03-cursor-runtime.php
+          FILE03_ROOT="$GITHUB_WORKSPACE/file03" php tests/integration/file21-file03-exact-consumer-runtime.php
+          php tests/run-file21-file26-monotonic-version-runtime.php
+          php tests/run-file21-file26-keyset-source-tests.php
+          php tests/run-file21-file26-connector-contract-tests.php
+          php tests/run-public-query-routing-tests.php
+          php tests/run-file21-public-visibility-tests.php
+          php tools/run-tests.php
+      - name: Record non-deployment claim
+        shell: bash
+        run: |
+          cat > file21-v12-cross-fix-audit.txt <<REPORT
+          File21 composite audit SHA: ${AUDIT_SHA}
+          File03 actual consumer SHA: ${FILE03_SOURCE_SHA}
+          File26 current source API SHA: ${FILE26_SOURCE_SHA}
+          Source areas: FeedQuery / FeedRenderer / ProfileTimeline / SearchProviderRegistry
+          Covered source Issues: #58 #60 #62 #64 #65 #67
+          This is a test-only composite, NOT a mergeable deploy artifact.
+          Live plugin/checksum, actual DB/migration, staging, rollback: unverified.
+          REPORT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-cross-fix-audit-${{ env.AUDIT_SHA }}
+          path: file21-v12-cross-fix-audit.txt
+          if-no-files-found: warn
+
+  combined-real-mariadb:
+    name: Combined File03 and File26 source SQL on ephemeral MariaDB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-password
+          MARIADB_DATABASE: file21_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUDIT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install PHP MariaDB driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${AUDIT_SHA}"
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql
+          php -m | grep -qi 'pdo_mysql'
+      - name: Exercise File03 and File26 exact owner-side SQL
+        shell: bash
+        env:
+          FILE21_DB_HOST: 127.0.0.1
+          FILE21_DB_NAME: file21_test
+          FILE21_DB_USER: root
+          FILE21_DB_PASS: test-root-password
+          FILE21_TEST_DB_HOST: 127.0.0.1
+          FILE21_TEST_DB_NAME: file21_test
+          FILE21_TEST_DB_USER: root
+          FILE21_TEST_DB_PASS: test-root-password
+        run: |
+          set -euo pipefail
+          php tests/integration/file21-file03-cursor-mariadb.php
+          php tests/integration/file21-file26-keyset-mariadb.php
+
+  combined-real-wordpress:
+    name: Combined owner plugin real ephemeral WordPress audience tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - run-file21-feed-viewer-card-playground.mjs
+          - run-file21-feed-source-policy-playground.mjs
+          - run-file21-file03-cursor-playground.mjs
+          - run-file21-file26-keyset-playground-tests.mjs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.AUDIT_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install actual WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Run real WordPress source/permission test
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: '8.3'
+          SABRI_PLAYGROUND_WP: latest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${AUDIT_SHA}"
+          node --check "tests/${{ matrix.file }}"
+          node "tests/${{ matrix.file }}"
