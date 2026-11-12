@@ -4,6 +4,18 @@
  *
  * Confirms filter composition without requiring Live DB/WP access.
  */
+// The lean repository stubs have no WordPress user-meta backend.
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( $user_id, $key, $single = true ) {
+		return $GLOBALS['issue67_user_meta'][ (int) $user_id ][ (string) $key ] ?? ( $single ? '' : array() );
+	}
+}
+if ( ! function_exists( 'update_user_meta' ) ) {
+	function update_user_meta( $user_id, $key, $value ) {
+		$GLOBALS['issue67_user_meta'][ (int) $user_id ][ (string) $key ] = $value;
+		return true;
+	}
+}
 require_once __DIR__ . '/bootstrap.php';
 
 use Sabri\HomeNewsFeed\FeedQuery;
