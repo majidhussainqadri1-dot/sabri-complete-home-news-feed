@@ -240,7 +240,7 @@ final class SearchProviderRegistry {
 		}
 		$version = self::file26_advance_object_version( $post );
 		if ( null === $version ) { return; } // No non-monotonic upsert/tombstone delivery.
-		$document = self::file26_document( $post );
+		$document = self::file26_document( $post, $version );
 		if ( $document && function_exists( 'do_action' ) ) {
 			do_action( 'sabri_file26_source_upsert', $document );
 			return;
@@ -257,11 +257,15 @@ final class SearchProviderRegistry {
 	}
 
 	/** Build an allowlisted File 26 document only from a current public projection. */
-	private static function file26_document( $post ) {
+	private static function file26_document( $post, $event_version = null ) {
 		if ( ! self::is_owned_search_post( $post ) || 'publish' !== (string) $post->post_status ) {
 			return array();
 		}
 		$post_id = (int) $post->ID;
+		// Freeze the already-issued owner event version for this delivery. A later
+		// worker may advance the durable version while this projection is built;
+		// rereading here would falsely label an older payload as the newer event.
+		$document_version = null === $event_version ? self::file26_object_version( $post ) : max( 1, (int) $event_version );
 		$type = (string) $post->post_type;
 		$entity_type = 'post';
 		$title = '';
@@ -324,8 +328,8 @@ final class SearchProviderRegistry {
 			'connector_slug' => self::FILE26_CONNECTOR_SLUG,
 			'domain' => 'publication',
 			'object_id' => (string) $post_id,
-			'object_version' => self::file26_object_version( $post ),
-			'source_event_sequence' => self::file26_object_version( $post ),
+			'object_version' => $document_version,
+			'source_event_sequence' => $document_version,
 			'entity_type' => $entity_type,
 			'locale' => $locale,
 			'state' => $state,
