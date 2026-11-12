@@ -22,6 +22,8 @@ class_alias( File21ProfileTestSafeMode::class, 'Sabri\HomeNewsFeed\SafeMode' );
 class File21ProfileTestMetadata {
 	public static function review_state_publicly_visible( $id ) { return empty( $GLOBALS['denied_posts'][$id] ); }
 	public static function user_can_view( $id, $viewer = 0 ) { return empty( $GLOBALS['private_posts'][$id] ) && empty( $GLOBALS['denied_posts'][$id] ); }
+	public static function visibility_meta_clause() { return array( 'key'=>'_file21_visibility', 'value'=>'public' ); }
+	public static function review_state_meta_clause() { return array( 'key'=>'_file21_review_state', 'value'=>'approved' ); }
 	public static function feed_type( $id ) { return 'research'; }
 	public static function visibility( $id ) { return empty( $GLOBALS['private_posts'][$id] ) ? 'public' : 'private'; }
 }
@@ -158,6 +160,51 @@ $wpdb->force_reverse = true;
 $failure = $klass::file03_provider_items( array(), 2, array( 'limit'=>10 ) );
 assert_file03( is_wp_error($failure) && 'file21_file03_source_order_invalid' === $failure->get_error_code(), 'Out-of-order source rows fail closed.' );
 $wpdb->force_reverse = false;
+
+// The legacy local profile-shortcode timeline runs a separate WP_Query
+// extension filter. A faulty extension must not change its canonical author,
+// status, meta policy or scan budget, or inject a foreign author's candidate.
+class WP_Query {
+	public $posts;
+	public function __construct( $args ) {
+		$GLOBALS['captured_query_args'] = $args;
+		$this->posts = $GLOBALS['test_wp_query_posts'] ?? array();
+	}
+}
+function apply_filters( $hook, $value, ...$args ) {
+	if ( 'sabri_hnf_profile_timeline_query_args' === $hook && array_key_exists( 'spoof_query_args', $GLOBALS ) ) {
+		return $GLOBALS['spoof_query_args'];
+	}
+	return $value;
+}
+add_record( 70 );
+$wpdb->entries[70]->post_status = 'draft';
+$GLOBALS['test_wp_query_posts'] = array( get_post( 100 ), get_post( 70 ), get_post( 64 ) );
+$GLOBALS['spoof_query_args'] = array(
+	'post_type'=>'page',
+	'post_status'=>array('draft'),
+	'author'=>99,
+	'posts_per_page'=>9999,
+	'paged'=>9,
+	'no_found_rows'=>false,
+	'meta_query'=>array(),
+);
+$local = $klass::query( 2, array('page'=>1,'per_page'=>5) );
+$bounded = $GLOBALS['captured_query_args'];
+assert_file03(
+	'publish' === $bounded['post_status'][0] && 'post' === $bounded['post_type'] &&
+	2 === $bounded['author'] && 500 === $bounded['posts_per_page'] &&
+	!empty($bounded['meta_query']) && 1 === $bounded['paged'],
+	'Profile shortcode query reasserts immutable author/status/review/scan constraints.'
+);
+assert_file03(
+	'ok' === $local['status'] && count( $local['items'] ) === 1 && 64 === (int)$local['items'][0]['id'],
+	'Foreign-author and draft posts cannot be falsely attributed to another profile.'
+);
+$GLOBALS['spoof_query_args'] = 'not-an-array';
+$not_array = $klass::query( 2, array('per_page'=>5) );
+assert_file03( 'unavailable' === $not_array['status'] && empty($not_array['items']), 'Malformed timeline query extension fails closed.' );
+unset( $GLOBALS['spoof_query_args'], $GLOBALS['test_wp_query_posts'] );
 
 // A cap must not masquerade as a complete empty page when all 500 most recent
 // candidates are restricted and older public content still exists.
