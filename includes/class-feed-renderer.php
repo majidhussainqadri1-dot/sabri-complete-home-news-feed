@@ -115,7 +115,9 @@ final class FeedRenderer {
 			return false;
 		}
 		$viewer_id = function_exists( 'get_current_user_id' ) ? max( 0, (int) get_current_user_id() ) : 0;
-		if ( ! PostMetadata::user_can_view( $post_id, $viewer_id ) ) {
+		$scopes = FeedContext::visible_feed_scopes_for_user( $viewer_id );
+		if ( ! in_array( PostMetadata::visibility( $post_id ), $scopes, true ) ||
+			! PostMetadata::user_can_view( $post_id, $viewer_id ) ) {
 			return false;
 		}
 		$author_id = absint( $post->post_author );
