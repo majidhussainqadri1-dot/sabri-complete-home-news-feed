@@ -127,22 +127,22 @@ final class SearchProviderRegistry {
 	 */
 	public static function file26_list_batch( $cursor, $limit, $scope = array() ) {
 		if ( ! is_array( $scope ) ) {
-			return new \\WP_Error( 'file21_file26_invalid_scope', 'File 21 search source scope is malformed.' );
+			return new \WP_Error( 'file21_file26_invalid_scope', 'File 21 search source scope is malformed.' );
 		}
 		foreach ( $scope as $key => $value ) {
 			if ( 'connector' !== $key || self::FILE26_CONNECTOR_SLUG !== $value ) {
-				return new \\WP_Error( 'file21_file26_unsupported_scope', 'Only a complete File 21 publication source scan is supported. Partial or foreign scopes are denied.' );
+				return new \WP_Error( 'file21_file26_unsupported_scope', 'Only a complete File 21 publication source scan is supported. Partial or foreign scopes are denied.' );
 			}
 		}
 		$after_id = self::file26_decode_keyset_cursor( $cursor );
 		if ( null === $after_id ) {
-			return new \\WP_Error( 'file21_file26_legacy_cursor_rejected', 'Source cursor is not a versioned ID cursor. Restart the shadow job from a fresh empty cursor after review.' );
+			return new \WP_Error( 'file21_file26_legacy_cursor_rejected', 'Source cursor is not a versioned ID cursor. Restart the shadow job from a fresh empty cursor after review.' );
 		}
 		global $wpdb;
 		if ( ! isset( $wpdb ) || ! is_object( $wpdb ) || empty( $wpdb->posts ) ||
 			! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_col' ) ||
 			! function_exists( 'get_post' ) ) {
-			return new \\WP_Error( 'file21_file26_source_unavailable', 'Canonical WordPress post source cannot be read safely.' );
+			return new \WP_Error( 'file21_file26_source_unavailable', 'Canonical WordPress post source cannot be read safely.' );
 		}
 		$limit = max( 1, min( 100, (int) $limit ) );
 		$wpdb->last_error = '';
@@ -157,11 +157,11 @@ final class SearchProviderRegistry {
 			$limit
 		);
 		if ( ! is_string( $query ) || '' === trim( $query ) ) {
-			return new \\WP_Error( 'file21_file26_query_unavailable', 'Source query could not be prepared.' );
+			return new \WP_Error( 'file21_file26_query_unavailable', 'Source query could not be prepared.' );
 		}
 		$raw_ids = $wpdb->get_col( $query );
 		if ( ! is_array( $raw_ids ) || '' !== (string) $wpdb->last_error ) {
-			return new \\WP_Error( 'file21_file26_query_failed', 'Source scan failed; the cursor was not advanced.' );
+			return new \WP_Error( 'file21_file26_query_failed', 'Source scan failed; the cursor was not advanced.' );
 		}
 		$items = array();
 		$last_id = $after_id;
@@ -169,11 +169,11 @@ final class SearchProviderRegistry {
 			$id_text = is_scalar( $raw_id ) ? (string) $raw_id : '';
 			if ( ! preg_match( '/^[1-9][0-9]*$/D', $id_text ) || strlen( $id_text ) > strlen( (string) PHP_INT_MAX ) ||
 				( strlen( $id_text ) === strlen( (string) PHP_INT_MAX ) && strcmp( $id_text, (string) PHP_INT_MAX ) > 0 ) ) {
-				return new \\WP_Error( 'file21_file26_invalid_source_id', 'Source scan returned a malformed WordPress ID.' );
+				return new \WP_Error( 'file21_file26_invalid_source_id', 'Source scan returned a malformed WordPress ID.' );
 			}
 			$post_id = (int) $id_text;
 			if ( $post_id <= $last_id ) {
-				return new \\WP_Error( 'file21_file26_cursor_not_monotonic', 'Source scan returned unordered or repeated IDs.' );
+				return new \WP_Error( 'file21_file26_cursor_not_monotonic', 'Source scan returned unordered or repeated IDs.' );
 			}
 			$last_id = $post_id;
 			$post = get_post( $post_id );
