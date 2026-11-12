@@ -125,6 +125,18 @@ $end = Registry::file26_list_batch( $second['next_cursor'], 2 );
 check( is_array( $end ) && !$end['items'] && $end['done'], 'Completed scan reports a safe empty terminal batch.' );
 check( count( $wpdb->queries ) === 3 && false === stripos( implode( ' ', $wpdb->queries ), ' OFFSET ' ), 'Every batch uses ID > cursor instead of SQL OFFSET.' );
 
+// A true deletion (rather than draft transition) before the keyset cursor
+// must likewise leave every higher-ID public candidate reachable.
+$wpdb->records[10] = record( 10 );
+$deleted_first = Registry::file26_list_batch( '', 2 );
+unset( $wpdb->records[10] );
+$deleted_second = Registry::file26_list_batch( $deleted_first['next_cursor'], 2 );
+check( keys( $deleted_first ) === array( 10, 20 ) && keys( $deleted_second ) === array( 30, 40 ), 'Deletion before the cursor never skips a surviving published record.' );
+$repeat_second = Registry::file26_list_batch( $deleted_first['next_cursor'], 2 );
+check( keys( $repeat_second ) === keys( $deleted_second ) && $repeat_second['next_cursor'] === $deleted_second['next_cursor'], 'Stable-source batch restart is deterministic and idempotent.' );
+$wpdb->records[10] = record( 10 );
+
+
 foreach ( array( '2', '0', '-1', 'id:0', 'id:020', 'id:20', 'v1:id:0', 'v1:id:020', 'v1:id:99999999999999999999999', 'v1:id:20junk', array( 1 ) ) as $old ) {
 	$bad = Registry::file26_list_batch( $old, 2 );
 	check( $bad instanceof WP_Error && 'file21_file26_legacy_cursor_rejected' === $bad->get_error_code(), 'Legacy/malformed/overflow cursor fails closed.' );
