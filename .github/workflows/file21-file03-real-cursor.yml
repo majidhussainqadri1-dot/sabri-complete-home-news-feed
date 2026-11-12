@@ -6,6 +6,7 @@ on:
     paths:
       - 'includes/class-profile-timeline.php'
       - 'tests/run-file21-file03-cursor-runtime.php'
+      - 'tests/integration/file21-file03-exact-consumer-runtime.php'
       - 'tests/integration/file21-file03-cursor-mariadb.php'
       - 'tests/run-file21-file03-cursor-playground.mjs'
       - 'tests/run-file21-file03-profile-timeline-contract.php'
@@ -54,6 +55,7 @@ jobs:
           test "$(git -C file03 rev-parse HEAD)" = "${FILE03_EXACT_SOURCE}"
           php -l file21/includes/class-profile-timeline.php
           php -l file21/tests/run-file21-file03-cursor-runtime.php
+          php -l file21/tests/integration/file21-file03-exact-consumer-runtime.php
           grep -Fq "const PROVIDER_CONTRACT_MIN = '1.0.0'" file03/includes/class-spd-timeline.php
           grep -Fq "'cursor' => \$cursor" file03/includes/class-spd-timeline.php
           grep -Fq "'t' => gmdate( 'Y-m-d H:i:s'" file03/includes/class-spd-timeline.php
@@ -61,6 +63,7 @@ jobs:
           grep -Fq "'sabri_file21_profile_timeline_items_v1'" file03/includes/class-spd-timeline.php
           php file21/tests/run-file21-file03-profile-timeline-contract.php
           php file21/tests/run-file21-file03-cursor-runtime.php
+          FILE03_ROOT="$PWD/file03" php file21/tests/integration/file21-file03-exact-consumer-runtime.php
 
       - name: Record exact source evidence and limit
         shell: bash
