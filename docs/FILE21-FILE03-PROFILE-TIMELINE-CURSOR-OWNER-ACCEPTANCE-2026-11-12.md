@@ -62,10 +62,11 @@ File03 کی `SPD_Timeline::query` سائن شدہ cursor decode کرنے کے ب
 ## ۵۔ قابلِ اعادہ ٹیسٹ
 
 - `tests/run-file21-file03-cursor-runtime.php`: source method کی executable fake WordPress DB tests؛ multi-page، equal-time lex، cross-provider، replay، private، draft، invalid/failure، author spoof اور saturation۔
+- `tests/integration/file21-file03-exact-consumer-runtime.php`: **فائل 03 کے اصل pinned `SPD_Timeline::query` ماخذ** اور فائل 21 کے اصل `ProfileTimeline::file03_provider_items` کو ایک ہی PHP process میں چلاتا ہے؛ چار صفحات اور 65 postings، signed HMAC cursor، retry، privacy/withdrawal، اور provider degraded حالت کی جانچ؛ WordPress integration boundary کا deterministic mock ہے، Live یا staging نہیں۔
 - `tests/run-file21-file03-profile-timeline-contract.php`: canonical owner/schema/hooks static guard۔
 - `tests/integration/file21-file03-cursor-mariadb.php`: ephemeral **حقیقی MariaDB 11.4** کے خلاف exact query semantics؛ WordPress-shaped source table مگر production WordPress نہیں۔
 - `tests/run-file21-file03-cursor-playground.mjs`: ephemeral **حقیقی WordPress Playground** پلگ اِن activation؛ 65 posts، pages، privacy، draft، malformed cursor؛ یہ MySQL production configuration نہیں۔
-- `.github/workflows/file21-file03-real-cursor.yml`: File03 exact `bf317e5521ec79f9f16d21353f402571fcd4f84c`، File21 exact PR HEAD، runtime/WordPress/MariaDB gates۔
+- `.github/workflows/file21-file03-real-cursor.yml`: File03 exact `bf317e5521ec79f9f16d21353f402571fcd4f84c`، File21 exact PR HEAD، runtime/WordPress/MariaDB gates۔ ساتھ exact source checker میں دونوں اصل classes کی **مشترک consumer-provider runtime** آزمائش بھی شامل ہے۔
 
 ہر نئی commit پر **پھر سے** اصل SHA کے مطابق CI record لینا ضروری ہے۔ 10-round prior reports یا کسی branch کے پچھلے Green checks، نئی HEAD پر کافی نہیں۔
 
