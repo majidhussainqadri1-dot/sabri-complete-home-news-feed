@@ -62,6 +62,7 @@ jobs:
             tests/run-file21-settings-recursion-tests.php
             tests/run-file21-production-rejection-tests.php
             tests/run-file21-public-visibility-tests.php
+            tests/run-file21-feed-source-policy-runtime.php
             tests/run-file21-harmonization-tests.php
             tests/run-file21-harmonization-negative-tests.php
             tests/run-file21-corrective-tests.php
