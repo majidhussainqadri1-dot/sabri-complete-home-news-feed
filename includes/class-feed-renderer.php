@@ -64,12 +64,7 @@ final class FeedRenderer {
 			return class_exists( __NAMESPACE__ . '\\NewsPublicRuntime' ) ? NewsPublicRuntime::render_card( $post ) : '';
 		}
 		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
-		if ( $post_id <= 0 ) { return ''; }
-		if ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) ) {
-			if ( ! NextGenerationFeed::strict_public_item( $post_id ) ) { return ''; }
-		} elseif ( ! PostMetadata::user_can_view( $post_id ) ) {
-			return '';
-		}
+		if ( ! self::viewer_can_render_post( $post_id ) ) { return ''; }
 		$type = PostMetadata::feed_type( $post_id );
 		return self::template(
 			'feed-card',
@@ -95,6 +90,39 @@ final class FeedRenderer {
 				'disclaimer'    => self::medical_disclaimer( $type, $settings ),
 			)
 		);
+	}
+
+
+	/**
+	 * Authorize the base Feed card for this specific viewer, not for public
+	 * sharing. A member/follower may read a reviewed, published scoped post
+	 * even when NextGenerationFeed::strict_public_item() is (correctly) false.
+	 *
+	 * Keep strict_public_item unchanged for public share/repost/quote,
+	 * File 26 discovery and source-only cross-owner enrichment.
+	 */
+	public static function viewer_can_render_post( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( $post_id <= 0 || ! function_exists( 'get_post' ) || ! function_exists( 'get_post_type' ) ||
+			! function_exists( 'get_post_status' ) ) {
+			return false;
+		}
+		$post = get_post( $post_id );
+		if ( ! is_object( $post ) || ! isset( $post->ID, $post->post_author ) ||
+			(int) $post->ID !== $post_id || 'post' !== get_post_type( $post_id ) ||
+			'publish' !== get_post_status( $post_id ) ||
+			! PostMetadata::review_state_publicly_visible( $post_id ) ) {
+			return false;
+		}
+		$viewer_id = function_exists( 'get_current_user_id' ) ? max( 0, (int) get_current_user_id() ) : 0;
+		$scopes = FeedContext::visible_feed_scopes_for_user( $viewer_id );
+		if ( ! in_array( PostMetadata::visibility( $post_id ), $scopes, true ) ||
+			! PostMetadata::user_can_view( $post_id, $viewer_id ) ) {
+			return false;
+		}
+		$author_id = absint( $post->post_author );
+		return $author_id > 0 && ( ! class_exists( __NAMESPACE__ . '\\NetworkRelationshipBridge' ) ||
+			NetworkRelationshipBridge::author_allowed( $viewer_id, $author_id ) );
 	}
 
 	/** Render pagination and Load More markup. */
