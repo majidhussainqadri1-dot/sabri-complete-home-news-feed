@@ -120,7 +120,7 @@ final class SearchProviderRegistry {
 	 * Stable keyset source scan for File 26 shadow reindex.
 	 *
 	 * Offset-based pagination can silently miss rows when earlier published
-	 * posts are withdrawn between batches. Cursor v1 records the last scanned
+	 * posts are withdrawn between batches. The explicit v1:id cursor records the last scanned
 	 * WordPress post ID instead. It never treats a legacy numeric offset as an ID.
 	 * A partial object_id scope remains unsupported until a separate owner/26
 	 * partial-shadow contract has been accepted; it MUST NOT scan the whole feed.
@@ -188,7 +188,7 @@ final class SearchProviderRegistry {
 		}
 		return array(
 			'items' => $items,
-			'next_cursor' => $last_id > 0 ? 'id:' . $last_id : '',
+			'next_cursor' => $last_id > 0 ? 'v1:id:' . $last_id : '',
 			'done' => count( $raw_ids ) < $limit,
 		);
 	}
@@ -198,7 +198,7 @@ final class SearchProviderRegistry {
 		if ( null === $cursor || '' === $cursor ) {
 			return 0;
 		}
-		if ( ! is_string( $cursor ) || ! preg_match( '/^id:([1-9][0-9]*)$/D', $cursor, $match ) ) {
+		if ( ! is_string( $cursor ) || ! preg_match( '/^v1:id:([1-9][0-9]*)$/D', $cursor, $match ) ) {
 			return null;
 		}
 		$digits = $match[1];
