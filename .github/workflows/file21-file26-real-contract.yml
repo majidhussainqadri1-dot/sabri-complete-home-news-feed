@@ -11,6 +11,7 @@ on:
       - 'tests/run-file21-file26-connector-contract-tests.php'
       - 'tests/run-file21-file26-keyset-source-tests.php'
       - 'tests/integration/file21-file26-keyset-mariadb.php'
+      - 'tests/run-file21-file26-keyset-playground-tests.mjs'
       - 'tests/run-file21-four-plan-final-completion-tests.php'
       - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file26-real-contract.yml'
@@ -212,3 +213,34 @@ jobs:
           path: file21-source-keyset-mariadb.txt
           if-no-files-found: warn
           retention-days: 30
+
+
+  isolated-wordpress-keyset:
+    name: File 21 keyset on ephemeral WordPress Playground
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact File 21 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare WordPress Playground CLI
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install isolated WordPress Playground runtime
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Execute actual WordPress source keyset regression
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_WP: latest
+          SABRI_PLAYGROUND_PHP: '8.3'
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          node tests/run-file21-file26-keyset-playground-tests.mjs
