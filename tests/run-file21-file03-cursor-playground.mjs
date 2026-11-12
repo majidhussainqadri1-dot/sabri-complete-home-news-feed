@@ -38,7 +38,18 @@ try {
     "wp_update_post(array('ID'=>$sort[1],'post_status'=>'draft'));",
     "$draft=\\Sabri\\HomeNewsFeed\\ProfileTimeline::file03_provider_items(array(),1,array('limit'=>21,'viewer_id'=>0));",
     "$bad=\\Sabri\\HomeNewsFeed\\ProfileTimeline::file03_provider_items(array(),1,array('cursor'=>array('t'=>'invalid','i'=>'file21:file21-post:1')));",
-    "echo wp_json_encode(array('first'=>$to_ids($first),'second'=>$to_ids($second),'third'=>$to_ids($third),'retry'=>$to_ids($retry),'sort'=>$sort,'private'=>$to_ids($private),'draft'=>$to_ids($draft),'private_id'=>$sort[0],'draft_id'=>$sort[1],'bad'=>is_wp_error($bad)?$bad->get_error_code():'none'));",
+
+    "$another=wp_insert_user(array('user_login'=>'file21_timeline_cross_author','user_pass'=>'example-test-pass','user_email'=>'test-cross-author@example.test','role'=>'subscriber'));",
+    "if(is_wp_error($another)){echo wp_json_encode(array('error'=>'other_user_creation_failed'));return;}",
+    "$other_post=wp_insert_post(array('post_type'=>'post','post_status'=>'publish','post_author'=>$another,'post_date'=>'2026-10-10 10:00:00','post_date_gmt'=>'2026-10-10 10:00:00','post_title'=>'Foreign public author example'));",
+    "update_post_meta($other_post,\\Sabri\\HomeNewsFeed\\PostMetadata::META_REVIEW_STATE,'approved');",
+    "update_post_meta($other_post,\\Sabri\\HomeNewsFeed\\PostMetadata::META_VISIBILITY,'public');",
+    "$GLOBALS['test_other_author']=$another;",
+    "add_filter('sabri_hnf_profile_timeline_query_args',static function($query){$query['author']=$GLOBALS['test_other_author'];$query['post_type']='page';$query['post_status']=array('draft');$query['posts_per_page']=9999;$query['paged']=12;$query['meta_query']=array();return $query;},10,1);",
+    "$local=\\Sabri\\HomeNewsFeed\\ProfileTimeline::query(1,array('page'=>1,'per_page'=>10));",
+    "add_filter('sabri_hnf_profile_timeline_query_args',static function($query){return 'not-an-array';},30,1);",
+    "$local_bad=\\Sabri\\HomeNewsFeed\\ProfileTimeline::query(1,array('page'=>1,'per_page'=>10));",
+    "echo wp_json_encode(array('first'=>$to_ids($first),'second'=>$to_ids($second),'third'=>$to_ids($third),'retry'=>$to_ids($retry),'sort'=>$sort,'private'=>$to_ids($private),'draft'=>$to_ids($draft),'private_id'=>$sort[0],'draft_id'=>$sort[1],'bad'=>is_wp_error($bad)?$bad->get_error_code():'none','other_author_post'=>$other_post,'local_ids'=>array_map(static function($row){return (int)$row['id'];},$local['items']),'local_status'=>$local['status'],'local_bad_status'=>$local_bad['status']));",
   ];
   const response = await server.playground.run({ code: '<?php require "/wordpress/wp-load.php"; ' + lines.join('\n') });
   if (response.errors && String(response.errors).trim()) throw new Error('WordPress PHP: ' + response.errors);
@@ -51,6 +62,8 @@ try {
   check(JSON.stringify(x.retry) === JSON.stringify(x.second), 'Cursor retry differs from same source snapshot.');
   check(!x.private.includes(x.private_id) && !x.draft.includes(x.draft_id), 'Private or draft post crossed File03 projection boundary.');
   check(x.bad === 'file21_file03_cursor_invalid', 'Malformed provider cursor was not rejected.');
+  check(x.local_status === 'ok' && Array.isArray(x.local_ids) && x.local_ids.length > 0 && !x.local_ids.includes(x.other_author_post), 'A foreign public author was falsely attributed on the local profile timeline: ' + raw);
+  check(x.local_bad_status === 'unavailable', 'Malformed query-extension output did not fail closed.');
   console.log('PASS: WordPress Playground source cursor, 3 pages, deterministic retry, privacy and draft.');
 } finally {
   if (server && typeof server[Symbol.asyncDispose] === 'function') await server[Symbol.asyncDispose]();
