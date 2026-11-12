@@ -56,7 +56,8 @@ File 26's `Indexer::process_queue()` only verifies that the returned cursor chan
 
 - Local behavior regression: `tests/run-file21-file26-keyset-source-tests.php` using a deterministic WordPress-DB simulation; covers keyset movement, guards and failure scenarios.
 - Exact-head integration/static gate: `.github/workflows/file21-file26-real-contract.yml` lints and runs the new test alongside File 26 contract checks.
-- **Not proved by these tests:** actual WordPress/MariaDB query semantics under concurrent transactions, File 26 v12 PR #22 staging, legacy job remediation, source-to-shadow exact-key equivalence, real server cache behavior, restore drills or deployed parity.
+- Ephemeral real-SQL acceptance: `tests/integration/file21-file26-keyset-mariadb.php`, launched by the independent `isolated-mariadb-keyset` job under the same File21/File26 workflow. The job exercises the actual File21 source method with an ephemeral MariaDB 11.4 WordPress-shaped posts table and a deterministic PHP WordPress adapter. It verifies draft/delete/privacy/review transitions, cursor advancement, legacy rejection and SQL error containment. Its first exact-source execution was successful on corrective commit `72ca09cb5ede4bf320262fdb4ee0539f010d3d11`; require fresh success at final PR HEAD before promotion.
+- **Not proved by these tests:** installed unmodified WordPress runtime with real File26 indexing, concurrent multi-transaction source updates, File 26 v12 PR #22 staging, legacy job remediation, source-to-shadow exact-key equivalence, real server cache behavior, restore drills or deployed parity. An ephemeral MariaDB query test is genuine SQL evidence but not full WordPress/Hostinger acceptance.
 - Any CI pass is repository-only evidence. Promotion requires separate staging and Live evidence.
 
 ## 6. Mandatory status ledger (update at every next session)
