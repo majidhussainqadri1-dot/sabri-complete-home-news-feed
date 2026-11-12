@@ -137,7 +137,7 @@ check( $foreign instanceof WP_Error && 'file21_file26_unsupported_scope' === $fo
 $wpdb->records[10]->post_status = 'publish';
 $GLOBALS['private_post_ids'][20] = true;
 $visible = Registry::file26_list_batch( '', 3 );
-check( is_array( $visible ) && keys( $visible ) === array( 10, 30 ) && 'id:30' === $visible['next_cursor'], 'Private source is omitted without stalling cursor progress.' );
+check( is_array( $visible ) && keys( $visible ) === array( 10, 30 ) && 'v1:id:30' === $visible['next_cursor'], 'Private source is omitted without stalling cursor progress.' );
 unset( $GLOBALS['private_post_ids'][20] );
 
 $wpdb->records[ 25 ] = record( 25, 'draft' );
