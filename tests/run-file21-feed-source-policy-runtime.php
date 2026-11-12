@@ -54,6 +54,9 @@ $assert( $walk( $original['meta_query'], PostMetadata::META_VISIBILITY ) && $wal
 // A later extension receives the fully valid built-in File21 policies and
 // deliberately attempts to widen publication, review, audience and scan.
 add_filter( 'sabri_hnf_feed_query_args', static function ( $args ) {
+	if ( isset( $GLOBALS['issue67_attack'] ) && 'throw' === $GLOBALS['issue67_attack'] ) {
+		throw new \RuntimeException( 'Simulated extension failure' );
+	}
 	return array_key_exists( 'issue67_attack', $GLOBALS ) ? $GLOBALS['issue67_attack'] : $args;
 }, 999, 4 );
 $GLOBALS['issue67_attack'] = array(
@@ -103,6 +106,16 @@ $GLOBALS['issue67_attack'] = 'invalid query object';
 $bad = FeedQuery::wp_query_args( 'latest', 1, 20, 7, $settings );
 $assert( array( 0 ) === ( $bad['post__in'] ?? array() ) && 'post' === $bad['post_type'] && array( 'publish' ) === $bad['post_status'], 'Invalid extension output cannot become an unbounded query.' );
 $assert( $walk( $bad['meta_query'], PostMetadata::META_REVIEW_STATE ), 'Fail-closed malformed extension must retain source approval state.' );
+
+$GLOBALS['issue67_attack'] = array( 'meta_query' => 'malformed-nested-review-expression' );
+$bad_nested = FeedQuery::wp_query_args( 'latest', 1, 20, 7, $settings );
+$assert( array( 0 ) === ( $bad_nested['post__in'] ?? array() ), 'Malformed nested metadata conditions must fail closed.' );
+$GLOBALS['issue67_attack'] = array( 'post__in' => range( 1, 1000 ) );
+$oversized = FeedQuery::wp_query_args( 'latest', 1, 20, 7, $settings );
+$assert( array( 0 ) === ( $oversized['post__in'] ?? array() ), 'Unbounded extension ID lists must fail closed before WordPress SQL.' );
+$GLOBALS['issue67_attack'] = 'throw';
+$exception = FeedQuery::wp_query_args( 'latest', 1, 20, 7, $settings );
+$assert( array( 0 ) === ( $exception['post__in'] ?? array() ), 'Throwing late filter cannot crash public Feed request or execute an unbounded query.' );
 
 unset( $GLOBALS['issue67_attack'] );
 $restored = FeedQuery::wp_query_args( 'latest', 1, 20, 7, $settings );
