@@ -6,6 +6,7 @@ on:
     paths:
       - 'includes/class-profile-timeline.php'
       - 'tests/run-file21-file03-cursor-runtime.php'
+      - 'tests/integration/file21-file03-cursor-mariadb.php'
       - 'tests/run-file21-file03-cursor-playground.mjs'
       - 'tests/run-file21-file03-profile-timeline-contract.php'
       - '.github/workflows/file21-file03-real-cursor.yml'
@@ -111,3 +112,52 @@ jobs:
           test "$(git rev-parse HEAD)" = "${FILE21_HEAD}"
           node --check tests/run-file21-file03-cursor-playground.mjs
           node tests/run-file21-file03-cursor-playground.mjs
+
+
+  isolated-mariadb-cursor:
+    name: File 21 File 03 lexical cursor against real MariaDB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-password
+          MARIADB_DATABASE: file21_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Check out exact File 21 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_HEAD }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare PHP 8.3 MariaDB client
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_HEAD}"
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql
+          php -m | grep -qi 'pdo_mysql'
+          php -l tests/integration/file21-file03-cursor-mariadb.php
+          php -l includes/class-profile-timeline.php
+
+      - name: Run real isolated MariaDB File 03 cursor regression
+        shell: bash
+        env:
+          FILE21_DB_HOST: 127.0.0.1
+          FILE21_DB_NAME: file21_test
+          FILE21_DB_USER: root
+          FILE21_DB_PASS: test-root-password
+        run: |
+          set -euo pipefail
+          php tests/integration/file21-file03-cursor-mariadb.php
