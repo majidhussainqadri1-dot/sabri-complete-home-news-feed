@@ -67,6 +67,23 @@ final class ProfileTimeline {
 		if ( function_exists( 'apply_filters' ) ) {
 			$query_args = apply_filters( 'sabri_hnf_profile_timeline_query_args', $query_args, $user_id, $viewer );
 		}
+		if ( ! is_array( $query_args ) ) {
+			return self::empty_result( $user_id, $page, $per_page, 'unavailable' );
+		}
+		// Extension filters may narrow ordering/topics, never expand canonical
+		// authorship, publication state, scan budget or review/visibility policy.
+		$query_args['post_type']           = 'post';
+		$query_args['post_status']         = array( 'publish' );
+		$query_args['author']              = $user_id;
+		$query_args['posts_per_page']      = self::MAX_SCAN;
+		$query_args['paged']               = 1;
+		$query_args['no_found_rows']       = true;
+		$query_args['ignore_sticky_posts'] = true;
+		$query_args['meta_query']          = array(
+			'relation' => 'AND',
+			PostMetadata::visibility_meta_clause(),
+			PostMetadata::review_state_meta_clause(),
+		);
 
 		$candidates = array();
 		if ( class_exists( 'WP_Query' ) ) {
@@ -78,11 +95,20 @@ final class ProfileTimeline {
 		}
 
 		$visible = array();
-		foreach ( $candidates as $post ) {
-			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
-			if ( $post_id > 0 && PostMetadata::user_can_view( $post_id, $viewer ) ) {
-				$visible[] = $post;
+		foreach ( array_slice( $candidates, 0, self::MAX_SCAN ) as $post ) {
+			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : absint( $post );
+			if ( $post_id <= 0 ) {
+				continue;
 			}
+			$current = function_exists( 'get_post' ) ? get_post( $post_id ) : $post;
+			if ( ! is_object( $current ) || ! isset( $current->ID, $current->post_author, $current->post_type, $current->post_status ) ||
+				(int) $current->ID !== $post_id || (int) $current->post_author !== $user_id ||
+				'post' !== (string) $current->post_type || 'publish' !== (string) $current->post_status ||
+				! PostMetadata::review_state_publicly_visible( $post_id ) ||
+				! PostMetadata::user_can_view( $post_id, $viewer ) ) {
+				continue;
+			}
+			$visible[] = $current;
 		}
 
 		$scan_truncated = count( $candidates ) >= self::MAX_SCAN;
@@ -132,8 +158,15 @@ final class ProfileTimeline {
 	}
 
 	/**
-	 * Exact File 03 timeline projection. File 21 remains publication owner and
-	 * reasserts immutable author/status/bounds after extension filters.
+	 * Exact File 03 owner projection, paginated by its verified global cursor.
+	 *
+	 * The consumer sorts by published_at DESC then provider:canonical_id DESC.
+	 * Replaying the newest $limit records on every page silently loses older
+	 * posts. This bounded owner-side keyset scan follows the consumer ordering
+	 * and rechecks all source privacy/status facts before projection.
+	 *
+	 * Return WP_Error on an unknown cursor/SQL failure/scan exhaustion: File 03
+	 * will mark this provider degraded rather than claim a false empty page.
 	 */
 	public static function file03_provider_items( $items, $user_id, $args = array() ) {
 		unset( $items );
@@ -141,64 +174,153 @@ final class ProfileTimeline {
 		$args = is_array( $args ) ? $args : array();
 		$viewer = absint( $args['viewer_id'] ?? 0 );
 		$limit = max( 1, min( self::FILE03_PROVIDER_MAX, absint( $args['limit'] ?? 20 ) ) );
-		if ( $user_id <= 0 || ! CorrectivePublicSettings::enabled( 'profile_timeline_enabled' ) || SafeMode::public_features_disabled() ) { return array(); }
-
-		$query_args = array(
-			'post_type' => 'post',
-			'post_status' => array( 'publish' ),
-			'author' => $user_id,
-			'posts_per_page' => $limit,
-			'paged' => 1,
-			'ignore_sticky_posts' => true,
-			'orderby' => 'date',
-			'order' => 'DESC',
-			'no_found_rows' => true,
-			'meta_query' => array( 'relation' => 'AND', PostMetadata::visibility_meta_clause(), PostMetadata::review_state_meta_clause() ),
-		);
-		if ( function_exists( 'apply_filters' ) ) { $query_args = apply_filters( 'sabri_hnf_profile_timeline_query_args', $query_args, $user_id, $viewer ); }
-		$query_args['post_type'] = 'post';
-		$query_args['post_status'] = array( 'publish' );
-		$query_args['author'] = $user_id;
-		$query_args['posts_per_page'] = $limit;
-		$query_args['paged'] = 1;
-		$query_args['no_found_rows'] = true;
-
-		$candidates = array();
-		if ( class_exists( 'WP_Query' ) ) {
-			$query = new \WP_Query( $query_args );
-			$candidates = (array) $query->posts;
-		} elseif ( function_exists( 'apply_filters' ) ) {
-			$candidates = apply_filters( 'sabri_hnf_profile_timeline_test_posts', array(), $query_args );
-			$candidates = is_array( $candidates ) ? array_slice( $candidates, 0, $limit ) : array();
+		if ( $user_id <= 0 || ! CorrectivePublicSettings::enabled( 'profile_timeline_enabled' ) || SafeMode::public_features_disabled() ) {
+			return array();
 		}
 
-		$output = array();
-		foreach ( array_slice( $candidates, 0, $limit ) as $post ) {
-			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : absint( $post );
-			if ( $post_id <= 0 || ! PostMetadata::user_can_view( $post_id, $viewer ) ) { continue; }
-			$author_id = function_exists( 'get_post_field' ) ? absint( get_post_field( 'post_author', $post_id ) ) : $user_id;
-			if ( $author_id !== $user_id ) { continue; }
-			$serialized = self::serialize_post( $post, $viewer );
-			if ( empty( $serialized ) || empty( $serialized['url'] ) || empty( $serialized['date_gmt'] ) ) { continue; }
-			$modified = function_exists( 'get_post_modified_time' ) ? absint( get_post_modified_time( 'U', true, $post_id ) ) : 0;
-			$thumb = function_exists( 'get_the_post_thumbnail_url' ) ? (string) get_the_post_thumbnail_url( $post_id, 'medium' ) : '';
-			$output[] = array(
-				'author_user_id' => $user_id,
-				'contract_version' => self::FILE03_PROVIDER_CONTRACT,
-				'canonical_id' => 'file21-post:' . $post_id,
-				'owner_version' => (string) max( 1, $modified ?: $post_id ),
-				'type' => PostMetadata::feed_type( $post_id ),
-				'title' => (string) $serialized['title'],
-				'excerpt' => (string) $serialized['excerpt'],
-				'url' => (string) $serialized['url'],
-				'published_at' => (string) $serialized['date_gmt'],
-				'visibility' => PostMetadata::visibility( $post_id ),
-				'status' => 'published',
-				'thumbnail_url' => $thumb,
-				'correction' => '',
-			);
+		$boundary = self::file03_cursor_boundary( $args['cursor'] ?? array() );
+		if ( is_wp_error( $boundary ) ) {
+			return $boundary;
 		}
-		return $output;
+		global $wpdb;
+		if ( ! is_object( $wpdb ) || empty( $wpdb->posts ) || ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_results' ) || ! function_exists( 'get_post' ) ) {
+			return new \WP_Error( 'file21_file03_source_unavailable', 'Canonical publication source cannot be queried.' );
+		}
+		$results = array();
+		$scanned = 0;
+		$exhausted = false;
+		$max_scan = self::MAX_SCAN;
+		$scan_time = $boundary['t'];
+		$scan_sort = $boundary['i'];
+		$prefix = 'file21:file21-post:';
+
+		while ( count( $results ) < $limit && $scanned < $max_scan ) {
+			$batch_size = min( 80, $max_scan - $scanned );
+			$params = array( 'post', 'publish', $user_id, $scan_time );
+			$cursor_filter = 'post_date_gmt < %s';
+			// File 03 compares sort_id lexicographically, not numeric post ID.
+			// A cross-provider cursor can include or exclude the whole same-time
+			// File 21 group depending on its provider prefix.
+			if ( 0 === strpos( $scan_sort, $prefix ) ) {
+				$id_text = substr( $scan_sort, strlen( $prefix ) );
+				if ( ! preg_match( '/^[1-9][0-9]*$/D', $id_text ) ) {
+					return new \WP_Error( 'file21_file03_cursor_invalid', 'The File 03 timeline cursor is malformed.' );
+				}
+				$cursor_filter = '(post_date_gmt < %s OR (post_date_gmt = %s AND CAST(ID AS CHAR) < %s))';
+				$params[] = $scan_time;
+				$params[] = $id_text;
+			} elseif ( strcmp( $prefix, $scan_sort ) < 0 ) {
+				$cursor_filter = 'post_date_gmt <= %s';
+			}
+			$params[] = $batch_size;
+			$sql = "SELECT ID, post_date_gmt FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s AND post_author = %d AND " .
+				$cursor_filter . ' ORDER BY post_date_gmt DESC, CAST(ID AS CHAR) DESC LIMIT %d';
+			$wpdb->last_error = '';
+			$prepared = $wpdb->prepare( $sql, ...$params );
+			if ( ! is_string( $prepared ) || '' === $prepared ) {
+				return new \WP_Error( 'file21_file03_query_invalid', 'A profile timeline query could not be prepared.' );
+			}
+			$rows = $wpdb->get_results( $prepared, ARRAY_A );
+			if ( ! is_array( $rows ) || '' !== (string) $wpdb->last_error ) {
+				return new \WP_Error( 'file21_file03_query_failed', 'A profile timeline source query failed.' );
+			}
+			if ( empty( $rows ) ) {
+				$exhausted = true;
+				break;
+			}
+
+			foreach ( $rows as $row ) {
+				$id_text = is_array( $row ) && isset( $row['ID'] ) ? (string) $row['ID'] : '';
+				$date = is_array( $row ) && isset( $row['post_date_gmt'] ) ? (string) $row['post_date_gmt'] : '';
+				if ( ! preg_match( '/^[1-9][0-9]*$/D', $id_text ) || strlen( $id_text ) > strlen( (string) PHP_INT_MAX ) ||
+					( strlen( $id_text ) === strlen( (string) PHP_INT_MAX ) && strcmp( $id_text, (string) PHP_INT_MAX ) > 0 ) ||
+					! self::file03_valid_gmt_time( $date ) ) {
+					return new \WP_Error( 'file21_file03_source_invalid', 'A profile timeline source row is malformed.' );
+				}
+				$post_id = (int) $id_text;
+				$sort_id = $prefix . $id_text;
+				if ( strcmp( $date, $scan_time ) > 0 || ( $date === $scan_time && strcmp( $sort_id, $scan_sort ) >= 0 ) ) {
+					return new \WP_Error( 'file21_file03_source_order_invalid', 'A profile timeline source cursor did not advance.' );
+				}
+				$scan_time = $date;
+				$scan_sort = $sort_id;
+				++$scanned;
+
+				$post = get_post( $post_id );
+				if ( ! is_object( $post ) || ! isset( $post->ID, $post->post_type, $post->post_status, $post->post_author, $post->post_date_gmt ) ||
+					(int) $post->ID !== $post_id || 'post' !== (string) $post->post_type ||
+					'publish' !== (string) $post->post_status || (int) $post->post_author !== $user_id ||
+					(string) $post->post_date_gmt !== $date ||
+					! PostMetadata::review_state_publicly_visible( $post_id ) ||
+					! PostMetadata::user_can_view( $post_id, $viewer ) ) {
+					continue;
+				}
+				$serialized = self::serialize_post( $post, $viewer );
+				if ( empty( $serialized ) || (int) ( $serialized['id'] ?? 0 ) !== $post_id ||
+					empty( $serialized['url'] ) || empty( $serialized['date_gmt'] ) ||
+					gmdate( 'Y-m-d H:i:s', strtotime( (string) $serialized['date_gmt'] ) ) !== $date ) {
+					continue;
+				}
+				$modified = function_exists( 'get_post_modified_time' ) ? absint( get_post_modified_time( 'U', true, $post_id ) ) : 0;
+				$thumb = function_exists( 'get_the_post_thumbnail_url' ) ? (string) get_the_post_thumbnail_url( $post_id, 'medium' ) : '';
+				$results[] = array(
+					'author_user_id' => $user_id,
+					'contract_version' => self::FILE03_PROVIDER_CONTRACT,
+					'canonical_id' => 'file21-post:' . $post_id,
+					'owner_version' => (string) max( 1, $modified ?: $post_id ),
+					'type' => PostMetadata::feed_type( $post_id ),
+					'title' => (string) $serialized['title'],
+					'excerpt' => (string) $serialized['excerpt'],
+					'url' => (string) $serialized['url'],
+					'published_at' => (string) $serialized['date_gmt'],
+					'visibility' => PostMetadata::visibility( $post_id ),
+					'status' => 'published',
+					'thumbnail_url' => $thumb,
+					'correction' => '',
+				);
+				if ( count( $results ) >= $limit ) {
+					break;
+				}
+			}
+			if ( count( $rows ) < $batch_size ) {
+				$exhausted = true;
+				break;
+			}
+		}
+
+		// Never silently treat a saturated public/restricted scan as the end of
+		// the author's timeline; defer to File 03's degraded provider behavior.
+		if ( count( $results ) < $limit && ! $exhausted ) {
+			return new \WP_Error( 'file21_file03_scan_limit', 'The profile timeline source scan requires a bounded continuation.' );
+		}
+		return $results;
+	}
+
+	/** Validate the exact decoded t/i shape passed by File 03's signed cursor. */
+	private static function file03_cursor_boundary( $cursor ) {
+		if ( null === $cursor || '' === $cursor || array() === $cursor ) {
+			return array( 't' => gmdate( 'Y-m-d H:i:s', time() + 300 ), 'i' => 'zzzz' );
+		}
+		if ( ! is_array( $cursor ) || ! isset( $cursor['t'], $cursor['i'] ) ||
+			! is_string( $cursor['t'] ) || ! self::file03_valid_gmt_time( $cursor['t'] ) ||
+			! is_string( $cursor['i'] ) || strlen( $cursor['i'] ) > 240 ||
+			! preg_match( '/^[A-Za-z0-9_.:\/-]{1,240}$/D', $cursor['i'] ) ||
+			false === strpos( $cursor['i'], ':' ) ) {
+			return new \WP_Error( 'file21_file03_cursor_invalid', 'The File 03 timeline cursor is malformed.' );
+		}
+		if ( strtotime( $cursor['t'] . ' UTC' ) > time() + 300 ) {
+			return new \WP_Error( 'file21_file03_cursor_invalid', 'The File 03 timeline cursor is in the future.' );
+		}
+		return $cursor;
+	}
+
+	/** Reject invalid or zero WordPress GMT datetimes rather than silently reordering. */
+	private static function file03_valid_gmt_time( $time ) {
+		if ( ! is_string( $time ) || ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}$/D', $time ) ) {
+			return false;
+		}
+		$stamp = strtotime( $time . ' UTC' );
+		return false !== $stamp && gmdate( 'Y-m-d H:i:s', $stamp ) === $time;
 	}
 
 	/** Render the basic functional timeline surface. */
