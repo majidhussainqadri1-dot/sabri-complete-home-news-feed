@@ -116,9 +116,14 @@ final class FeedQuery {
 			$doctor_ids = CanonicalIdentityAdapter::verified_doctor_ids();
 			$args['author__in'] = $doctor_ids ? $doctor_ids : array( 0 );
 		}
-		$extended = function_exists( 'apply_filters' )
-			? apply_filters( 'sabri_hnf_feed_query_args', $args, $mode, $user_id, $settings )
-			: $args;
+		try {
+			$extended = function_exists( 'apply_filters' )
+				? apply_filters( 'sabri_hnf_feed_query_args', $args, $mode, $user_id, $settings )
+				: $args;
+		} catch ( \Throwable $error ) {
+			unset( $error );
+			$extended = null;
+		}
 		return self::enforce_source_query_contract( $args, $extended, $mode, $user_id, $settings );
 	}
 
@@ -135,6 +140,18 @@ final class FeedQuery {
 	 */
 	public static function enforce_source_query_contract( array $required, $extended, $mode, $user_id, array $settings ) {
 		$invalid = ! is_array( $extended );
+		if ( ! $invalid ) {
+			foreach ( array( 'meta_query', 'tax_query', 'post__in', 'post__not_in', 'author__in', 'author__not_in' ) as $key ) {
+				if ( array_key_exists( $key, $extended ) && ! is_array( $extended[ $key ] ) ) {
+					$invalid = true;
+				}
+			}
+			foreach ( array( 'post__in' => 500, 'author__in' => 500, 'post__not_in' => 1000, 'author__not_in' => 1000 ) as $key => $max ) {
+				if ( isset( $extended[ $key ] ) && is_array( $extended[ $key ] ) && count( $extended[ $key ] ) > $max ) {
+					$invalid = true;
+				}
+			}
+		}
 		$query = $invalid ? $required : $extended;
 
 		foreach ( array( 'post_type', 'post_status', 'posts_per_page', 'paged', 'no_found_rows', 'has_password', 'orderby', 'order', 'ignore_sticky_posts' ) as $key ) {
