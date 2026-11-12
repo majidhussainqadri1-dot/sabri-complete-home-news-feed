@@ -55,4 +55,55 @@ $wpdb->grant=false;
 $denied=$advance->invoke(null,$post);
 file21_assert(null===$denied,'Concurrent/denied lock fails closed and does not emit a version');
 file21_assert($wpdb->release_count===3,'Denied lock never releases another worker lock');
+
+// Regression: worker B may advance the durable version while worker A is still
+// building a public projection. Worker A must emit its own reserved version,
+// never B's version attached to A's potentially stale payload.
+class File21ProjectionPhase4 { const POST_TYPE = 'sabri_news'; }
+class_alias( File21ProjectionPhase4::class, 'Sabri\\HomeNewsFeed\\Phase4Contracts' );
+class File21ProjectionMetadata {
+    const META_LANGUAGE = '_sabri_feed_language';
+    const META_REGION = '_sabri_feed_region';
+    public static function visibility( $id ) { return 'public'; }
+    public static function review_state_publicly_visible( $id ) { return true; }
+    public static function user_can_view( $id, $viewer ) { return true; }
+    public static function feed_type( $id ) { return 'research'; }
+}
+class_alias( File21ProjectionMetadata::class, 'Sabri\\HomeNewsFeed\\PostMetadata' );
+function get_the_title( $id ) {
+    if ( !empty( $GLOBALS['file21_interleave_version'] ) ) {
+        // Simulate a competing worker succeeding after A has reserved a version.
+        $GLOBALS['file21_meta'][$id]['_sabri_file21_file26_event_version'] = $GLOBALS['file21_interleave_version'];
+    }
+    return 'Visible public article';
+}
+function get_permalink( $id ) { return 'https://example.test/article/' . $id; }
+function get_the_excerpt( $id ) { return 'Public evidence summary'; }
+function do_action( $event, $payload ) {
+    if ( 'sabri_file26_source_upsert' === $event ) {
+        $GLOBALS['file21_emitted'][] = $payload;
+    }
+}
+$GLOBALS['file21_emitted'] = array();
+$GLOBALS['file21_interleave_version'] = $v2 + 25;
+$wpdb->grant = true;
+$public_post = (object) array_merge( (array) $post, array(
+    'post_type' => 'post',
+    'post_status' => 'publish',
+    'post_author' => 0,
+    'post_title' => 'Visible public article',
+) );
+$sync = new ReflectionMethod( $klass, 'file26_sync_post' );
+$sync->setAccessible( true );
+$sync->invoke( null, 187, $public_post );
+file21_assert( 1 === count( $GLOBALS['file21_emitted'] ), 'Public metadata event is delivered once' );
+$emitted = $GLOBALS['file21_emitted'][0];
+file21_assert( $v2 + 1 === $emitted['object_version'], 'Interleaved projection retains its own reserved event version' );
+file21_assert( $emitted['object_version'] === $emitted['source_event_sequence'], 'Object and source-event versions never diverge' );
+file21_assert( $GLOBALS['file21_interleave_version'] === (int) get_post_meta( 187, '_sabri_file21_file26_event_version', true ), 'Concurrent later owner version remains distinct from the earlier delivered snapshot' );
+$doc = new ReflectionMethod( $klass, 'file26_document' );
+$doc->setAccessible( true );
+$shadow = $doc->invoke( null, $public_post );
+file21_assert( $GLOBALS['file21_interleave_version'] === $shadow['object_version'], 'Read-only shadow snapshot uses the latest durable owner version' );
+
 echo "PASS: File21 versioned public-source event runtime regression\n";
