@@ -67,6 +67,23 @@ final class ProfileTimeline {
 		if ( function_exists( 'apply_filters' ) ) {
 			$query_args = apply_filters( 'sabri_hnf_profile_timeline_query_args', $query_args, $user_id, $viewer );
 		}
+		if ( ! is_array( $query_args ) ) {
+			return self::empty_result( $user_id, $page, $per_page, 'unavailable' );
+		}
+		// Extension filters may narrow ordering/topics, never expand canonical
+		// authorship, publication state, scan budget or review/visibility policy.
+		$query_args['post_type']           = 'post';
+		$query_args['post_status']         = array( 'publish' );
+		$query_args['author']              = $user_id;
+		$query_args['posts_per_page']      = self::MAX_SCAN;
+		$query_args['paged']               = 1;
+		$query_args['no_found_rows']       = true;
+		$query_args['ignore_sticky_posts'] = true;
+		$query_args['meta_query']          = array(
+			'relation' => 'AND',
+			PostMetadata::visibility_meta_clause(),
+			PostMetadata::review_state_meta_clause(),
+		);
 
 		$candidates = array();
 		if ( class_exists( 'WP_Query' ) ) {
@@ -78,11 +95,20 @@ final class ProfileTimeline {
 		}
 
 		$visible = array();
-		foreach ( $candidates as $post ) {
-			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
-			if ( $post_id > 0 && PostMetadata::user_can_view( $post_id, $viewer ) ) {
-				$visible[] = $post;
+		foreach ( array_slice( $candidates, 0, self::MAX_SCAN ) as $post ) {
+			$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : absint( $post );
+			if ( $post_id <= 0 ) {
+				continue;
 			}
+			$current = function_exists( 'get_post' ) ? get_post( $post_id ) : $post;
+			if ( ! is_object( $current ) || ! isset( $current->ID, $current->post_author, $current->post_type, $current->post_status ) ||
+				(int) $current->ID !== $post_id || (int) $current->post_author !== $user_id ||
+				'post' !== (string) $current->post_type || 'publish' !== (string) $current->post_status ||
+				! PostMetadata::review_state_publicly_visible( $post_id ) ||
+				! PostMetadata::user_can_view( $post_id, $viewer ) ) {
+				continue;
+			}
+			$visible[] = $current;
 		}
 
 		$scan_truncated = count( $candidates ) >= self::MAX_SCAN;
