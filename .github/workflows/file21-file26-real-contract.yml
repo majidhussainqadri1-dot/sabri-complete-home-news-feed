@@ -10,6 +10,7 @@ on:
       - 'includes/class-feed-user-agency.php'
       - 'tests/run-file21-file26-connector-contract-tests.php'
       - 'tests/run-file21-file26-keyset-source-tests.php'
+      - 'tests/integration/file21-file26-keyset-mariadb.php'
       - 'tests/run-file21-four-plan-final-completion-tests.php'
       - 'tests/run-file21-four-plan-audit-1.0.5.php'
       - '.github/workflows/file21-file26-real-contract.yml'
@@ -140,5 +141,74 @@ jobs:
         with:
           name: file21-file26-exact-contract-${{ env.FILE21_EXPECTED_SHA }}
           path: file21-file26-exact-contract.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  isolated-mariadb-keyset:
+    name: File 21 source keyset against isolated MariaDB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-password
+          MARIADB_DATABASE: file21_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - name: Check out exact File 21 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_EXPECTED_SHA }}
+          path: file21
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare PHP MySQL extension and verify source identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_EXPECTED_SHA}"
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql
+          php -m | grep -qi 'pdo_mysql'
+          php -l file21/tests/integration/file21-file26-keyset-mariadb.php
+          php -l file21/includes/class-search-provider-registry.php
+
+      - name: Test real MariaDB source pagination and privacy read guards
+        shell: bash
+        env:
+          FILE21_TEST_DB_HOST: 127.0.0.1
+          FILE21_TEST_DB_NAME: file21_test
+          FILE21_TEST_DB_USER: root
+          FILE21_TEST_DB_PASS: test-root-password
+        run: |
+          set -euo pipefail
+          php file21/tests/integration/file21-file26-keyset-mariadb.php
+
+      - name: Record isolated integration acceptance boundary
+        shell: bash
+        run: |
+          cat > file21-source-keyset-mariadb.txt <<REPORT
+          File 21 SHA: ${FILE21_EXPECTED_SHA}
+          Real SQL engine: ephemeral MariaDB 11.4 on GitHub Actions
+          Keyset source pagination and published/draft/delete transitions: PASS
+          Legacy cursor and unsupported partial source rejection: PASS
+          Full WordPress runtime: NOT CLAIMED
+          Installed File 26 shadow generation: NOT CLAIMED
+          Hostinger staging/Live/DB migration: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-keyset-mariadb-${{ env.FILE21_EXPECTED_SHA }}
+          path: file21-source-keyset-mariadb.txt
           if-no-files-found: warn
           retention-days: 30
