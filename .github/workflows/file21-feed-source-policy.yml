@@ -1,0 +1,85 @@
+name: File21 Owner Feed Query / Late Filter Security
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'includes/class-feed-query.php'
+      - 'tests/run-file21-feed-source-policy-runtime.php'
+      - 'tests/run-file21-feed-source-policy-playground.mjs'
+      - '.github/workflows/file21-feed-source-policy.yml'
+  push:
+    branches:
+      - main
+      - fix/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXACT_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  php-policy:
+    name: File21 canonical query immutability on PHP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1','8.3']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: none
+          coverage: none
+      - name: Assert immutable source query and private choice
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXACT_SOURCE_SHA}"
+          php -l includes/class-feed-query.php
+          php -l tests/run-file21-feed-source-policy-runtime.php
+          php tests/run-file21-feed-source-policy-runtime.php
+          php tests/run-public-query-routing-tests.php
+          php tests/run-file21-public-visibility-tests.php
+
+  ephemeral-wp-queries:
+    name: Actual WordPress SQL read with late hostile filter
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXACT_SOURCE_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Exercise WP_Query with actual native review and reader scopes
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${EXACT_SOURCE_SHA}"
+          node --check tests/run-file21-feed-source-policy-playground.mjs
+          node tests/run-file21-feed-source-policy-playground.mjs
