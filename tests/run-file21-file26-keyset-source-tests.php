@@ -114,18 +114,18 @@ function keys( $batch ) { return array_map( static function ( $item ) { return (
 $wpdb = new File21KeysetFakeDB();
 foreach ( array( 10, 20, 30, 40 ) as $id ) { $wpdb->records[ $id ] = record( $id ); }
 $first = Registry::file26_list_batch( '', 2, array( 'connector' => Registry::FILE26_CONNECTOR_SLUG ) );
-check( is_array( $first ) && keys( $first ) === array( 10, 20 ) && 'id:20' === $first['next_cursor'] && !$first['done'], 'First batch uses canonical keyset ID cursor.' );
+check( is_array( $first ) && keys( $first ) === array( 10, 20 ) && 'v1:id:20' === $first['next_cursor'] && !$first['done'], 'First batch uses canonical keyset ID cursor.' );
 
 // The old offset=2 query would now return [40], silently skipping ID=30.
 $wpdb->records[10]->post_status = 'draft';
 $second = Registry::file26_list_batch( $first['next_cursor'], 2 );
-check( is_array( $second ) && keys( $second ) === array( 30, 40 ) && 'id:40' === $second['next_cursor'], 'Withdrawal before cursor never skips a later published ID.' );
+check( is_array( $second ) && keys( $second ) === array( 30, 40 ) && 'v1:id:40' === $second['next_cursor'], 'Withdrawal before cursor never skips a later published ID.' );
 
 $end = Registry::file26_list_batch( $second['next_cursor'], 2 );
 check( is_array( $end ) && !$end['items'] && $end['done'], 'Completed scan reports a safe empty terminal batch.' );
 check( count( $wpdb->queries ) === 3 && false === stripos( implode( ' ', $wpdb->queries ), ' OFFSET ' ), 'Every batch uses ID > cursor instead of SQL OFFSET.' );
 
-foreach ( array( '2', '0', '-1', 'id:0', 'id:020', 'id:99999999999999999999999', 'id:20junk', array( 1 ) ) as $old ) {
+foreach ( array( '2', '0', '-1', 'id:0', 'id:020', 'id:20', 'v1:id:0', 'v1:id:020', 'v1:id:99999999999999999999999', 'v1:id:20junk', array( 1 ) ) as $old ) {
 	$bad = Registry::file26_list_batch( $old, 2 );
 	check( $bad instanceof WP_Error && 'file21_file26_legacy_cursor_rejected' === $bad->get_error_code(), 'Legacy/malformed/overflow cursor fails closed.' );
 }
@@ -141,10 +141,10 @@ check( is_array( $visible ) && keys( $visible ) === array( 10, 30 ) && 'id:30' =
 unset( $GLOBALS['private_post_ids'][20] );
 
 $wpdb->records[ 25 ] = record( 25, 'draft' );
-$again = Registry::file26_list_batch( 'id:20', 2 );
+$again = Registry::file26_list_batch( 'v1:id:20', 2 );
 check( keys( $again ) === array( 30, 40 ), 'Unpublished intermediate ID never alters subsequent page identity.' );
 $wpdb->records[ 50 ] = record( 50 );
-$after = Registry::file26_list_batch( 'id:40', 2 );
+$after = Registry::file26_list_batch( 'v1:id:40', 2 );
 check( keys( $after ) === array( 50 ) && $after['done'], 'New higher-ID post is included on the next keyset scan.' );
 
 $wpdb->force_unordered = true;
