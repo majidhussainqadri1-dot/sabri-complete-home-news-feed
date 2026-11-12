@@ -1,0 +1,132 @@
+name: File 21 PR59 PR61 Integration-Only Exact Source QA
+
+on:
+  push:
+    branches:
+      - audit/file21-file26-pr59-pr61-integration-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  INTEGRATION_SHA: ${{ github.sha }}
+
+jobs:
+  integration-php:
+    name: Real combined source: both root-cause contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.INTEGRATION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify exact integrated source identity and syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${INTEGRATION_SHA}"
+          php -l includes/class-search-provider-registry.php
+          php -l tests/run-file21-file26-monotonic-version-runtime.php
+          php -l tests/run-file21-file26-keyset-source-tests.php
+          grep -Fq "file26_advance_object_version" includes/class-search-provider-registry.php
+          grep -Fq "file26_decode_keyset_cursor" includes/class-search-provider-registry.php
+          grep -Fq "file26_document( \$post, \$version )" includes/class-search-provider-registry.php
+          grep -Fq "v1:id:" includes/class-search-provider-registry.php
+      - name: Execute both unrelated proven-defect regressions on the same code
+        shell: bash
+        run: |
+          set -euo pipefail
+          php tests/run-file21-file26-monotonic-version-runtime.php
+          php tests/run-file21-file26-keyset-source-tests.php
+          php tests/run-file21-file26-connector-contract-tests.php
+          php tests/run-file21-four-plan-audit-1.0.5.php
+          php tools/run-tests.php
+      - name: Record integration-only claim limits
+        shell: bash
+        run: |
+          cat > file21-combined-pr59-pr61.txt <<REPORT
+          Combined integration SHA: ${INTEGRATION_SHA}
+          Baselines: PR #59 event sequence and PR #61 keyset source
+          Monotonic owner event runtime: PASS
+          Keyset shadow source pagination runtime: PASS
+          Contract and base regression: PASS
+          Status: SOURCE-ONLY integration rehearsal. Not a deployment package.
+          Live and DB migration parity: NOT CLAIMED
+          REPORT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-pr59-pr61-source-${{ env.INTEGRATION_SHA }}
+          path: file21-combined-pr59-pr61.txt
+          if-no-files-found: warn
+
+  integration-mariadb:
+    name: Combined source: keyset against isolated MariaDB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-password
+          MARIADB_DATABASE: file21_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.INTEGRATION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Install PHP database client and inspect exact source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${INTEGRATION_SHA}"
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql
+          php -m | grep -qi 'pdo_mysql'
+          php -l tests/integration/file21-file26-keyset-mariadb.php
+      - name: Execute real SQL pagination/visibility transitions
+        shell: bash
+        env:
+          FILE21_TEST_DB_HOST: 127.0.0.1
+          FILE21_TEST_DB_NAME: file21_test
+          FILE21_TEST_DB_USER: root
+          FILE21_TEST_DB_PASS: test-root-password
+        run: |
+          set -euo pipefail
+          php tests/integration/file21-file26-keyset-mariadb.php
+
+  integration-wordpress:
+    name: Combined source: keyset on ephemeral WordPress
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.INTEGRATION_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+      - name: Execute genuine WordPress Source owner regression
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: '8.3'
+          SABRI_PLAYGROUND_WP: latest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${INTEGRATION_SHA}"
+          node --check tests/run-file21-file26-keyset-playground-tests.mjs
+          node tests/run-file21-file26-keyset-playground-tests.mjs
