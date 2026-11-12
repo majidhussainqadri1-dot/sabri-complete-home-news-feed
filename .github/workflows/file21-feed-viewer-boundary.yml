@@ -78,3 +78,43 @@ jobs:
           path: exact-feed-viewer-check.txt
           retention-days: 30
           if-no-files-found: warn
+
+
+  ephemeral-wordpress-viewer-scopes:
+    name: "Real WordPress Feed cards and audience switch"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install WordPress Playground
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run real WordPress audience/visibility source test
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          node --check tests/run-file21-feed-viewer-card-playground.mjs
+          node tests/run-file21-feed-viewer-card-playground.mjs
