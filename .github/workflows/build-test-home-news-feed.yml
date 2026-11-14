@@ -62,6 +62,8 @@ jobs:
             tests/run-file21-settings-recursion-tests.php
             tests/run-file21-production-rejection-tests.php
             tests/run-file21-public-visibility-tests.php
+            tests/run-file21-feed-viewer-card-runtime.php
+            tests/run-file21-feed-source-policy-runtime.php
             tests/run-file21-harmonization-tests.php
             tests/run-file21-harmonization-negative-tests.php
             tests/run-file21-corrective-tests.php
@@ -70,6 +72,7 @@ jobs:
             tests/run-file21-file04-migration-completeness-tests.php
             tests/run-file21-file22-founder-gateway-regression.php
             tests/run-file21-file03-profile-timeline-contract.php
+            tests/run-file21-file03-cursor-runtime.php
             tests/run-file21-file23-provider-integration-tests.php
             tests/run-file21-file24-assurance-contract-tests.php
             tests/run-file21-file26-connector-contract-tests.php
