@@ -161,30 +161,58 @@ final class CanonicalIdentityAdapter {
 			&& ! self::assertions_have_hard_block( $assertions );
 	}
 
+	/**
+	 * A public publisher is a currently authorized professional, not merely
+	 * someone allowed to open the File 00 Composer or holding manage_options.
+	 * The File 00 field "can_publish" means can_open_composer; it MUST NOT be
+	 * treated as the File 21 direct-publication grant (V12.3 CEN-PUB-001).
+	 */
 	public static function is_trusted_publisher( $user_id ) {
-		$user_id = self::positive_id( $user_id );
-		$assertions = self::membership_assertions( $user_id );
-		if ( ! self::assertions_are_active( $assertions ) ) { return false; }
-		if ( ! empty( $assertions['can_publish'] ) ) { return true; }
-		return function_exists( 'user_can' ) && user_can( $user_id, 'sabri_feed_publish_posts' );
+		return self::can_publish_immediately( $user_id );
 	}
 
-	/** Policy-level authority; request-level session assurance is enforced by ComposerPermissions. */
+	/**
+	 * V12.3 CEN-PUB-001: only active Founder and a currently verified Doctor with
+	 * File 00's explicit direct-publish + professional scope may publish via the
+	 * existing subject-level contract. WordPress Administrator, generic trusted
+	 * publisher and legacy "can_publish" assertions never grant this right.
+	 *
+	 * A delegated editor MUST have a separate Founder-issued, subject/content/
+	 * action/scope/time-bound and revocable grant. File 00 does not currently
+	 * expose that exact delegation record through SMC_Contracts::assertions;
+	 * therefore the delegated-editor path intentionally FAILS CLOSED until the
+	 * owner publishes a compatible versioned contract and File 21 verifies the
+	 * per-content action at execution time. Never replace this with WP roles,
+	 * untrusted filters, usermeta or admin privileges.
+	 *
+	 * Caller-side current-actor assurance and capability checks remain required.
+	 */
 	public static function can_publish_immediately( $user_id, $settings = null ) {
 		$user_id = self::positive_id( $user_id );
 		$assertions = self::membership_assertions( $user_id );
-		if ( ! self::assertions_are_active( $assertions ) ) { return false; }
-		if ( 'founder' === ( $assertions['account_class'] ?? '' ) ) { return ! empty( $assertions['can_publish'] ); }
-		if ( 'administrator' === ( $assertions['account_class'] ?? '' ) ) {
-			return function_exists( 'user_can' ) && user_can( $user_id, 'manage_options' );
+		if ( $user_id <= 0 || ! self::assertions_are_active( $assertions ) ) { return false; }
+		$publication = isset( $assertions['publishing'] ) && is_array( $assertions['publishing'] )
+			? $assertions['publishing'] : array();
+		if ( empty( $assertions['can_direct_publish'] ) || empty( $publication['can_direct_publish'] ) ) {
+			return false;
+		}
+		if ( 'founder' === ( $assertions['account_class'] ?? '' ) ) {
+			return self::assertions_identify_active_class( $assertions, 'founder' );
+		}
+		$approved_types = isset( $assertions['approved_membership_types'] ) && is_array( $assertions['approved_membership_types'] )
+			? $assertions['approved_membership_types'] : array();
+		if ( 'doctor' !== ( $assertions['membership_type'] ?? '' ) ||
+			! in_array( 'doctor', $approved_types, true ) ||
+			empty( $assertions['professional_verified'] ) ||
+			empty( $assertions['can_practice'] ) ||
+			empty( $assertions['public_profile_allowed'] ) ||
+			empty( $publication['doctor_verification_claim'] ) ) {
+			return false;
 		}
 		$settings = is_array( $settings ) ? $settings : Settings::get();
-		$policy = isset( $settings['capabilities']['verified_doctor_policy'] ) ? self::clean_key( $settings['capabilities']['verified_doctor_policy'] ) : 'trusted';
-		if ( 'doctor' === ( $assertions['membership_type'] ?? '' ) && ! empty( $assertions['professional_verified'] ) ) {
-			if ( 'publish' === $policy ) { return ! empty( $assertions['can_publish'] ); }
-			return 'trusted' === $policy && self::is_trusted_publisher( $user_id );
-		}
-		return self::is_trusted_publisher( $user_id );
+		$policy = isset( $settings['capabilities']['verified_doctor_policy'] )
+			? self::clean_key( $settings['capabilities']['verified_doctor_policy'] ) : 'trusted';
+		return in_array( $policy, array( 'trusted', 'publish' ), true );
 	}
 
 	/** Whether an active File 00 identity is eligible to enter the social composer. */
