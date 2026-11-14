@@ -74,7 +74,19 @@ final class RestProfileTimeline {
 			'ok'   => 200 === $status,
 			'data' => $result,
 		);
-		return class_exists( 'WP_REST_Response' ) ? new \WP_REST_Response( $body, $status ) : $body;
+		if ( ! class_exists( 'WP_REST_Response' ) ) {
+			return $body;
+		}
+		$response = new \WP_REST_Response( $body, $status );
+		// The same public route can carry viewer-scoped follower/member posts.
+		// For authenticated viewers, a CDN/shared proxy must never cache that
+		// private projection for another subject. Anonymous public results may
+		// retain their existing cache policy (V12.3 privacy acceptance).
+		$viewer = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+		if ( $viewer > 0 && method_exists( $response, 'header' ) ) {
+			$response->header( 'Cache-Control', 'private, no-store, max-age=0' );
+		}
+		return $response;
 	}
 
 	/** Strict positive integer validation. */

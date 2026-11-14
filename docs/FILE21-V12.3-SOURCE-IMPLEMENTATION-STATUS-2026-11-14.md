@@ -42,11 +42,13 @@ All 31 records have source files and repository tests but **none is marked as pr
 | [#75](https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed/issues/75) | NG30 authenticated REST output lacked an explicit source-owned `Cache-Control: private, no-store` contract | Add private authenticated success/error header with guest-public caching unchanged | **Hardening candidate only; no observed real cache leak claimed** |
 | V12.3-VIS-01 | File21 Editorial News primary actions, labels and pagination retained legacy orange despite File25 semantic Sabri Green | Adopt File25 exact primary/strong/soft/on-primary colors; isolated color/4.5:1 contrast gate | **Source candidate; responsive/dark-mode visual evidence pending** |
 
+| V12.3-REST-PROFILE | Public Profile Timeline REST returns viewer-scoped content for authenticated viewers but lacked an explicit no-store response cache boundary | Set private/no-store only for an authenticated viewer; isolated current-vs-guest cache-policy regression | **Hardening candidate; no observed shared-cache disclosure claimed** |
+
 Additional source/document discrepancies:
 - V12.3 central primary color `#087A4E` vs legacy `#1F7A55` and historic admin orange. Candidate updates shared File21 CSS/tokens and corresponding structural tests. File25 must independently validate full design-token ownership and contrast.
 - README previously reported 1.0.4 though plugin package declares 1.0.5; candidate corrects first-line package identity while retaining 1.0.4 historical notes.
 
-**Count: 14 distinct source/plan findings in the registry (including #75 as an explicit hardening gap, not an observed exploit). 13 have some candidate source remediation, one (#73b) has no complete execution-path correction, and none is certified as corrected on Live.** The delegated-editor contract, independent visual acceptance and remaining whole-system gates are also open. Do not interpret a source change as a fully resolved issue.
+**Count: 15 distinct source/plan findings in the registry (including #75 and V12.3-REST-PROFILE as explicit hardening gaps, not observed exploits). 14 have some candidate source remediation, one (#73b) has no complete execution-path correction, and none is certified as corrected on Live.** The delegated-editor contract, independent visual acceptance and remaining whole-system gates are also open. Do not interpret a source change as a fully resolved issue.
 
 ## Pull request reconciliation
 | PR | Assessment under frozen main and V12.3 |
@@ -97,7 +99,7 @@ Additional source/document discrepancies:
 - **DB Version** = Unverified.
 - **Migration State** = Unverified.
 - **Live Verification Status** = Not verified.
-- **Known source/plan findings** = 14 (including a hardening item); **source-only candidates** = 13 with incomplete acceptance; **generic core publication blocker** = #73b; **Live-resolved** = 0. **Separate release QA gap** = Issue #71. Historical README 1.0.4/1.0.5 drift remains counted separately as a documentation discrepancy.
+- **Known source/plan findings** = 15 (including two cache-hardening items); **source-only candidates** = 14 with incomplete acceptance; **generic core publication blocker** = #73b; **Live-resolved** = 0. **Separate release QA gap** = Issue #71. Historical README 1.0.4/1.0.5 drift remains counted separately as a documentation discrepancy.
 
 
 
