@@ -1,8 +1,19 @@
 # Sabri Complete Home and News Feed
 
-Package Version: 1.0.4  
+Package Version: 1.0.5 (repository main release line; PR #69 is a candidate, not an accepted release)  
 Stable Runtime/API: 1.0.3  
-Schema: 1.0.0
+Schema Declaration: 1.0.0 (live database migration state unverified)
+
+> **V12.3 source-only integration notice (2026-11-14):** This repository's
+> `main` package is 1.0.5. This review branch proposes File 03 cursor
+> pagination, File 21 Home Feed security/viewer visibility and File 26
+> keyset/durable-event corrections, with a V12.3 stricter direct-publication
+> gate and `#087A4E` primary brand token. It is a **DRAFT**, is **not**
+> merged into `main`, and does not verify WordPress staging, Hostinger live,
+> deployed PHP files, the DB or migrations. The File 00 delegation owner
+> contract and complete release acceptance remain outstanding. Historical
+> 1.0.4 notes below describe their original release and are not the
+> currently advertised package. See `docs/FILE21-V12.3-SOURCE-IMPLEMENTATION-STATUS-2026-11-14.md`.
 
 Plugin slug: `sabri-complete-home-news-feed`
 
