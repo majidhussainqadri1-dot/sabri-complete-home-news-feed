@@ -46,11 +46,18 @@ try {
 						'guardian_verified' => true,
 						'two_factor_ready' => true,
 						'session_two_factor' => true,
-						'account_class' => 'administrator',
-						'membership_type' => 'doctor',
-						'professional_verified' => true,
+						// V12.3: administrative WordPress powers do not grant public
+						// publication; this is an active File 00 Founder fixture.
+						'account_class' => 'founder',
+						'membership_type' => '',
+						'professional_verified' => false,
 						'public_profile_allowed' => true,
 						'can_publish' => true,
+						'can_direct_publish' => true,
+						'publishing' => array(
+							'can_open_composer' => true,
+							'can_direct_publish' => true,
+						),
 						'suspended' => false,
 					);
 				}
@@ -58,6 +65,12 @@ try {
 		}
 		$admin_id = username_exists('phase5admin');
 		if (!$admin_id) { $admin_id = wp_create_user('phase5admin','Phase5-Strong-Pass-123!','phase5admin@example.test'); $user = new WP_User($admin_id); $user->set_role('administrator'); }
+		// This Founder has administrator privileges for migration, but explicit
+		// native publication caps are granted separately. Ordinary Admins do
+		// not gain public publishing through WordPress role defaults.
+		$user = new WP_User($admin_id);
+		$user->add_cap('publish_editorial_news');
+		$user->add_cap('schedule_editorial_news');
 		wp_set_current_user($admin_id);
 		\Sabri\HomeNewsFeed\NewsCapabilities::apply_default_policy();
 		\Sabri\HomeNewsFeed\Phase5Capabilities::apply_default_policy();
