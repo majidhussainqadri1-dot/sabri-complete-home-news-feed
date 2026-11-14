@@ -103,6 +103,13 @@ namespace {
         $invalid=$owner::file26_list_batch($cursor,2);
         $pass($invalid instanceof \WP_Error,'Incompatible or overflowing owner cursor rejected, never reinterpreted as offset');
     }
+    $GLOBALS['file21_ids']=array('18446744073709551615');
+    $overflow=$owner::file26_list_batch('',1);
+    $pass($overflow instanceof \WP_Error && $overflow->get_error_code()==='file21_file26_source_post_id_overflow','Oversize unsigned source post-ID cannot silently saturate cursor');
+    $GLOBALS['file21_ids']=array(2.5);
+    $malformed=$owner::file26_list_batch('',1);
+    $pass($malformed instanceof \WP_Error && $malformed->get_error_code()==='file21_file26_source_post_id_invalid','Fractional native source post-ID rejected as malformed');
+    $GLOBALS['file21_ids']=array(20,30,40);
     $GLOBALS['file21_query_error']=true;
     $denied=$owner::file26_list_batch('',2);
     $pass($denied instanceof \WP_Error && $denied->get_error_code()==='file21_file26_source_query_failed','Source DB error never yields false empty completed snapshot');
