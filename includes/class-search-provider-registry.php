@@ -279,11 +279,13 @@ final class SearchProviderRegistry {
 		if ( ! self::is_owned_search_post( $post ) || ! function_exists( 'sabri_file26_tombstone_document' ) ) {
 			return;
 		}
+		$version = self::file26_advance_object_version( $post );
+		if ( null === $version ) { return; } // Never emit a tombstone without a durable owner event sequence.
 		sabri_file26_tombstone_document(
 			self::FILE26_CONNECTOR_SLUG,
 			'publication',
 			(string) absint( $post_id ),
-			self::file26_object_version( $post ),
+			$version,
 			'deleted'
 		);
 	}
@@ -294,7 +296,9 @@ final class SearchProviderRegistry {
 		if ( ! self::is_owned_search_post( $post ) ) {
 			return;
 		}
-		$document = self::file26_document( $post );
+		$version = self::file26_advance_object_version( $post );
+		if ( null === $version ) { return; } // No non-monotonic upsert/tombstone delivery.
+		$document = self::file26_document( $post, $version );
 		if ( $document && function_exists( 'do_action' ) ) {
 			do_action( 'sabri_file26_source_upsert', $document );
 			return;
@@ -304,18 +308,22 @@ final class SearchProviderRegistry {
 				self::FILE26_CONNECTOR_SLUG,
 				'publication',
 				(string) absint( $post->ID ),
-				self::file26_object_version( $post ),
+				$version,
 				'restricted'
 			);
 		}
 	}
 
 	/** Build an allowlisted File 26 document only from a current public projection. */
-	private static function file26_document( $post ) {
+	private static function file26_document( $post, $event_version = null ) {
 		if ( ! self::is_owned_search_post( $post ) || 'publish' !== (string) $post->post_status ) {
 			return array();
 		}
 		$post_id = (int) $post->ID;
+		// Freeze the already-issued owner event version for this delivery. A later
+		// worker may advance the durable version while this projection is built;
+		// rereading here would falsely label an older payload as the newer event.
+		$document_version = null === $event_version ? self::file26_object_version( $post ) : max( 1, (int) $event_version );
 		$type = (string) $post->post_type;
 		$entity_type = 'post';
 		$title = '';
@@ -378,7 +386,8 @@ final class SearchProviderRegistry {
 			'connector_slug' => self::FILE26_CONNECTOR_SLUG,
 			'domain' => 'publication',
 			'object_id' => (string) $post_id,
-			'object_version' => self::file26_object_version( $post ),
+			'object_version' => $document_version,
+			'source_event_sequence' => $document_version,
 			'entity_type' => $entity_type,
 			'locale' => $locale,
 			'state' => $state,
@@ -409,13 +418,41 @@ final class SearchProviderRegistry {
 			&& in_array( (string) $post->post_type, array( 'post', Phase4Contracts::POST_TYPE ), true );
 	}
 
-	/** Stable monotonic-enough source version based on WordPress modification time. */
+	/** Durable File21-owned event version. Reads never mutate source truth. */
 	private static function file26_object_version( $post ) {
-		$modified = is_object( $post ) && ! empty( $post->post_modified_gmt ) ? strtotime( $post->post_modified_gmt . ' UTC' ) : 0;
-		if ( ! $modified && is_object( $post ) && ! empty( $post->post_date_gmt ) ) {
-			$modified = strtotime( $post->post_date_gmt . ' UTC' );
+		if ( ! is_object( $post ) || empty( $post->ID ) ) { return 1; }
+		$modified = ! empty( $post->post_modified_gmt ) ? strtotime( $post->post_modified_gmt . ' UTC' ) : 0;
+		if ( ! $modified && ! empty( $post->post_date_gmt ) ) { $modified = strtotime( $post->post_date_gmt . ' UTC' ); }
+		$stored = function_exists( 'get_post_meta' ) ? get_post_meta( (int) $post->ID, '_sabri_file21_file26_event_version', true ) : 0;
+		return max( 1, (int) $modified, is_numeric( $stored ) ? (int) $stored : 0 );
+	}
+
+	/**
+	 * Record a distinct publication/metadata visibility event before dispatch.
+	 * MySQL's per-object advisory lock serializes concurrent PHP workers; a failed
+	 * lock or failed durable post-meta write must NOT emit a derivative event.
+	 * File26 never invents source versions or weakens tombstone precedence.
+	 */
+	private static function file26_advance_object_version( $post ) {
+		global $wpdb;
+		if ( ! is_object( $post ) || empty( $post->ID ) || ! isset( $wpdb ) ) { return null; }
+		$id = (int) $post->ID;
+		$lock_name = 's21_f26_v_' . $id;
+		if ( ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_var' ) ) { return null; }
+		$wpdb->last_error = '';
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock_name ) );
+		if ( '1' !== (string) $acquired || '' !== (string) $wpdb->last_error ) { return null; }
+		try {
+			$next = self::file26_object_version( $post ) + 1;
+			// Fail closed rather than overflow a signed MySQL BIGINT / PHP integer.
+			if ( $next <= 1 || $next >= PHP_INT_MAX ) { return null; }
+			$written = update_post_meta( $id, '_sabri_file21_file26_event_version', $next );
+			if ( false === $written ) { return null; }
+			$confirmed = get_post_meta( $id, '_sabri_file21_file26_event_version', true );
+			return is_numeric( $confirmed ) && (int) $confirmed === $next ? $next : null;
+		} finally {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
 		}
-		return max( 1, (int) $modified );
 	}
 
 	/** Public taxonomy slugs only; term descriptions/private metadata never leave the owner. */
