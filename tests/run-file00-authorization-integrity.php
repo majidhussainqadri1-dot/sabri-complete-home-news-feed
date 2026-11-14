@@ -76,7 +76,10 @@ namespace Sabri\HomeNewsFeed {
 			'contract_version'=>'1.1.2','user_id'=>$id,'account_class'=>$class,'membership_type'=>$type,
 			'status'=>'approved','approved'=>true,'eligible'=>true,'suspended'=>false,
 			'two_factor_ready'=>true,'session_two_factor'=>true,'guardian_verified'=>true,
-			'professional_verified'=>true,'can_publish'=>true,'public_profile_allowed'=>true,
+			'professional_verified'=>true,'can_publish'=>true,'can_direct_publish'=>true,'can_practice'=>true,
+			'approved_membership_types'=>('doctor'===$type?array('doctor'):array()),
+			'publishing'=>array('can_open_composer'=>true,'can_direct_publish'=>true,'doctor_verification_claim'=>('doctor'===$type)),
+			'public_profile_allowed'=>true,
 		);
 	};
 
