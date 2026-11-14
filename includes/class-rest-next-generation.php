@@ -345,15 +345,33 @@ final class RestNextGeneration {
 		return '';
 	}
 
+	/**
+	 * NG30 endpoints mix public projections and authenticated personal data.
+	 * For the current authenticated viewer, prevent intermediaries from
+	 * caching a response containing private reading/offline/digest state.
+	 * Anonymous public manifests/cards retain their normal cache behavior.
+	 */
+	private static function private_cache_boundary( $response ) {
+		$user_id = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+		if ( $user_id > 0 && is_object( $response ) && method_exists( $response, 'header' ) ) {
+			$response->header( 'Cache-Control', 'private, no-store, max-age=0' );
+		}
+		return $response;
+	}
+
 	/** Standard success response. */
 	private static function response( array $data, $status ) {
 		$payload = array( 'ok' => true, 'data' => $data );
-		return class_exists( 'WP_REST_Response' ) ? new \WP_REST_Response( $payload, absint( $status ) ) : $payload;
+		return class_exists( 'WP_REST_Response' )
+			? self::private_cache_boundary( new \WP_REST_Response( $payload, absint( $status ) ) )
+			: $payload;
 	}
 
 	/** Standard safe error. */
 	private static function error( $code, $message, $status ) {
 		$payload = array( 'ok' => false, 'code' => sanitize_key( $code ), 'message' => sanitize_text_field( $message ) );
-		return class_exists( 'WP_REST_Response' ) ? new \WP_REST_Response( $payload, absint( $status ) ) : $payload;
+		return class_exists( 'WP_REST_Response' )
+			? self::private_cache_boundary( new \WP_REST_Response( $payload, absint( $status ) ) )
+			: $payload;
 	}
 }
