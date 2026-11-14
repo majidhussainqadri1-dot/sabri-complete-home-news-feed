@@ -42,9 +42,9 @@ sabri_corrective_assert( false === strpos( $founder_composer, 'value="submit"' )
 
 $sabri_test_current_user_id = 1;
 $sabri_test_current_caps    = array( 'manage_options' => true );
-sabri_corrective_assert( ComposerPermissions::user_is_privileged_publisher( 1 ), 'Administrator must be recognized as privileged.' );
+sabri_corrective_assert( ! ComposerPermissions::user_is_privileged_publisher( 1 ), 'V12.3: Administrator alone cannot receive direct professional publishing authority.' );
 $admin_submit = ComposerPermissions::resolve_status_for_action( 'submit', 1 );
-sabri_corrective_assert( ! empty( $admin_submit['allowed'] ) && 'publish' === $admin_submit['status'], 'Administrator submit must normalize to publish.' );
+sabri_corrective_assert( empty( $admin_submit['allowed'] ) || 'publish' !== $admin_submit['status'], 'V12.3: Administrator submit cannot be silently promoted to public publish.' );
 
 $sabri_test_current_user_id = 4;
 $sabri_test_current_caps    = array();

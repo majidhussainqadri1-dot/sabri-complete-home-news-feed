@@ -79,11 +79,19 @@ try {
 						'guardian_verified' => true,
 						'two_factor_ready' => true,
 						'session_two_factor' => true,
-						'account_class' => 'administrator',
-						'membership_type' => 'doctor',
-						'professional_verified' => true,
+						// This scheduling fixture is an explicitly authorized Founder
+						// newsroom actor. Administrator-only publishing is denied by
+						// the separate V12.3 negative authority runtime test.
+						'account_class' => 'founder',
+						'membership_type' => '',
+						'professional_verified' => false,
 						'public_profile_allowed' => true,
 						'can_publish' => true,
+						'can_direct_publish' => true,
+						'publishing' => array(
+							'can_open_composer' => true,
+							'can_direct_publish' => true,
+						),
 						'suspended' => false,
 					);
 				}
@@ -127,6 +135,10 @@ try {
 		$submitted_queue = \Sabri\HomeNewsFeed\NewsQueueService::query( 'submitted', 1, 20 );
 		$definition = \Sabri\HomeNewsFeed\EditorialNewsPostType::definition();
 		$next_before_repair = wp_next_scheduled( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ) );
+		// A WordPress 'future' post would quietly obtain this native event
+		// even though the Phase4B service says auto_publish_enabled=false.
+		$core_publish_event = wp_next_scheduled( 'publish_future_post', array( $post_id ) );
+		$preparation_wp_status = get_post_status( $post_id );
 		wp_clear_scheduled_hook( \Sabri\HomeNewsFeed\NewsSchedulingService::HOOK, array( $post_id ), true );
 		$missing = \Sabri\HomeNewsFeed\NewsSchedulingService::diagnostics( $post_id );
 		$repaired = \Sabri\HomeNewsFeed\NewsSchedulingService::repair_missing_event( $post_id );
@@ -150,6 +162,8 @@ try {
 			'publicly_queryable'=>(bool)$definition['publicly_queryable'],
 			'rest_exposed'=>(bool)$definition['show_in_rest'],
 			'next_before_repair'=>$next_before_repair?(int)$next_before_repair:0,
+			'core_publish_event'=>(bool)$core_publish_event,
+			'preparation_wp_status'=>$preparation_wp_status,
 			'next_after_repair'=>$next_after_repair?(int)$next_after_repair:0,
 			'missing'=>$missing,
 			'schedule_diagnostics'=>$schedule_diagnostics,
@@ -164,6 +178,8 @@ try {
 	assert(result.created.success && result.submitted.success && result.approved.success, 'Composer or workflow service failed.');
 	assert(result.submitted_again.success && result.submitted_again.code === 'workflow_unchanged', 'Same-state transition was not idempotent.');
 	assert(result.scheduled.success && result.next_before_repair > 0, 'Scheduling foundation failed.');
+	assert(result.preparation_wp_status === 'pending' && result.core_publish_event === false,
+		'Preparation-only schedule must stay pending and must NOT register a WordPress core publish_future_post event.');
 	assert(result.scheduled_again.success && result.scheduled_again.code === 'schedule_unchanged', 'Duplicate schedule was not idempotent.');
 	assert(result.missing.event_missing === true, 'Missing schedule event was not detected.');
 	assert(result.repaired.success && result.repaired.code === 'schedule_repaired' && result.next_after_repair > 0, 'Missing schedule event was not repaired.');

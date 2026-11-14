@@ -199,7 +199,7 @@ try {
 	assert(result.owner_basic_meta === true && result.owner_other_meta === false, 'Basic metadata ownership boundary failed.');
 	assert(result.owner_workflow_meta === false && result.owner_retraction_meta === false && result.owner_unknown_meta === false, 'Protected metadata was writable by an ordinary author.');
 	assert(result.editor_other_edit === true && result.editor_published_edit === true, 'Editorial object authority mapping failed.');
-	assert(result.editor_basic_meta === true && result.editor_workflow_meta === true && result.editor_reviewer_assignment === true, 'Editorial protected metadata authority failed.');
+	assert(result.editor_basic_meta === true && result.editor_workflow_meta === false && result.editor_reviewer_assignment === true, 'V12.3: editor without explicit direct-publish authority may edit basic/reviewer metadata, but cannot mutate publication workflow metadata.');
 	assert(result.medical_assigned === true && result.medical_unassigned === false && result.medical_self_assign === false, 'Assigned Medical Reviewer boundary failed.');
 	assert(result.emergency_write === false && result.emergency_read === true, 'Emergency Disable did not close writes while preserving reads.');
 	assert(result.disabled_public === false && result.enabled_public === true, 'Master Editorial News gate did not control public routing.');

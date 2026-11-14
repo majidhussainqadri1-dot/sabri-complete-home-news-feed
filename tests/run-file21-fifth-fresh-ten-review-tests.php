@@ -33,17 +33,24 @@ namespace Sabri\HomeNewsFeed {
 
 	final class CanonicalIdentityAdapter {
 		private static array $assertions = array(
-			1 => array( 'contract_version' => '1.2.0', 'user_id' => 1, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'founder', 'membership_type' => '', 'can_publish' => 1, 'public_profile_allowed' => 1 ),
+			1 => array( 'contract_version' => '1.2.0', 'user_id' => 1, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'founder', 'membership_type' => '', 'can_publish' => 1, 'can_direct_publish' => 1, 'public_profile_allowed' => 1 ),
 			2 => array( 'contract_version' => '1.2.0', 'user_id' => 2, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'member', 'membership_type' => 'member', 'can_publish' => 1, 'public_profile_allowed' => 1 ),
 			3 => array( 'contract_version' => '1.2.0', 'user_id' => 3, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'member', 'membership_type' => 'doctor', 'professional_verified' => 0, 'public_profile_allowed' => 1 ),
-			4 => array( 'contract_version' => '1.2.0', 'user_id' => 4, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'member', 'membership_type' => 'doctor', 'professional_verified' => 1, 'public_profile_allowed' => 1, 'can_publish' => 1 ),
-			5 => array( 'contract_version' => '1.2.0', 'user_id' => 5, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'administrator', 'membership_type' => '', 'public_profile_allowed' => 1 ),
+			4 => array( 'contract_version' => '1.2.0', 'user_id' => 4, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'member', 'membership_type' => 'doctor', 'professional_verified' => 1, 'public_profile_allowed' => 1, 'can_publish' => 1, 'can_direct_publish' => 1 ),
+			5 => array( 'contract_version' => '1.2.0', 'user_id' => 5, 'approved' => 1, 'eligible' => 1, 'guardian_verified' => 1, 'account_class' => 'administrator', 'membership_type' => '', 'public_profile_allowed' => 1, 'can_direct_publish' => 1 ),
 		);
 
 		public static function membership_assertions( int $user_id ): array { return self::$assertions[ $user_id ] ?? array( '_contract_error' => true ); }
 		public static function subject_is_active( int $user_id ): bool {
 			$a = self::membership_assertions( $user_id );
 			return empty( $a['_contract_error'] ) && ! empty( $a['approved'] ) && ! empty( $a['eligible'] ) && ( ! array_key_exists( 'guardian_verified', $a ) || ! empty( $a['guardian_verified'] ) );
+		}
+		/** Simulate the File00 direct-publication gate, not its Composer-only flag. */
+		public static function can_publish_immediately( int $user_id ): bool {
+			$a = self::membership_assertions( $user_id );
+			return self::subject_is_active( $user_id ) && ! empty( $a['can_direct_publish'] ) &&
+				( 'founder' === ( $a['account_class'] ?? '' ) ||
+				( 'doctor' === ( $a['membership_type'] ?? '' ) && ! empty( $a['professional_verified'] ) && ! empty( $a['public_profile_allowed'] ) ) );
 		}
 		public static function public_projection( int $user_id ): array {
 			if ( ! self::subject_is_active( $user_id ) || 3 === $user_id ) { return array(); }
@@ -98,6 +105,8 @@ namespace {
 	$assert( H::subject_is_allowed_public_social_publisher( 4, $verified ), 'verified public doctor remains an eligible public publisher class' );
 	$founder = \Sabri\HomeNewsFeed\CanonicalIdentityAdapter::membership_assertions( 1 );
 	$assert( H::subject_is_allowed_public_social_publisher( 1, $founder ), 'Founder remains an eligible public publisher class' );
+	$admin = \Sabri\HomeNewsFeed\CanonicalIdentityAdapter::membership_assertions( 5 );
+	$assert( ! H::subject_is_allowed_public_social_publisher( 5, $admin ), 'V12.3 general Administrator remains denied even with a stale direct publishing flag' );
 
 	// Round 3 — Editorial News has no permissive Repost/Quote fallback if native NewsPolicy is unavailable.
 	$assert( H::strict_public_source_is_shareable( 101 ), 'approved public social post remains shareable through prior exact checks' );

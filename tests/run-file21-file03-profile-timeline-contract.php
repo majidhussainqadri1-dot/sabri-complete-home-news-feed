@@ -22,8 +22,22 @@ if (strpos($section, "'visibility' => 'public'") !== false) {
     fwrite(STDERR, "File 03 adapter must preserve File 21 visibility instead of forcing public.\n");
     exit(1);
 }
-if (strpos($section, "\$query_args['author'] = \$user_id") === false || strpos($section, "\$query_args['post_status'] = array( 'publish' )") === false) {
-    fwrite(STDERR, "Owner/security query bounds are not reasserted after extension filters.\n");
-    exit(1);
+
+// The provider now enforces the immutable owner boundary directly in its
+// parameterized source query. An external query-args filter cannot remove it.
+foreach ( array(
+	'post_type = %s',
+	'post_status = %s',
+	'post_author = %d',
+	'CAST(ID AS CHAR) < %s',
+	'file03_cursor_boundary',
+	'PostMetadata::review_state_publicly_visible',
+	'PostMetadata::user_can_view',
+	'file21_file03_scan_limit',
+) as $proof ) {
+	if ( false === strpos( $section, $proof ) ) {
+		fwrite( STDERR, 'Missing exact File 03 source/cursor invariant: ' . $proof . PHP_EOL );
+		exit( 1 );
+	}
 }
 echo "File 21 -> File 03 timeline owner adapter contract: PASS\n";

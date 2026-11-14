@@ -116,40 +116,98 @@ final class SearchProviderRegistry {
 		);
 	}
 
-	/** Bounded, restartable source batch for File 26 shadow reindex. */
+	/**
+	 * Stable keyset source scan for File 26 shadow reindex.
+	 *
+	 * Offset-based pagination can silently miss rows when earlier published
+	 * posts are withdrawn between batches. The explicit v1:id cursor records the last scanned
+	 * WordPress post ID instead. It never treats a legacy numeric offset as an ID.
+	 * A partial object_id scope remains unsupported until a separate owner/26
+	 * partial-shadow contract has been accepted; it MUST NOT scan the whole feed.
+	 */
 	public static function file26_list_batch( $cursor, $limit, $scope = array() ) {
-		unset( $scope );
-		$offset = is_scalar( $cursor ) && preg_match( '/^\d+$/', (string) $cursor ) ? max( 0, (int) $cursor ) : 0;
-		$limit = max( 1, min( 100, (int) $limit ) );
-		if ( ! class_exists( 'WP_Query' ) ) {
-			return array( 'items' => array(), 'next_cursor' => (string) $offset, 'done' => true );
+		if ( ! is_array( $scope ) ) {
+			return new \WP_Error( 'file21_file26_invalid_scope', 'File 21 search source scope is malformed.' );
 		}
-		$query = new \WP_Query(
-			array(
-				'post_type' => array( 'post', Phase4Contracts::POST_TYPE ),
-				'post_status' => 'publish',
-				'posts_per_page' => $limit,
-				'offset' => $offset,
-				'orderby' => 'ID',
-				'order' => 'ASC',
-				'no_found_rows' => true,
-				'ignore_sticky_posts' => true,
-			)
+		foreach ( $scope as $key => $value ) {
+			if ( 'connector' !== $key || self::FILE26_CONNECTOR_SLUG !== $value ) {
+				return new \WP_Error( 'file21_file26_unsupported_scope', 'Only a complete File 21 publication source scan is supported. Partial or foreign scopes are denied.' );
+			}
+		}
+		$after_id = self::file26_decode_keyset_cursor( $cursor );
+		if ( null === $after_id ) {
+			return new \WP_Error( 'file21_file26_legacy_cursor_rejected', 'Source cursor is not a versioned ID cursor. Restart the shadow job from a fresh empty cursor after review.' );
+		}
+		global $wpdb;
+		if ( ! isset( $wpdb ) || ! is_object( $wpdb ) || empty( $wpdb->posts ) ||
+			! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_col' ) ||
+			! function_exists( 'get_post' ) ) {
+			return new \WP_Error( 'file21_file26_source_unavailable', 'Canonical WordPress post source cannot be read safely.' );
+		}
+		$limit = max( 1, min( 100, (int) $limit ) );
+		$wpdb->last_error = '';
+		// Read only canonical public-status candidate IDs. Every result is checked
+		// again by File 21's current publication/visibility policy below.
+		$query = $wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts} WHERE ID > %d AND post_type IN (%s, %s) AND post_status = %s ORDER BY ID ASC LIMIT %d",
+			$after_id,
+			'post',
+			Phase4Contracts::POST_TYPE,
+			'publish',
+			$limit
 		);
-		$raw = is_array( $query->posts ) ? $query->posts : array();
+		if ( ! is_string( $query ) || '' === trim( $query ) ) {
+			return new \WP_Error( 'file21_file26_query_unavailable', 'Source query could not be prepared.' );
+		}
+		$raw_ids = $wpdb->get_col( $query );
+		if ( ! is_array( $raw_ids ) || '' !== (string) $wpdb->last_error ) {
+			return new \WP_Error( 'file21_file26_query_failed', 'Source scan failed; the cursor was not advanced.' );
+		}
 		$items = array();
-		foreach ( $raw as $post ) {
+		$last_id = $after_id;
+		foreach ( $raw_ids as $raw_id ) {
+			$id_text = is_scalar( $raw_id ) ? (string) $raw_id : '';
+			if ( ! preg_match( '/^[1-9][0-9]*$/D', $id_text ) || strlen( $id_text ) > strlen( (string) PHP_INT_MAX ) ||
+				( strlen( $id_text ) === strlen( (string) PHP_INT_MAX ) && strcmp( $id_text, (string) PHP_INT_MAX ) > 0 ) ) {
+				return new \WP_Error( 'file21_file26_invalid_source_id', 'Source scan returned a malformed WordPress ID.' );
+			}
+			$post_id = (int) $id_text;
+			if ( $post_id <= $last_id ) {
+				return new \WP_Error( 'file21_file26_cursor_not_monotonic', 'Source scan returned unordered or repeated IDs.' );
+			}
+			$last_id = $post_id;
+			$post = get_post( $post_id );
+			if ( ! is_object( $post ) || ! isset( $post->ID, $post->post_status ) ||
+				(int) $post->ID !== $post_id || 'publish' !== (string) $post->post_status ) {
+				continue;
+			}
 			$document = self::file26_document( $post );
 			if ( $document ) {
 				$items[] = $document;
 			}
 		}
-		$scanned = count( $raw );
 		return array(
 			'items' => $items,
-			'next_cursor' => (string) ( $offset + $scanned ),
-			'done' => $scanned < $limit,
+			'next_cursor' => $last_id > 0 ? 'v1:id:' . $last_id : '',
+			'done' => count( $raw_ids ) < $limit,
 		);
+	}
+
+	/** Decode only an explicit versioned ID cursor; legacy offsets fail closed. */
+	private static function file26_decode_keyset_cursor( $cursor ) {
+		if ( null === $cursor || '' === $cursor ) {
+			return 0;
+		}
+		if ( ! is_string( $cursor ) || ! preg_match( '/^v1:id:([1-9][0-9]*)$/D', $cursor, $match ) ) {
+			return null;
+		}
+		$digits = $match[1];
+		$maximum = (string) PHP_INT_MAX;
+		if ( strlen( $digits ) > strlen( $maximum ) ||
+			( strlen( $digits ) === strlen( $maximum ) && strcmp( $digits, $maximum ) > 0 ) ) {
+			return null;
+		}
+		return (int) $digits;
 	}
 
 	/** File 26 click/query-time owner authorization callback. */
@@ -221,11 +279,13 @@ final class SearchProviderRegistry {
 		if ( ! self::is_owned_search_post( $post ) || ! function_exists( 'sabri_file26_tombstone_document' ) ) {
 			return;
 		}
+		$version = self::file26_advance_object_version( $post );
+		if ( null === $version ) { return; } // Never emit a tombstone without a durable owner event sequence.
 		sabri_file26_tombstone_document(
 			self::FILE26_CONNECTOR_SLUG,
 			'publication',
 			(string) absint( $post_id ),
-			self::file26_object_version( $post ),
+			$version,
 			'deleted'
 		);
 	}
@@ -236,7 +296,9 @@ final class SearchProviderRegistry {
 		if ( ! self::is_owned_search_post( $post ) ) {
 			return;
 		}
-		$document = self::file26_document( $post );
+		$version = self::file26_advance_object_version( $post );
+		if ( null === $version ) { return; } // No non-monotonic upsert/tombstone delivery.
+		$document = self::file26_document( $post, $version );
 		if ( $document && function_exists( 'do_action' ) ) {
 			do_action( 'sabri_file26_source_upsert', $document );
 			return;
@@ -246,18 +308,22 @@ final class SearchProviderRegistry {
 				self::FILE26_CONNECTOR_SLUG,
 				'publication',
 				(string) absint( $post->ID ),
-				self::file26_object_version( $post ),
+				$version,
 				'restricted'
 			);
 		}
 	}
 
 	/** Build an allowlisted File 26 document only from a current public projection. */
-	private static function file26_document( $post ) {
+	private static function file26_document( $post, $event_version = null ) {
 		if ( ! self::is_owned_search_post( $post ) || 'publish' !== (string) $post->post_status ) {
 			return array();
 		}
 		$post_id = (int) $post->ID;
+		// Freeze the already-issued owner event version for this delivery. A later
+		// worker may advance the durable version while this projection is built;
+		// rereading here would falsely label an older payload as the newer event.
+		$document_version = null === $event_version ? self::file26_object_version( $post ) : max( 1, (int) $event_version );
 		$type = (string) $post->post_type;
 		$entity_type = 'post';
 		$title = '';
@@ -320,7 +386,8 @@ final class SearchProviderRegistry {
 			'connector_slug' => self::FILE26_CONNECTOR_SLUG,
 			'domain' => 'publication',
 			'object_id' => (string) $post_id,
-			'object_version' => self::file26_object_version( $post ),
+			'object_version' => $document_version,
+			'source_event_sequence' => $document_version,
 			'entity_type' => $entity_type,
 			'locale' => $locale,
 			'state' => $state,
@@ -351,13 +418,41 @@ final class SearchProviderRegistry {
 			&& in_array( (string) $post->post_type, array( 'post', Phase4Contracts::POST_TYPE ), true );
 	}
 
-	/** Stable monotonic-enough source version based on WordPress modification time. */
+	/** Durable File21-owned event version. Reads never mutate source truth. */
 	private static function file26_object_version( $post ) {
-		$modified = is_object( $post ) && ! empty( $post->post_modified_gmt ) ? strtotime( $post->post_modified_gmt . ' UTC' ) : 0;
-		if ( ! $modified && is_object( $post ) && ! empty( $post->post_date_gmt ) ) {
-			$modified = strtotime( $post->post_date_gmt . ' UTC' );
+		if ( ! is_object( $post ) || empty( $post->ID ) ) { return 1; }
+		$modified = ! empty( $post->post_modified_gmt ) ? strtotime( $post->post_modified_gmt . ' UTC' ) : 0;
+		if ( ! $modified && ! empty( $post->post_date_gmt ) ) { $modified = strtotime( $post->post_date_gmt . ' UTC' ); }
+		$stored = function_exists( 'get_post_meta' ) ? get_post_meta( (int) $post->ID, '_sabri_file21_file26_event_version', true ) : 0;
+		return max( 1, (int) $modified, is_numeric( $stored ) ? (int) $stored : 0 );
+	}
+
+	/**
+	 * Record a distinct publication/metadata visibility event before dispatch.
+	 * MySQL's per-object advisory lock serializes concurrent PHP workers; a failed
+	 * lock or failed durable post-meta write must NOT emit a derivative event.
+	 * File26 never invents source versions or weakens tombstone precedence.
+	 */
+	private static function file26_advance_object_version( $post ) {
+		global $wpdb;
+		if ( ! is_object( $post ) || empty( $post->ID ) || ! isset( $wpdb ) ) { return null; }
+		$id = (int) $post->ID;
+		$lock_name = 's21_f26_v_' . $id;
+		if ( ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_var' ) ) { return null; }
+		$wpdb->last_error = '';
+		$acquired = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 5)', $lock_name ) );
+		if ( '1' !== (string) $acquired || '' !== (string) $wpdb->last_error ) { return null; }
+		try {
+			$next = self::file26_object_version( $post ) + 1;
+			// Fail closed rather than overflow a signed MySQL BIGINT / PHP integer.
+			if ( $next <= 1 || $next >= PHP_INT_MAX ) { return null; }
+			$written = update_post_meta( $id, '_sabri_file21_file26_event_version', $next );
+			if ( false === $written ) { return null; }
+			$confirmed = get_post_meta( $id, '_sabri_file21_file26_event_version', true );
+			return is_numeric( $confirmed ) && (int) $confirmed === $next ? $next : null;
+		} finally {
+			$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
 		}
-		return max( 1, (int) $modified );
 	}
 
 	/** Public taxonomy slugs only; term descriptions/private metadata never leave the owner. */

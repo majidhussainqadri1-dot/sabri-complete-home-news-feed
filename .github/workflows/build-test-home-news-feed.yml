@@ -62,6 +62,8 @@ jobs:
             tests/run-file21-settings-recursion-tests.php
             tests/run-file21-production-rejection-tests.php
             tests/run-file21-public-visibility-tests.php
+            tests/run-file21-feed-viewer-card-runtime.php
+            tests/run-file21-feed-source-policy-runtime.php
             tests/run-file21-harmonization-tests.php
             tests/run-file21-harmonization-negative-tests.php
             tests/run-file21-corrective-tests.php
@@ -70,12 +72,22 @@ jobs:
             tests/run-file21-file04-migration-completeness-tests.php
             tests/run-file21-file22-founder-gateway-regression.php
             tests/run-file21-file03-profile-timeline-contract.php
+            tests/run-file21-file03-cursor-runtime.php
             tests/run-file21-file23-provider-integration-tests.php
             tests/run-file21-file24-assurance-contract-tests.php
             tests/run-file21-file26-connector-contract-tests.php
             tests/run-file21-four-plan-final-completion-tests.php
             tests/run-file21-four-plan-audit-1.0.5.php
             tests/run-file21-next-generation-30-tests.php
+            tests/run-file21-v12-3-publishing-governance.php
+            tests/run-file21-v12-3-news-publication-boundary.php
+            tests/run-file21-v12-3-public-sharing-boundary.php
+            tests/run-file21-v12-3-traceability.php
+            tests/run-file21-v12-3-profile-timeline-cache.php
+            tests/run-file21-v12-3-ng30-runtime-manifest.php
+            tests/run-file21-v12-3-rest-private-cache.php
+            tests/run-file21-v12-3-private-continue-reading.php
+            tests/run-file21-v12-3-news-brand-contrast.php
             tests/run-file21-ten-review-hardening-tests.php
           )
           : > exact-head-regression.log
