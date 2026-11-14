@@ -1,0 +1,120 @@
+name: File21 Viewer-Scoped Feed / Public Share Boundary
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'includes/class-feed-renderer.php'
+      - 'tests/run-file21-feed-viewer-card-runtime.php'
+      - 'tests/run-file21-feed-viewer-card-playground.mjs'
+      - '.github/workflows/file21-feed-viewer-boundary.yml'
+  push:
+    branches:
+      - main
+      - fix/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TEST_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  authorized-feed-and-strict-public-source:
+    name: File21 viewer authorization and public-source separation
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.3']
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact File21 candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: none
+          coverage: none
+
+      - name: Validate exact source and executable assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          php -l includes/class-feed-renderer.php
+          php -l tests/run-file21-feed-viewer-card-runtime.php
+          php tests/run-file21-feed-viewer-card-runtime.php
+          php tests/run-file21-public-visibility-tests.php
+          php tests/run-public-query-routing-tests.php
+
+      - name: Guard strict world-public authorization from scope widening
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'function strict_public_item(' includes/class-next-generation-feed.php
+          grep -Fq "'public' === PostMetadata::visibility(" includes/class-fourth-fresh-review-hardening.php
+          grep -Fq 'function viewer_can_render_post(' includes/class-feed-renderer.php
+          grep -Fq 'PostMetadata::review_state_publicly_visible(' includes/class-feed-renderer.php
+          grep -Fq 'NetworkRelationshipBridge::author_allowed(' includes/class-feed-renderer.php
+          grep -Fq 'return self::template(' includes/class-feed-renderer.php
+          ! sed -n '/public static function render_card( /,/public static function viewer_can_render_post( /p' includes/class-feed-renderer.php | grep -Fq 'NextGenerationFeed::strict_public_item( $post_id )'
+
+      - name: Declare exact acceptance limit
+        run: |
+          printf 'Source SHA: %s\nTest PHP: %s\nSource/runtime only; installed Live/DB/schema/rollback unverified.\n' "${TEST_SHA}" "${{ matrix.php }}" > exact-feed-viewer-check.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-viewer-boundary-${{ matrix.php }}-${{ env.TEST_SHA }}
+          path: exact-feed-viewer-check.txt
+          retention-days: 30
+          if-no-files-found: warn
+
+
+  ephemeral-wordpress-viewer-scopes:
+    name: "Real WordPress Feed cards and audience switch"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - wp: latest
+            php: '8.3'
+          - wp: '6.8'
+            php: '8.1'
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TEST_SHA }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install WordPress Playground
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run real WordPress audience/visibility source test
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: ${{ matrix.php }}
+          SABRI_PLAYGROUND_WP: ${{ matrix.wp }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${TEST_SHA}"
+          node --check tests/run-file21-feed-viewer-card-playground.mjs
+          node tests/run-file21-feed-viewer-card-playground.mjs

@@ -1,0 +1,166 @@
+name: File 21 to File 03 Exact Signed-Cursor Compatibility
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'includes/class-profile-timeline.php'
+      - 'tests/run-file21-file03-cursor-runtime.php'
+      - 'tests/integration/file21-file03-exact-consumer-runtime.php'
+      - 'tests/integration/file21-file03-cursor-mariadb.php'
+      - 'tests/run-file21-file03-cursor-playground.mjs'
+      - 'tests/run-file21-file03-profile-timeline-contract.php'
+      - '.github/workflows/file21-file03-real-cursor.yml'
+  push:
+    branches:
+      - main
+      - fix/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FILE21_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+  FILE03_EXACT_SOURCE: bf317e5521ec79f9f16d21353f402571fcd4f84c
+
+jobs:
+  exact-file03-source-contract:
+    name: File 03 consumer contract and actual File 21 owner cursor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Check out exact File 21 candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_HEAD }}
+          path: file21
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out exact File 03 consumer main
+        uses: actions/checkout@v4
+        with:
+          repository: majidhussainqadri1-dot/03-sabri-profiles-and-doctors
+          ref: ${{ env.FILE03_EXACT_SOURCE }}
+          path: file03
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate real consumer cursor semantics and PHP source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C file21 rev-parse HEAD)" = "${FILE21_HEAD}"
+          test "$(git -C file03 rev-parse HEAD)" = "${FILE03_EXACT_SOURCE}"
+          php -l file21/includes/class-profile-timeline.php
+          php -l file21/tests/run-file21-file03-cursor-runtime.php
+          php -l file21/tests/integration/file21-file03-exact-consumer-runtime.php
+          grep -Fq "const PROVIDER_CONTRACT_MIN = '1.0.0'" file03/includes/class-spd-timeline.php
+          grep -Fq "'cursor' => \$cursor" file03/includes/class-spd-timeline.php
+          grep -Fq "'t' => gmdate( 'Y-m-d H:i:s'" file03/includes/class-spd-timeline.php
+          grep -Fq "return \$item['published_at'] < \$cursor['t']" file03/includes/class-spd-timeline.php
+          grep -Fq "'sabri_file21_profile_timeline_items_v1'" file03/includes/class-spd-timeline.php
+          php file21/tests/run-file21-file03-profile-timeline-contract.php
+          php file21/tests/run-file21-file03-cursor-runtime.php
+          FILE03_ROOT="$PWD/file03" php file21/tests/integration/file21-file03-exact-consumer-runtime.php
+
+      - name: Record exact source evidence and limit
+        shell: bash
+        run: |
+          cat > file21-file03-cursor-contract.txt <<REPORT
+          File 21 SHA: ${FILE21_HEAD}
+          File 03 exact consumer SHA: ${FILE03_EXACT_SOURCE}
+          Signed cursor t/i and global ordering contract: PASS
+          Owner posts/status/visibility/cursor bounded runtime: PASS
+          Installed dual-plugin WordPress deployment: NOT CLAIMED
+          Database migration and Hostinger Live parity: NOT CLAIMED
+          REPORT
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: file21-file03-contract-${{ env.FILE21_HEAD }}
+          path: file21-file03-cursor-contract.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+  ephemeral-wordpress-cursor:
+    name: File 21 owner cursor on real ephemeral WordPress
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact File 21 candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_HEAD }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install WordPress Playground CLI
+        run: npm install --no-save --no-package-lock @wp-playground/cli@latest
+
+      - name: Run signed-cursor source test on actual WordPress APIs
+        shell: bash
+        env:
+          SABRI_PLAYGROUND_PHP: '8.3'
+          SABRI_PLAYGROUND_WP: latest
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_HEAD}"
+          node --check tests/run-file21-file03-cursor-playground.mjs
+          node tests/run-file21-file03-cursor-playground.mjs
+
+
+  isolated-mariadb-cursor:
+    name: File 21 File 03 lexical cursor against real MariaDB
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-password
+          MARIADB_DATABASE: file21_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Check out exact File 21 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.FILE21_HEAD }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Prepare PHP 8.3 MariaDB client
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${FILE21_HEAD}"
+          sudo apt-get update -qq
+          sudo apt-get install -y php8.3-mysql
+          php -m | grep -qi 'pdo_mysql'
+          php -l tests/integration/file21-file03-cursor-mariadb.php
+          php -l includes/class-profile-timeline.php
+
+      - name: Run real isolated MariaDB File 03 cursor regression
+        shell: bash
+        env:
+          FILE21_DB_HOST: 127.0.0.1
+          FILE21_DB_NAME: file21_test
+          FILE21_DB_USER: root
+          FILE21_DB_PASS: test-root-password
+        run: |
+          set -euo pipefail
+          php tests/integration/file21-file03-cursor-mariadb.php
