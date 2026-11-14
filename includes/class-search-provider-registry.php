@@ -184,10 +184,23 @@ final class SearchProviderRegistry {
 		$items = array();
 		$next_id = $last_id;
 		foreach ( $raw as $post ) {
-			if ( ! is_object( $post ) || ! isset( $post->ID ) || ! is_numeric( $post->ID ) || (int) $post->ID <= $next_id ) {
+			if ( ! is_object( $post ) || ! isset( $post->ID ) ||
+				! ( is_int( $post->ID ) || ( is_string( $post->ID ) && preg_match( '/^[0-9]+$/D', $post->ID ) ) )
+			) {
+				return new \WP_Error( 'file21_file26_source_post_id_invalid', 'Owner query returned a malformed post identity.' );
+			}
+			$id_text = ltrim( (string) $post->ID, '0' );
+			$id_max = (string) PHP_INT_MAX;
+			if ( '' === $id_text || strlen( $id_text ) > strlen( $id_max ) ||
+				( strlen( $id_text ) === strlen( $id_max ) && strcmp( $id_text, $id_max ) > 0 )
+			) {
+				return new \WP_Error( 'file21_file26_source_post_id_overflow', 'Owner post-ID cannot be represented losslessly.' );
+			}
+			$source_id = (int) $id_text;
+			if ( $source_id <= $next_id ) {
 				return new \WP_Error( 'file21_file26_cursor_not_advancing', 'Canonical publication scan did not advance by post ID.' );
 			}
-			$next_id = (int) $post->ID;
+			$next_id = $source_id;
 			$document = self::file26_document( $post );
 			if ( $document ) {
 				$items[] = $document;
