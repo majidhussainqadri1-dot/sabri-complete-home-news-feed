@@ -58,12 +58,13 @@ final class ComposerPermissions {
 			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id, $settings );
 	}
 
-	/** Whether a subject is an active institutional Founder or Administrator. */
+	/** Only the current Founder is an intrinsic institutional publisher (CEN-PUB-001). */
 	public static function subject_is_institutional_publisher( $user_id = 0 ) {
 		$user_id = $user_id ? (int) $user_id : self::current_user_id();
 		return $user_id > 0
 			&& CanonicalIdentityAdapter::subject_is_active( $user_id )
-			&& ( CanonicalIdentityAdapter::is_founder( $user_id ) || CanonicalIdentityAdapter::is_administrator( $user_id ) );
+			&& CanonicalIdentityAdapter::is_founder( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id );
 	}
 
 	/** Whether the current user can use the public social Composer. */
