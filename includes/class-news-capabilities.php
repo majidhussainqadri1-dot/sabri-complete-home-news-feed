@@ -19,6 +19,7 @@ final class NewsCapabilities {
 	public static function register() {
 		if ( function_exists( 'add_filter' ) ) {
 			add_filter( 'user_has_cap', array( __CLASS__, 'respect_emergency_disable' ), 10, 4 );
+			add_filter( 'user_has_cap', array( __CLASS__, 'enforce_v123_direct_publish_boundary' ), 110, 4 );
 		}
 	}
 
@@ -54,12 +55,12 @@ final class NewsCapabilities {
 	public static function default_role_map() {
 		$all = self::capabilities();
 		$map = array(
-			'administrator'   => $all,
+			'administrator'   => array_values( array_diff( $all, array( 'publish_editorial_news', 'schedule_editorial_news' ) ) ),
 			'founder'         => $all,
 			'editor_in_chief' => array(
 				'read_editorial_news', 'create_editorial_news', 'edit_own_editorial_news', 'edit_others_editorial_news',
 				'submit_editorial_news', 'review_editorial_news', 'fact_check_editorial_news',
-				'medical_review_editorial_news', 'publish_editorial_news', 'schedule_editorial_news',
+				'medical_review_editorial_news',
 				'manage_breaking_news', 'manage_news_sources', 'manage_news_corrections',
 				'retract_editorial_news', 'translate_editorial_news', 'manage_news_taxonomies',
 			),
@@ -209,6 +210,41 @@ final class NewsCapabilities {
 		foreach ( self::capabilities() as $capability ) {
 			if ( 'read_editorial_news' !== $capability ) {
 				$allcaps[ $capability ] = false;
+			}
+		}
+		return $allcaps;
+	}
+
+	/**
+	 * V12.3 CEN-PUB-001: an Editorial News role or WordPress Administrator
+	 * capability is not a Founder-issued, action-scoped publication grant.
+	 * A currently authenticated Founder or verified in-scope doctor must pass
+	 * File 00's direct-publishing contract as well as retaining the exact
+	 * File21 native capability; this filter NEVER mints a positive grant.
+	 *
+	 * An expressly delegated editor remains fail-closed until the File 00
+	 * owner supplies an atomic, verifiable subject/object/action/expiry/revoke
+	 * contract. This is a source-level guard, not full object-scoped approval.
+	 */
+	public static function enforce_v123_direct_publish_boundary( $allcaps, $caps, $args, $user ) {
+		unset( $args );
+		if ( ! is_array( $allcaps ) ) {
+			return $allcaps;
+		}
+		$direct_caps = array( 'publish_editorial_news', 'schedule_editorial_news' );
+		$requested = is_array( $caps ) ? array_intersect( $direct_caps, $caps ) : array();
+		if ( ! $requested ) {
+			return $allcaps;
+		}
+		$user_id = is_object( $user ) && isset( $user->ID ) ? absint( $user->ID ) : 0;
+		$current_id = function_exists( 'get_current_user_id' ) ? absint( get_current_user_id() ) : 0;
+		$authorized = $user_id > 0 && $user_id === $current_id
+			&& class_exists( __NAMESPACE__ . '\\CanonicalIdentityAdapter' )
+			&& CanonicalIdentityAdapter::current_action_ready( $user_id )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id );
+		if ( ! $authorized ) {
+			foreach ( $direct_caps as $cap ) {
+				$allcaps[ $cap ] = false;
 			}
 		}
 		return $allcaps;
