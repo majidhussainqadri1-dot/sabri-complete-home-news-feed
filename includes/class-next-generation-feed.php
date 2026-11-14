@@ -750,11 +750,22 @@ final class NextGenerationFeed {
 	/** Continue Reading projection. */
 	public static function continue_reading_items( $user_id = 0 ) {
 		$user_id = $user_id ? absint( $user_id ) : self::current_user_id();
-		$state   = self::user_state( $user_id );
-		$items   = array();
+		// Reading progress is PRIVATE user state: never disclose a different
+		// subject's progress merely because a public PHP caller supplied an ID.
+		if ( $user_id < 1 ||
+			InteractionPermissions::authenticated_user_id( $user_id ) !== $user_id ||
+			! CanonicalIdentityAdapter::current_action_ready( $user_id ) ) {
+			return array();
+		}
+		$state = self::user_state( $user_id );
+		$items = array();
 		foreach ( $state['progress'] as $post_id => $progress ) {
 			$post_id = absint( $post_id );
-			if ( $post_id < 1 || ! self::strict_public_item( $post_id ) ) {
+			// Match the exact current-viewer authorization used to SAVE reading
+			// progress. A scoped but legitimately accessible post must resume;
+			// a withdrawn, retracted or otherwise inaccessible item is omitted.
+			// This private projection is never a publicly shareable card.
+			if ( $post_id < 1 || ! InteractionPermissions::can_view_post( $post_id, $user_id ) ) {
 				continue;
 			}
 			$items[] = array(
