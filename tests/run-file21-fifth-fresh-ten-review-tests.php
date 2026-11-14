@@ -105,7 +105,7 @@ namespace {
 	$assert( H::subject_is_allowed_public_social_publisher( 4, $verified ), 'verified public doctor remains an eligible public publisher class' );
 	$founder = \Sabri\HomeNewsFeed\CanonicalIdentityAdapter::membership_assertions( 1 );
 	$assert( H::subject_is_allowed_public_social_publisher( 1, $founder ), 'Founder remains an eligible public publisher class' );
-	$admin = \\Sabri\\HomeNewsFeed\\CanonicalIdentityAdapter::membership_assertions( 5 );
+	$admin = \Sabri\HomeNewsFeed\CanonicalIdentityAdapter::membership_assertions( 5 );
 	$assert( ! H::subject_is_allowed_public_social_publisher( 5, $admin ), 'V12.3 general Administrator remains denied even with a stale direct publishing flag' );
 
 	// Round 3 — Editorial News has no permissive Repost/Quote fallback if native NewsPolicy is unavailable.
