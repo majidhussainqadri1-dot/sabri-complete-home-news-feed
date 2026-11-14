@@ -1,5 +1,6 @@
 .sabri-feed-admin {
-	--sabri-feed-accent: #f26100;
+	--sabri-feed-accent: #087a4e;
+	--sabri-feed-muted-accent: #b45309;
 }
 
 .sabri-feed-admin .sabri-feed-tabs {
@@ -41,7 +42,7 @@
 
 .sabri-feed-status[data-status="Disabled"],
 .sabri-feed-status[data-status="Available but not configured"] {
-	border-left-color: var(--sabri-feed-accent);
+	border-left-color: var(--sabri-feed-muted-accent);
 }
 
 .sabri-feed-table {
