@@ -79,11 +79,19 @@ try {
 						'guardian_verified' => true,
 						'two_factor_ready' => true,
 						'session_two_factor' => true,
-						'account_class' => 'administrator',
-						'membership_type' => 'doctor',
-						'professional_verified' => true,
+						// This scheduling fixture is an explicitly authorized Founder
+						// newsroom actor. Administrator-only publishing is denied by
+						// the separate V12.3 negative authority runtime test.
+						'account_class' => 'founder',
+						'membership_type' => '',
+						'professional_verified' => false,
 						'public_profile_allowed' => true,
 						'can_publish' => true,
+						'can_direct_publish' => true,
+						'publishing' => array(
+							'can_open_composer' => true,
+							'can_direct_publish' => true,
+						),
 						'suspended' => false,
 					);
 				}
