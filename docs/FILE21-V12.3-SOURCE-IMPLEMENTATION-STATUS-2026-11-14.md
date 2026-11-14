@@ -31,6 +31,7 @@ All 31 records have source files and repository tests but **none is marked as pr
 | #62 | File03 global signed cursor ignored by File21 owner | exact cursor keyset and negative privacy regression | **Candidate only; no exact final CI or Live acceptance** |
 | #64 | local profile timeline late query filter can swap post author | canonical author/type/status/review recheck after filters | **Candidate only; no exact final CI or Live acceptance** |
 | #65 | Feed renders world-public-only posts, incorrectly hiding scoped authorized posts | viewer-bound exact card guard, world-public-only sharing preserved | **Candidate only; no exact final CI or Live acceptance** |
+| [#72](https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed/issues/72) | Viewer-scoped authorized Feed card still showed world-public Share action | Guard Share in SocialRuntime independently from viewer access; suppress Share URL/title, with public/restricted tests | **Source candidate; exact-head CI and browser QA pending** |
 | #67 | untrusted late Feed WP_Query filter can discard owner privacy constraints | source-bound query invariant after extensions with negative tests | **Candidate only; no exact final CI or Live acceptance** |
 | V12.3-PUB-01 | File00 `can_publish` is only `can_open_composer` whereas File21 used it for direct publishing; Admin had auto direct publish | File00 `can_direct_publish` + doctor verification + Founder identity gate, Admin-only and unversioned delegation denied in Composer/Social/Stories; new actor tests | **Candidate only; delegated-editor versioned scope missing** |
 | [#70](https://github.com/majidhussainqadri1-dot/sabri-complete-home-news-feed/issues/70) | Newsroom default Admin and editor-in-chief roles grant direct News publish/schedule without express scoped founder delegation | NewsCapabilities role map and late capability veto + isolated role/actor tests | **Candidate only; current per-object delegation and cron release recheck require acceptance** |
@@ -39,7 +40,7 @@ Additional source/document discrepancies:
 - V12.3 central primary color `#087A4E` vs legacy `#1F7A55` and historic admin orange. Candidate updates shared File21 CSS/tokens and corresponding structural tests. File25 must independently validate full design-token ownership and contrast.
 - README previously reported 1.0.4 though plugin package declares 1.0.5; candidate corrects first-line package identity while retaining 1.0.4 historical notes.
 
-**Count: 8 source/plan defects currently investigated; 8 have candidate source changes; 0 certified as corrected on Live; 8 remain open until new exact-head tests, independent review and deployment parity.** New defects may appear in audit.
+**Count: 9 source/plan defects currently investigated; 9 have candidate source changes; 0 certified as corrected on Live; 9 remain open until new exact-head tests, independent review and deployment parity.** New defects may appear in audit.
 
 ## Pull request reconciliation
 | PR | Assessment under frozen main and V12.3 |
@@ -90,6 +91,6 @@ Additional source/document discrepancies:
 - **DB Version** = Unverified.
 - **Migration State** = Unverified.
 - **Live Verification Status** = Not verified.
-- **Known source issues** = 8 (7 social/owner and 1 editorial, including original six); **Live-resolved** = 0.
+- **Known source/plan issues** = 9 (original six, two publishing-authority issues and scoped-share issue #72); **Live-resolved** = 0. **Separate release QA gap**: Issue #71.
 
 **Release decision: NO-GO until V12.3 CEN-REL-001 gates are met.**

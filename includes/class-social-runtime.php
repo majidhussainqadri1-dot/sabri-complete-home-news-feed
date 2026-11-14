@@ -33,6 +33,13 @@ final class SocialRuntime {
 			$features['follows'] = false;
 			$features = function_exists( 'apply_filters' ) ? (array) apply_filters( 'sabri_news_interaction_features', $features, $post_id ) : $features;
 		}
+		// A viewer-authorized Feed card is not necessarily world-public.
+		// Public sharing is a separate, stricter publication scope (V12.3).
+		if ( ! empty( $features['share'] ) ) {
+			$features['share'] = $is_news
+				? ( class_exists( __NAMESPACE__ . '\\NewsPolicy' ) && NewsPolicy::can_public_read( $post_id ) )
+				: ( class_exists( __NAMESPACE__ . '\\NextGenerationFeed' ) && NextGenerationFeed::strict_public_item( $post_id ) );
+		}
 		$anything_enabled = in_array( true, array_map( 'boolval', $features ), true );
 		if ( $post_id <= 0 || ! $anything_enabled || ! InteractionPermissions::can_view_post( $post_id ) ) { return ''; }
 		if ( $is_news && 'retracted' === NewsPolicy::workflow_state( $post_id ) ) { return ''; }
@@ -57,7 +64,7 @@ final class SocialRuntime {
 			array(
 				'post_id'=>$post_id,'summary'=>$summary,'logged_in'=>$logged_in,'nonce'=>$nonce,'login_url'=>$login_url,
 				'engagement_url'=>$base . '/engagement','reaction_url'=>$base . '/reaction','save_url'=>$base . '/save',
-				'share_url'=>$permalink,'share_title'=>$share_title,'comments_url'=>$permalink . '#sabri-hnf-comments-' . $post_id,
+				'share_url'=>$features['share'] ? $permalink : '', 'share_title'=>$features['share'] ? $share_title : '','comments_url'=>$permalink . '#sabri-hnf-comments-' . $post_id,
 				'comment_count'=>$features['comments'] ? CommentService::approved_count( $post_id ) : 0,
 				'follow_url'=>$follow_url,'follow_summary'=>$follow_summary,'profile_url'=>isset($follow_summary['profile_url'])?(string)$follow_summary['profile_url']:'','can_follow'=>$can_follow,
 				'reactions_enabled'=>(bool)$features['reactions'],'dislikes_enabled'=>Phase3FeatureSettings::enabled( 'dislikes_enabled' ),
