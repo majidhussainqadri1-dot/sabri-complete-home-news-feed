@@ -60,6 +60,7 @@ jobs:
           php -l file21/includes/class-feed-user-agency.php
           php -l file21/tests/run-file21-file26-connector-contract-tests.php
           php -l file21/tests/run-file21-file26-monotonic-version-runtime.php
+          php -l file21/tests/run-file21-file26-keyset-pagination.php
           php -l file21/tests/run-file21-four-plan-audit-1.0.5.php
           php -l file26/file-26-search-discovery.php
           php -l file26/includes/class-file26-connectors.php
@@ -117,6 +118,7 @@ jobs:
           ! grep -Fq 'is_founder( $author_id )' file21/includes/class-feed-ranking.php
           php file21/tests/run-file21-file26-connector-contract-tests.php
           php file21/tests/run-file21-file26-monotonic-version-runtime.php
+          php file21/tests/run-file21-file26-keyset-pagination.php
           FILE21_ROOT="$PWD/file21" php file21/tests/run-file21-four-plan-audit-1.0.5.php
 
       - name: Record exact compatibility evidence
@@ -130,6 +132,7 @@ jobs:
           File 21 proposed-only manifest: PASS
           File 21 public projection/tombstone contract: PASS
           File 21 per-object metadata/source-version persistence and lock: PASS
+          File 21 versioned post-ID keyset against changing publishable set: SOURCE TESTED
           File 21 local organic Founder/donor/payment boost: DENIED
           File 26 organic ranking anti-donor/payment/Founder-favoritism invariant: PASS
           Hostinger multi-plugin staging acceptance: NOT CLAIMED

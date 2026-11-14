@@ -116,29 +116,91 @@ final class SearchProviderRegistry {
 		);
 	}
 
-	/** Bounded, restartable source batch for File 26 shadow reindex. */
+	/**
+	 * Bounded, versioned ID-keyset pagination for canonical File 26 shadow rebuild.
+	 * A shrinking publishable set MUST NOT shift offsets and skip eligible posts.
+	 * Old plain-integer offset checkpoints are intentionally rejected; start a
+	 * NEW full generation rather than replay an incompatible partial cursor.
+	 */
 	public static function file26_list_batch( $cursor, $limit, $scope = array() ) {
 		unset( $scope );
-		$offset = is_scalar( $cursor ) && preg_match( '/^\d+$/', (string) $cursor ) ? max( 0, (int) $cursor ) : 0;
 		$limit = max( 1, min( 100, (int) $limit ) );
-		if ( ! class_exists( 'WP_Query' ) ) {
-			return array( 'items' => array(), 'next_cursor' => (string) $offset, 'done' => true );
+		if ( ! is_string( $cursor ) && ! is_int( $cursor ) ) {
+			return new \WP_Error( 'file21_file26_cursor_invalid', 'Owner cursor must be an exact bounded text value.' );
 		}
-		$query = new \WP_Query(
-			array(
-				'post_type' => array( 'post', Phase4Contracts::POST_TYPE ),
-				'post_status' => 'publish',
-				'posts_per_page' => $limit,
-				'offset' => $offset,
-				'orderby' => 'ID',
-				'order' => 'ASC',
-				'no_found_rows' => true,
-				'ignore_sticky_posts' => true,
-			)
-		);
-		$raw = is_array( $query->posts ) ? $query->posts : array();
+		$cursor = (string) $cursor;
+		$last_id = 0;
+		if ( '' !== $cursor ) {
+			if ( ! preg_match( '/^f21-id-v1:([1-9][0-9]{0,18})$/D', $cursor, $matches ) ) {
+				return new \WP_Error( 'file21_file26_cursor_incompatible', 'Historical offset or malformed cursor; restart with a new complete shadow generation.' );
+			}
+			$digits = $matches[1];
+			$max = (string) PHP_INT_MAX;
+			if ( strlen( $digits ) > strlen( $max ) || ( strlen( $digits ) === strlen( $max ) && strcmp( $digits, $max ) > 0 ) ) {
+				return new \WP_Error( 'file21_file26_cursor_overflow', 'Owner post-ID checkpoint exceeded the supported integer range.' );
+			}
+			$last_id = (int) $digits;
+		}
+		if ( ! class_exists( 'WP_Query' ) || ! function_exists( 'add_filter' ) || ! function_exists( 'remove_filter' ) ) {
+			return new \WP_Error( 'file21_file26_source_unavailable', 'Canonical publication query is unavailable; snapshot cannot be declared complete.' );
+		}
+		global $wpdb;
+		if ( ! isset( $wpdb->posts ) || ! is_string( $wpdb->posts ) || ! preg_match( '/^[a-zA-Z0-9_]+$/D', $wpdb->posts ) ) {
+			return new \WP_Error( 'file21_file26_source_schema_unknown', 'Canonical posts table identity is unavailable.' );
+		}
+		// The unique sentinel confines the SQL predicate to this one owner query.
+		$sentinel = 'file21_file26_keyset_v1';
+		$where_guard = static function ( $where, $query ) use ( $last_id, $sentinel, $wpdb ) {
+			if ( ! is_object( $query ) || ! method_exists( $query, 'get' ) || $sentinel !== $query->get( 'file21_file26_cursor_guard' ) ) {
+				return $where;
+			}
+			return $where . $wpdb->prepare( " AND {$wpdb->posts}.ID > %d", $last_id );
+		};
+		add_filter( 'posts_where', $where_guard, 10, 2 );
+		$wpdb->last_error = '';
+		try {
+			$query = new \WP_Query(
+				array(
+					'post_type' => array( 'post', Phase4Contracts::POST_TYPE ),
+					'post_status' => 'publish',
+					'posts_per_page' => $limit,
+					'orderby' => 'ID',
+					'order' => 'ASC',
+					'no_found_rows' => true,
+					'ignore_sticky_posts' => true,
+					'suppress_filters' => false,
+					'file21_file26_cursor_guard' => $sentinel,
+				)
+			);
+		} catch ( \Throwable $e ) {
+			return new \WP_Error( 'file21_file26_source_query_failed', 'Canonical owner query failed; source completeness is unknown.' );
+		} finally {
+			remove_filter( 'posts_where', $where_guard, 10 );
+		}
+		if ( '' !== (string) $wpdb->last_error || ! isset( $query->posts ) || ! is_array( $query->posts ) ) {
+			return new \WP_Error( 'file21_file26_source_query_failed', 'Canonical owner result is unreadable; cannot attest snapshot completeness.' );
+		}
+		$raw = $query->posts;
 		$items = array();
+		$next_id = $last_id;
 		foreach ( $raw as $post ) {
+			if ( ! is_object( $post ) || ! isset( $post->ID ) ||
+				! ( is_int( $post->ID ) || ( is_string( $post->ID ) && preg_match( '/^[0-9]+$/D', $post->ID ) ) )
+			) {
+				return new \WP_Error( 'file21_file26_source_post_id_invalid', 'Owner query returned a malformed post identity.' );
+			}
+			$id_text = ltrim( (string) $post->ID, '0' );
+			$id_max = (string) PHP_INT_MAX;
+			if ( '' === $id_text || strlen( $id_text ) > strlen( $id_max ) ||
+				( strlen( $id_text ) === strlen( $id_max ) && strcmp( $id_text, $id_max ) > 0 )
+			) {
+				return new \WP_Error( 'file21_file26_source_post_id_overflow', 'Owner post-ID cannot be represented losslessly.' );
+			}
+			$source_id = (int) $id_text;
+			if ( $source_id <= $next_id ) {
+				return new \WP_Error( 'file21_file26_cursor_not_advancing', 'Canonical publication scan did not advance by post ID.' );
+			}
+			$next_id = $source_id;
 			$document = self::file26_document( $post );
 			if ( $document ) {
 				$items[] = $document;
@@ -147,7 +209,7 @@ final class SearchProviderRegistry {
 		$scanned = count( $raw );
 		return array(
 			'items' => $items,
-			'next_cursor' => (string) ( $offset + $scanned ),
+			'next_cursor' => $next_id ? 'f21-id-v1:' . $next_id : '',
 			'done' => $scanned < $limit,
 		);
 	}
