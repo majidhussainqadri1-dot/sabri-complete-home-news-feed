@@ -83,6 +83,7 @@ jobs:
             tests/run-file21-v12-3-news-publication-boundary.php
             tests/run-file21-v12-3-public-sharing-boundary.php
             tests/run-file21-v12-3-traceability.php
+            tests/run-file21-v12-3-ng30-runtime-manifest.php
             tests/run-file21-v12-3-rest-private-cache.php
             tests/run-file21-v12-3-private-continue-reading.php
             tests/run-file21-v12-3-news-brand-contrast.php
