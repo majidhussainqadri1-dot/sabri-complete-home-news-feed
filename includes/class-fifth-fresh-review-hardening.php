@@ -113,7 +113,7 @@ final class FifthFreshReviewHardening {
 			if ( ! self::professional_story_author_is_eligible( $author_id ) ) {
 				return new \WP_Error(
 					'ng30_story_professional_required',
-					__( 'A public professional Story requires a current Founder, Administrator, or verified doctor identity.', 'sabri-complete-home-news-feed' ),
+					__( 'A public professional Story requires current Founder, verified-doctor or explicitly delegated scoped authority.', 'sabri-complete-home-news-feed' ),
 					array( 'status' => 403 )
 				);
 			}
@@ -156,20 +156,16 @@ final class FifthFreshReviewHardening {
 		return in_array( $account_class, array( 'founder', 'administrator' ), true ) || 'doctor' === $membership_type;
 	}
 
-	/** Public social publisher class: institutional actor or currently verified public doctor. */
+	/**
+	 * File 21's effective direct publisher must satisfy V12.3 CEN-PUB-001,
+	 * not a generic Administrator class or legacy trusted-publisher assertion.
+	 * The File 00 contract is re-read at every permission boundary.
+	 */
 	public static function subject_is_allowed_public_social_publisher( $user_id, $assertions = null ) {
 		$user_id    = absint( $user_id );
 		$assertions = is_array( $assertions ) ? $assertions : CanonicalIdentityAdapter::membership_assertions( $user_id );
-		if ( ! self::subject_is_allowed_social_creator( $user_id, $assertions ) ) {
-			return false;
-		}
-		$account_class = sanitize_key( isset( $assertions['account_class'] ) ? $assertions['account_class'] : '' );
-		if ( in_array( $account_class, array( 'founder', 'administrator' ), true ) ) {
-			return true;
-		}
-		return 'doctor' === sanitize_key( isset( $assertions['membership_type'] ) ? $assertions['membership_type'] : '' )
-			&& ! empty( $assertions['professional_verified'] )
-			&& ! empty( $assertions['public_profile_allowed'] );
+		return self::subject_is_allowed_social_creator( $user_id, $assertions )
+			&& CanonicalIdentityAdapter::can_publish_immediately( $user_id );
 	}
 
 	/** Strict Story class plus canonical public projection. */
