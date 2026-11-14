@@ -159,6 +159,7 @@ sabri_phase4b_assert( $submitted_again['success'] && 'workflow_unchanged' === $s
 $scheduled = NewsSchedulingService::schedule( $post_id, $schedule_input );
 sabri_phase4b_assert( $scheduled['success'], 'Authorized future schedules must be created.' );
 sabri_phase4b_assert( 'scheduled' === get_post_meta( $post_id, Phase4Contracts::WORKFLOW_META_KEY, true ), 'Scheduling must set canonical scheduled state.' );
+sabri_phase4b_assert( 'pending' === get_post_status( $post_id ), 'Preparation-only Editorial News must remain pending, never WordPress future/publish.' );
 $scheduled_again = NewsSchedulingService::schedule( $post_id, $schedule_input );
 sabri_phase4b_assert( $scheduled_again['success'] && 'schedule_unchanged' === $scheduled_again['code'], 'Duplicate schedules must be idempotent.' );
 $event_key = NewsSchedulingService::HOOK . '|' . md5( serialize( array( $post_id ) ) );

@@ -105,12 +105,19 @@ final class NewsSchedulingService {
 			return self::result( false, 'schedule_event_failed', array( 'message' => $message ) );
 		}
 
+		// The Phase 4B hook is PREPARATION ONLY. Never use the WordPress
+		// 'future' post_status here: WordPress schedules publish_future_post
+		// automatically for that state and would bypass File 21's required
+		// fresh File 00/NewsPolicy release authorization (V12.3 CEN-PUB-001).
+		// The private 'scheduled' canonical workflow meta and our own due
+		// event remain the source of preparation state until a separate
+		// owner-approved, authorization-checked release operation exists.
 		$update_result = true;
 		if ( function_exists( 'wp_update_post' ) ) {
 			$update_result = wp_update_post(
 				array(
 					'ID' => $post_id,
-					'post_status' => 'future',
+					'post_status' => 'pending',
 					'post_date_gmt' => $utc,
 					'post_date' => function_exists( 'get_date_from_gmt' ) ? get_date_from_gmt( $utc ) : $utc,
 				),
