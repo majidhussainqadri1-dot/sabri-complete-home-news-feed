@@ -54,7 +54,12 @@ if ( ! class_exists( 'SMC_Contracts', false ) ) {
 			$is_doctor = $is_verified_doctor || $has_role( array( 'doctor', 'sabri_doctor', 'sabri_doctor_pending' ) );
 			$account_class = $is_founder ? 'founder' : ( $is_admin ? 'administrator' : 'member' );
 			$membership_type = $is_doctor ? 'doctor' : ( $has_role( array( 'student', 'sabri_student' ) ) ? 'student' : 'patient' );
-			$can_publish = $is_founder || $is_admin || $has_cap( 'sabri_feed_publish_posts' );
+			// Mirror the real File00 contract: can_publish is Composer access,
+			// whereas can_direct_publish is a distinct owner assertion.
+			$can_publish = $is_founder || $is_admin || $is_doctor;
+			$doctor_direct = $is_verified_doctor && $has_cap( 'sabri_feed_publish_posts' );
+			$can_direct_publish = $is_founder || $is_admin || $doctor_direct;
+			$approved_types = $is_verified_doctor ? array( 'doctor' ) : array();
 
 			return array(
 				'contract_version' => '1.1.2',
@@ -71,6 +76,14 @@ if ( ! class_exists( 'SMC_Contracts', false ) ) {
 				'sensitive_action_ready' => true,
 				'professional_verified' => $is_verified_doctor,
 				'can_publish' => $can_publish,
+				'can_direct_publish' => $can_direct_publish,
+				'approved_membership_types' => $approved_types,
+				'publishing' => array(
+					'can_open_composer' => $can_publish,
+					'can_submit_for_review' => $can_publish,
+					'can_direct_publish' => $can_direct_publish,
+					'doctor_verification_claim' => $is_verified_doctor,
+				),
 				'can_practice' => $is_verified_doctor,
 				'public_profile_allowed' => $is_founder || $is_verified_doctor,
 				'institutional_account' => $is_founder || $is_admin,
