@@ -37,6 +37,7 @@ if ( false !== $registry ) {
 		"'status' => 'proposed'",
 		"'list_batch' => array( __CLASS__, 'file26_list_batch' )",
 		"'can_view' => array( __CLASS__, 'file26_can_view' )",
+		"'fetch_object' => array( __CLASS__, 'file26_fetch_object' )",
 		"'health' => array( __CLASS__, 'file26_health' )",
 		"'global_search_owner' => '26'",
 		"NewsPublicProjector::card",
