@@ -111,6 +111,7 @@ final class SearchProviderRegistry {
 				'status' => 'proposed',
 				'list_batch' => array( __CLASS__, 'file26_list_batch' ),
 				'can_view' => array( __CLASS__, 'file26_can_view' ),
+				'fetch_object' => array( __CLASS__, 'file26_fetch_object' ),
 				'health' => array( __CLASS__, 'file26_health' ),
 			)
 		);
@@ -212,6 +213,41 @@ final class SearchProviderRegistry {
 			'next_cursor' => $next_id ? 'f21-id-v1:' . $next_id : '',
 			'done' => $scanned < $limit,
 		);
+	}
+
+	/**
+	 * Read-only, current canonical public projection for File26's FR006 cold
+	 * reindex/replay fence. Never increments event versions and never widens
+	 * File21 private/member visibility into the global search index.
+	 *
+	 * No source mutation and no fallback to an indexed File26 derivative.
+	 */
+	public static function file26_fetch_object( $entity_type, $object_id ) {
+		$type = is_string( $entity_type ) ? sanitize_key( $entity_type ) : '';
+		if ( ! in_array( $type, array( 'post', 'news', 'article' ), true )
+			|| ( ! is_string( $object_id ) && ! is_int( $object_id ) ) ) {
+			return null;
+		}
+		$id_text = (string) $object_id;
+		if ( 1 !== preg_match( '/^[1-9][0-9]{0,18}$/D', $id_text ) ) {
+			return null;
+		}
+		$id = filter_var( $id_text, FILTER_VALIDATE_INT );
+		if ( false === $id || $id < 1 || ! function_exists( 'get_post' ) ) {
+			return null;
+		}
+		$post = get_post( $id );
+		if ( ! is_object( $post ) || ! isset( $post->ID ) ||
+			(string) $post->ID !== $id_text ) {
+			return null;
+		}
+		$current = self::file26_document( $post );
+		if ( ! is_array( $current ) || ! isset( $current['object_id'], $current['entity_type'] )
+			|| $current['object_id'] !== $id_text ||
+			$current['entity_type'] !== $type ) {
+			return null;
+		}
+		return $current;
 	}
 
 	/** File 26 click/query-time owner authorization callback. */

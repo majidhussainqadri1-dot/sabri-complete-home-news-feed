@@ -5,6 +5,7 @@
  * deterministic WP-DB stub; cross-plugin SQL acceptance remains separate.
  */
 define('ABSPATH',__DIR__ . '/');
+function sanitize_key($v) { return strtolower(preg_replace('/[^a-z0-9_-]/i','',(string)$v)); }
 $GLOBALS['file21_meta']=array();
 $GLOBALS['file21_write_ok']=true;
 function get_post_meta($id,$key,$single=true) { return $GLOBALS['file21_meta'][$id][$key]??''; }
@@ -105,5 +106,31 @@ $doc = new ReflectionMethod( $klass, 'file26_document' );
 $doc->setAccessible( true );
 $shadow = $doc->invoke( null, $public_post );
 file21_assert( $GLOBALS['file21_interleave_version'] === $shadow['object_version'], 'Read-only shadow snapshot uses the latest durable owner version' );
+
+// Canonical owner freshness is a read-only public projection: no guessed
+// event sequence, no old searchable content, and no File26 index dependency.
+$GLOBALS['file21_owner_current_post'] = $public_post;
+function get_post( $post_id ) {
+    return (int) $post_id === 187 ? $GLOBALS['file21_owner_current_post'] : null;
+}
+$latest = $klass::file26_fetch_object( 'post', '187' );
+file21_assert( is_array( $latest ) && $latest['object_version'] === $GLOBALS['file21_interleave_version'],
+    'Actual current File21 fetch_object returns the durable newest canonical version' );
+file21_assert( $latest['title'] === 'Visible public article' &&
+    $latest['source_event_sequence'] === $latest['object_version'],
+    'Read-only native owner fetch preserves current public-safe metadata and event sequence' );
+file21_assert( $klass::file26_fetch_object( 'post', '00187' ) === null &&
+    $klass::file26_fetch_object( 'post', 'not-a-post' ) === null &&
+    $klass::file26_fetch_object( 'news', '187' ) === null,
+    'Malformed IDs and incorrect entity types cannot claim canonical owner attestation' );
+$private_post = clone $public_post;
+$private_post->post_status = 'private';
+$GLOBALS['file21_owner_current_post'] = $private_post;
+file21_assert( $klass::file26_fetch_object( 'post', '187' ) === null,
+    'Owner fetch fails closed immediately after WordPress publication withdrawal' );
+$GLOBALS['file21_owner_current_post'] = null;
+file21_assert( $klass::file26_fetch_object( 'post', '187' ) === null,
+    'Deleted owner record can never be manufactured from stale File26 index' );
+$GLOBALS['file21_owner_current_post'] = $public_post;
 
 echo "PASS: File21 versioned public-source event runtime regression\n";
