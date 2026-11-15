@@ -5,6 +5,7 @@
  * deterministic WP-DB stub; cross-plugin SQL acceptance remains separate.
  */
 define('ABSPATH',__DIR__ . '/');
+function sanitize_key($v) { return strtolower(preg_replace('/[^a-z0-9_-]/i','',(string)$v)); }
 $GLOBALS['file21_meta']=array();
 $GLOBALS['file21_write_ok']=true;
 function get_post_meta($id,$key,$single=true) { return $GLOBALS['file21_meta'][$id][$key]??''; }
